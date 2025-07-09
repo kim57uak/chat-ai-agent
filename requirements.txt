@@ -1,0 +1,11 @@
+PyQt6
+PyQt6-WebEngine
+openai
+google-generativeai
+requests
+langchain
+langchain-openai
+langchain-google-genai
+langsmith
+PyPDF2
+python-docx

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 """
 확장된 웹뷰 엔진 포맷팅 테스트
 """
@@ -88,7 +92,7 @@ def format_text(text):
             escaped_line = escaped_line.replace(' ', '&nbsp;')
             formatted_lines.append(f'<div style="margin: 0; padding: 0; line-height: 1.4;">{escaped_line}</div>')
         
-        code_html = f'<div style="background-color: #2d2d2d; border: 1px solid #444444; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: Consolas, Monaco, monospace; font-size: 12px; color: #e8e8e8;">{"".join(formatted_lines)}</div>'
+        code_html = f'<div style="background-color: #2d2d2d; border: 1px solid #444444; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: Consolas, Monaco, monospace; font-size: 12px; color: #e8e8e8;">{" ".join(formatted_lines)}</div>'
         text = text.replace(placeholder, code_html)
     
     # 12. 줄바꿈 처리
@@ -107,76 +111,11 @@ def format_text(text):
     return '\n'.join(formatted_lines)
 
 # 테스트 텍스트
-test_text = """# 향상된 웹뷰 엔진 테스트
-
-## 주요 기능
-
-### 1. 텍스트 포맷팅
-- **굵은 글씨**와 *기울임* 지원
-- `인라인 코드` 하이라이팅
-- 여러 레벨 불릿 포인트:
-  • 첫 번째 레벨
-• 두 번째 레벨
-
-### 2. 코드 블록
-
-```python
-def hello_world():
-    print("Hello, World!")
-    return "완료"
-
-# 함수 호출
-result = hello_world()
-```
-
-```javascript
-function greet(name) {
-    console.log(`Hello, ${name}!`);
-}
-```
-
-### 3. 테이블 지원
-
-| 기능 | 상태 | 설명 |
-|------|------|------|
-| 마크다운 | ✅ | 완전 지원 |
-| 코드 하이라이팅 | ✅ | 언어별 색상 |
-| 테이블 | ✅ | 자동 포맷팅 |
-
-### 4. 링크 지원
-- 자동 링크: https://github.com
-- [명시적 링크](https://www.google.com)
-
-### 5. 번호 목록
-1. 첫 번째 항목
-2. 두 번째 항목
-3. 세 번째 항목"""
+test_text = """# 향상된 웹뷰 엔진 테스트\n\n## 주요 기능\n\n### 1. 텍스트 포맷팅\n- **굵은 글씨**와 *기울임* 지원\n- `인라인 코드` 하이라이팅\n- 여러 레벨 불릿 포인트:\n  • 첫 번째 레벨\n• 두 번째 레벨\n\n### 2. 코드 블록\n\n```python\ndef hello_world():\n    print("Hello, World!")\n    return "완료"\n\n# 함수 호출\nresult = hello_world()\n```\n\n```javascript\nfunction greet(name) {\n    console.log(`Hello, ${name}!`);\n}\n```\n\n### 3. 테이블 지원\n\n| 기능 | 상태 | 설명 |\n|------|------|------|\n| 마크다운 | ✅ | 완전 지원 |\n| 코드 하이라이팅 | ✅ | 언어별 색상 |\n| 테이블 | ✅ | 자동 포맷팅 |\n\n### 4. 링크 지원\n- 자동 링크: https://github.com\n- [명시적 링크](https://www.google.com)\n\n### 5. 번호 목록\n1. 첫 번째 항목\n2. 두 번째 항목\n3. 세 번째 항목"""
 
 formatted = format_text(test_text)
 
-html_content = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>향상된 웹뷰 엔진 테스트</title>
-    <style>
-        body {{ 
-            background-color: #1a1a1a; 
-            color: #e8e8e8; 
-            font-family: 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
-            font-size: 13px;
-            line-height: 1.6;
-            margin: 20px;
-            max-width: 900px;
-        }}
-        a {{ color: #4FC3F7; }}
-        a:hover {{ color: #29B6F6; }}
-    </style>
-</head>
-<body>
-    {formatted}
-</body>
-</html>"""
+html_content = f"""<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <title>향상된 웹뷰 엔진 테스트</title>\n    <style>\n        body {{ \n            background-color: #1a1a1a; \n            color: #e8e8e8; \n            font-family: 'SF Pro Display', 'Segoe UI', Arial, sans-serif;\n            font-size: 13px;\n            line-height: 1.6;\n            margin: 20px;\n            max-width: 900px;\n        }}\n        a {{ color: #4FC3F7; }}\n        a:hover {{ color: #29B6F6; }}\n    </style>\n</head>\n<body>\n    {formatted}\n</body>\n</html>"""
 
 with open('enhanced_webview_test.html', 'w', encoding='utf-8') as f:
     f.write(html_content)

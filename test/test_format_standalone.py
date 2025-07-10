@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+"""
+독립적인 텍스트 포맷팅 테스트 (PyQt6 의존성 없음)
+"""
 import re
 
 def format_text(text):
@@ -36,7 +43,7 @@ def format_text(text):
             escaped_line = escaped_line.replace(' ', '&nbsp;')
             formatted_lines.append(f'<div style="margin: 0; padding: 0; line-height: 1.4;">{escaped_line}</div>')
         
-        code_html = f'''<div style="background-color: #2d2d2d; border: 1px solid #444444; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: Consolas, Monaco, monospace; font-size: 12px; color: #e8e8e8;">{"".join(formatted_lines)}</div>'''
+        code_html = f'<div style="background-color: #2d2d2d; border: 1px solid #444444; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: Consolas, Monaco, monospace; font-size: 12px; color: #e8e8e8;">{" ".join(formatted_lines)}</div>'
         text = text.replace(placeholder, code_html)
     
     # 6. 줄바꿈 처리
@@ -54,8 +61,15 @@ def format_text(text):
     
     return '\n'.join(formatted_lines)
 
-# 테스트
-test_text = """사칙연산을 수행하는 간단한 파이썬 코드를 작성해 드리겠습니다.
+def test_format():
+    """포맷팅 테스트"""
+    
+    test_text = """사칙연산을 수행하는 간단한 파이썬 코드를 작성해 드리겠습니다.
+
+**주요 기능:**
+• 덧셈, 뺄셈, 곱셈, 나눗셈
+• 사용자 입력 처리
+• 결과 출력
 
 ```python
 def calculator(num1, num2):
@@ -66,7 +80,7 @@ def calculator(num1, num2):
     # 곱셈
     multiply = num1 * num2
     # 나눗셈
-    divide = num1 / num2
+    divide = num1 / num2 if num2 != 0 else "0으로 나눌 수 없습니다"
     return add, subtract, multiply, divide
 
 # 숫자 입력 받기
@@ -81,30 +95,42 @@ print(f"곱셈 결과: {result[2]}")
 print(f"나눗셈 결과: {result[3]}")
 ```
 
-위 코드를 실행하면 결과를 확인할 수 있습니다."""
+위 코드를 실행하면 **계산 결과**를 확인할 수 있습니다."""
 
-formatted = format_text(test_text)
-print("=== 포맷팅 결과 ===")
-print(formatted)
-
-# HTML 파일로 저장
-html_content = f"""
-<!DOCTYPE html>
+    # 포맷팅 적용
+    formatted = format_text(test_text)
+    
+    print("=== 포맷팅된 HTML ===")
+    print(formatted)
+    
+    # HTML 파일로 저장
+    html_content = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>최신 포맷팅 테스트</title>
+    <title>웹뷰 엔진 포맷팅 테스트</title>
     <style>
-        body {{ background-color: #1a1a1a; color: #e8e8e8; font-family: Arial, sans-serif; padding: 20px; }}
+        body {{ 
+            background-color: #1a1a1a; 
+            color: #e8e8e8; 
+            font-family: 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 20px;
+            max-width: 800px;
+        }}
     </style>
 </head>
 <body>
+    <h1 style="color: #4FC3F7;">웹뷰 엔진 포맷팅 테스트</h1>
     {formatted}
 </body>
-</html>
-"""
+</html>"""
 
-with open('/Users/dolpaks/Downloads/project/chat-ai-agent/latest_format_test.html', 'w', encoding='utf-8') as f:
-    f.write(html_content)
+    with open('webview_format_test.html', 'w', encoding='utf-8') as f:
+        f.write(html_content)
 
-print("\nlatest_format_test.html 파일이 생성되었습니다. 브라우저에서 확인해보세요.")
+    print("\nwebview_format_test.html 파일이 생성되었습니다.")
+
+if __name__ == "__main__":
+    test_format()

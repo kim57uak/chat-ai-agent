@@ -5,7 +5,7 @@
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.ai_agent import AIAgent
 from core.mcp import start_mcp_servers

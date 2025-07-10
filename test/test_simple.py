@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 """간단한 테스트"""
 
 import re
@@ -13,9 +17,9 @@ def simple_format(text):
     
     # 여러 패턴 시도
     patterns = [
-        r'```[^\\n]*\\n([\\s\\S]*?)```',
-        r'```([\\s\\S]*?)```',
-        r'```.*?\\n(.*?)```',
+        r'```[^\n]*\n([\s\S]*?)```',
+        r'```([\s\S]*?)```',
+        r'```.*?\n(.*?)```',
     ]
     
     for i, pattern in enumerate(patterns):
@@ -28,9 +32,10 @@ def simple_format(text):
         else:
             print("❌ 실패")
 
-# 테스트
-test_text = """```sql 
-assignee = currentUser() AND due = today() 
-```"""
+if __name__ == '__main__':
+    # 테스트
+    test_text = """```sql 
+    assignee = currentUser() AND due = today() 
+    ```"""
 
-simple_format(test_text)
+    simple_format(test_text)

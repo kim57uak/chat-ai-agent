@@ -30,13 +30,15 @@ def format_text(text):
     
     return text
 
-# 테스트
-test_text = '''```jql
-assignee = currentUser() AND updated >= "startOfDay()"
-```'''
+if __name__ == '__main__':
+    # 테스트
+    test_text = '''```jql
+    assignee = currentUser() AND updated >= "startOfDay()"
+    ```'''
 
-result = format_text(test_text)
-print("입력:")
-print(test_text)
-print("\n출력:")
-print(result)
+    result = format_text(test_text)
+    print("입력:")
+    print(test_text)
+    print("\n출력:")
+    print(result)
+

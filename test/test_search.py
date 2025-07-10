@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""검색 기능 테스트"""
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import logging
 from core.mcp import start_mcp_servers, stop_mcp_servers
@@ -29,10 +31,8 @@ def main():
         print(f"\n질문: {question}")
         
         # 도구 사용 여부 확인
-        should_use, recommended = agent.should_use_tools(question)
+        should_use = agent._should_use_tools(question)
         print(f"도구 사용 결정: {should_use}")
-        if recommended:
-            print(f"추천 도구: {recommended}")
         
         # 실제 응답 생성
         try:

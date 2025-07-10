@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""
-웹뷰 엔진의 개선된 텍스트 포맷팅 테스트
-"""
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+"""
+웹뷰 엔진의 개선된 텍스트 포맷팅 테스트
+"""
 
 from ui.chat_widget import ChatWidget
 import re

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 """
 쓰레드 이슈 수정사항 테스트
 """
 
-import sys
 import time
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QTextEdit
 from PyQt6.QtCore import QThread, QObject, pyqtSignal, QTimer

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """대화 히스토리 기능 테스트"""
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from core.conversation_history import ConversationHistory
 from core.ai_agent import AIAgent
 from core.file_utils import load_model_api_key, load_last_model

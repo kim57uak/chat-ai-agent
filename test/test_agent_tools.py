@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """AI 에이전트 도구 테스트"""
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import logging
 from core.mcp import start_mcp_servers
 from core.ai_agent import AIAgent
@@ -48,11 +52,9 @@ def test_agent_tools():
         ]
         
         for query in test_queries:
-            should_use, recommended = agent.should_use_tools(query)
+            should_use = agent._should_use_tools(query)
             print(f"\n📝 '{query}'")
             print(f"   도구 사용: {should_use}")
-            if recommended:
-                print(f"   추천 도구: {recommended}")
         
         # 실제 검색 테스트
         print("\n🔍 실제 검색 테스트...")

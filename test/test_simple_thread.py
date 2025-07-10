@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 """
 간단한 쓰레드 테스트 - 크래시 방지 확인
 """
 
-import sys
 import time
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QTextEdit
 from PyQt6.QtCore import QThread, QObject, pyqtSignal, QTimer
@@ -50,54 +53,57 @@ class SimpleWindow(QMainWindow):
         
         self.setCentralWidget(central_widget)
         
-        self.thread = None
-        self.worker = None
+        self._thread = None
+        self._worker = None
     
     def start_work(self):
         self.text_display.append("작업 시작...")
         
-        self.thread = QThread()
-        self.worker = SimpleWorker()
-        self.worker.moveToThread(self.thread)
+        self._thread = QThread()
+        self._worker = SimpleWorker()
+        self._worker.moveToThread(self._thread)
         
-        self.thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.on_finished)
-        self.worker.finished.connect(self.cleanup)
+        self._thread.started.connect(self._worker.run)
+        self._worker.finished.connect(self.on_finished)
+        self._worker.finished.connect(self.cleanup)
         
-        self.thread.start()
+        self._thread.start()
     
     def cancel_work(self):
         self.text_display.append("취소 요청...")
         
-        if self.worker:
-            self.worker.cancel()
+        if self._worker:
+            self._worker.cancel()
         
-        if self.thread and self.thread.isRunning():
-            self.thread.quit()
-            # wait 호출 제거
+        if self._thread and self._thread.isRunning():
+            self._thread.quit()
+            self._thread.wait()  # 반드시 wait 호출
         
         # 참조만 제거
-        self.worker = None
-        self.thread = None
+        self._worker = None
+        self._thread = None
         self.text_display.append("취소 완료")
     
     def cleanup(self):
         """안전한 정리"""
-        self.worker = None
-        self.thread = None
+        if self._thread and self._thread.isRunning():
+            self._thread.quit()
+            self._thread.wait()
+        self._worker = None
+        self._thread = None
     
     def on_finished(self, message):
         self.text_display.append(f"결과: {message}")
     
     def closeEvent(self, event):
-        if self.worker:
-            self.worker.cancel()
-        if self.thread and self.thread.isRunning():
-            self.thread.quit()
-            # wait 호출 제거
+        if self._worker:
+            self._worker.cancel()
+        if self._thread and self._thread.isRunning():
+            self._thread.quit()
+            self._thread.wait()  # 반드시 wait 호출
         # 참조만 제거
-        self.worker = None
-        self.thread = None
+        self._worker = None
+        self._thread = None
         event.accept()
 
 def main():

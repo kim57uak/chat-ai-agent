@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QTextBrowser, QPushButton
 from PyQt6.QtCore import Qt
 
@@ -85,7 +88,8 @@ public class Calculator {
         
         System.out.println("결과: " + result);
     }
-}</div>
+}
+</div>
             </div>
         </div>
         """

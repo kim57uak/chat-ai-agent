@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""검색 기능만 테스트"""
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import logging
 from core.mcp import start_mcp_servers, stop_mcp_servers, get_all_mcp_tools
@@ -40,10 +42,10 @@ def test_search_only():
         # 직접 MCP 클라이언트로 테스트
         print(f"\n2. 직접 검색 테스트")
         try:
-            from core.mcp_client import mcp_client_manager
+            from core.mcp_client import mcp_manager
             
             # search-mcp-server의 search 도구 직접 호출
-            result = mcp_client_manager.call_tool(
+            result = mcp_manager.call_tool(
                 "search-mcp-server", 
                 "search", 
                 {"query": "인사동 맛집"}
@@ -59,7 +61,7 @@ def test_search_only():
             
             # 대체 테스트: fetchUrl
             try:
-                result2 = mcp_client_manager.call_tool(
+                result2 = mcp_manager.call_tool(
                     "search-mcp-server", 
                     "fetchUrl", 
                     {"url": "https://www.naver.com"}

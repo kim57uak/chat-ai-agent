@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Gemini 모델 테스트"""
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import logging
 from core.mcp import start_mcp_servers, stop_mcp_servers

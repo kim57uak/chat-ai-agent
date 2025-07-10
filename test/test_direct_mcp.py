@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """직접 MCP 도구 호출 테스트"""
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import logging
 from core.mcp import start_mcp_servers, stop_mcp_servers, call_mcp_tool, get_all_mcp_tools
 from core.langchain_tools import tool_registry, MCPTool
@@ -39,8 +43,6 @@ def test_langchain_tool():
     test_cases = [
         # 케이스 1: kwargs만 사용
         {"query": "낙산해변 코인세탁소"},
-        # 케이스 2: run_manager와 함께
-        {"query": "낙산해변 코인세탁소", "run_manager": None},
     ]
     
     for i, kwargs in enumerate(test_cases, 1):
@@ -50,14 +52,6 @@ def test_langchain_tool():
             print(f"  ✅ 성공: {str(result)[:100]}...")
         except Exception as e:
             print(f"  ❌ 실패: {e}")
-    
-    # 위치 인수 테스트
-    try:
-        print(f"\n  테스트 케이스 3: 위치 인수 방식")
-        result = search_tool._run(None, query="낙산해변 코인세탁소")
-        print(f"  ✅ 성공: {str(result)[:100]}...")
-    except Exception as e:
-        print(f"  ❌ 실패: {e}")
 
 def main():
     """직접 MCP 도구 호출 테스트"""

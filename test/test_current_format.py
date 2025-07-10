@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 import sys
-sys.path.append('/Users/dolpaks/Downloads/project/chat-ai-agent')
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ui.chat_widget import ChatWidget
+from PyQt6.QtWidgets import QApplication # QApplication 임포트
+
+# QApplication 인스턴스 생성 (테스트를 위해)
+app = QApplication(sys.argv)
 
 # ChatWidget 인스턴스 생성
 widget = ChatWidget()
@@ -62,3 +67,6 @@ with open('/Users/dolpaks/Downloads/project/chat-ai-agent/current_format_test.ht
     f.write(html_content)
 
 print("\ncurrent_format_test.html 파일이 생성되었습니다.")
+
+# QApplication 종료 (테스트 환경에서만 필요)
+app.quit()

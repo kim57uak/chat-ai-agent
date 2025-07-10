@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 """
 MCP 서버 재시작 및 연결 테스트
 """
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from core.mcp import start_mcp_servers, get_all_mcp_tools
 import logging
+from core.mcp import start_mcp_servers, get_all_mcp_tools
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)

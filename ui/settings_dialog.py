@@ -14,6 +14,8 @@ class SettingsDialog(QDialog):
             'gpt-3.5-turbo',
             'gpt-4',
             'claude-2',
+            'gemini-1.5-pro',
+            'gemini-2.0-flash-exp',
             'gemini-2.5-pro',
             'gemini-2.5-flash'
         ])

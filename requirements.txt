@@ -9,3 +9,7 @@ langchain-google-genai
 langsmith
 PyPDF2
 python-docx
+pandas
+openpyxl
+python-pptx
+Pillow

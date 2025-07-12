@@ -577,7 +577,16 @@ class ChatWidget(QWidget):
         
         # 업로드된 파일이 있으면 파일 내용과 함께 분석
         if self.uploaded_file_content:
-            combined_prompt = f'업로드된 파일 ({self.uploaded_file_name})에 대한 사용자 요청: {user_text}\n\n파일 내용:\n{self.uploaded_file_content}'
+            # 이미지 파일인지 확인
+            if "[IMAGE_BASE64]" in self.uploaded_file_content:
+                # 이미지의 경우 사용자 요청과 이미지 데이터를 직접 결합
+                combined_prompt = f'{user_text}\n\n{self.uploaded_file_content}'
+                print(f"[디버그] 이미지 프롬프트 생성, 길이: {len(combined_prompt)}")
+                print(f"[디버그] 종료 태그 확인: {'[/IMAGE_BASE64]' in combined_prompt}")
+            else:
+                # 일반 파일의 경우 기존 방식 유지
+                combined_prompt = f'업로드된 파일 ({self.uploaded_file_name})에 대한 사용자 요청: {user_text}\n\n파일 내용:\n{self.uploaded_file_content}'
+            
             self._start_ai_request(api_key, model, None, combined_prompt)
             # 파일 내용 초기화
             self.uploaded_file_content = None
@@ -733,7 +742,9 @@ class ChatWidget(QWidget):
                     except (ImportError, ModuleNotFoundError):
                         pass
                     
-                    content = f"[IMAGE_BASE64]{img_data}[/IMAGE_BASE64]\n이미지 파일: {os.path.basename(file_path)}{img_info}\n\n이 이미지를 분석해주세요."
+                    content = f"[IMAGE_BASE64]{img_data}[/IMAGE_BASE64]\n이미지 파일: {os.path.basename(file_path)}{img_info}"
+                    print(f"[디버그] 이미지 콘텐츠 생성 완료, 길이: {len(content)}")
+                    print(f"[디버그] 종료 태그 위치: {content.rfind('[/IMAGE_BASE64]')}")
                     
                 except Exception as e:
                     file_size = os.path.getsize(file_path)
@@ -753,13 +764,17 @@ class ChatWidget(QWidget):
             
             self.append_chat('사용자', f'📎 파일 업로드: {os.path.basename(file_path)}')
             
-            # 내용이 너무 길면 자르기
-            if len(content) > 5000:
+            # 이미지 파일의 경우 자르지 않음 (태그 보존)
+            if "[IMAGE_BASE64]" not in content and len(content) > 5000:
                 content = content[:5000] + "...(내용 생략)"
             
             # 파일 내용을 임시 저장
             self.uploaded_file_content = content
             self.uploaded_file_name = os.path.basename(file_path)
+            print(f"[디버그] 업로드된 파일 내용 길이: {len(content)}")
+            if "[IMAGE_BASE64]" in content:
+                print(f"[디버그] 이미지 데이터 포함 확인")
+                print(f"[디버그] 종료 태그 위치: {content.rfind('[/IMAGE_BASE64]')}")
             
             # 사용자에게 프롬프트 입력 안내
             self.append_chat('시스템', f'파일이 업로드되었습니다. 이제 파일에 대해 무엇을 알고 싶은지 메시지를 입력해주세요.')

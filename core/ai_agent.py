@@ -34,10 +34,12 @@ class AIAgent:
     def _create_llm(self):
         """LLM 인스턴스 생성"""
         if self.model_name.startswith('gemini'):
+            # Gemini 모델에 멀티모달 지원 활성화
             return ChatGoogleGenerativeAI(
                 model=self.model_name,
                 google_api_key=self.api_key,
-                temperature=0.1
+                temperature=0.1,
+                convert_system_message_to_human=True  # 시스템 메시지를 인간 메시지로 변환
             )
         else:
             return ChatOpenAI(
@@ -60,37 +62,57 @@ class AIAgent:
         except Exception as e:
             logger.error(f"MCP 도구 로드 실패: {e}")
     
-    def _should_use_tools(self, user_input: str) -> bool:
-        """AI가 컴텍스트를 분석하여 도구 사용 여부 결정"""
+    def _should_use_tools(self, user_input: str, force_agent: bool = False) -> bool:
+        """AI가 자연어를 이해하여 도구 사용 여부를 지능적으로 결정"""
         try:
-            # 도구 목록 요청은 항상 도구 사용
-            if any(keyword in user_input.lower() for keyword in ['도구', '툴', 'tool', '기능', '목록', '리스트']):
-                return True
+            # 도구 설명 수집
+            tool_descriptions = []
+            for tool in self.tools[:8]:  # 주요 도구들만
+                desc = getattr(tool, 'description', tool.name)
+                tool_descriptions.append(f"- {tool.name}: {desc[:100]}")
             
-            # 도구 설명 수집 (간단하게)
-            tool_names = [tool.name for tool in self.tools[:5]]  # 첫 5개만
-            tools_summary = ", ".join(tool_names) if tool_names else "없음"
+            tools_info = "\n".join(tool_descriptions) if tool_descriptions else "사용 가능한 도구 없음"
             
-            decision_prompt = f"""사용자: "{user_input}"
+            # Agent 모드 선택 시 더 적극적인 판단 기준 적용
+            agent_context = ""
+            if force_agent:
+                agent_context = "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
+            
+            decision_prompt = f"""User request: "{user_input}"
 
-사용 가능한 도구: {tools_summary}
+Available tools:
+{tools_info}
 
-이 요청이 도구를 사용해야 하는 작업인지 판단하세요.
-예: 데이터 검색, 웹 조회, 여행 상품 찾기 등은 도구 필요.
-예: 일반 대화, 설명 요청, 의견 문의 등은 도구 불필요.
+Determine if this request requires using tools to provide accurate information.
 
-YES 또는 NO로만 답하세요."""
+Requires tools:
+- Real-time information search (web search, news, weather, etc.)
+- Database queries (travel products, flights, etc.)
+- External API calls (maps, translation, etc.)
+- File processing or calculations
+- Current time or date-related information
+- Specific data lookups or searches
+- Location-based queries
+
+Does not require tools:
+- General conversation or questions
+- Explanations or opinions
+- Creative writing or idea suggestions
+- General knowledge already known{agent_context}
+
+Answer: YES or NO only."""
             
             messages = [
-                SystemMessage(content="도구 사용 판단 전문가"),
+                SystemMessage(content="You are an expert at analyzing user requests to determine if tools are needed."),
                 HumanMessage(content=decision_prompt)
             ]
             
             response = self.llm.invoke(messages)
             decision = response.content.strip().upper()
             
-            result = decision == "YES"
-            logger.info(f"도구 사용 판단: {decision} -> {result} (입력: {user_input[:30]}...)")
+            result = "YES" in decision
+            mode_info = " (Agent 모드)" if force_agent else " (Ask 모드)"
+            logger.info(f"도구 사용 판단{mode_info}: {decision} -> {result} (입력: {user_input[:30]}...)")
             return result
             
         except Exception as e:
@@ -106,10 +128,10 @@ YES 또는 NO로만 답하세요."""
         if not self.model_name.startswith('gemini'):
             from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
             
-            system_message = """당신은 다양한 도구를 사용할 수 있는 AI 어시스턴트입니다.
+            system_message = """You are an AI assistant that can use various tools.
 
-사용자의 요청을 분석하여 가장 적절한 도구를 선택하고 사용하세요.
-도구 사용 결과를 바탕으로 사용자에게 유용한 답변을 제공하세요."""
+                            Select appropriate tools based on user requests to gather information, then organize and respond in natural, easy-to-read Korean.
+                            Respond with a friendly and clear tone without unnecessary symbols or special characters."""
             
             prompt = ChatPromptTemplate.from_messages([
                 ("system", system_message),
@@ -123,25 +145,25 @@ YES 또는 NO로만 답하세요."""
         # ReAct 에이전트 생성 (Gemini 등 다른 모델용)
         else:
             react_prompt = PromptTemplate.from_template("""
-당신은 도구를 사용할 수 있는 AI 어시스턴트입니다.
+                            You are an AI assistant that can use tools.
 
-사용 가능한 도구들:
-{tools}
+                            Available tools:
+                            {tools}
 
-도구 이름들: {tool_names}
+                            Tool names: {tool_names}
 
-다음 형식을 정확히 따르세요:
+                            Follow this format exactly:
 
-Question: {input}
-Thought: 이 질문에 답하기 위해 어떤 도구를 사용해야 할지 생각해보겠습니다.
-Action: 도구이름
-Action Input: 도구에 전달할 입력값
-Observation: 도구 실행 결과
-Thought: 결과를 바탕으로 최종 답변을 작성하겠습니다.
-Final Answer: 사용자 질문에 대한 최종 답변
+                            Question: {input}
+                            Thought: I need to think about which tool to use to answer this question.
+                            Action: tool_name
+                            Action Input: input_for_tool
+                            Observation: tool_execution_result
+                            Thought: Based on the result, I will write the final answer in Korean.
+                            Final Answer: Final answer to user's question in Korean
 
-{agent_scratchpad}
-""")
+                            {agent_scratchpad}
+                            """)
             
             agent = create_react_agent(self.llm, self.tools, react_prompt)
             return AgentExecutor(
@@ -154,13 +176,13 @@ Final Answer: 사용자 질문에 대한 최종 답변
                 return_intermediate_steps=False
             )
     
-    def chat_with_tools(self, user_input: str) -> str:
+    def chat_with_tools(self, user_input: str) -> tuple[str, list]:
         """도구를 사용한 채팅"""
         try:
             # 토큰 제한 오류 방지를 위해 대화 히스토리 제한
             if "context_length_exceeded" in str(getattr(self, '_last_error', '')):
                 logger.warning("토큰 제한 오류로 인해 일반 채팅으로 대체")
-                return self.simple_chat(user_input)
+                return self.simple_chat(user_input), []
             
             # Gemini 모델은 직접 도구 호출 방식 사용
             if self.model_name.startswith('gemini'):
@@ -171,16 +193,23 @@ Final Answer: 사용자 질문에 대한 최종 답변
                 self.agent_executor = self._create_agent_executor()
             
             if not self.agent_executor:
-                return "사용 가능한 도구가 없습니다."
+                return "사용 가능한 도구가 없습니다.", []
             
             result = self.agent_executor.invoke({"input": user_input})
             output = result.get("output", "")
             
+            # 사용된 도구 정보 추출
+            used_tools = []
+            if 'intermediate_steps' in result:
+                for step in result['intermediate_steps']:
+                    if len(step) >= 2 and hasattr(step[0], 'tool'):
+                        used_tools.append(step[0].tool)
+            
             if "Agent stopped" in output or not output.strip():
                 logger.warning("에이전트 중단로 인해 일반 채팅으로 대체")
-                return self.simple_chat(user_input)
+                return self.simple_chat(user_input), []
             
-            return output
+            return output, used_tools
             
         except Exception as e:
             error_msg = str(e)
@@ -190,27 +219,40 @@ Final Answer: 사용자 질문에 대한 최종 답변
             # 토큰 제한 오류 처리
             if "context_length_exceeded" in error_msg or "maximum context length" in error_msg:
                 logger.warning("토큰 제한 오류 발생, 일반 채팅으로 대체")
-                return self.simple_chat(user_input)
+                return self.simple_chat(user_input), []
             
-            return self.simple_chat(user_input)
+            return self.simple_chat(user_input), []
     
     def simple_chat(self, user_input: str) -> str:
         """일반 채팅 (도구 사용 없음)"""
         try:
             # 가독성 좋은 응답을 위한 시스템 메시지
-            system_content = """당신은 도움이 되는 AI 어시스턴트입니다. 친근하고 정확한 답변을 제공하세요.
+            system_content = """You are a friendly and helpful AI assistant with advanced image analysis capabilities.
 
-**응답 형식 가이드라인:**
-- 긴 문장은 적절히 줄바꿈하여 가독성 향상
-- 중요한 정보는 **굵은 글씨**나 • 불릿 포인트 사용
-- 여러 항목이 있을 때는 번호나 구분자로 정리
-- 한 줄에 너무 많은 내용을 담지 말고 단락으로 구분
-- 핵심 내용을 먼저 제시하고 세부사항은 뒤에 배치"""
+                                **Response Rules:**
+                                - Answer in natural, easy-to-read Korean
+                                - Clearly convey key information
+                                - Use concise but complete sentences
+                                - Use a friendly tone that users can easily understand
+                                - If you receive an image, analyze it thoroughly and provide detailed information including:
+                                  * Objects, people, and scenes in the image
+                                  * Colors, composition, and visual elements
+                                  * Text content if present (OCR)
+                                  * Context and possible meaning
+                                  * Any notable details or interesting aspects"""
             
-            messages = [
-                SystemMessage(content=system_content),
-                HumanMessage(content=user_input)
-            ]
+            # Gemini 모델의 경우 시스템 메시지를 인간 메시지로 변환
+            if self.model_name.startswith('gemini'):
+                messages = [HumanMessage(content=system_content)]
+            else:
+                messages = [SystemMessage(content=system_content)]
+            
+            # 이미지 데이터 처리
+            if '[IMAGE_BASE64]' in user_input and '[/IMAGE_BASE64]' in user_input:
+                processed_input = self._process_image_input(user_input)
+                messages.append(processed_input)
+            else:
+                messages.append(HumanMessage(content=user_input))
             
             response = self.llm.invoke(messages)
             return response.content
@@ -222,16 +264,70 @@ Final Answer: 사용자 질문에 대한 최종 답변
     def simple_chat_with_history(self, user_input: str, conversation_history: List[Dict]) -> str:
         """대화 기록을 포함한 일반 채팅"""
         try:
+            logger.info(f"히스토리와 함께 채팅 시작: {len(conversation_history)}개 메시지")
+            
             messages = self._convert_history_to_messages(conversation_history)
-            # 마지막 사용자 메시지 추가
-            messages.append(HumanMessage(content=user_input))
+            
+            # 이미지 데이터 처리
+            if '[IMAGE_BASE64]' in user_input and '[/IMAGE_BASE64]' in user_input:
+                processed_input = self._process_image_input(user_input)
+                messages.append(processed_input)
+            else:
+                messages.append(HumanMessage(content=user_input))
+            
+            logger.info(f"최종 메시지 수: {len(messages)}개")
+            
             response = self.llm.invoke(messages)
             return response.content
         except Exception as e:
             logger.error(f"대화 기록 채팅 오류: {e}")
             return self.simple_chat(user_input)
     
-    def process_message(self, user_input: str) -> tuple[str, bool]:
+    def _process_image_input(self, user_input: str):
+        """이미지 데이터를 처리하여 LangChain 메시지로 변환"""
+        import re
+        
+        # 이미지 데이터 추출
+        image_match = re.search(r'\[IMAGE_BASE64\](.*?)\[/IMAGE_BASE64\]', user_input, re.DOTALL)
+        if not image_match:
+            return HumanMessage(content=user_input)
+        
+        image_data = image_match.group(1).strip()
+        text_content = user_input.replace(image_match.group(0), '').strip()
+        
+        if not text_content:
+            text_content = "이 이미지를 자세히 분석해주세요."
+        
+        try:
+            # Gemini 모델의 경우 다른 형식 사용
+            if self.model_name.startswith('gemini'):
+                return HumanMessage(
+                    content=[
+                        {"type": "text", "text": text_content},
+                        {
+                            "type": "image_url",
+                            "image_url": f"data:image/jpeg;base64,{image_data}"
+                        }
+                    ]
+                )
+            else:
+                # OpenAI GPT-4V 형식
+                return HumanMessage(
+                    content=[
+                        {"type": "text", "text": text_content},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_data}"
+                            }
+                        }
+                    ]
+                )
+        except Exception as e:
+            logger.error(f"이미지 처리 오류: {e}")
+            return HumanMessage(content=f"{text_content}\n\n[이미지 처리 오류: {str(e)}]")
+    
+    def process_message(self, user_input: str) -> tuple[str, list]:
         """메시지 처리 - AI가 도구 사용 여부 결정"""
         # 사용자 메시지를 히스토리에 추가
         self.conversation_history.add_message("user", user_input)
@@ -240,179 +336,136 @@ Final Answer: 사용자 질문에 대한 최종 답변
             response = self.simple_chat_with_history(user_input, self.conversation_history.get_recent_messages(10))
             self.conversation_history.add_message("assistant", response)
             self.conversation_history.save_to_file()
-            return response, False
+            return response, []
         
         # AI가 컨텍스트를 분석하여 도구 사용 여부 결정
         use_tools = self._should_use_tools(user_input)
         
         if use_tools:
-            response = self.chat_with_tools(user_input)
+            response, used_tools = self.chat_with_tools(user_input)
             self.conversation_history.add_message("assistant", response)
             self.conversation_history.save_to_file()
-            return response, True
+            return response, used_tools
         else:
             response = self.simple_chat_with_history(user_input, self.conversation_history.get_recent_messages(10))
             self.conversation_history.add_message("assistant", response)
             self.conversation_history.save_to_file()
-            return response, False
+            return response, []
     
-    def process_message_with_history(self, user_input: str, conversation_history: List[Dict]) -> tuple[str, bool]:
+    def process_message_with_history(self, user_input: str, conversation_history: List[Dict], force_agent: bool = False) -> tuple[str, list]:
         """대화 기록을 포함한 메시지 처리"""
         if not self.tools:
             response = self.simple_chat_with_history(user_input, conversation_history)
-            return response, False
+            return response, []
         
-        use_tools = self._should_use_tools(user_input)
+        # force_agent가 True면 더 적극적으로 도구 사용 판단
+        use_tools = self._should_use_tools(user_input, force_agent)
         
         if use_tools:
-            response = self.chat_with_tools(user_input)
-            return response, True
+            response, used_tools = self.chat_with_tools(user_input)
+            return response, used_tools
         else:
             response = self.simple_chat_with_history(user_input, conversation_history)
-            return response, False
+            return response, []
     
     def _convert_history_to_messages(self, conversation_history: List[Dict]):
         """대화 기록을 LangChain 메시지로 변환 - 토큰 제한 고려"""
         messages = []
         
-        # 간단한 시스템 메시지
-        messages.append(SystemMessage(content="AI 어시스턴트"))
+        # 시스템 메시지 - 히스토리 활용 강조
+        if self.model_name.startswith('gemini'):
+            messages.append(HumanMessage(content="You are a helpful AI assistant. Use the conversation history to provide contextual responses. Always respond in Korean."))
+        else:
+            messages.append(SystemMessage(content="You are a helpful AI assistant. Use the conversation history to provide contextual responses. Always respond in Korean."))
         
-        # 토큰 제한을 위해 최근 2개 메시지만 사용
-        recent_history = conversation_history[-2:] if len(conversation_history) > 2 else conversation_history
+        # 최근 대화 기록 사용 (더 많이 포함)
+        recent_history = conversation_history[-6:] if len(conversation_history) > 6 else conversation_history
         
         for msg in recent_history:
             role = msg.get('role', '')
-            content = msg.get('content', '')[:100]  # 내용도 100자로 제한
+            content = msg.get('content', '')[:500]  # 내용 제한 증가
             if role == 'user':
                 messages.append(HumanMessage(content=content))
             elif role == 'assistant':
                 from langchain.schema import AIMessage
                 messages.append(AIMessage(content=content))
         
+        logger.info(f"히스토리 변환 완료: {len(recent_history)}개 메시지 -> {len(messages)}개 LangChain 메시지")
         return messages
     
-    def _gemini_tool_chat(self, user_input: str) -> str:
-        """게미니 모델용 AI 기반 도구 선택 및 실행"""
+    def _gemini_tool_chat(self, user_input: str) -> tuple[str, list]:
+        """게미니 모델용 AI 기반 도구 선택 및 실행 - 연쇄적 도구 사용 지원"""
         try:
-            # 도구 목록 요청 처리
-            if any(keyword in user_input.lower() for keyword in ['도구', '툴', 'tool', '기능', '목록', '리스트']):
-                return self._show_tool_list()
+            if self._is_tool_list_request(user_input):
+                return self._show_tool_list(), []
             
-            # 1단계: AI가 사용할 도구와 파라미터 결정
-            tool_decision = self._ai_select_tool(user_input)
-            if tool_decision:
-                tool_decision['original_query'] = user_input  # 청크 처리용
-            
-            if not tool_decision or tool_decision.get('tool') == 'none':
-                return self.simple_chat(user_input)
-            
-            # 2단계: 선택된 도구 실행
-            tool_result = self._execute_selected_tool(tool_decision)
-            
-            # 3단계: 결과를 바탕으로 최종 응답 생성
-            return self._generate_final_response(user_input, tool_result)
+            # 연쇄적 도구 사용 시작
+            return self._execute_tool_chain(user_input)
             
         except Exception as e:
             logger.error(f"게미니 도구 채팅 오류: {e}")
-            return self.simple_chat(user_input)
+            return self.simple_chat(user_input), []
     
     def _get_realistic_date_range(self, user_input: str) -> tuple[str, str]:
-        """사용자 입력에서 현실적인 날짜 범위 생성"""
-        now = datetime.now()
-        
-        # 사용자 입력에서 연도/월 추출
-        import re
-        year_match = re.search(r'(20\d{2})', user_input)
-        month_match = re.search(r'(\d{1,2})월', user_input)
-        
-        if year_match and month_match:
-            year = int(year_match.group(1))
-            month = int(month_match.group(1))
-            
-            # 너무 먼 미래는 현재로부터 3개월 후로 조정
-            target_date = datetime(year, month, 1)
-            max_future = now + timedelta(days=90)  # 3개월
-            
-            if target_date > max_future:
-                target_date = max_future.replace(day=1)
-        else:
-            # 날짜 없으면 다음 달
-            target_date = (now + timedelta(days=30)).replace(day=1)
-        
-        # 시작일과 종료일 생성
-        start_date = target_date.strftime('%Y%m%d')
-        end_date = (target_date + timedelta(days=30)).strftime('%Y%m%d')
-        
-        return start_date, end_date
+        """사용자 입력에서 현실적인 날짜 범위 생성 - 범용적 접근"""
+        # 특정 API 형식에 의존하지 않고 AI가 적절한 형식을 결정하도록 함
+        # 날짜 파싱은 각 도구의 스키마에 따라 AI가 처리
+        return None, None  # AI가 적절한 도구를 선택하여 처리하도록 함
     
     def _get_area_code(self, user_input: str) -> str:
-        """사용자 입력에서 지역 코드 추출"""
-        user_lower = user_input.lower()
-        
-        # 지역별 코드 매핑
-        area_mapping = {
-            '동남아': 'A0',
-            '아시아': 'A0', 
-            '태국': 'A0',
-            '베트남': 'A0',
-            '싱가포르': 'A0',
-            '인도네시아': 'A0',
-            '유럽': 'E0',
-            '영국': 'E0',
-            '프랑스': 'E0',
-            '독일': 'E0',
-            '이탈리아': 'E0',
-            '스페인': 'E0',
-            '일본': 'J0',
-            '중국': 'C0',
-            '미국': 'U0',
-            '캐나다': 'U0'
-        }
-        
-        for region, code in area_mapping.items():
-            if region in user_lower:
-                return code
-        
-        # 기본값: 동남아
-        return 'A0'
+        """사용자 입력에서 지역 코드 추출 - AI가 동적으로 결정"""
+        # AI가 사용 가능한 도구를 통해 지역 코드를 동적으로 조회하도록 변경
+        # 하드코딩된 매핑 제거하고 범용적 접근 방식 사용
+        return None  # AI가 적절한 도구를 선택하여 처리하도록 함
     
     def _ai_select_tool(self, user_input: str):
-        """게미니 AI가 사용할 도구와 파라미터 결정 - 토큰 제한 고려"""
+        """초기 도구 선택 (호환성을 위해 유지)"""
+        return self._ai_select_next_tool(user_input, [], 0)
+    
+    def _legacy_ai_select_tool(self, user_input: str):
+        """AI가 사용자 요청을 분석하여 최적의 도구와 파라미터를 지능적으로 결정"""
         try:
             if not self.tools:
                 logger.warning("사용 가능한 도구가 없습니다")
                 return None
             
-            # 도구 설명 수집
+            # 도구 설명 수집 (상세 정보 포함)
             tools_info = []
             for tool in self.tools:
                 desc = getattr(tool, 'description', tool.name)
-                tools_info.append(f"- {tool.name}: {desc}")
+                # 도구 스키마 정보도 포함
+                schema_info = ""
+                if hasattr(tool, 'args_schema') and tool.args_schema:
+                    try:
+                        schema = tool.args_schema.schema()
+                        if 'properties' in schema:
+                            params = list(schema['properties'].keys())[:3]  # 주요 파라미터만
+                            schema_info = f" (파라미터: {', '.join(params)})"
+                    except:
+                        pass
+                tools_info.append(f"- {tool.name}: {desc}{schema_info}")
             
             tools_list = "\n".join(tools_info)
             
-            # 여행 상품 검색인 경우 현실적인 날짜와 지역 코드 제안
-            realistic_dates = ""
-            if any(keyword in user_input for keyword in ['여행', '상품', '패키지']):
-                start_date, end_date = self._get_realistic_date_range(user_input)
-                area_code = self._get_area_code(user_input)
-                realistic_dates = f"\n\n**추천 파라미터:**\n- startDate: {start_date}\n- endDate: {end_date}\n- productAreaCode: {area_code}"
+            selection_prompt = f"""User request: "{user_input}"
+
+Available tools:
+{tools_list}
+
+Analyze the user's request and select the most appropriate tool with necessary parameters.
+
+Response format:
+- Use tool: TOOL: tool_name | PARAMS: {{"key": "value"}}
+- No tool needed: TOOL: none
+
+Examples:
+- Web search: TOOL: search | PARAMS: {{"query": "search_term"}}
+- Travel products: TOOL: retrieveSaleProductInformation | PARAMS: {{"startDate": "20240301", "endDate": "20240310", "productAreaCode": "A0"}}
+
+Extract parameter values from user request or use reasonable defaults."""
             
-            selection_prompt = f"""사용자 요청: "{user_input}"
-
-사용 가능한 도구들:
-{tools_list}{realistic_dates}
-
-사용자 요청을 처리하기 위해 어떤 도구를 사용해야 하는지 결정하고, 필요한 파라미터를 추출하세요.
-
-다음 형식으로 답하세요:
-- 도구가 필요한 경우: TOOL: 도구이름 | PARAMS: {{"key": "value"}}
-- 도구가 필요없는 경우: TOOL: none"""
-            
-            # 간단한 메시지만 사용
             messages = [
-                SystemMessage(content="도구 선택 전문가"),
+                SystemMessage(content="You are an expert at analyzing user requests to select the optimal tool."),
                 HumanMessage(content=selection_prompt)
             ]
             
@@ -491,15 +544,13 @@ Final Answer: 사용자 질문에 대한 최종 답변
         logger.info(f"대용량 응답 분석 시작: {len(large_response)}자")
         
         # 전체 데이터를 한 번에 분석
-        analysis_prompt = f"""사용자 질의: {user_query}
-
-데이터:
-{large_response}
-
-위 데이터를 분석하여 사용자에게 유용한 정보를 제공해주세요. 청크 번호나 분석 진행 상황은 언급하지 말고 결과만 보여주세요."""
+        analysis_prompt = f"""User query: {user_query}
+                            Data:
+                            {large_response}
+                            Analyze the above data and provide useful information to the user in Korean. Don't mention chunk numbers or analysis progress, just show the results."""
         
         messages = [
-            SystemMessage(content="당신은 데이터를 분석하여 사용자에게 유용한 정보를 제공하는 전문가입니다. 분석 과정은 언급하지 말고 결과만 보여주세요."),
+            SystemMessage(content="You are an expert who analyzes data and provides useful information to users in Korean. Don't mention the analysis process, just show the results."),
             HumanMessage(content=analysis_prompt)
         ]
         
@@ -594,6 +645,34 @@ Final Answer: 사용자 질문에 대한 최종 답변
             
             return f"도구 실행 중 오류가 발생했습니다: {e}"
     
+    def _is_tool_list_request(self, user_input: str) -> bool:
+        """도구 목록 요청인지 AI가 판단"""
+        try:
+            prompt = f"""User request: "{user_input}"
+
+Determine if this request is asking to show a list of available tools or capabilities.
+
+Tool list request examples:
+- "What tools can you use?"
+- "Show me available features"
+- "What can you help me with?"
+- "What searches are possible?"
+- "List your capabilities"
+
+Answer: YES or NO only."""
+            
+            messages = [
+                SystemMessage(content="Tool list request detection expert"),
+                HumanMessage(content=prompt)
+            ]
+            
+            response = self.llm.invoke(messages)
+            return "YES" in response.content.strip().upper()
+            
+        except Exception as e:
+            logger.error(f"도구 목록 요청 판단 오류: {e}")
+            return False
+    
     def _show_tool_list(self) -> str:
         """사용 가능한 도구 목록을 동적으로 생성하여 반환"""
         if not self.tools:
@@ -622,27 +701,20 @@ Final Answer: 사용자 질문에 대한 최종 답변
         return "\n".join(result)
     
     def _format_response(self, text: str) -> str:
-        """응답 텍스트를 가독성 좋게 포맷팅"""
-        if not text or len(text) < 50:
+        """응답 텍스트를 자연스럽게 정리"""
+        if not text:
             return text
         
         import re
         
-        # 1. 문장 끝에 줄바꿈 추가
-        formatted = text.replace('다. ', '다.\n\n')
-        formatted = formatted.replace('습니다. ', '습니다.\n\n')
+        # 과도한 줄바꿈 정리
+        formatted = re.sub(r'\n{3,}', '\n\n', text)
         
-        # 2. 연속된 정보를 불릿으로 변환
-        formatted = re.sub(r'([^.]+?)은 ([^,이며]+?)[이고,]\s*', r'• **\1**: \2\n', formatted)
-        formatted = re.sub(r'([^.]+?)는 ([^,이며]+?)[이며,]\s*', r'• **\1**: \2\n', formatted)
+        # 불규칙한 들여쓰기 정리 - 5개 이상의 공백을 4개로 통일
+        formatted = re.sub(r'\n\s{5,}', '\n    ', formatted)
         
-        # 3. 주요 정보 강조
-        formatted = re.sub(r'(대통령|정부|관세|협상|대응)', r'**\1**', formatted)
-        
-        # 4. 과도한 줄바꿈 정리
-        formatted = re.sub(r'\n{3,}', '\n\n', formatted)
-        
-        return formatted.strip()
+        formatted = formatted.strip()
+        return formatted
     
     def _generate_final_response(self, user_input: str, tool_result: str):
         """도구 결과를 바탕으로 최종 응답 생성 - 토큰 제한 고려"""
@@ -651,13 +723,26 @@ Final Answer: 사용자 질문에 대한 최종 답변
             if len(tool_result) > 2000:
                 tool_result = tool_result[:2000] + "...(생략)"
             
-            response_prompt = f"""질문: {user_input}
-결과: {tool_result}
+            response_prompt = f"""User asked: "{user_input}"
 
-위 결과를 바탕으로 사용자에게 도움되는 답변을 작성하세요."""
+Data from tools:
+{tool_result}
+
+Your task:
+1. Extract the most relevant information that directly answers the user's question
+2. Organize the information in a logical, easy-to-follow structure
+3. Write in conversational Korean as if explaining to a friend
+4. Focus on what the user actually needs to know
+5. Use simple, clear sentences without technical jargon
+6. If there are multiple pieces of information, prioritize the most important ones first
+7. Format your response using simple markdown (## for headings, **bold** for emphasis, - for bullet points)
+8. Keep formatting minimal and clean
+9. Use consistent indentation for lists and structured data
+
+Provide a helpful, natural Korean response in markdown format that directly addresses what the user wanted to know."""
             
             messages = [
-                SystemMessage(content="AI 어시스턴트"),
+                SystemMessage(content="AI Assistant - Always respond in Korean"),
                 HumanMessage(content=response_prompt)
             ]
             
@@ -673,3 +758,174 @@ Final Answer: 사용자 질문에 대한 최종 답변
                 return self._format_response("검색 결과를 찾았지만 내용이 너무 길어 요약할 수 없습니다. 더 구체적인 질문으로 다시 시도해주세요.")
             
             return self._format_response("도구 실행은 성공했지만 응답 생성 중 오류가 발생했습니다.")
+    
+    def _execute_tool_chain(self, user_input: str, max_iterations: int = 3) -> tuple[str, list]:
+        """연쇄적 도구 사용 실행"""
+        all_used_tools = []
+        accumulated_results = []
+        current_query = user_input
+        
+        for iteration in range(max_iterations):
+            logger.info(f"도구 체인 {iteration + 1}단계 시작: {current_query[:50]}...")
+            
+            # AI가 다음 도구 결정
+            tool_decision = self._ai_select_next_tool(current_query, accumulated_results, iteration)
+            
+            if not tool_decision or tool_decision.get('tool') == 'none':
+                logger.info(f"도구 체인 {iteration + 1}단계에서 종료")
+                break
+            
+            # 도구 실행
+            tool_result = self._execute_selected_tool(tool_decision)
+            used_tool_name = tool_decision.get('tool', '')
+            
+            if used_tool_name:
+                all_used_tools.append(used_tool_name)
+            
+            accumulated_results.append({
+                'step': iteration + 1,
+                'tool': used_tool_name,
+                'query': current_query,
+                'result': tool_result
+            })
+            
+            # 다음 단계 질의 생성
+            next_query = self._generate_next_query(user_input, accumulated_results)
+            if not next_query or next_query == current_query:
+                logger.info(f"다음 단계 질의가 없어 종료")
+                break
+            
+            current_query = next_query
+        
+        # 최종 응답 생성
+        final_response = self._generate_chain_response(user_input, accumulated_results)
+        return final_response, all_used_tools
+    
+    def _ai_select_next_tool(self, current_query: str, previous_results: list, step: int):
+        """다음 단계에서 사용할 도구를 AI가 지능적으로 결정"""
+        try:
+            # 도구 설명 수집
+            tools_info = []
+            for tool in self.tools:
+                desc = getattr(tool, 'description', tool.name)
+                tools_info.append(f"- {tool.name}: {desc}")
+            
+            tools_list = "\n".join(tools_info)
+            
+            # 이전 결과 요약
+            previous_summary = ""
+            if previous_results:
+                previous_summary = "\n\nPrevious steps:\n"
+                for result in previous_results:
+                    result_preview = str(result['result'])[:200] + "..." if len(str(result['result'])) > 200 else str(result['result'])
+                    previous_summary += f"Step {result['step']}: Used {result['tool']} -> {result_preview}\n"
+            
+            selection_prompt = f"""Current query: "{current_query}"
+Step: {step + 1}
+
+{previous_summary}
+
+Available tools:
+{tools_list}
+
+Analyze the current query and previous results. Determine if additional information is needed to fully answer the user's request.
+
+Think about:
+- What information does the user ultimately want?
+- What gaps exist in the current results?
+- Which tool could provide the missing information?
+- Are the results sufficient to answer the original question?
+
+Response format:
+- Use tool: TOOL: tool_name | PARAMS: {{"key": "value"}}
+- No more tools needed: TOOL: none
+
+Use your judgment to select the most appropriate tool and extract relevant parameters from the available information."""
+            
+            messages = [
+                SystemMessage(content="You are an intelligent assistant that can analyze information gaps and select appropriate tools to gather missing data. Use your reasoning to determine what additional information would be valuable to complete the user's request."),
+                HumanMessage(content=selection_prompt)
+            ]
+            
+            response = self.llm.invoke(messages)
+            return self._parse_tool_decision(response.content)
+            
+        except Exception as e:
+            logger.error(f"AI 다음 도구 선택 오류: {e}")
+            return None
+    
+    def _generate_next_query(self, original_query: str, accumulated_results: list) -> str:
+        """다음 단계 질의 생성"""
+        try:
+            results_summary = "\n".join([
+                f"Step {r['step']}: {r['tool']} -> {str(r['result'])[:300]}..."
+                for r in accumulated_results
+            ])
+            
+            prompt = f"""Original user query: "{original_query}"
+
+Results so far:
+{results_summary}
+
+Analyze what information is still missing to fully satisfy the user's request. 
+
+If additional specific information is needed, generate a focused query for the next step.
+If the current results are sufficient to answer the original query, respond with "COMPLETE".
+
+Next query:"""
+            
+            messages = [
+                SystemMessage(content="You are an intelligent assistant that can identify information gaps and determine what additional data is needed to complete a user's request."),
+                HumanMessage(content=prompt)
+            ]
+            
+            response = self.llm.invoke(messages)
+            next_query = response.content.strip()
+            
+            if "COMPLETE" in next_query.upper():
+                return None
+            
+            return next_query
+            
+        except Exception as e:
+            logger.error(f"다음 질의 생성 오류: {e}")
+            return None
+    
+    def _generate_chain_response(self, original_query: str, accumulated_results: list) -> str:
+        """연쇄적 도구 사용 결과를 바탕으로 최종 응답 생성"""
+        try:
+            if not accumulated_results:
+                return self.simple_chat(original_query)
+            
+            # 모든 결과 합치기
+            all_results = "\n\n".join([
+                f"Step {r['step']} ({r['tool']}):\n{r['result']}"
+                for r in accumulated_results
+            ])
+            
+            response_prompt = f"""User's original request: "{original_query}"
+
+Information gathered through multiple tools:
+{all_results}
+
+Your task:
+1. Synthesize all the information to provide a comprehensive answer
+2. Organize the information logically and clearly
+3. Focus on what the user actually wanted to know
+4. Present the information in a natural, conversational Korean format
+5. If location information is available, include addresses and coordinates
+6. If business information is available, include names, addresses, and contact details
+
+Provide a helpful, well-organized response in Korean that directly addresses the user's original request."""
+            
+            messages = [
+                SystemMessage(content="You are an expert at synthesizing information from multiple sources to provide comprehensive answers in Korean."),
+                HumanMessage(content=response_prompt)
+            ]
+            
+            response = self.llm.invoke(messages)
+            return self._format_response(response.content)
+            
+        except Exception as e:
+            logger.error(f"체인 응답 생성 오류: {e}")
+            return self._format_response("여러 도구를 사용하여 정보를 수집했지만 최종 응답 생성 중 오류가 발생했습니다.")

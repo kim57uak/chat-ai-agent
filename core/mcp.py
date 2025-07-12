@@ -5,17 +5,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 def start_mcp_servers(config_path: str = 'mcp.json') -> bool:
-    """MCP 서버들을 시작하고 초기화 (이전 상태 고려)"""
+    """MCP 서버들을 시작하고 초기화 (상태 파일 기반)"""
     # 전체 서버 로드
     success = mcp_manager.load_from_config(config_path)
     
     if success:
-        # 이전에 비활성화된 서버들 중지
-        server_names = list(mcp_manager.clients.keys())  # 리스트로 복사
+        # 상태 파일에서 비활성화된 서버들 중지
+        server_names = list(mcp_manager.clients.keys())
         for server_name in server_names:
             if not mcp_state.is_server_enabled(server_name):
-                logger.info(f"이전 상태에 따라 {server_name} 서버 중지")
+                logger.info(f"상태 파일에 따라 {server_name} 서버 중지")
                 mcp_manager.stop_server(server_name)
+            else:
+                logger.info(f"상태 파일에 따라 {server_name} 서버 활성화")
     
     return success
 

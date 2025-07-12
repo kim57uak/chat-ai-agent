@@ -38,27 +38,16 @@ class ToolManager:
         self.usage_stats: Dict[str, Dict[str, Any]] = {}
     
     def _create_category_mapping(self) -> Dict[str, ToolCategory]:
-        """서버명 기반 카테고리 매핑"""
-        return {
-            'search-mcp-server': ToolCategory.SEARCH,
-            'mysql': ToolCategory.DATABASE,
-            'gmail': ToolCategory.EMAIL,
-            'hanatourApi': ToolCategory.TRAVEL,
-            'excel-stdio': ToolCategory.OFFICE,
-            'ppt': ToolCategory.OFFICE,
-            'bitbucket': ToolCategory.DEVELOPMENT,
-            'mcp-atlassian': ToolCategory.COMMUNICATION,
-            'json-mcp-server': ToolCategory.GENERAL,
-            'osm-mcp-server': ToolCategory.SEARCH,
-            'notionApi': ToolCategory.OFFICE
-        }
+        """서버명 기반 동적 카테고리 매핑 - 키워드 기반 분류"""
+        # 하드코딩 대신 키워드 기반 동적 분류
+        return {}
     
     def register_tools(self, all_mcp_tools: Dict[str, List[Dict[str, Any]]]):
-        """MCP 도구들을 등록하고 분류"""
+        """MCP 도구들을 등록하고 동적 분류"""
         self.tools.clear()
         
         for server_name, tools in all_mcp_tools.items():
-            category = self.category_mapping.get(server_name, ToolCategory.GENERAL)
+            category = self._classify_server_dynamically(server_name, tools)
             
             for tool_schema in tools:
                 tool_name = tool_schema.get('name')
@@ -80,56 +69,20 @@ class ToolManager:
         
         logger.info(f"총 {len(self.tools)}개 도구 등록 완료")
     
+    def _classify_server_dynamically(self, server_name: str, tools: List[Dict[str, Any]]) -> ToolCategory:
+        """모든 서버를 GENERAL로 분류 - AI가 동적으로 선택"""
+        return ToolCategory.GENERAL
+    
     def get_tools_by_category(self, category: ToolCategory) -> List[ToolInfo]:
         """카테고리별 도구 조회"""
         return [tool for tool in self.tools.values() if tool.category == category]
     
     def get_recommended_tools(self, user_input: str, limit: int = 5) -> List[ToolInfo]:
-        """사용자 입력에 기반한 도구 추천"""
-        keywords_mapping = {
-            ToolCategory.SEARCH: ['검색', '찾아', '알아봐', '조회', '정보', 'search', 'find'],
-            ToolCategory.DATABASE: ['데이터베이스', '데이타베이스', 'db', '테이블', '쿼리', 'mysql', 'database', 'table', 'schema'],
-            ToolCategory.EMAIL: ['이메일', '메일', '편지', '발송', '수신', 'email', 'mail', 'gmail'],
-            ToolCategory.TRAVEL: ['여행', '항공', '호텔', '예약', '관광', '하나투어', '패키지', 'travel', 'flight', 'hotel'],
-            ToolCategory.OFFICE: ['엑셀', '파워포인트', '문서', '프레젠테이션', '노션', 'excel', 'powerpoint', 'ppt', 'notion'],
-            ToolCategory.DEVELOPMENT: ['코드', '개발', '깃', 'git', '리포지토리', 'pr', 'bitbucket', 'repository'],
-            ToolCategory.COMMUNICATION: ['지라', 'jira', '이슈', '티켓', '컨플루언스', 'confluence', 'atlassian'],
-            ToolCategory.GENERAL: ['json', '지도', '위치', 'map', 'location', 'osm']
-        }
-        
-        user_lower = user_input.lower().replace(" ", "")
-        category_scores = {}
-        
-        # 키워드 기반 카테고리 점수 계산
-        for category, keywords in keywords_mapping.items():
-            score = 0
-            for keyword in keywords:
-                if keyword in user_lower:
-                    # 정확한 매칭에 더 높은 점수
-                    if keyword == user_lower or user_lower.startswith(keyword):
-                        score += 3
-                    else:
-                        score += 1
-            
-            if score > 0:
-                category_scores[category] = score
-        
-        # 추천 도구 수집
-        recommended = []
-        
-        # 점수가 높은 카테고리부터 처리
-        for category in sorted(category_scores.keys(), key=lambda x: category_scores[x], reverse=True):
-            category_tools = self.get_tools_by_category(category)
-            
-            # 사용 통계 기반 정렬 (성공률 * 사용횟수)
-            category_tools.sort(key=lambda x: x.success_rate * (x.usage_count + 1), reverse=True)
-            
-            recommended.extend(category_tools)
-            
-            if len(recommended) >= limit:
-                break
-        
-        return recommended[:limit]
+        """모든 도구를 동일하게 반환 - AI가 선택"""
+        all_tools = list(self.tools.values())
+        # 사용 통계 기반 정렬만 유지
+        all_tools.sort(key=lambda x: x.success_rate * (x.usage_count + 1), reverse=True)
+        return all_tools[:limit]
     
     def record_tool_usage(self, tool_name: str, success: bool, response_time: float = 0.0):
         """도구 사용 통계 기록"""

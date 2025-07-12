@@ -35,17 +35,18 @@ class MCPTool(BaseTool):
     
     def _run(self, *args, **kwargs):
         """도구 실행"""
-        # ReAct 에이전트는 문자열로 입력을 전달할 수 있음
+        # ReAct 에이전트의 문자열 입력 처리
         if args and len(args) == 1 and isinstance(args[0], str):
-            # JSON 문자열 파싱 시도
             try:
                 import json
                 parsed_input = json.loads(args[0])
                 return self._execute_tool(parsed_input)
             except:
-                # JSON이 아니면 search 도구의 query로 처리
-                if self.tool_name == 'search':
-                    return self._execute_tool({'query': args[0]})
+                # JSON 파싱 실패 시 스키마 기반 처리
+                input_schema = self.tool_schema.get('inputSchema', {})
+                required = input_schema.get('required', [])
+                if required:
+                    return self._execute_tool({required[0]: args[0]})
                 return self._execute_tool({'input': args[0]})
         
         return self._execute_tool(kwargs)
@@ -94,14 +95,12 @@ class MCPTool(BaseTool):
             if result is None:
                 return f"도구 '{self.tool_name}' 호출 실패"
             
-            # 결과를 문자열로 변환 (전체 응답 반환)
+            # 결과를 문자열로 변환 (범용적 처리)
             if isinstance(result, dict):
-                # 하나투어 API 등 구조화된 데이터는 전체 반환
-                if self.tool_name in ['retrieveSaleProductInformation', 'getSaleProductSchedule', 'getPackageProductInfo']:
-                    return json.dumps(result, ensure_ascii=False, indent=2)
-                # 검색 도구의 경우에만 요약 (너무 길어질 수 있음)
-                elif self.tool_name == 'search' and 'content' in result:
+                # 검색 도구의 경우 특별 포맷팅
+                if self.tool_name == 'search' and 'content' in result:
                     return self._format_search_result(result)
+                # 모든 구조화된 데이터는 동일하게 처리
                 else:
                     return json.dumps(result, ensure_ascii=False, indent=2)
             elif isinstance(result, list):
@@ -114,43 +113,26 @@ class MCPTool(BaseTool):
             return f"도구 '{self.tool_name}' 호출 실패. 오류: {str(e)}"
     
     def _process_openai_input(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """OpenAI 도구 에이전트의 특수한 입력 형식 처리"""
-        # {'args': ['to', 'subject', 'body']} 형태 처리
+        """OpenAI 도구 에이전트의 입력 형식을 스키마 기반으로 처리"""
+        # {'args': []} 형태를 스키마 기반으로 매핑
         if 'args' in input_data and isinstance(input_data['args'], list):
             args = input_data['args']
+            input_schema = self.tool_schema.get('inputSchema', {})
+            required = input_schema.get('required', [])
+            properties = input_schema.get('properties', {})
             
-            # Gmail send_email 도구 특별 처리
-            if self.tool_name == 'send_email' and len(args) >= 3:
-                return {
-                    'to': [args[0]] if isinstance(args[0], str) else args[0],
-                    'subject': args[1],
-                    'body': args[2]
-                }
+            result = {}
+            for i, arg in enumerate(args):
+                if i < len(required):
+                    field_name = required[i]
+                    field_schema = properties.get(field_name, {})
+                    if field_schema.get('type') == 'array':
+                        result[field_name] = [arg] if isinstance(arg, str) else arg
+                    else:
+                        result[field_name] = arg
             
-            # search 도구의 경우
-            elif self.tool_name == 'search' and len(args) > 0:
-                return {'query': args[0]}
-            
-            # 기타 도구들 - 스키마 기반 매핑
-            else:
-                input_schema = self.tool_schema.get('inputSchema', {})
-                required = input_schema.get('required', [])
-                properties = input_schema.get('properties', {})
-                
-                result = {}
-                for i, arg in enumerate(args):
-                    if i < len(required):
-                        field_name = required[i]
-                        # 배열 타입인지 확인
-                        field_schema = properties.get(field_name, {})
-                        if field_schema.get('type') == 'array':
-                            result[field_name] = [arg] if isinstance(arg, str) else arg
-                        else:
-                            result[field_name] = arg
-                
-                return result if result else {'input': args[0] if args else ''}
+            return result if result else {'input': args[0] if args else ''}
         
-        # 일반적인 딕셔너리 형태는 그대로 반환
         return input_data
     
     def _format_search_result(self, result: Dict[str, Any]) -> str:

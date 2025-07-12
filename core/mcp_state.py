@@ -34,8 +34,8 @@ class MCPServerState:
         self.save_state()
     
     def is_server_enabled(self, server_name: str) -> bool:
-        """서버 활성화 상태 확인 (기본값: True)"""
-        return self.server_states.get(server_name, True)
+        """서버 활성화 상태 확인 (기본값: False)"""
+        return self.server_states.get(server_name, False)
     
     def get_all_states(self) -> Dict[str, bool]:
         """모든 서버 상태 반환"""

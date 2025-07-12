@@ -4,7 +4,7 @@ from PyQt6.QtCore import QTimer
 from ui.chat_widget import ChatWidget
 from ui.settings_dialog import SettingsDialog
 from ui.mcp_dialog import MCPDialog
-from ui.mcp_manager_dialog import MCPManagerDialog
+from ui.mcp_manager_simple import MCPManagerDialog
 from core.mcp import start_mcp_servers, stop_mcp_servers
 from core.ai_client import get_mcp_client
 import os
@@ -79,102 +79,93 @@ class MainWindow(QMainWindow):
         user_prompt_action.triggered.connect(self.open_user_prompt)
         settings_menu.addAction(user_prompt_action)
 
-        # 채팅창 오픈 시 MCP 서버 자동 기동
-        if os.path.exists(MCP_JSON_PATH):
-            try:
-                start_mcp_servers(MCP_JSON_PATH)
-                print(f"MCP 서버 시작: {MCP_JSON_PATH}")
-            except Exception as e:
-                print(f"MCP 서버 시작 실패: {e}")
+        # MCP 서버 비동기 초기화
+        QTimer.singleShot(100, self.init_mcp_servers)
+        print("MainWindow 초기화 완료")
 
     def closeEvent(self, event):
-        """애플리케이션 종료 처리 - 안전한 비동기 종료"""
+        """애플리케이션 종료 처리"""
         print("애플리케이션 종료 시작")
         
-        # 즉시 이벤트 수락하고 비동기로 종료 처리
-        event.accept()
-        
-        # 비동기로 종료 작업 시작
-        from PyQt6.QtCore import QTimer
-        QTimer.singleShot(0, self._perform_cleanup)
-    
-    def _perform_cleanup(self):
-        """실제 정리 작업 수행"""
         try:
-            # 1. 채팅 위젯 종룄 신호
-            if hasattr(self, 'chat_widget') and self.chat_widget:
+            if hasattr(self, 'chat_widget'):
                 self.chat_widget.close()
-                print("채팅 위젯 종룄 신호 전송")
-        except Exception as e:
-            print(f"채팅 위젯 종룄 오류: {e}")
-        
-        try:
-            # 2. MCP 서버 종료
             stop_mcp_servers()
-            print("MCP 서버 종료 완료")
         except Exception as e:
-            print(f"MCP 서버 종료 오류: {e}")
+            print(f"종료 중 오류: {e}")
         
-        # 3. 지연된 종룄
-        QTimer.singleShot(1000, self._final_exit)
+        event.accept()
+        print("애플리케이션 종료 완료")
     
-    def _final_exit(self):
-        """최종 종룄"""
+    def init_mcp_servers(self):
+        """MCP 서버 상태 파일을 읽어서 활성화된 서버만 시작"""
         try:
-            from PyQt6.QtCore import QThreadPool
-            QThreadPool.globalInstance().waitForDone(1000)
-            print("애플리케이션 정리 완료")
+            import json
+            import threading
+            
+            def start_servers():
+                try:
+                    state_file = 'mcp_server_state.json'
+                    if os.path.exists(state_file):
+                        with open(state_file, 'r', encoding='utf-8') as f:
+                            server_states = json.load(f)
+                        
+                        enabled_servers = [name for name, enabled in server_states.items() if enabled]
+                        if enabled_servers:
+                            print(f"활성화된 MCP 서버 시작: {enabled_servers}")
+                            start_mcp_servers()
+                            # 서버 시작 후 도구 라벨 업데이트
+                            QTimer.singleShot(1000, self.chat_widget.update_tools_label)
+                        else:
+                            print("활성화된 MCP 서버가 없습니다")
+                    else:
+                        print("MCP 서버 상태 파일이 없습니다")
+                except Exception as e:
+                    print(f"MCP 서버 시작 오류: {e}")
+            
+            # 별도 스레드에서 실행
+            threading.Thread(target=start_servers, daemon=True).start()
+                
         except Exception as e:
-            print(f"최종 정리 오류: {e}")
-        
-        # 강제 종룄
-        import sys
-        sys.exit(0)
+            print(f"MCP 서버 초기화 오류: {e}")
 
     def open_settings(self):
         dlg = SettingsDialog(self)
         dlg.exec()
         self.chat_widget.update_model_label()
+        self.chat_widget.update_tools_label()
 
     def open_mcp(self):
         mcp_path, _ = QFileDialog.getOpenFileName(self, 'mcp.json 선택', '', 'JSON 파일 (*.json)')
         if not mcp_path:
             return
-        # 임포트된 mcp.json 경로를 임시 저장
-        with open('mcp.json', 'w', encoding='utf-8') as f:
-            with open(mcp_path, 'r', encoding='utf-8') as src:
-                f.write(src.read())
+        
         try:
-            start_mcp_servers('mcp.json')
-            print("MCP 서버 재시작 완료")
+            with open('mcp.json', 'w', encoding='utf-8') as f:
+                with open(mcp_path, 'r', encoding='utf-8') as src:
+                    f.write(src.read())
+            dlg = MCPDialog('mcp.json', self)
+            dlg.exec()
         except Exception as e:
-            print(f"MCP 서버 재시작 실패: {e}")
-        dlg = MCPDialog('mcp.json', self)
-        dlg.exec()
+            print(f"MCP 파일 처리 오류: {e}")
     
     def open_mcp_manager(self):
         dlg = MCPManagerDialog(self)
         dlg.exec()
+        self.chat_widget.update_tools_label()
     
     def clear_conversation_history(self):
         """대화 기록 초기화"""
         from PyQt6.QtWidgets import QMessageBox
         
         reply = QMessageBox.question(
-            self, 
-            '대화 기록 초기화', 
-            '모든 대화 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            self, '대화 기록 초기화', 
+            '모든 대화 기록을 삭제하시겠습니까?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            self.chat_widget.conversation_history.clear_session()
-            self.chat_widget.conversation_history.save_to_file()
-            self.chat_widget.chat_display.clear()
-            
-            # 시스템 메시지 표시
-            self.chat_widget.append_chat('시스템', '대화 기록이 초기화되었습니다.')
+            self.chat_widget.clear_conversation_history()
     
     def open_user_prompt(self):
         """유저 프롬프트 설정 대화상자 열기"""

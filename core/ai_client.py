@@ -82,24 +82,25 @@ class AIClient:
             logger.error(f"AI 클라이언트 채팅 오류: {error_msg}")
             return f"채팅 처리 중 오류가 발생했습니다: {error_msg[:100]}..."
     
-    def _process_with_quota_handling(self, user_message: str, history: list):
+    def _process_with_quota_handling(self, user_message: str, history: list, force_agent: bool = False):
         """할당량 초과 시 청크 분할 처리 - 단순화"""
         import time
         
         try:
             start_time = time.time()
-            logger.info(f"AI 요청 시작: {self.model_name} (히스토리: {len(history)}개)")
+            mode_info = " (Agent 모드)" if force_agent else " (Ask 모드)"
+            logger.info(f"AI 요청 시작{mode_info}: {self.model_name} (히스토리: {len(history)}개)")
             
-            response, used_tools = self.agent.process_message_with_history(user_message, history)
+            response, used_tools = self.agent.process_message_with_history(user_message, history, force_agent)
             
             elapsed_time = time.time() - start_time
             
             if used_tools:
-                logger.info(f"도구 사용 응답 완료: {self.model_name} ({elapsed_time:.1f}초)")
+                logger.info(f"도구 사용 응답 완료{mode_info}: {self.model_name} ({elapsed_time:.1f}초) - 도구: {used_tools}")
             else:
-                logger.info(f"일반 채팅 응답 완료: {self.model_name} ({elapsed_time:.1f}초)")
+                logger.info(f"일반 채팅 응답 완료{mode_info}: {self.model_name} ({elapsed_time:.1f}초)")
             
-            return response
+            return response, used_tools
             
         except Exception as e:
             error_msg = str(e)
@@ -112,7 +113,7 @@ class AIClient:
             # 연결 오류 감지
             elif any(keyword in error_msg.lower() for keyword in ['connection', 'timeout', 'network']):
                 logger.error(f"네트워크 오류: {self.model_name} - {error_msg}")
-                return "네트워크 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요."
+                return "네트워크 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.", []
             
             else:
                 logger.error(f"AI 클라이언트 오류: {self.model_name} - {error_msg}")
@@ -130,7 +131,7 @@ class AIClient:
                     # 각 청크를 간단한 히스토리로 처리
                     simple_history = history[-2:] if history else []  # 최근 2개만
                     chunk_response, _ = self.agent.process_message_with_history(
-                        f"[{i+1}/{len(chunks)}] {chunk}", simple_history
+                        f"[{i+1}/{len(chunks)}] {chunk}", simple_history, force_agent=True
                     )
                     responses.append(chunk_response)
                     
@@ -138,16 +139,16 @@ class AIClient:
                     logger.error(f"청크 {i+1} 처리 오류: {chunk_error}")
                     responses.append(f"[청크 {i+1} 처리 실패: {str(chunk_error)[:100]}...]")
             
-            return "\n\n".join(responses)
+            return "\n\n".join(responses), []
         
         else:
             # 짧은 메시지는 히스토리 없이 처리
             try:
-                response, _ = self.agent.process_message(user_message)
+                response, used_tools = self.agent.process_message(user_message)
                 logger.info(f"할당량 초과로 히스토리 없이 처리: {self.model_name}")
-                return response
+                return response, used_tools
             except Exception as fallback_error:
-                return f"할당량 초과 및 대체 처리 실패: {str(fallback_error)[:200]}..."
+                return f"할당량 초과 및 대체 처리 실패: {str(fallback_error)[:200]}...", []
     
     def _split_message_into_chunks(self, message: str, chunk_size: int = 800):
         """메시지를 청크로 분할"""
@@ -176,21 +177,38 @@ class AIClient:
         try:
             # 입력 검증
             if not user_input or not isinstance(user_input, str):
-                return "유효하지 않은 입력입니다."
+                return "유효하지 않은 입력입니다.", []
             
             user_input = user_input.strip()
             if not user_input:
-                return "빈 메시지는 처리할 수 없습니다."
+                return "빈 메시지는 처리할 수 없습니다.", []
             
             logger.info(f"에이전트 채팅 요청: {user_input[:50]}...")
             
+            # 대화 기록이 비어있으면 파일에서 로드
+            if not self.conversation_history:
+                from core.conversation_history import ConversationHistory
+                conv_hist = ConversationHistory()
+                conv_hist.load_from_file()
+                recent_messages = conv_hist.get_recent_messages(10)
+                self.conversation_history = recent_messages
+                logger.info(f"파일에서 대화 기록 로드: {len(recent_messages)}개")
+            
             optimized_history = self._optimize_conversation_history()
-            return self._process_with_quota_handling(user_input, optimized_history)
+            logger.info(f"최적화된 히스토리 사용: {len(optimized_history)}개")
+            
+            result = self._process_with_quota_handling(user_input, optimized_history, force_agent=True)
+            
+            # 결과가 튜플인지 확인
+            if isinstance(result, tuple):
+                return result
+            else:
+                return result, []
             
         except Exception as e:
             error_msg = str(e)
             logger.error(f"에이전트 채팅 오류: {error_msg}")
-            return f"에이전트 채팅 처리 중 오류가 발생했습니다: {error_msg[:100]}..."
+            return f"에이전트 채팅 처리 중 오류가 발생했습니다: {error_msg[:100]}...", []
     
     def simple_chat(self, user_input: str):
         """단순 채팅 (도구 사용 안함)"""

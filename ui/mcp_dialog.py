@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QTextEdit, QGroupBox, QPushButton
-from core.mcp import start_mcp_servers, get_all_mcp_tools
+from mcp.servers.mcp import start_mcp_servers, get_all_mcp_tools
 import json
 import os
 

@@ -1,4 +1,4 @@
-from core.ai_agent import AIAgent
+from core.ai_agent_refactored import AIAgent
 import logging
 
 logger = logging.getLogger(__name__)

@@ -6,9 +6,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.tools import BaseTool
-from core.langchain_tools import tool_registry, MCPTool
-from core.mcp import get_all_mcp_tools
-from core.tool_manager import tool_manager, ToolCategory
+from tools.langchain.langchain_tools import tool_registry, MCPTool
+from mcp.servers.mcp import get_all_mcp_tools
+from mcp.tools.tool_manager import tool_manager, ToolCategory
 from core.conversation_history import ConversationHistory
 import logging
 from datetime import datetime, timedelta

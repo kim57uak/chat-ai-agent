@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional, Type, Union
 from langchain.tools import BaseTool
 from langchain.callbacks.manager import CallbackManagerForToolRun
 from pydantic import BaseModel, Field
-from core.mcp import call_mcp_tool
+from mcp.servers.mcp import call_mcp_tool
 import json
 import logging
 

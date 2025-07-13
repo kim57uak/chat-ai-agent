@@ -538,7 +538,7 @@ class ChatWidget(QWidget):
     def update_tools_label(self):
         """활성화된 도구 수 표시 업데이트"""
         try:
-            from core.mcp import get_all_mcp_tools
+            from mcp.servers.mcp import get_all_mcp_tools
             tools = get_all_mcp_tools()
             tool_count = len(tools) if tools else 0
             
@@ -553,7 +553,7 @@ class ChatWidget(QWidget):
         """활성화된 도구 목록 팝업 표시"""
         try:
             from PyQt6.QtWidgets import QMenu
-            from core.mcp import get_all_mcp_tools
+            from mcp.servers.mcp import get_all_mcp_tools
             
             tools = get_all_mcp_tools()
             if not tools:

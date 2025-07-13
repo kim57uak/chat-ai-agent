@@ -824,28 +824,35 @@ Extract parameter values from user request or use reasonable defaults."""
             return f"도구 실행 중 오류가 발생했습니다: {e}"
 
     def _is_tool_list_request(self, user_input: str) -> bool:
-        """도구 목록 요청인지 AI가 판단"""
+        """도구 목록 요청인지 키워드 기반으로 빠르게 판단"""
         try:
-            prompt = f"""User request: "{user_input}"
-
-Determine if this request is asking to show a list of available tools or capabilities.
-
-Tool list request examples:
-- "What tools can you use?"
-- "Show me available features"
-- "What can you help me with?"
-- "What searches are possible?"
-- "List your capabilities"
-
-Answer: YES or NO only."""
-
-            messages = [
-                SystemMessage(content="Tool list request detection expert"),
-                HumanMessage(content=prompt),
+            # 한국어 키워드 추가
+            keywords = [
+                '도구', '툴', 'tool', 'mcp', '기능', '역능', '목록', 'list',
+                '활성화', 'active', '사용가능', 'available', '어떤', 'what',
+                '보여', 'show', '알려', 'tell', '사용할수있', 'can use'
             ]
-
-            response = self.llm.invoke(messages)
-            return "YES" in response.content.strip().upper()
+            
+            user_lower = user_input.lower()
+            
+            # 도구 관련 키워드 조합 검사
+            tool_keywords = ['도구', '툴', 'tool', 'mcp']
+            list_keywords = ['목록', 'list', '보여', 'show', '알려', 'tell']
+            
+            has_tool_keyword = any(keyword in user_lower for keyword in tool_keywords)
+            has_list_keyword = any(keyword in user_lower for keyword in list_keywords)
+            
+            # 도구 + 목록 키워드 조합이 있으면 도구 목록 요청으로 판단
+            if has_tool_keyword and has_list_keyword:
+                return True
+                
+            # '활성화된 도구' 같은 특정 표현 검사
+            specific_phrases = [
+                '활성화된 도구', '도구 목록', '사용가능한 도구',
+                'active tool', 'tool list', 'available tool', 'mcp tool'
+            ]
+            
+            return any(phrase in user_lower for phrase in specific_phrases)
 
         except Exception as e:
             logger.error(f"도구 목록 요청 판단 오류: {e}")

@@ -151,10 +151,10 @@ class ChatWidget(QWidget):
         self.update_model_label()
         self.update_tools_label()
         
-        # 도구 상태 주기적 갱신 타이머
+        # 도구 상태 주기적 갱신 타이머 (초기 지연 후 시작)
         self.tools_update_timer = QTimer()
         self.tools_update_timer.timeout.connect(self.update_tools_label)
-        self.tools_update_timer.start(5000)  # 5초마다 갱신
+        QTimer.singleShot(10000, lambda: self.tools_update_timer.start(15000))  # 10초 후 시작, 15초마다 갱신
 
         # 채팅 표시 영역 - QWebEngineView로 교체
         self.chat_display = QWebEngineView(self)
@@ -370,6 +370,9 @@ class ChatWidget(QWidget):
         self.current_sender = ""
         self.current_message_id = ""
         self.is_typing = False
+        
+        # 웹뷰 로드 완료 후 이전 대화 로드
+        self.chat_display.loadFinished.connect(self._on_webview_loaded)
     
     def update_placeholder(self):
         """모드에 따라 플레이스홀더 업데이트"""
@@ -878,8 +881,15 @@ class ChatWidget(QWidget):
         if tool_emoji:
             sender = f"{sender} {tool_emoji}"
         
-        # 타이핑 애니메이션
-        self.start_optimized_typing(sender, text + response_time)
+        # 테이블 감지 - 응답시간을 테이블과 분리
+        if '|' in text and ('---' in text or text.count('|') > 4):
+            # 테이블이 포함된 경우 응답시간을 별도로 표시
+            self.start_optimized_typing(sender, text)
+            if response_time:
+                self.append_chat('시스템', f'처리 완료{response_time}')
+        else:
+            # 일반 텍스트는 기존 방식
+            self.start_optimized_typing(sender, text + response_time)
         
         # 히스토리에 AI 응답 추가
         self.conversation_history.add_message('assistant', text)
@@ -1235,6 +1245,37 @@ class ChatWidget(QWidget):
             self.chat_display.verticalScrollBar().maximum()
         )
 
+    def _on_webview_loaded(self, ok):
+        """웹뷰 로드 완료 후 이전 대화 로드"""
+        if ok:
+            QTimer.singleShot(500, self._load_previous_conversations)
+    
+    def _load_previous_conversations(self):
+        """이전 대화 내용 10개 로드"""
+        try:
+            print(f"[디버그] 히스토리 로드 시도 - 전체 메시지: {len(self.conversation_history.current_session)}개")
+            recent_messages = self.conversation_history.get_recent_messages(10)
+            print(f"[디버그] 최근 메시지 가져오기: {len(recent_messages) if recent_messages else 0}개")
+            
+            if recent_messages:
+                for i, msg in enumerate(recent_messages):
+                    role = msg.get('role', '')
+                    content = msg.get('content', '')
+                    print(f"[디버그] 메시지 {i}: role={role}, content={content[:50]}...")
+                    
+                    if role == 'user' and content.strip():
+                        self.append_chat('사용자', content)
+                    elif role == 'assistant' and content.strip():
+                        self.append_chat('AI', content)
+                
+                print(f"[디버그] 이전 대화 {len(recent_messages)}개 로드 완료")
+            else:
+                print(f"[디버그] 로드할 이전 대화 없음")
+        except Exception as e:
+            print(f"[디버그] 이전 대화 로드 오류: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""
         self.conversation_history.clear_session()

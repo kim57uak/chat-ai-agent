@@ -422,8 +422,8 @@ class AIClient:
             user_prompts = config.get(
                 "user_prompt",
                 {
-                    "gpt": "다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용",
-                    "gemini": "다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용",
+                    "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. Use markdown table format (|column|content|) for table requests",
+                    "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. Use markdown table format (|column|content|) for table requests",
                 },
             )
             print(f"[디버그] 로드된 유저 프롬프트: {user_prompts}")
@@ -431,8 +431,8 @@ class AIClient:
         except Exception as e:
             print(f"[디버그] 유저 프롬프트 로드 오류: {e}")
             return {
-                "gpt": "다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용",
-                "gemini": "다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용",
+                "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. Use markdown table format (|column|content|) for table requests",
+                "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. Use markdown table format (|column|content|) for table requests",
             }
 
     def get_current_user_prompt(self):

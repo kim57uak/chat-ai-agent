@@ -106,9 +106,10 @@ class ChatWidget(QWidget):
         # 상단 정보 영역 (모델명 + 도구 상태)
         info_layout = QHBoxLayout()
         
-        # 현재 모델명 표시 라벨
+        # 현재 모델명 표시 라벨 (클릭 가능)
         self.model_label = QLabel(self)
         self.model_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.model_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.model_label.setStyleSheet("""
             QLabel {
                 color: rgb(163,135,215);
@@ -117,7 +118,12 @@ class ChatWidget(QWidget):
                 padding: 10px;
                 background-color: #1a1a1a;
             }
+            QLabel:hover {
+                background-color: #2a2a2a;
+                border-radius: 4px;
+            }
         """)
+        self.model_label.mousePressEvent = self.show_model_popup
         
         # 도구 상태 표시 라벨 (클릭 가능)
         self.tools_label = QLabel(self)
@@ -467,7 +473,64 @@ class ChatWidget(QWidget):
     
     def update_model_label(self):
         model = load_last_model()
-        self.model_label.setText(f'현재 모델: <b>{model}</b>')
+        self.model_label.setText(f'현재 모델: <b>{model}</b> 📋')
+    
+    def show_model_popup(self, event):
+        """사용 가능한 모델 목록 팝업 표시"""
+        try:
+            from PyQt6.QtWidgets import QMenu
+            from core.file_utils import load_config, save_last_model
+            
+            config = load_config()
+            models = config.get('models', {})
+            
+            if not models:
+                return
+            
+            menu = QMenu(self)
+            menu.setStyleSheet("""
+                QMenu {
+                    background-color: #2a2a2a;
+                    color: #ffffff;
+                    border: 1px solid #444444;
+                    border-radius: 4px;
+                    padding: 4px;
+                }
+                QMenu::item {
+                    padding: 8px 16px;
+                    border-radius: 2px;
+                }
+                QMenu::item:selected {
+                    background-color: rgb(163,135,215);
+                }
+            """)
+            
+            current_model = load_last_model()
+            
+            for model_name, model_config in models.items():
+                if model_config.get('api_key'):  # API 키가 있는 모델만 표시
+                    action = menu.addAction(f"🤖 {model_name}")
+                    if model_name == current_model:
+                        action.setText(f"✅ {model_name} (현재)")
+                    action.triggered.connect(lambda checked, m=model_name: self.change_model(m))
+            
+            # 라벨 위치에서 팝업 표시
+            menu.exec(self.model_label.mapToGlobal(event.pos()))
+            
+        except Exception as e:
+            print(f"모델 팝업 표시 오류: {e}")
+    
+    def change_model(self, model_name):
+        """모델 변경"""
+        try:
+            from core.file_utils import save_last_model
+            save_last_model(model_name)
+            self.update_model_label()
+            self.append_chat('시스템', f'모델이 {model_name}으로 변경되었습니다.')
+            print(f"[디버그] 모델 변경: {model_name}")
+        except Exception as e:
+            print(f"모델 변경 오류: {e}")
+            self.append_chat('시스템', f'모델 변경 중 오류가 발생했습니다: {e}')
     
     def update_tools_label(self):
         """활성화된 도구 수 표시 업데이트"""
@@ -1080,6 +1143,76 @@ class ChatWidget(QWidget):
         
         # 링크
         text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color: #bbbbbb; text-decoration: underline;" target="_blank">\1</a>', text)
+        
+        # 테이블 처리
+        def format_table(table_text):
+            lines = table_text.strip().split('\n')
+            table_lines = [line for line in lines if '|' in line and line.strip()]
+            
+            if len(table_lines) < 2:
+                return table_text
+            
+            # 테이블 HTML 생성
+            html = '<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: #2a2a2a; border-radius: 6px; overflow: hidden;">'
+            
+            # 최대 열 수 계산
+            max_cols = max(len([cell.strip() for cell in line.split('|') if cell.strip()]) for line in table_lines if '---' not in line and '===' not in line)
+            
+            for i, line in enumerate(table_lines):
+                # 구분선 건너뛰기
+                if '---' in line or '===' in line:
+                    continue
+                    
+                cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+                if not cells:
+                    continue
+                
+                # 헤더 행 처리
+                if i == 0:
+                    html += '<tr style="background-color: #3a3a3a;">'
+                    for j, cell in enumerate(cells):
+                        # 빈 셀이면 colspan 적용
+                        if not cell and j > 0:
+                            continue
+                        colspan = 1
+                        # 다음 셀들이 비어있으면 colspan 증가
+                        for k in range(j + 1, len(cells)):
+                            if not cells[k]:
+                                colspan += 1
+                            else:
+                                break
+                        # 마지막 열까지 확장
+                        if j + colspan < max_cols:
+                            remaining = max_cols - (j + colspan)
+                            if remaining > 0 and all(not cells[l] if l < len(cells) else True for l in range(j + colspan, min(len(cells), max_cols))):
+                                colspan += remaining
+                        
+                        html += f'<th style="padding: 12px; border: 1px solid #555; color: #ffffff; font-weight: 600; text-align: left;" colspan="{colspan}">{cell}</th>'
+                    html += '</tr>'
+                else:
+                    html += '<tr style="background-color: #2a2a2a;">'
+                    for j, cell in enumerate(cells):
+                        # 빈 셀이면 colspan 적용
+                        if not cell and j > 0:
+                            continue
+                        colspan = 1
+                        # 다음 셀들이 비어있으면 colspan 증가
+                        for k in range(j + 1, len(cells)):
+                            if not cells[k]:
+                                colspan += 1
+                            else:
+                                break
+                        
+                        html += f'<td style="padding: 10px; border: 1px solid #555; color: #cccccc;" colspan="{colspan}">{cell}</td>'
+                    html += '</tr>'
+            
+            html += '</table>'
+            return html
+        
+        # 테이블 감지 및 처리
+        if '|' in text and ('---' in text or text.count('|') > 4):
+            text = format_table(text)
+            return text
         
         # 일반 텍스트 줄바꿈 처리
         lines = text.split('\n')

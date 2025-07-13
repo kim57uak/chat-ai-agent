@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional, Type, Union
 from langchain.tools import BaseTool
 from langchain.callbacks.manager import CallbackManagerForToolRun
 from pydantic import BaseModel, Field
-from core.mcp import call_mcp_tool
+from core.mcp_interface import MCPToolCaller
 import json
 import logging
 
@@ -14,8 +14,9 @@ class MCPTool(BaseTool):
     server_name: str = Field(description="MCP 서버 이름")
     tool_name: str = Field(description="MCP 도구 이름")
     tool_schema: Dict[str, Any] = Field(description="MCP 도구 스키마")
+    mcp_caller: MCPToolCaller = Field(description="MCP 도구 호출자")
     
-    def __init__(self, server_name: str, tool_name: str, tool_schema: Dict[str, Any], **kwargs):
+    def __init__(self, server_name: str, tool_name: str, tool_schema: Dict[str, Any], mcp_caller: MCPToolCaller, **kwargs):
         # 도구 이름 길이 제한 (OpenAI API 64자 제한)
         full_name = f"{server_name}_{tool_name}"
         if len(full_name) > 60:  # 안전 마진
@@ -30,6 +31,7 @@ class MCPTool(BaseTool):
             server_name=server_name,
             tool_name=tool_name,
             tool_schema=tool_schema,
+            mcp_caller=mcp_caller,
             **kwargs
         )
     
@@ -90,7 +92,7 @@ class MCPTool(BaseTool):
             
             logger.info(f"MCP 도구에 전달할 arguments: {arguments}")
             
-            result = call_mcp_tool(self.server_name, self.tool_name, arguments if arguments else None)
+            result = self.mcp_caller.call_tool(self.server_name, self.tool_name, arguments if arguments else None)
             
             if result is None:
                 return f"도구 '{self.tool_name}' 호출 실패"
@@ -187,9 +189,10 @@ class MCPTool(BaseTool):
 class MCPToolRegistry:
     """MCP 도구를 LangChain 도구로 등록 및 관리"""
     
-    def __init__(self):
+    def __init__(self, mcp_caller: MCPToolCaller):
         self.tools: List[MCPTool] = []
         self.tools_by_category: Dict[str, List[MCPTool]] = {}
+        self.mcp_caller = mcp_caller
     
     def register_mcp_tools(self, all_mcp_tools: Dict[str, List[Dict[str, Any]]]) -> List[MCPTool]:
         """MCP 도구들을 LangChain 도구로 등록"""
@@ -208,7 +211,8 @@ class MCPToolRegistry:
                     mcp_tool = MCPTool(
                         server_name=server_name,
                         tool_name=tool_name,
-                        tool_schema=tool_schema
+                        tool_schema=tool_schema,
+                        mcp_caller=self.mcp_caller
                     )
                     
                     self.tools.append(mcp_tool)
@@ -254,5 +258,7 @@ class MCPToolRegistry:
         return "\n".join(descriptions)
 
 
-# 전역 도구 레지스트리
-tool_registry = MCPToolRegistry()
+# 도구 레지스트리 팩토리 함수
+def create_tool_registry(mcp_caller: MCPToolCaller) -> MCPToolRegistry:
+    """MCP 도구 레지스트리 생성"""
+    return MCPToolRegistry(mcp_caller)

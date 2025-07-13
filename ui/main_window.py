@@ -5,7 +5,7 @@ from ui.chat_widget import ChatWidget
 from ui.settings_dialog import SettingsDialog
 from ui.mcp_dialog import MCPDialog
 from ui.mcp_manager_simple import MCPManagerDialog
-from core.mcp import start_mcp_servers, stop_mcp_servers
+from mcp.servers.mcp import start_mcp_servers, stop_mcp_servers
 from core.ai_client import get_mcp_client
 import os
 

@@ -1,5 +1,5 @@
-from .mcp_client import mcp_manager
-from .mcp_state import mcp_state
+from ..client.mcp_client import mcp_manager
+from ..client.mcp_state import mcp_state
 import logging
 
 logger = logging.getLogger(__name__)

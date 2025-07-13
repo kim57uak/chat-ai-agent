@@ -33,4 +33,9 @@ def load_model_api_key(model):
 
 def load_last_model():
     config = load_config()
-    return config.get('current_model', 'gpt-3.5-turbo') 
+    return config.get('current_model', 'gpt-3.5-turbo')
+
+def save_last_model(model):
+    config = load_config()
+    config['current_model'] = model
+    save_config(config) 

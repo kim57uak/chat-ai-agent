@@ -23,23 +23,23 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 try:
-    from core.mcp import (
+    from mcp.servers.mcp import (
         get_mcp_servers,
         restart_mcp_server,
         stop_mcp_server,
         start_mcp_server,
     )
-    from core.mcp_state import mcp_state
+    from mcp.client.mcp_state import mcp_state
 
     MCP_AVAILABLE = True
 except ImportError:
-    from core.mcp_simple import (
+    from mcp.client.mcp_simple import (
         get_mcp_servers,
         restart_mcp_server,
         stop_mcp_server,
         start_mcp_server,
     )
-    from core.mcp_state_simple import mcp_state
+    from mcp.client.mcp_state_simple import mcp_state
 
     MCP_AVAILABLE = False
 

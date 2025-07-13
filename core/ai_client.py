@@ -1,4 +1,4 @@
-from core.ai_agent import AIAgent
+from core.ai_agent_refactored import AIAgent
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,79 +48,50 @@ class AIClient:
             has_end_tag = "[/IMAGE_BASE64]" in cleaned_message
             has_image_data = has_start_tag and has_end_tag
             
-            print(f"[AIClient.chat] 이미지 데이터 감지: {has_image_data}")
-            print(f"[AIClient.chat] 시작 태그: {has_start_tag}, 종료 태그: {has_end_tag}")
-            
             if has_image_data:
                 # 이미지 OCR에 최적화된 프롬프트 사용
-                ocr_prompt = """이 이미지에서 **모든 텍스트를 정확히 추출(OCR)**해주세요.
+                ocr_prompt = """Please **extract all text accurately (OCR)** from this image.
 
-**필수 작업:**
-1. **완전한 텍스트 추출**: 이미지 내 모든 한글, 영어, 숫자, 기호를 빠짐없이 추출
-2. **구조 분석**: 표, 목록, 제목, 단락 등의 문서 구조 파악
-3. **레이아웃 정보**: 텍스트의 위치, 크기, 배치 관계 설명
-4. **정확한 전사**: 오타 없이 정확하게 모든 문자 기록
-5. **맥락 설명**: 문서의 종류와 목적 파악
+**Required Tasks:**
+1. **Complete Text Extraction**: Extract all Korean, English, numbers, and symbols without omission
+2. **Structure Analysis**: Identify document structures like tables, lists, headings, paragraphs
+3. **Layout Information**: Describe text position, size, and arrangement relationships
+4. **Accurate Transcription**: Record all characters precisely without typos
+5. **Context Description**: Identify document type and purpose
 
-**응답 형식:**
-## 📄 추출된 텍스트
-[모든 텍스트를 정확히 나열]
+**Response Format:**
+## 📄 Extracted Text
+[List all text accurately]
 
-## 📋 문서 구조
-[표, 목록, 제목 등의 구조 설명]
+## 📋 Document Structure
+[Describe structure of tables, lists, headings, etc.]
 
-## 📍 레이아웃 정보
-[텍스트 배치와 위치 관계]
+## 📍 Layout Information
+[Text arrangement and positional relationships]
 
-**중요**: 이미지에서 읽을 수 있는 모든 텍스트를 절대 누락하지 말고 완전히 추출해주세요."""
+**Important**: Please extract all readable text from the image completely without any omissions."""
                 
-                print(f"[AIClient.chat] 이미지 OCR 모드 - 전용 프롬프트 사용")
                 # 마지막 사용자 메시지에 OCR 프롬프트 추가
                 for i in range(len(messages) - 1, -1, -1):
                     if messages[i].get("role") == "user":
-                        # 기존 메시지에서 이미지 데이터 부분과 텍스트 부분 분리
                         content = messages[i]["content"]
-                        print(f"[AIClient.chat] 기존 메시지 길이: {len(content)}")
-                        print(f"[AIClient.chat] 기존 메시지 미리보기: {content[:200]}...")
                         cleaned_content = content.replace("\n", "")
                         has_image_in_content = "[IMAGE_BASE64]" in cleaned_content
-                        print(f"[AIClient.chat] 콘텐츠에 이미지 데이터: {has_image_in_content}")
                         if has_image_in_content:
-                            # 이미지 데이터는 그대로 두고 OCR 프롬프트만 추가
                             messages[i]["content"] = f"{ocr_prompt}\n\n{content}"
-                            print(f"[AIClient.chat] OCR 프롬프트 추가 완료, 최종 길이: {len(messages[i]['content'])}")
                         break
             else:
                 # 일반 텍스트의 경우 기존 유저 프롬프트 사용
                 user_prompt = self.get_current_user_prompt()
-                print(f"[AIClient.chat] 현재 모델: {self.model_name}")
-                print(f"[AIClient.chat] 유저 프롬프트: {user_prompt}")
                 if user_prompt and user_message:
-                    # 사용자 메시지에 프롬프트 추가
                     enhanced_message = f"{user_prompt}\n\n{user_message}"
-                    # 마지막 사용자 메시지 업데이트
                     for i in range(len(messages) - 1, -1, -1):
                         if messages[i].get("role") == "user":
                             messages[i]["content"] = enhanced_message
                             break
-                    print(f"[AIClient.chat] 유저 프롬프트 추가됨")
-
-            # 요청 파라미터 로깅
-            print(f"[AIClient.chat] 요청 파라미터:")
-            print(f"  - 모델: {self.model_name}")
-            print(f"  - 메시지 수: {len(messages)}")
-            for i, msg in enumerate(messages):
-                content_preview = (
-                    msg.get("content", "")[:100] + "..."
-                    if len(msg.get("content", "")) > 100
-                    else msg.get("content", "")
-                )
-                print(f"  - [{i}] {msg.get('role', 'unknown')}: {content_preview}")
 
             if not user_message:
                 return "처리할 메시지를 찾을 수 없습니다."
-
-            print(f"[AIClient.chat] 채팅 요청 처리 시작: {user_message[:50]}...")
             logger.info(f"채팅 요청 처리 시작: {user_message[:50]}...")
 
             # 대화 기록 사용 여부 확인
@@ -309,51 +280,35 @@ class AIClient:
             has_end_tag = "[/IMAGE_BASE64]" in cleaned_input
             has_image_data = has_start_tag and has_end_tag
             
-            print(f"[AIClient.simple_chat] 이미지 데이터 감지: {has_image_data}")
-            print(f"[AIClient.simple_chat] 시작 태그: {has_start_tag}, 종료 태그: {has_end_tag}")
-            print(f"[AIClient.simple_chat] 입력 길이: {len(user_input)}")
-            print(f"[AIClient.simple_chat] 입력 미리보기: {user_input[:200]}...")
-            if "[IMAGE_BASE64]" in user_input:
-                start_pos = user_input.find("[IMAGE_BASE64]")
-                print(f"[AIClient.simple_chat] IMAGE_BASE64 시작 위치: {start_pos}")
-                print(f"[AIClient.simple_chat] 해당 부분: {user_input[start_pos:start_pos+50]}...")
-            
             if has_image_data:
                 # 이미지 OCR에 최적화된 프롬프트 추가
-                ocr_prompt = """이 이미지에서 **모든 텍스트를 정확히 추출(OCR)**해주세요.
+                ocr_prompt = """Please **extract all text accurately (OCR)** from this image.
 
-**필수 작업:**
-1. **완전한 텍스트 추출**: 이미지 내 모든 한글, 영어, 숫자, 기호를 빠짐없이 추출
-2. **구조 분석**: 표, 목록, 제목, 단락 등의 문서 구조 파악
-3. **레이아웃 정보**: 텍스트의 위치, 크기, 배치 관계 설명
-4. **정확한 전사**: 오타 없이 정확하게 모든 문자 기록
-5. **맥락 설명**: 문서의 종류와 목적 파악
+**Required Tasks:**
+1. **Complete Text Extraction**: Extract all Korean, English, numbers, and symbols without omission
+2. **Structure Analysis**: Identify document structures like tables, lists, headings, paragraphs
+3. **Layout Information**: Describe text position, size, and arrangement relationships
+4. **Accurate Transcription**: Record all characters precisely without typos
+5. **Context Description**: Identify document type and purpose
 
-**응답 형식:**
-## 📄 추출된 텍스트
-[모든 텍스트를 정확히 나열]
+**Response Format:**
+## 📄 Extracted Text
+[List all text accurately]
 
-## 📋 문서 구조
-[표, 목록, 제목 등의 구조 설명]
+## 📋 Document Structure
+[Describe structure of tables, lists, headings, etc.]
 
-## 📍 레이아웃 정보
-[텍스트 배치와 위치 관계]
+## 📍 Layout Information
+[Text arrangement and positional relationships]
 
-**중요**: 이미지에서 읽을 수 있는 모든 텍스트를 절대 누락하지 말고 완전히 추출해주세요."""
+**Important**: Please extract all readable text from the image completely without any omissions."""
                 
                 enhanced_input = f"{ocr_prompt}\n\n{user_input}"
-                print(f"[AIClient.simple_chat] OCR 프롬프트 추가 완료")
-                print(f"[AIClient.simple_chat] 최종 입력 길이: {len(enhanced_input)}")
-                result = self.agent.simple_chat(enhanced_input)
-                print(f"[AIClient.simple_chat] AI 응답 길이: {len(result)}")
-                print(f"[AIClient.simple_chat] AI 응답 미리보기: {result[:200]}...")
-                return result
+                return self.agent.simple_chat(enhanced_input)
             else:
-                print(f"[AIClient.simple_chat] 일반 텍스트 모드")
                 optimized_history = self._optimize_conversation_history()
                 return self.agent.simple_chat_with_history(user_input, optimized_history)
         except Exception as e:
-            print(f"[AIClient.simple_chat] 오류 발생: {e}")
             logger.error(f"단순 채팅 오류: {e}")
             return f"오류: {e}"
 
@@ -422,8 +377,8 @@ class AIClient:
             user_prompts = config.get(
                 "user_prompt",
                 {
-                    "gpt": "다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용",
-                    "gemini": "다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용",
+                    "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. For table requests, ALWAYS use proper markdown table format with header separator: |Column1|Column2|\n|---|---|\n|Data1|Data2| 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
+                    "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. For table requests, ALWAYS use proper markdown table format with header separator: |Column1|Column2|\n|---|---|\n|Data1|Data2| 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
                 },
             )
             print(f"[디버그] 로드된 유저 프롬프트: {user_prompts}")
@@ -431,8 +386,8 @@ class AIClient:
         except Exception as e:
             print(f"[디버그] 유저 프롬프트 로드 오류: {e}")
             return {
-                "gpt": "다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용",
-                "gemini": "다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용",
+                "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. For table requests, ALWAYS use proper markdown table format with header separator: |Column1|Column2|\n|---|---|\n|Data1|Data2| 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
+                "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. For table requests, ALWAYS use proper markdown table format with header separator: |Column1|Column2|\n|---|---|\n|Data1|Data2| 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
             }
 
     def get_current_user_prompt(self):

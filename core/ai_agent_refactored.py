@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional, Tuple
-from tools.langchain.langchain_tools import tool_registry, MCPTool
-from mcp.servers.mcp import get_all_mcp_tools
+from tools.langchain.langchain_tools import create_tool_registry, MCPTool
+from core.mcp_implementation import mcp_tool_caller, mcp_server_manager
 from mcp.tools.tool_manager import tool_manager
 from tools.strategies.tool_decision_strategy import ToolDecisionContext, AIBasedToolDecisionStrategy
 from core.conversation_history import ConversationHistory
@@ -23,6 +23,7 @@ class AIAgent:
         self.llm = LLMFactoryProvider.create_llm(api_key, model_name)
         
         # 도구 관리
+        self.tool_registry = create_tool_registry(mcp_tool_caller)
         self.tools: List[MCPTool] = []
         self._load_mcp_tools()
         
@@ -43,9 +44,9 @@ class AIAgent:
     def _load_mcp_tools(self):
         """MCP 도구 로드 및 LangChain 도구로 등록"""
         try:
-            all_mcp_tools = get_all_mcp_tools()
+            all_mcp_tools = mcp_tool_caller.get_all_tools()
             if all_mcp_tools:
-                self.tools = tool_registry.register_mcp_tools(all_mcp_tools)
+                self.tools = self.tool_registry.register_mcp_tools(all_mcp_tools)
                 tool_manager.register_tools(all_mcp_tools)
                 logger.info(f"AI 에이전트에 {len(self.tools)}개 도구 로드됨")
             else:

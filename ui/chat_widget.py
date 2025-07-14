@@ -1491,6 +1491,9 @@ class ChatWidget(QWidget):
             import uuid
             code_id = f"code_{uuid.uuid4().hex[:8]}"
             
+            # HTML 이스케이프만 적용 (원본 형식 보존)
+            code_content = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
             formatted_code = f'''
 <div style="background:#1e1e1e;border:1px solid #444;border-radius:8px;margin:12px 0;overflow:hidden;">
     <div style="background:#2d2d2d;padding:6px 12px;font-size:11px;color:#888;border-bottom:1px solid #444;display:flex;justify-content:space-between;align-items:center;">
@@ -1502,10 +1505,13 @@ class ChatWidget(QWidget):
             '''
             text = text.replace(f"__CODE_BLOCK_{i}__", formatted_code)
         
-        # 5. 헤딩
+        # 5. 헤딩 (H1-H6)
         text = re.sub(r'^# (.*?)$', r'<h1 style="color:#ffffff;font-size:20px;margin:16px 0 8px 0;border-bottom:2px solid #444;padding-bottom:4px;">\1</h1>', text, flags=re.MULTILINE)
         text = re.sub(r'^## (.*?)$', r'<h2 style="color:#eeeeee;font-size:18px;margin:14px 0 6px 0;border-bottom:1px solid #333;padding-bottom:3px;">\1</h2>', text, flags=re.MULTILINE)
         text = re.sub(r'^### (.*?)$', r'<h3 style="color:#dddddd;font-size:16px;margin:12px 0 4px 0;">\1</h3>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#### (.*?)$', r'<h4 style="color:#cccccc;font-size:14px;margin:10px 0 3px 0;font-weight:600;">\1</h4>', text, flags=re.MULTILINE)
+        text = re.sub(r'^##### (.*?)$', r'<h5 style="color:#bbbbbb;font-size:13px;margin:8px 0 2px 0;font-weight:600;">\1</h5>', text, flags=re.MULTILINE)
+        text = re.sub(r'^###### (.*?)$', r'<h6 style="color:#aaaaaa;font-size:12px;margin:6px 0 2px 0;font-weight:600;">\1</h6>', text, flags=re.MULTILINE)
         
         # 6. 굵은 글씨
         text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color:#ffffff;font-weight:600;">\1</strong>', text)

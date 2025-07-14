@@ -5,6 +5,7 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 from core.file_utils import load_config, load_model_api_key, load_last_model
 from core.ai_client import AIClient
 from core.conversation_history import ConversationHistory
+from ui.intelligent_formatter import IntelligentContentFormatter
 import os
 import threading
 
@@ -15,6 +16,7 @@ from docx import Document
 class AIProcessor(QObject):
     finished = pyqtSignal(str, str, list)  # sender, text, used_tools
     error = pyqtSignal(str)
+    streaming = pyqtSignal(str, str)  # sender, partial_text
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -22,6 +24,47 @@ class AIProcessor(QObject):
     
     def cancel(self):
         self._cancelled = True
+    
+    def _simulate_streaming(self, sender, response):
+        """가상 스트림 출력 시뮬레이션 - 단순화"""
+        import time
+        import threading
+        
+        def stream_chunks():
+            # 간단한 청크 분할
+            chunk_size = 50
+            for i in range(0, len(response), chunk_size):
+                if self._cancelled:
+                    break
+                chunk = response[i:i+chunk_size]
+                self.streaming.emit(sender, chunk)
+                time.sleep(0.1)
+        
+        if len(response) > 50:
+            threading.Thread(target=stream_chunks, daemon=True).start()
+    
+    def _split_response_into_chunks(self, response):
+        """응답을 의미 단위로 분할"""
+        import re
+        
+        # 문장 단위로 분할
+        sentences = re.split(r'([.!?]\s+)', response)
+        chunks = []
+        current_chunk = ""
+        
+        for i, part in enumerate(sentences):
+            current_chunk += part
+            
+            # 문장 끝이거나 충분히 길면 청크 완성
+            if (part.strip().endswith(('.', '!', '?')) or len(current_chunk) > 20) and current_chunk.strip():
+                chunks.append(current_chunk)
+                current_chunk = ""
+        
+        # 남은 내용 추가
+        if current_chunk.strip():
+            chunks.append(current_chunk)
+        
+        return chunks if chunks else [response]
     
     def process_request(self, api_key, model, messages, user_text=None, agent_mode=False, file_prompt=None):
         """AI 요청 처리 - 메인 스레드에서 실행"""
@@ -75,6 +118,13 @@ class AIProcessor(QObject):
                         used_tools = []
                 
                 if not self._cancelled and response:
+                    # AI 응답 길이 디버그
+                    print(f"[DEBUG] AI 응답 생성 완료 - 길이: {len(response)}자")
+                    print(f"[DEBUG] 응답 내용 시작: {response[:200]}...")
+                    if len(response) > 500:
+                        print(f"[DEBUG] 응답 내용 끝: ...{response[-200:]}")
+                    
+                    # 스트리밍 없이 즉시 완성된 응답 표시
                     self.finished.emit(sender, response, used_tools)
                 elif not self._cancelled:
                     self.error.emit("응답을 생성할 수 없습니다.")
@@ -97,7 +147,6 @@ class ChatWidget(QWidget):
         # 대화 히스토리 관리
         self.conversation_history = ConversationHistory()
         self.conversation_history.load_from_file()
-        print(f"[디버그] 초기 히스토리 로드: {len(self.conversation_history.current_session)}개")
         
         # 업로드된 파일 정보 저장
         self.uploaded_file_content = None
@@ -154,7 +203,9 @@ class ChatWidget(QWidget):
         # 도구 상태 주기적 갱신 타이머 (초기 지연 후 시작)
         self.tools_update_timer = QTimer()
         self.tools_update_timer.timeout.connect(self.update_tools_label)
-        QTimer.singleShot(10000, lambda: self.tools_update_timer.start(15000))  # 10초 후 시작, 15초마다 갱신
+        # 초기 업데이트 후 주기적 갱신 시작
+        QTimer.singleShot(2000, self.update_tools_label)  # 2초 후 첫 업데이트
+        QTimer.singleShot(5000, lambda: self.tools_update_timer.start(10000))  # 5초 후 시작, 10초마다 갱신
 
         # 채팅 표시 영역 - QWebEngineView로 교체
         self.chat_display = QWebEngineView(self)
@@ -350,7 +401,10 @@ class ChatWidget(QWidget):
         self.cancel_button.clicked.connect(self.cancel_request)
         self.upload_button.clicked.connect(self.upload_file)
         
-        # Ctrl+Enter로 전송
+        # Enter키로 전송 (Shift+Enter는 줄바꿈)
+        self.input_text.keyPressEvent = self.handle_input_key_press
+        
+        # Ctrl+Enter로도 전송 가능
         send_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self.input_text)
         send_shortcut.activated.connect(self.send_message)
 
@@ -361,6 +415,7 @@ class ChatWidget(QWidget):
         # AI 프로세서 시그널 연결
         self.ai_processor.finished.connect(self.on_ai_response)
         self.ai_processor.error.connect(self.on_ai_error)
+        self.ai_processor.streaming.connect(self.on_ai_streaming)
         
         # 타이핑 애니메이션용
         self.typing_timer = QTimer()
@@ -373,14 +428,45 @@ class ChatWidget(QWidget):
         
         # 웹뷰 로드 완료 후 이전 대화 로드
         self.chat_display.loadFinished.connect(self._on_webview_loaded)
+        
+        # 초기화 완료 후 바로 이전 대화 로드 시도
+        QTimer.singleShot(1000, self._load_previous_conversations)
+    
+    def _safe_run_js(self, js_code):
+        """JavaScript를 안전하게 실행"""
+        def js_callback(result):
+            if result is False:
+                print(f"JavaScript 실행 실패 - 코드 길이: {len(js_code)}")
+        try:
+            print(f"[디버그] JavaScript 코드 길이: {len(js_code)}")
+            self.chat_display.page().runJavaScript(js_code, js_callback)
+        except Exception as e:
+            print(f"JavaScript 실행 오류: {e}")
+            print(f"JavaScript 코드 길이: {len(js_code)}")
+    
+    def handle_input_key_press(self, event):
+        """입력창 키 이벤트 처리"""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QKeyEvent
+        
+        if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+            if event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
+                # Shift+Enter: 줄바꿈 삽입
+                QTextEdit.keyPressEvent(self.input_text, event)
+            else:
+                # Enter: 메시지 전송
+                self.send_message()
+        else:
+            # 다른 키들은 기본 처리
+            QTextEdit.keyPressEvent(self.input_text, event)
     
     def update_placeholder(self):
         """모드에 따라 플레이스홀더 업데이트"""
         current_mode = self.mode_combo.currentText()
         if current_mode == "Ask":
-            self.input_text.setPlaceholderText("단순 질의를 입력하세요... (Ctrl+Enter로 전송)")
+            self.input_text.setPlaceholderText("단순 질의를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
         else:
-            self.input_text.setPlaceholderText("도구 사용 가능한 메시지를 입력하세요... (Ctrl+Enter로 전송)")
+            self.input_text.setPlaceholderText("도구 사용 가능한 메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
 
     def init_web_view(self):
         """웹 브라우저 초기화"""
@@ -389,34 +475,195 @@ class ChatWidget(QWidget):
         <html>
         <head>
             <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
+                * {
+                    box-sizing: border-box;
+                }
+                
                 body {
                     background-color: #1a1a1a;
                     color: #e8e8e8;
-                    font-family: 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
-                    font-size: 13px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+                    font-size: 14px;
                     line-height: 1.6;
                     margin: 16px;
+                    padding: 0;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                    overflow-y: auto;
+                    height: auto;
+                    min-height: 100vh;
                 }
+                
+                /* 코드 블록 스타일 */
                 pre {
-                    background: #2d2d2d;
-                    color: #e8e8e8;
-                    padding: 12px;
-                    border-radius: 6px;
-                    font-family: 'Consolas', 'Monaco', monospace;
-                    font-size: 12px;
+                    background: #1e1e1e;
+                    color: #f8f8f2;
+                    padding: 20px;
+                    border-radius: 8px;
+                    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', Menlo, Monaco, monospace;
+                    font-size: 13px;
+                    line-height: 1.5;
                     overflow-x: auto;
                     white-space: pre;
                     tab-size: 4;
+                    border: 1px solid #444;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
                 }
+                
+                /* 인라인 코드 */
+                code {
+                    background-color: #2d2d2d;
+                    color: #f8f8f2;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+                    font-size: 12px;
+                    border: 1px solid #444;
+                }
+                
+                /* 헤딩 스타일 */
+                h1, h2, h3, h4, h5, h6 {
+                    margin-top: 24px;
+                    margin-bottom: 12px;
+                    font-weight: 600;
+                    line-height: 1.25;
+                }
+                
+                h1 { font-size: 24px; color: #ffffff; border-bottom: 2px solid #444; padding-bottom: 8px; }
+                h2 { font-size: 20px; color: #eeeeee; border-bottom: 1px solid #333; padding-bottom: 6px; }
+                h3 { font-size: 18px; color: #dddddd; }
+                h4 { font-size: 16px; color: #cccccc; }
+                h5 { font-size: 14px; color: #bbbbbb; }
+                h6 { font-size: 13px; color: #aaaaaa; }
+                
+                /* 링크 스타일 */
+                a {
+                    color: #87CEEB;
+                    text-decoration: none;
+                    border-bottom: 1px dotted #87CEEB;
+                    transition: all 0.2s ease;
+                }
+                
+                a:hover {
+                    color: #B0E0E6;
+                    border-bottom: 1px solid #B0E0E6;
+                }
+                
+                /* 리스트 스타일 */
+                ul, ol {
+                    padding-left: 20px;
+                    margin: 12px 0;
+                }
+                
+                li {
+                    margin: 4px 0;
+                    color: #cccccc;
+                }
+                
+                /* 인용문 */
+                blockquote {
+                    margin: 16px 0;
+                    padding: 12px 16px;
+                    border-left: 4px solid #87CEEB;
+                    background-color: rgba(135, 206, 235, 0.1);
+                    color: #dddddd;
+                    font-style: italic;
+                }
+                
+                /* 테이블 스타일 */
+                table {
+                    border-collapse: collapse;
+                    width: auto;
+                    margin: 16px 0;
+                    background-color: #2a2a2a;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                }
+                
+                th, td {
+                    padding: 12px 16px;
+                    text-align: left;
+                    border: 1px solid #444;
+                    white-space: normal;
+                    word-wrap: break-word;
+                    vertical-align: top;
+                }
+                
+                th {
+                    background: linear-gradient(135deg, #3a3a3a, #4a4a4a);
+                    color: #ffffff;
+                    font-weight: 700;
+                    font-size: 13px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                
+                tr:nth-child(even) {
+                    background-color: #252525;
+                }
+                
+                tr:hover {
+                    background-color: #333333;
+                }
+                
+                /* 수평선 */
+                hr {
+                    border: none;
+                    height: 2px;
+                    background: linear-gradient(to right, transparent, #444, transparent);
+                    margin: 20px 0;
+                }
+                
+                /* 강조 텍스트 */
+                strong {
+                    color: #ffffff;
+                    font-weight: 600;
+                }
+                
+                em {
+                    color: #dddddd;
+                    font-style: italic;
+                }
+                
+                del {
+                    color: #888888;
+                    text-decoration: line-through;
+                }
+                
+                /* 메시지 컸테이너 */
                 .message {
                     margin: 16px 0;
-                    padding: 12px;
-                    border-radius: 8px;
+                    padding: 16px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                 }
-                .user { background: #2a4d6922; }
-                .ai { background: #2d4a2d22; }
-                .system { background: #4a3d2a22; }
+                
+                .user { background: rgba(163,135,215,0.15); border-left: 4px solid rgb(163,135,215); }
+                .ai { background: rgba(135,163,215,0.15); border-left: 4px solid rgb(135,163,215); }
+                .system { background: rgba(215,163,135,0.15); border-left: 4px solid rgb(215,163,135); }
+                
+                /* 스크롤바 스타일링 */
+                ::-webkit-scrollbar {
+                    width: 8px;
+                    height: 8px;
+                }
+                
+                ::-webkit-scrollbar-track {
+                    background: #2a2a2a;
+                    border-radius: 4px;
+                }
+                
+                ::-webkit-scrollbar-thumb {
+                    background: #555;
+                    border-radius: 4px;
+                }
+                
+                ::-webkit-scrollbar-thumb:hover {
+                    background: #666;
+                }
             </style>
             <script>
                 function copyCode(codeId) {
@@ -543,21 +790,45 @@ class ChatWidget(QWidget):
             tool_count = len(tools) if tools else 0
             
             if tool_count > 0:
-                self.tools_label.setText(f'🔧 {tool_count}개 도구 활성화')
+                text = f'🔧 {tool_count}개 도구 활성화'
             else:
-                self.tools_label.setText('🔧 도구 없음')
+                text = '🔧 도구 없음'
+            
+            self.tools_label.setText(text)
+            print(f"[디버그] 도구 라벨 업데이트: {text}")
+            
         except Exception as e:
             self.tools_label.setText('🔧 도구 상태 불명')
+            print(f"도구 라벨 업데이트 오류: {e}")
+    
+
     
     def show_tools_popup(self, event):
-        """활성화된 도구 목록 팝업 표시"""
+        """활성화된 도구 목록 팝업 표시 - 비동기 처리"""
+        import threading
+        
+        def _load_tools():
+            try:
+                from PyQt6.QtWidgets import QMenu
+                from mcp.servers.mcp import get_all_mcp_tools
+                
+                tools = get_all_mcp_tools()
+                if not tools:
+                    return
+                
+                # 메인 스레드에서 팝업 표시
+                QTimer.singleShot(0, lambda: self._show_tools_menu(event, tools))
+                
+            except Exception as e:
+                print(f"도구 팝업 표시 오류: {e}")
+        
+        # 별도 스레드에서 도구 로드
+        threading.Thread(target=_load_tools, daemon=True).start()
+    
+    def _show_tools_menu(self, event, tools):
+        """도구 메뉴 표시 (메인 스레드에서 실행)"""
         try:
             from PyQt6.QtWidgets import QMenu
-            from mcp.servers.mcp import get_all_mcp_tools
-            
-            tools = get_all_mcp_tools()
-            if not tools:
-                return
             
             menu = QMenu(self)
             menu.setStyleSheet("""
@@ -604,7 +875,7 @@ class ChatWidget(QWidget):
             menu.exec(self.tools_label.mapToGlobal(event.pos()))
             
         except Exception as e:
-            print(f"도구 팝업 표시 오류: {e}")
+            print(f"도구 메뉴 표시 오류: {e}")
 
     def send_message(self):
         user_text = self.input_text.toPlainText().strip()
@@ -617,6 +888,7 @@ class ChatWidget(QWidget):
             self.ai_processor = AIProcessor(self)
             self.ai_processor.finished.connect(self.on_ai_response)
             self.ai_processor.error.connect(self.on_ai_error)
+            self.ai_processor.streaming.connect(self.on_ai_streaming)
         
         self._process_new_message(user_text)
     
@@ -630,9 +902,8 @@ class ChatWidget(QWidget):
         
         # 히스토리에 사용자 메시지 추가
         self.conversation_history.add_message('user', user_text)
-        self.conversation_history.save_to_file()  # 즉시 저장
+        self.conversation_history.save_to_file()
         self.messages.append({'role': 'user', 'content': user_text})
-        print(f"[디버그] 사용자 메시지 히스토리에 추가: {user_text[:50]}...")
 
         model = load_last_model()
         api_key = load_model_api_key(model)
@@ -711,6 +982,7 @@ class ChatWidget(QWidget):
             self.ai_processor = AIProcessor(self)
             self.ai_processor.finished.connect(self.on_ai_response)
             self.ai_processor.error.connect(self.on_ai_error)
+            self.ai_processor.streaming.connect(self.on_ai_streaming)
         
         self._process_file_upload(file_path)
     
@@ -844,14 +1116,14 @@ class ChatWidget(QWidget):
             
             # 사용자에게 프롬프트 입력 안내
             self.append_chat('시스템', f'파일이 업로드되었습니다. 이제 파일에 대해 무엇을 알고 싶은지 메시지를 입력해주세요.')
-            self.input_text.setPlaceholderText(f"{self.uploaded_file_name}에 대해 무엇을 알고 싶으신가요?")
+            self.input_text.setPlaceholderText(f"{self.uploaded_file_name}에 대해 무엇을 알고 싶으신가요? (Enter로 전송)")
             
         except Exception as e:
             self.append_chat('시스템', f'파일 처리 오류: {e}')
             # 오류 시 파일 내용 초기화
             self.uploaded_file_content = None
             self.uploaded_file_name = None
-            self.input_text.setPlaceholderText("메시지를 입력하세요... (Ctrl+Enter로 전송)")
+            self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
 
     def cancel_request(self):
         """요청 취소 - 단순화된 방식"""
@@ -868,33 +1140,128 @@ class ChatWidget(QWidget):
         self.append_chat('시스템', '요청을 취소했습니다.')
         print("취소 요청 완료")
     
+    def on_ai_streaming(self, sender, partial_text):
+        """스트림 출력 처리"""
+        if not hasattr(self, 'current_stream_message_id'):
+            import uuid
+            self.current_stream_message_id = f"stream_{uuid.uuid4().hex[:8]}"
+            self.current_stream_content = ""
+            self._create_stream_message_container(sender, self.current_stream_message_id)
+        
+        self.current_stream_content += partial_text
+        
+        # 기본 HTML 이스케이프
+        formatted_content = self.current_stream_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
+        formatted_content = formatted_content.replace('\\', '\\\\').replace("'", "\\'")
+        
+        js_code = f"""
+        try {{
+            var contentDiv = document.getElementById('{self.current_stream_message_id}_content');
+            if (contentDiv) {{
+                contentDiv.innerHTML = '{formatted_content}';
+                window.scrollTo(0, document.body.scrollHeight);
+            }}
+        }} catch(e) {{}}
+        """
+        self._safe_run_js(js_code)
+    
+    def _create_stream_message_container(self, sender, message_id):
+        """스트림 메시지 컸테이너 생성"""
+        # 발신자별 스타일
+        if sender == '사용자':
+            bg_color = 'rgba(163,135,215,0.15)'
+            border_color = 'rgb(163,135,215)'
+            icon = '💬'
+            sender_color = 'rgb(163,135,215)'
+        elif sender in ['AI', '에이전트'] or '에이전트' in sender:
+            bg_color = 'rgba(135,163,215,0.15)'
+            border_color = 'rgb(135,163,215)'
+            icon = '🤖'
+            sender_color = 'rgb(135,163,215)'
+        else:
+            bg_color = 'rgba(215,163,135,0.15)'
+            border_color = 'rgb(215,163,135)'
+            icon = '⚙️'
+            sender_color = 'rgb(215,163,135)'
+        
+        html_container = f"""
+        <div id="{message_id}" style="
+            margin: 12px 0;
+            padding: 16px;
+            background: linear-gradient(135deg, {bg_color}33, {bg_color}11);
+            border-radius: 12px;
+            border-left: 4px solid {border_color};
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        ">
+            <div style="
+                margin: 0 0 12px 0;
+                font-weight: 700;
+                color: {sender_color};
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            ">
+                <span style="font-size: 16px;">{icon}</span>
+                <span>{sender}</span>
+                <span style="opacity: 0.6; font-size: 10px;">• 입력 중...</span>
+            </div>
+            <div id="{message_id}_content" style="
+                margin: 0;
+                padding-left: 24px;
+                line-height: 1.6;
+                color: #ffffff;
+                font-size: 13px;
+                word-wrap: break-word;
+                font-family: 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
+            ">
+                <span style="opacity: 0.5;">●</span>
+            </div>
+        </div>
+        """
+        
+        # JavaScript로 메시지 추가
+        html_escaped = html_container.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
+        js_code = f"""
+        try {{
+            var messagesDiv = document.getElementById('messages');
+            var messageDiv = document.createElement('div');
+            messageDiv.innerHTML = `{html_escaped}`;
+            messagesDiv.appendChild(messageDiv);
+            window.scrollTo(0, document.body.scrollHeight);
+        }} catch(e) {{
+            console.log('Message add error:', e);
+        }}
+        """
+        self._safe_run_js(js_code)
+    
     def on_ai_response(self, sender, text, used_tools):
+        # AI 응답 길이 디버그
+        print(f"[DEBUG] AI 응답 받음 - 길이: {len(text)}자")
+        print(f"[DEBUG] AI 응답 시작: {text[:100]}...")
+        print(f"[DEBUG] AI 응답 끝: ...{text[-100:]}")
+        
         # 응답 시간 계산
         response_time = ""
         if self.request_start_time:
             from datetime import datetime
             elapsed = datetime.now() - self.request_start_time
-            response_time = f" (응답시간: {elapsed.total_seconds():.1f}초)"
+            response_time = f" ({elapsed.total_seconds():.1f}초)"
         
-        # 도구 사용 시 이모티콘 추가
-        tool_emoji = self._get_tool_emoji(used_tools)
-        if tool_emoji:
-            sender = f"{sender} {tool_emoji}"
+        # 현재 모델 정보 가져오기
+        current_model = load_last_model()
         
-        # 테이블 감지 - 응답시간을 테이블과 분리
-        if '|' in text and ('---' in text or text.count('|') > 4):
-            # 테이블이 포함된 경우 응답시간을 별도로 표시
-            self.start_optimized_typing(sender, text)
-            if response_time:
-                self.append_chat('시스템', f'처리 완료{response_time}')
-        else:
-            # 일반 텍스트는 기존 방식
-            self.start_optimized_typing(sender, text + response_time)
+        # 모델명과 응답시간을 응답 끝에 추가
+        enhanced_text = f"{text}\n\n---\n*🤖 {current_model}{response_time}*"
         
-        # 히스토리에 AI 응답 추가
+        # 스트리밍 없이 즉시 완성된 응답 표시
+        self.append_chat(sender, enhanced_text)
+        
+        # 히스토리에는 원본 텍스트만 저장
         self.conversation_history.add_message('assistant', text)
         self.conversation_history.save_to_file()
-        print(f"[디버그] AI 응답 히스토리에 저장됨: {text[:50]}...")
         
         self.messages.append({'role': 'assistant', 'content': text})
         self.set_ui_enabled(True)
@@ -965,78 +1332,60 @@ class ChatWidget(QWidget):
         else:
             self.loading_bar.hide()
 
+    def _append_simple_chat(self, sender, text):
+        """간단한 채팅 메시지 표시"""
+        self.append_chat(sender, text)
+    
     def append_chat(self, sender, text):
-        """채팅 메시지를 예쁘게 표시"""
+        """채팅 메시지 표시 - 최적화"""
         # 발신자별 스타일
         if sender == '사용자':
             bg_color = 'rgba(163,135,215,0.15)'
             border_color = 'rgb(163,135,215)'
-            text_color = '#ffffff'
             icon = '💬'
             sender_color = 'rgb(163,135,215)'
         elif sender in ['AI', '에이전트'] or '에이전트' in sender:
             bg_color = 'rgba(135,163,215,0.15)'
             border_color = 'rgb(135,163,215)'
-            text_color = '#ffffff'
             icon = '🤖'
             sender_color = 'rgb(135,163,215)'
         else:
             bg_color = 'rgba(215,163,135,0.15)'
             border_color = 'rgb(215,163,135)'
-            text_color = '#ffffff'
             icon = '⚙️'
             sender_color = 'rgb(215,163,135)'
         
-        formatted_text = self.format_text(text)
+        # 마크다운 처리
+        formatted_text = self._format_markdown(text)
         
-        html_message = f"""
-        <div style="
-            margin: 12px 0;
-            padding: 16px;
-            background: linear-gradient(135deg, {bg_color}33, {bg_color}11);
-            border-radius: 12px;
-            border-left: 4px solid {border_color};
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        ">
-            <div style="
-                margin: 0 0 12px 0;
-                font-weight: 700;
-                color: {sender_color};
-                font-size: 12px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            ">
-                <span style="font-size: 16px;">{icon}</span>
-                <span>{sender}</span>
-            </div>
-            <div style="
-                margin: 0;
-                padding-left: 24px;
-                line-height: 1.6;
-                color: {text_color};
-                font-size: 13px;
-                word-wrap: break-word;
-                font-family: 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
-            ">
-                {formatted_text}
-            </div>
-        </div>
-        """
+        # 메시지 ID 생성
+        import uuid
+        message_id = f"msg_{uuid.uuid4().hex[:8]}"
         
-        # JavaScript로 메시지 추가
-        import json
+        # 단일 JavaScript로 메시지 추가
         js_code = f"""
-        var messagesDiv = document.getElementById('messages');
-        var messageDiv = document.createElement('div');
-        messageDiv.className = 'message';
-        messageDiv.innerHTML = {json.dumps(html_message)};
-        messagesDiv.appendChild(messageDiv);
-        window.scrollTo(0, document.body.scrollHeight);
+        (function() {{
+            try {{
+                var div = document.createElement('div');
+                div.innerHTML = `
+                    <div style="margin:12px 0;padding:16px;background:{bg_color};border-radius:12px;border-left:4px solid {border_color};">
+                        <div style="margin:0 0 12px 0;font-weight:700;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:16px;">{icon}</span><span>{sender}</span>
+                        </div>
+                        <div style="margin:0;padding-left:24px;line-height:1.6;color:#ffffff;font-size:13px;word-wrap:break-word;">
+                            {formatted_text.replace('`', '\\`').replace('${', '\\${')}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('messages').appendChild(div);
+                window.scrollTo(0, document.body.scrollHeight);
+            }} catch(e) {{
+                console.log('Error:', e);
+            }}
+        }})();
         """
-        self.chat_display.page().runJavaScript(js_code)
+        
+        self._safe_run_js(js_code)
     
     def start_optimized_typing(self, sender, text):
         """즉시 메시지 표시"""
@@ -1053,15 +1402,20 @@ class ChatWidget(QWidget):
         formatted_line = self.format_text(line)
         
         # 현재 메시지 컨테이너에 줄 추가
+        line_escaped = formatted_line.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
         line_js = f"""
-        var contentDiv = document.getElementById('{self.current_message_id}_content');
-        var lineDiv = document.createElement('div');
-        lineDiv.innerHTML = `{formatted_line.replace('`', '\\`').replace('${', '\\${')}` + '<br>';
-        contentDiv.appendChild(lineDiv);
-        window.scrollTo(0, document.body.scrollHeight);
+        try {{
+            var contentDiv = document.getElementById('{self.current_message_id}_content');
+            var lineDiv = document.createElement('div');
+            lineDiv.innerHTML = `{line_escaped}` + '<br>';
+            contentDiv.appendChild(lineDiv);
+            window.scrollTo(0, document.body.scrollHeight);
+        }} catch(e) {{
+            console.log('Line add error:', e);
+        }}
         """
         
-        self.chat_display.page().runJavaScript(line_js)
+        self._safe_run_js(line_js)
         self.current_line_index += 1
     
     def _split_text_for_typing(self, text):
@@ -1097,147 +1451,197 @@ class ChatWidget(QWidget):
         return chunks
     
     def format_text(self, text):
-        """텍스트 포맷팅 - HTML 파일 기준"""
+        """Simple text formatting without LLM"""
+        return self._basic_format_text(text)
+    
+    def _format_markdown(self, text):
+        """개선된 마크다운 포맷팅"""
         import re
         
-        # 코드 블록 처리
-        def format_code_block(match):
+        # 1. 코드 블록 먼저 보호 (이스케이프 방지)
+        code_blocks = []
+        def preserve_code_block(match):
+            code_blocks.append(match.group(0))
+            return f"__CODE_BLOCK_{len(code_blocks)-1}__"
+        
+        text = re.sub(r'```[\s\S]*?```', preserve_code_block, text)
+        
+        # 2. 테이블 처리 (HTML 이스케이프 전에)
+        text = self._format_table_improved(text)
+        
+        # 3. HTML 이스케이프 (테이블 HTML은 보호)
+        table_placeholders = []
+        def preserve_table_html(match):
+            table_placeholders.append(match.group(0))
+            return f"__TABLE_HTML_{len(table_placeholders)-1}__"
+        
+        # 테이블 HTML 보호
+        text = re.sub(r'<table[^>]*>.*?</table>', preserve_table_html, text, flags=re.DOTALL)
+        
+        # HTML 이스케이프
+        text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        
+        # 4. 코드 블록 복원 및 처리
+        for i, code_block in enumerate(code_blocks):
+            lang_match = re.match(r'```([^\n]*)', code_block)
+            lang = lang_match.group(1).strip() if lang_match else 'text'
+            code_content = re.sub(r'```[^\n]*\n?([\s\S]*?)```', r'\1', code_block)
+            
+            # 코드 ID 생성
             import uuid
-            lang = match.group(1).strip() if match.group(1) else 'code'
-            code = match.group(2)
             code_id = f"code_{uuid.uuid4().hex[:8]}"
             
-            # 들여쓰기 정리
-            lines = code.split('\n')
-            if lines and lines[0].strip() == '':
-                lines = lines[1:]
-            if lines and lines[-1].strip() == '':
-                lines = lines[:-1]
-            
-            if lines:
-                min_indent = float('inf')
-                for line in lines:
-                    if line.strip():
-                        indent = len(line) - len(line.lstrip())
-                        min_indent = min(min_indent, indent)
-                
-                if min_indent != float('inf') and min_indent > 0:
-                    lines = [line[min_indent:] if len(line) > min_indent else line for line in lines]
-                
-                code = '\n'.join(lines)
-            
-            return f'<div style="background-color: #1e1e1e; border: 1px solid #444444; border-radius: 6px; margin: 12px 0; overflow: hidden;"><div style="background-color: #2d2d2d; padding: 6px 12px; font-size: 11px; color: #888888; border-bottom: 1px solid #444444; display: flex; justify-content: space-between; align-items: center;"><span>{lang}</span><button onclick="copyCode(\'{code_id}\')" style="background: #444; border: none; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity=\'1\'" onmouseout="this.style.opacity=\'0.7\'">복사</button></div><pre id="{code_id}" style="background: none; color: #f8f8f2; padding: 16px; margin: 0; font-family: Consolas, Monaco, monospace; font-size: 13px; line-height: 1.4; overflow-x: auto; white-space: pre;">{code}</pre></div>'
+            formatted_code = f'''
+<div style="background:#1e1e1e;border:1px solid #444;border-radius:8px;margin:12px 0;overflow:hidden;">
+    <div style="background:#2d2d2d;padding:6px 12px;font-size:11px;color:#888;border-bottom:1px solid #444;display:flex;justify-content:space-between;align-items:center;">
+        <span>{lang}</span>
+        <button onclick="copyCode('{code_id}')" style="background:#444;border:none;color:#fff;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;opacity:0.7;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">복사</button>
+    </div>
+    <pre id="{code_id}" style="background:none;color:#f8f8f2;padding:16px;margin:0;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.4;overflow-x:auto;white-space:pre;">{code_content}</pre>
+</div>
+            '''
+            text = text.replace(f"__CODE_BLOCK_{i}__", formatted_code)
         
-        # 코드 블록 처리 (복사 버튼 포함)
-        text = re.sub(r'```([^\n]*)\n([\s\S]*?)```', format_code_block, text)
+        # 5. 헤딩
+        text = re.sub(r'^# (.*?)$', r'<h1 style="color:#ffffff;font-size:20px;margin:16px 0 8px 0;border-bottom:2px solid #444;padding-bottom:4px;">\1</h1>', text, flags=re.MULTILINE)
+        text = re.sub(r'^## (.*?)$', r'<h2 style="color:#eeeeee;font-size:18px;margin:14px 0 6px 0;border-bottom:1px solid #333;padding-bottom:3px;">\1</h2>', text, flags=re.MULTILINE)
+        text = re.sub(r'^### (.*?)$', r'<h3 style="color:#dddddd;font-size:16px;margin:12px 0 4px 0;">\1</h3>', text, flags=re.MULTILINE)
         
-        # 헤딩 처리
-        text = re.sub(r'^# (.*?)$', r'<h1 style="color: #ffffff; margin: 20px 0 10px 0; font-size: 20px; font-weight: 600;">\1</h1>', text, flags=re.MULTILINE)
-        text = re.sub(r'^## (.*?)$', r'<h2 style="color: #eeeeee; margin: 16px 0 8px 0; font-size: 18px; font-weight: 600;">\1</h2>', text, flags=re.MULTILINE)
-        text = re.sub(r'^### (.*?)$', r'<h3 style="color: #dddddd; margin: 14px 0 7px 0; font-size: 16px; font-weight: 600;">\1</h3>', text, flags=re.MULTILINE)
-        text = re.sub(r'^#### (.*?)$', r'<h4 style="color: #cccccc; margin: 12px 0 6px 0; font-size: 14px; font-weight: 600;">\1</h4>', text, flags=re.MULTILINE)
-        text = re.sub(r'^##### (.*?)$', r'<h5 style="color: #bbbbbb; margin: 10px 0 5px 0; font-size: 13px; font-weight: 600;">\1</h5>', text, flags=re.MULTILINE)
-        text = re.sub(r'^###### (.*?)$', r'<h6 style="color: #aaaaaa; margin: 8px 0 4px 0; font-size: 12px; font-weight: 600;">\1</h6>', text, flags=re.MULTILINE)
+        # 6. 굵은 글씨
+        text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color:#ffffff;font-weight:600;">\1</strong>', text)
+        
+        # 7. 인라인 코드
+        text = re.sub(r'`([^`]+)`', r'<code style="background:#2d2d2d;color:#f8f8f2;padding:3px 6px;border-radius:3px;border:1px solid #444;">\1</code>', text)
+        
+        # 8. 불릿 포인트
+        text = re.sub(r'(^|<br>)- (.*?)(?=<br>|$)', r'\1<div style="margin:2px 0;margin-left:16px;color:#cccccc;">• \2</div>', text, flags=re.MULTILINE)
+        text = re.sub(r'(^|<br>)\* (.*?)(?=<br>|$)', r'\1<div style="margin:2px 0;margin-left:16px;color:#cccccc;">• \2</div>', text, flags=re.MULTILINE)
+        
+        # 9. 번호 목록
+        text = re.sub(r'(^|<br>)(\d+)\. (.*?)(?=<br>|$)', r'\1<div style="margin:2px 0;margin-left:16px;color:#cccccc;">\2. \3</div>', text, flags=re.MULTILINE)
+        
+        # 10. 링크
+        text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color:#87CEEB;text-decoration:none;border-bottom:1px dotted #87CEEB;" target="_blank">\1</a>', text)
+        
+        # 11. 테이블 HTML 복원
+        for i, table_html in enumerate(table_placeholders):
+            text = text.replace(f"__TABLE_HTML_{i}__", table_html)
+        
+        # 12. 줄바꿈 및 정리
+        # 빈 줄을 단일 <br>로 변환
+        text = re.sub(r'\n\s*\n', '<br>', text)
+        # 나머지 줄바꿈은 공백으로
+        text = text.replace('\n', ' ')
+        # HTML 요소 주변 불필요한 <br> 제거
+        text = re.sub(r'<br>\s*(<[^>]+>)', r'\1', text)
+        text = re.sub(r'(<[^>]+>)\s*<br>', r'\1', text)
+        # 연속된 <br> 정리
+        text = re.sub(r'(<br>\s*){2,}', '<br>', text)
+        
+        return text
+    
+    def _format_table_improved(self, text):
+        """개선된 테이블 포맷팅 - 단순화"""
+        import re
+        
+        # 마크다운 테이블 패턴 매칭
+        table_pattern = r'((?:^.*\|.*$\n?)+)'
+        
+        def format_table_match(match):
+            table_text = match.group(1).strip()
+            # 구분선이 있는 진짜 테이블인지 확인
+            if '---' in table_text or ':--' in table_text:
+                return self._build_simple_table(table_text.split('\n'))
+            else:
+                # 단순한 | 문자는 그대로 둘기
+                return table_text
+        
+        # 테이블 변환
+        text = re.sub(table_pattern, format_table_match, text, flags=re.MULTILINE)
+        
+        return text
+    
+    def _build_simple_table(self, table_lines):
+        """단순화된 테이블 HTML 생성"""
+        if not table_lines:
+            return ''
+        
+        # 구분선 제거
+        clean_lines = []
+        for line in table_lines:
+            if not ('---' in line or '===' in line or ':--' in line):
+                clean_lines.append(line.strip())
+        
+        if not clean_lines:
+            return ''
+        
+        html = '<table style="border-collapse:collapse;margin:12px 0;background:#2a2a2a;border-radius:6px;overflow:hidden;">'
+        
+        for i, line in enumerate(clean_lines):
+            # 파이프로 분할
+            cells = line.split('|')
+            
+            # 앞뒤 빈 셀 제거
+            if cells and not cells[0].strip():
+                cells.pop(0)
+            if cells and not cells[-1].strip():
+                cells.pop()
+            
+            if not cells:
+                continue
+            
+            html += '<tr>'
+            for cell in cells:
+                cell = cell.strip()
+                # 셀 내용에 마크다운 적용
+                formatted_cell = self._format_cell_markdown(cell)
+                
+                if i == 0:  # 헤더
+                    html += f'<th style="padding:8px 12px;border:1px solid #444;color:#fff;background:#3a3a3a;font-weight:bold;">{formatted_cell}</th>'
+                else:  # 데이터
+                    html += f'<td style="padding:8px 12px;border:1px solid #444;color:#ccc;vertical-align:top;">{formatted_cell}</td>'
+            html += '</tr>'
+        
+        html += '</table>'
+        return html
+    
+    def _format_cell_markdown(self, content):
+        """테이블 셀 내 마크다운 처리"""
+        import re
+        
+        if not content or not content.strip():
+            return '&nbsp;'
+        
+        content = content.strip()
+        
+        # HTML 이스케이프
+        content = content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         
         # 굵은 글씨
-        text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #ffffff; font-weight: 600;">\1</strong>', text)
+        content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color:#fff;font-weight:600;">\1</strong>', content)
         
-        # 번호 목록
-        text = re.sub(r'^(\d+)\. (.*?)$', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #aaaaaa; margin-right: 6px;">\1.</span>\2</div>', text, flags=re.MULTILINE)
-        
-        # 불릿 포인트
-        text = re.sub(r'^[•\-\*] (.*?)$', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #aaaaaa; margin-right: 6px;">•</span>\1</div>', text, flags=re.MULTILINE)
+        # 기울임
+        content = re.sub(r'\*(.*?)\*', r'<em style="color:#ddd;font-style:italic;">\1</em>', content)
         
         # 인라인 코드
-        text = re.sub(r'`([^`]+)`', r'<code style="background-color: #2d2d2d; color: #f8f8f2; padding: 3px 6px; border-radius: 4px; font-family: Consolas, Monaco, monospace; font-size: 13px; border: 1px solid #444444;">\1</code>', text)
+        content = re.sub(r'`([^`]+)`', r'<code style="background:#1e1e1e;color:#f8f8f2;padding:2px 4px;border-radius:2px;font-size:11px;border:1px solid #444;">\1</code>', content)
         
         # 링크
-        text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color: #bbbbbb; text-decoration: underline;" target="_blank">\1</a>', text)
+        content = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color:#87CEEB;text-decoration:none;border-bottom:1px dotted #87CEEB;" target="_blank">\1</a>', content)
         
-        # 테이블 처리
-        def format_table(table_text):
-            lines = table_text.strip().split('\n')
-            table_lines = [line for line in lines if '|' in line and line.strip()]
-            
-            if len(table_lines) < 2:
-                return table_text
-            
-            # 테이블 HTML 생성
-            html = '<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: #2a2a2a; border-radius: 6px; overflow: hidden;">'
-            
-            # 최대 열 수 계산
-            max_cols = max(len([cell.strip() for cell in line.split('|') if cell.strip()]) for line in table_lines if '---' not in line and '===' not in line)
-            
-            for i, line in enumerate(table_lines):
-                # 구분선 건너뛰기
-                if '---' in line or '===' in line:
-                    continue
-                    
-                cells = [cell.strip() for cell in line.split('|') if cell.strip()]
-                if not cells:
-                    continue
-                
-                # 헤더 행 처리
-                if i == 0:
-                    html += '<tr style="background-color: #3a3a3a;">'
-                    for j, cell in enumerate(cells):
-                        # 빈 셀이면 colspan 적용
-                        if not cell and j > 0:
-                            continue
-                        colspan = 1
-                        # 다음 셀들이 비어있으면 colspan 증가
-                        for k in range(j + 1, len(cells)):
-                            if not cells[k]:
-                                colspan += 1
-                            else:
-                                break
-                        # 마지막 열까지 확장
-                        if j + colspan < max_cols:
-                            remaining = max_cols - (j + colspan)
-                            if remaining > 0 and all(not cells[l] if l < len(cells) else True for l in range(j + colspan, min(len(cells), max_cols))):
-                                colspan += remaining
-                        
-                        html += f'<th style="padding: 12px; border: 1px solid #555; color: #ffffff; font-weight: 600; text-align: left;" colspan="{colspan}">{cell}</th>'
-                    html += '</tr>'
-                else:
-                    html += '<tr style="background-color: #2a2a2a;">'
-                    for j, cell in enumerate(cells):
-                        # 빈 셀이면 colspan 적용
-                        if not cell and j > 0:
-                            continue
-                        colspan = 1
-                        # 다음 셀들이 비어있으면 colspan 증가
-                        for k in range(j + 1, len(cells)):
-                            if not cells[k]:
-                                colspan += 1
-                            else:
-                                break
-                        
-                        html += f'<td style="padding: 10px; border: 1px solid #555; color: #cccccc;" colspan="{colspan}">{cell}</td>'
-                    html += '</tr>'
-            
-            html += '</table>'
-            return html
+        # 불릿 포인트 처리
+        lines = content.split('\n')
+        if len(lines) > 1:
+            formatted_lines = []
+            for line in lines:
+                line = line.strip()
+                if line.startswith('- ') or line.startswith('• '):
+                    formatted_lines.append(f'<div style="margin:2px 0;color:#ccc;">• {line[2:]}</div>')
+                elif line:
+                    formatted_lines.append(f'<div style="margin:2px 0;">{line}</div>')
+            content = ''.join(formatted_lines)
         
-        # 테이블 감지 및 처리
-        if '|' in text and ('---' in text or text.count('|') > 4):
-            text = format_table(text)
-            return text
-        
-        # 일반 텍스트 줄바꿈 처리
-        lines = text.split('\n')
-        formatted_lines = []
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                formatted_lines.append('<br>')
-            elif line.startswith('<'):
-                formatted_lines.append(line)
-            else:
-                formatted_lines.append(f'<div style="margin: 2px 0; line-height: 1.4; color: #cccccc;">{line}</div>')
-        
-        return '\n'.join(formatted_lines)
+        return content
     
     def scroll_to_bottom(self):
         """스크롤을 맨 아래로"""
@@ -1251,30 +1655,32 @@ class ChatWidget(QWidget):
             QTimer.singleShot(500, self._load_previous_conversations)
     
     def _load_previous_conversations(self):
-        """이전 대화 내용 10개 로드"""
+        """이전 대화 내용 로드 - 원본 그대로"""
         try:
-            print(f"[디버그] 히스토리 로드 시도 - 전체 메시지: {len(self.conversation_history.current_session)}개")
-            recent_messages = self.conversation_history.get_recent_messages(10)
-            print(f"[디버그] 최근 메시지 가져오기: {len(recent_messages) if recent_messages else 0}개")
+            self.conversation_history.load_from_file()
+            recent_messages = self.conversation_history.get_recent_messages(3)
             
             if recent_messages:
-                for i, msg in enumerate(recent_messages):
+                self._append_simple_chat('시스템', f'이전 대화 {len(recent_messages)}개를 불러왔습니다.')
+                
+                for msg in recent_messages:
                     role = msg.get('role', '')
                     content = msg.get('content', '')
-                    print(f"[디버그] 메시지 {i}: role={role}, content={content[:50]}...")
                     
-                    if role == 'user' and content.strip():
-                        self.append_chat('사용자', content)
-                    elif role == 'assistant' and content.strip():
-                        self.append_chat('AI', content)
-                
-                print(f"[디버그] 이전 대화 {len(recent_messages)}개 로드 완료")
+                    if not content or not content.strip():
+                        continue
+                    
+                    # 내용 생략하지 않음
+                    
+                    if role == 'user':
+                        self._append_simple_chat('사용자', content)
+                    elif role == 'assistant':
+                        self._append_simple_chat('AI', content)
             else:
-                print(f"[디버그] 로드할 이전 대화 없음")
+                self._append_simple_chat('시스템', '새로운 대화를 시작합니다.')
+                
         except Exception as e:
-            print(f"[디버그] 이전 대화 로드 오류: {e}")
-            import traceback
-            traceback.print_exc()
+            self._append_simple_chat('시스템', '새로운 대화를 시작합니다.')
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""

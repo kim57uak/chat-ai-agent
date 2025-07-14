@@ -2,14 +2,19 @@ import re
 import json
 import uuid
 from typing import Dict, Any
+from ui.intelligent_formatter import IntelligentContentFormatter
 
 
 class ChatMessageFormatter:
-    """채팅 메시지 포맷팅 클래스 (Single Responsibility Principle)"""
+    """Enhanced chat message formatter with AI-driven content analysis"""
     
-    @staticmethod
-    def format_text(text: str) -> str:
-        """텍스트 포맷팅 - HTML 파일 기준"""
+    def __init__(self, llm=None):
+        self.intelligent_formatter = IntelligentContentFormatter(llm)
+    
+    def format_text(self, text: str) -> str:
+        """AI-enhanced text formatting with intelligent content analysis"""
+        # Use intelligent formatter for complex content
+        return self.intelligent_formatter.format_content(text)
         # 코드 블록 처리
         def format_code_block(match):
             lang = match.group(1).strip() if match.group(1) else 'code'
@@ -63,12 +68,9 @@ class ChatMessageFormatter:
         # 링크
         text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color: #bbbbbb; text-decoration: underline;" target="_blank">\1</a>', text)
         
-        # 테이블 처리
-        if '|' in text and ('---' in text or text.count('|') > 4):
-            return ChatMessageFormatter._format_table(text)
-        
-        # 일반 텍스트 줄바꿈 처리
-        return ChatMessageFormatter._format_regular_text(text)
+        # This method is now handled by IntelligentContentFormatter
+        # Keeping for backward compatibility
+        return text
     
     @staticmethod
     def _format_table(table_text: str) -> str:
@@ -82,80 +84,62 @@ class ChatMessageFormatter:
         # 테이블 HTML 생성
         html = '<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: #2a2a2a; border-radius: 6px; overflow: hidden;">'
         
-        # 최대 열 수 계산
-        max_cols = max(len([cell.strip() for cell in line.split('|') if cell.strip()]) for line in table_lines if '---' not in line and '===' not in line)
-        
-        for i, line in enumerate(table_lines):
+        header_processed = False
+        for line in table_lines:
             # 구분선 건너뛰기
             if '---' in line or '===' in line:
                 continue
                 
-            cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+            # 파이프로 분할하고 앞뒤 빈 셀 제거
+            cells = [cell.strip() for cell in line.split('|')]
+            if cells and cells[0] == '':
+                cells.pop(0)
+            if cells and cells[-1] == '':
+                cells.pop()
             if not cells:
                 continue
             
             # 헤더 행 처리
-            if i == 0:
-                html += '<tr style="background-color: #3a3a3a;">'
-                for j, cell in enumerate(cells):
-                    # 빈 셀이면 colspan 적용
-                    if not cell and j > 0:
-                        continue
-                    colspan = 1
-                    # 다음 셀들이 비어있으면 colspan 증가
-                    for k in range(j + 1, len(cells)):
-                        if not cells[k]:
-                            colspan += 1
-                        else:
-                            break
-                    # 마지막 열까지 확장
-                    if j + colspan < max_cols:
-                        remaining = max_cols - (j + colspan)
-                        if remaining > 0 and all(not cells[l] if l < len(cells) else True for l in range(j + colspan, min(len(cells), max_cols))):
-                            colspan += remaining
-                    
-                    html += f'<th style="padding: 12px; border: 1px solid #555; color: #ffffff; font-weight: 600; text-align: left;" colspan="{colspan}">{cell}</th>'
-                html += '</tr>'
+            if not header_processed:
+                html += '<thead><tr style="background-color: #3a3a3a;">'
+                for cell in cells:
+                    html += f'<th style="padding: 12px; border: 1px solid #555; color: #ffffff; font-weight: 600; text-align: left;">{cell}</th>'
+                html += '</tr></thead><tbody>'
+                header_processed = True
             else:
+                # 데이터 행 처리
                 html += '<tr style="background-color: #2a2a2a;">'
-                for j, cell in enumerate(cells):
-                    # 빈 셀이면 colspan 적용
-                    if not cell and j > 0:
-                        continue
-                    colspan = 1
-                    # 다음 셀들이 비어있으면 colspan 증가
-                    for k in range(j + 1, len(cells)):
-                        if not cells[k]:
-                            colspan += 1
-                        else:
-                            break
-                    
-                    html += f'<td style="padding: 10px; border: 1px solid #555; color: #cccccc;" colspan="{colspan}">{cell}</td>'
+                for cell in cells:
+                    html += f'<td style="padding: 10px; border: 1px solid #555; color: #cccccc;">{cell}</td>'
                 html += '</tr>'
         
-        html += '</table>'
+        html += '</tbody></table>'
         return html
     
     @staticmethod
     def _format_regular_text(text: str) -> str:
-        """일반 텍스트 포맷팅"""
+        """일반 텍스트 포맷팅 - 불필요한 줄바꿈 제거"""
         lines = text.split('\n')
         formatted_lines = []
+        prev_empty = False
         
         for line in lines:
             line = line.strip()
             if not line:
-                formatted_lines.append('<br>')
+                if not prev_empty:  # 연속된 빈 줄 방지
+                    formatted_lines.append('<br>')
+                    prev_empty = True
             elif line.startswith('<'):
                 formatted_lines.append(line)
+                prev_empty = False
             else:
                 formatted_lines.append(f'<div style="margin: 2px 0; line-height: 1.4; color: #cccccc;">{line}</div>')
+                prev_empty = False
         
         return '\n'.join(formatted_lines)
     
-    @staticmethod
-    def create_message_html(sender: str, text: str) -> str:
-        """메시지 HTML 생성"""
+    def create_message_html(self, sender: str, text: str) -> str:
+        """Enhanced message HTML generation with intelligent formatting"""
         # 발신자별 스타일
         if sender == '사용자':
             bg_color = 'rgba(163,135,215,0.15)'
@@ -176,7 +160,7 @@ class ChatMessageFormatter:
             icon = '⚙️'
             sender_color = 'rgb(215,163,135)'
         
-        formatted_text = ChatMessageFormatter.format_text(text)
+        formatted_text = self.format_text(text)
         
         return f"""
         <div style="

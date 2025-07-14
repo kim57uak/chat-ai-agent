@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple, Optional
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from core.enhanced_system_prompts import SystemPrompts
+from core.file_utils import load_config
 import logging
 import re
 import base64
@@ -22,37 +24,11 @@ class SimpleChatProcessor(ChatProcessor):
     def process_chat(self, user_input: str, llm: Any, conversation_history: List[Dict] = None) -> str:
         """일반 채팅 (도구 사용 없음)"""
         try:
-            # 통일된 시스템 메시지 - 이미지 텍스트 추출에 특화
-            system_content = """You are an expert AI assistant specialized in image analysis and text extraction (OCR).
-
-**Primary Mission for Images:**
-- **COMPLETE TEXT EXTRACTION**: Extract every single character, number, and symbol from images with 100% accuracy
-- **ZERO OMISSIONS**: Never skip or miss any text, no matter how small or unclear
-- **PERFECT TRANSCRIPTION**: Reproduce all text exactly as it appears, including spacing and formatting
-- **STRUCTURAL ANALYSIS**: Identify tables, lists, headers, paragraphs, and document layout
-- **MULTILINGUAL SUPPORT**: Handle Korean, English, numbers, and special characters flawlessly
-
-**Response Format for Images:**
-## 📄 추출된 텍스트
-[모든 텍스트를 정확히 나열 - 절대 누락 금지]
-
-## 📋 문서 구조
-[표, 목록, 제목 등의 구조 설명]
-
-## 📍 레이아웃 정보
-[텍스트 배치와 위치 관계]
-
-**Critical Rules:**
-- NEVER say "텍스트가 없습니다" or "추출할 텍스트가 없습니다"
-- ALWAYS extract something, even if text is small or unclear
-- If text is unclear, provide your best interpretation with [불명확] notation
-- Focus on TEXT EXTRACTION as the absolute priority
-
-**For General Questions:**
-- Always respond in natural, conversational Korean
-- Organize information clearly with headings and bullet points
-- Highlight important information using **bold** formatting
-- Be friendly, helpful, and accurate"""
+            # AI-driven system prompt selection based on content type
+            if self._contains_image_data(user_input):
+                system_content = SystemPrompts.get_image_analysis_prompt()
+            else:
+                system_content = SystemPrompts.get_general_chat_prompt()
 
             # Gemini 모델의 경우 시스템 메시지를 인간 메시지로 변환
             model_name = getattr(llm, 'model_name', str(llm))
@@ -65,15 +41,20 @@ class SimpleChatProcessor(ChatProcessor):
             if conversation_history:
                 messages.extend(self._convert_history_to_messages(conversation_history, model_name))
 
-            # 이미지 데이터 처리
-            if "[IMAGE_BASE64]" in user_input and "[/IMAGE_BASE64]" in user_input:
+                # 이미지 데이터 처리
+            if self._contains_image_data(user_input):
                 processed_input = self._process_image_input(user_input, model_name)
                 messages.append(processed_input)
             else:
                 messages.append(HumanMessage(content=user_input))
 
             response = llm.invoke(messages)
-            return response.content
+            response_content = response.content
+            
+            # 응답 길이 제한 적용
+            limited_response = self._limit_response_length(response_content)
+            
+            return limited_response
 
         except Exception as e:
             logger.error(f"일반 채팅 오류: {e}")
@@ -100,6 +81,10 @@ class SimpleChatProcessor(ChatProcessor):
 
         return messages
     
+    def _contains_image_data(self, user_input: str) -> bool:
+        """Check if input contains image data"""
+        return "[IMAGE_BASE64]" in user_input and "[/IMAGE_BASE64]" in user_input
+    
     def _process_image_input(self, user_input: str, model_name: str):
         """이미지 데이터를 처리하여 LangChain 메시지로 변환"""
         # 이미지 데이터 추출
@@ -119,28 +104,28 @@ class SimpleChatProcessor(ChatProcessor):
             logger.error(f"잘못된 Base64 이미지 데이터: {e}")
             return HumanMessage(content="잘못된 이미지 데이터입니다.")
 
-        # 텍스트 추출에 특화된 프롬프트
+        # AI-driven image analysis prompt
         if not text_content:
-            text_content = """Please **extract all text accurately (OCR)** from this image.
+            text_content = """Analyze this image comprehensively and extract all information.
 
-**Required Tasks:**
-1. **Complete Text Extraction**: Extract all Korean, English, numbers, and symbols without omission
-2. **Structure Analysis**: Identify document structures like tables, lists, headings, paragraphs
-3. **Layout Information**: Describe text position, size, and arrangement relationships
-4. **Accurate Transcription**: Record all characters precisely without typos
-5. **Context Description**: Identify document type and purpose
+**Analysis Tasks:**
+1. **Complete Text Extraction**: Extract all visible text with perfect accuracy
+2. **Content Understanding**: Identify the type and purpose of the document/image
+3. **Structure Analysis**: Describe layout, organization, and visual hierarchy
+4. **Context Interpretation**: Explain what the image represents and its significance
 
-**Response Format:**
-## 📄 Extracted Text
-[List all text accurately]
+**Response Requirements:**
+- Extract ALL text without any omissions
+- Organize information logically and clearly
+- Use appropriate formatting (tables, lists, headings) based on content
+- Provide context and interpretation where helpful
+- Respond in Korean unless the content suggests otherwise
 
-## 📋 Document Structure
-[Describe structure of tables, lists, headings, etc.]
-
-## 📍 Layout Information
-[Text arrangement and positional relationships]
-
-**Important**: Please extract all readable text from the image completely without any omissions."""
+**Quality Standards:**
+- Accuracy: 100% faithful text extraction
+- Completeness: Cover all visible information
+- Clarity: Well-organized, easy to understand presentation
+- Intelligence: Apply appropriate formatting based on content type"""
 
         try:
             # Gemini 모델의 경우 특별한 형식 사용
@@ -172,6 +157,38 @@ class SimpleChatProcessor(ChatProcessor):
             return HumanMessage(
                 content=f"{text_content}\n\n[이미지 처리 오류: {str(e)}]"
             )
+    
+    def _limit_response_length(self, response: str) -> str:
+        """응답 길이 제한"""
+        try:
+            config = load_config()
+            response_settings = config.get("response_settings", {})
+            
+            if not response_settings.get("enable_length_limit", True):
+                return response
+            
+            max_length = response_settings.get("max_response_length", 8000)
+            
+            if len(response) <= max_length:
+                return response
+            
+            logger.warning(f"응답 길이 제한 적용: {len(response)}자 -> {max_length}자")
+            
+            # 마지막 완전한 문장에서 자르기
+            truncated = response[:max_length]
+            last_period = truncated.rfind('.')
+            last_newline = truncated.rfind('\n')
+            
+            # 마지막 마침표나 줄바꿈 위치에서 자르기
+            cut_point = max(last_period, last_newline)
+            if cut_point > max_length * 0.8:  # 80% 이상에서 찾은 경우만 사용
+                truncated = response[:cut_point + 1]
+            
+            return truncated + "\n\n[응답이 너무 길어 일부만 표시됩니다. 더 자세한 내용이 필요하시면 구체적인 질문을 해주세요.]"
+            
+        except Exception as e:
+            logger.error(f"응답 길이 제한 오류: {e}")
+            return response
 
 
 class ToolChatProcessor(ChatProcessor):
@@ -234,7 +251,11 @@ class ToolChatProcessor(ChatProcessor):
 
             elapsed = time.time() - start_time
             logger.info(f"✅ 도구 채팅 완료: {elapsed:.2f}초")
-            return output, used_tools
+            
+            # 응답 길이 제한 적용
+            limited_output = self._limit_response_length(output)
+            
+            return limited_output, used_tools
 
         except Exception as e:
             elapsed = time.time() - start_time
@@ -258,3 +279,35 @@ class ToolChatProcessor(ChatProcessor):
         """Gemini 모델용 도구 채팅 (간단한 구현)"""
         # 실제 구현은 기존 로직을 참조하여 작성
         return f"Gemini 도구 채팅 결과: {user_input}", []
+    
+    def _limit_response_length(self, response: str) -> str:
+        """응답 길이 제한"""
+        try:
+            config = load_config()
+            response_settings = config.get("response_settings", {})
+            
+            if not response_settings.get("enable_length_limit", True):
+                return response
+            
+            max_length = response_settings.get("max_response_length", 8000)
+            
+            if len(response) <= max_length:
+                return response
+            
+            logger.warning(f"도구 응답 길이 제한 적용: {len(response)}자 -> {max_length}자")
+            
+            # 마지막 완전한 문장에서 자르기
+            truncated = response[:max_length]
+            last_period = truncated.rfind('.')
+            last_newline = truncated.rfind('\n')
+            
+            # 마지막 마침표나 줄바꿈 위치에서 자르기
+            cut_point = max(last_period, last_newline)
+            if cut_point > max_length * 0.8:  # 80% 이상에서 찾은 경우만 사용
+                truncated = response[:cut_point + 1]
+            
+            return truncated + "\n\n[도구 사용 응답이 너무 길어 일부만 표시됩니다. 더 자세한 내용이 필요하시면 구체적인 질문을 해주세요.]"
+            
+        except Exception as e:
+            logger.error(f"도구 응답 길이 제한 오류: {e}")
+            return response

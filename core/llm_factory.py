@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 from typing import Any
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
+from core.file_utils import load_config
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class LLMFactory(ABC):
@@ -16,11 +20,17 @@ class OpenAILLMFactory(LLMFactory):
     """OpenAI LLM 팩토리"""
     
     def create_llm(self, api_key: str, model_name: str) -> ChatOpenAI:
+        config = load_config()
+        response_settings = config.get("response_settings", {})
+        max_tokens = response_settings.get("max_tokens", 1500)
+        
+        logger.info(f"OpenAI LLM 생성 - max_tokens: {max_tokens}")
+        
         return ChatOpenAI(
             model=model_name,
             openai_api_key=api_key,
             temperature=0.1,
-            max_tokens=4096
+            max_tokens=max_tokens
         )
 
 
@@ -28,12 +38,18 @@ class GeminiLLMFactory(LLMFactory):
     """Gemini LLM 팩토리"""
     
     def create_llm(self, api_key: str, model_name: str) -> ChatGoogleGenerativeAI:
+        config = load_config()
+        response_settings = config.get("response_settings", {})
+        max_tokens = response_settings.get("max_tokens", 1500)
+        
+        logger.info(f"Gemini LLM 생성 - max_tokens: {max_tokens}")
+        
         return ChatGoogleGenerativeAI(
             model=model_name,
             google_api_key=api_key,
             temperature=0.1,
             convert_system_message_to_human=True,
-            max_tokens=4096
+            max_tokens=max_tokens
         )
 
 

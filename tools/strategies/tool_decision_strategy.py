@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from langchain.schema import HumanMessage, SystemMessage
+from core.enhanced_system_prompts import SystemPrompts
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,34 +42,21 @@ class AIBasedToolDecisionStrategy(ToolDecisionStrategy):
             if force_agent:
                 agent_context = "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
 
-            decision_prompt = f"""User request: "{user_input}"
+            # Use enhanced AI-driven decision prompt
+            base_prompt = SystemPrompts.get_tool_decision_prompt()
+            decision_prompt = f"""{base_prompt}
+
+User request: "{user_input}"
 
 Available tools:
-{tools_info}
+{tools_info}{agent_context}
 
-Determine if this request requires using tools to provide accurate information.
-
-Requires tools:
-- Real-time information search (web search, news, weather, etc.)
-- Database queries (travel products, flights, etc.)
-- External API calls (maps, translation, etc.)
-- File processing or calculations
-- Current time or date-related information
-- Specific data lookups or searches
-- Location-based queries
-- If you request something You don't know, utilize appropriate tools.
-
-Does not require tools:
-- General conversation or questions
-- Explanations or opinions
-- Creative writing or idea suggestions
-- General knowledge already known{agent_context}
-
+Based on your analysis framework, should tools be used for this request?
 Answer: YES or NO only."""
 
             messages = [
                 SystemMessage(
-                    content="You are an expert at analyzing user requests to determine if tools are needed."
+                    content="You are an intelligent decision-making system that analyzes user requests with sophisticated reasoning."
                 ),
                 HumanMessage(content=decision_prompt),
             ]

@@ -58,6 +58,9 @@ class AIClient:
 3. **Layout Information**: Describe text position, size, and arrangement relationships
 4. **Accurate Transcription**: Record all characters precisely without typos
 5. **Context Description**: Identify document type and purpose
+6. **Table Format**: When creating tables, use markdown format: |Header1|Header2|\n|---|---|\n|Data1|Data2|
+
+**TABLE FORMAT RULES**: When creating tables from extracted data, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment.
 
 **Response Format:**
 ## 📄 Extracted Text
@@ -290,6 +293,9 @@ class AIClient:
 3. **Layout Information**: Describe text position, size, and arrangement relationships
 4. **Accurate Transcription**: Record all characters precisely without typos
 5. **Context Description**: Identify document type and purpose
+6. **Table Format**: When creating tables, use markdown format: |Header1|Header2|\n|---|---|\n|Data1|Data2|
+
+**TABLE FORMAT RULES**: When creating tables from extracted data, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment.
 
 **Response Format:**
 ## 📄 Extracted Text
@@ -377,8 +383,8 @@ class AIClient:
             user_prompts = config.get(
                 "user_prompt",
                 {
-                    "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. For table requests, ALWAYS use proper markdown table format with header separator: |Column1|Column2|\n|---|---|\n|Data1|Data2| 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
-                    "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. For table requests, ALWAYS use proper markdown table format with header separator: |Column1|Column2|\n|---|---|\n|Data1|Data2| 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
+                    "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
+                    "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
                 },
             )
             print(f"[디버그] 로드된 유저 프롬프트: {user_prompts}")
@@ -386,8 +392,8 @@ class AIClient:
         except Exception as e:
             print(f"[디버그] 유저 프롬프트 로드 오류: {e}")
             return {
-                "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. For table requests, ALWAYS use proper markdown table format with header separator: |Column1|Column2|\n|---|---|\n|Data1|Data2| 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
-                "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. For table requests, ALWAYS use proper markdown table format with header separator: |Column1|Column2|\n|---|---|\n|Data1|Data2| 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
+                "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
+                "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
             }
 
     def get_current_user_prompt(self):

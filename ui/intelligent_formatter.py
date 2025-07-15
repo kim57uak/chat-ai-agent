@@ -283,6 +283,48 @@ Respond with a JSON object containing:
     
     def _apply_basic_formatting(self, text: str) -> str:
         """Apply basic markdown formatting"""
+        # Code blocks (처리 우선순위 높음) - 내용을 그대로 보존하고 복사 버튼 추가
+        def replace_codeblock(match):
+            lang = match.group(1) if match.group(1) else ''
+            code_content = match.group(2).strip()
+            # HTML 이스케이프 처리만 하고 추가 포맷팅은 하지 않음
+            escaped_content = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
+            # 고유 ID 생성
+            code_id = f'code_{uuid.uuid4().hex[:8]}'
+            
+            return f'''<div style="position: relative; margin: 12px 0;">
+<button onclick="copyCode('{code_id}')" style="
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #444;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    z-index: 10;
+    transition: all 0.2s ease;
+" onmouseover="this.style.background='#555'" onmouseout="this.style.background='#444'">복사</button>
+<pre style="background: #1e1e1e; color: #f8f8f2; padding: 20px; border-radius: 8px; font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace; font-size: 13px; line-height: 1.5; overflow-x: auto; white-space: pre; tab-size: 4; border: 1px solid #444; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"><code id="{code_id}">{escaped_content}</code></pre>
+</div>'''
+        
+        # 먼저 코드블록을 플레이스홀더로 치환
+        code_blocks = []
+        def store_codeblock(match):
+            code_blocks.append(replace_codeblock(match))
+            return f'__CODEBLOCK_{len(code_blocks)-1}__'
+        
+        text = re.sub(
+            r'```(\w*)\n([\s\S]*?)```',
+            store_codeblock,
+            text,
+            flags=re.MULTILINE | re.DOTALL
+        )
+        
         # Headers
         text = re.sub(r'^# (.*?)$', r'<h1 style="color: #ffffff; margin: 20px 0 10px 0; font-size: 20px; font-weight: 600;">\1</h1>', text, flags=re.MULTILINE)
         text = re.sub(r'^## (.*?)$', r'<h2 style="color: #eeeeee; margin: 16px 0 8px 0; font-size: 18px; font-weight: 600;">\1</h2>', text, flags=re.MULTILINE)
@@ -312,9 +354,15 @@ Respond with a JSON object containing:
         
         # Tables - 마크다운 테이블 우선 처리
         if self._is_markdown_table(text):
-            return self._format_markdown_table(text)
+            formatted_text = self._format_markdown_table(text)
+        else:
+            formatted_text = self._format_regular_text(text)
         
-        return self._format_regular_text(text)
+        # 코드블록 플레이스홀더를 실제 HTML로 복원
+        for i, code_block in enumerate(code_blocks):
+            formatted_text = formatted_text.replace(f'__CODEBLOCK_{i}__', code_block)
+        
+        return formatted_text
     
     def _format_markdown_table(self, text: str) -> str:
         """Format markdown table to HTML with cell markdown parsing"""
@@ -365,7 +413,8 @@ Respond with a JSON object containing:
             line = line.strip()
             if not line:
                 formatted_lines.append('<br>')
-            elif line.startswith('<'):
+            elif line.startswith('<') or '__CODEBLOCK_' in line:
+                # HTML 태그나 코드블록 플레이스홀더는 그대로 유지
                 formatted_lines.append(line)
             else:
                 formatted_lines.append(f'<div style="margin: 2px 0; line-height: 1.4; color: #cccccc;">{line}</div>')

@@ -119,10 +119,15 @@ class AIProcessor(QObject):
                 
                 if not self._cancelled and response:
                     # AI 응답 길이 디버그
-                    print(f"[DEBUG] AI 응답 생성 완료 - 길이: {len(response)}자")
-                    print(f"[DEBUG] 응답 내용 시작: {response[:200]}...")
+                    print(f"[DEBUG] AI 응답 생성 완룈 - 길이: {len(response)}자")
+                    # 안전한 문자열 출력 (공백 제거 및 줄바꿈 변환)
+                    safe_start = response[:200].replace('\n', ' ').replace('\r', ' ').strip()
+                    print(f"[DEBUG] 응답 내용 시작: {safe_start}...")
                     if len(response) > 500:
-                        print(f"[DEBUG] 응답 내용 끝: ...{response[-200:]}")
+                        # 끝부분에서 실제 내용이 있는 부분 찾기
+                        trimmed_response = response.rstrip()
+                        safe_end = trimmed_response[-200:].replace('\n', ' ').replace('\r', ' ').strip()
+                        print(f"[DEBUG] 응답 내용 끝: ...{safe_end}")
                     
                     # 스트리밍 없이 즉시 완성된 응답 표시
                     self.finished.emit(sender, response, used_tools)
@@ -434,15 +439,14 @@ class ChatWidget(QWidget):
     
     def _safe_run_js(self, js_code):
         """JavaScript를 안전하게 실행"""
-        def js_callback(result):
-            if result is False:
-                print(f"JavaScript 실행 실패 - 코드 길이: {len(js_code)}")
         try:
-            print(f"[디버그] JavaScript 코드 길이: {len(js_code)}")
-            self.chat_display.page().runJavaScript(js_code, js_callback)
+            if len(js_code) > 50000:
+                print(f"JavaScript 코드가 너무 김: {len(js_code)}자")
+                return
+            
+            self.chat_display.page().runJavaScript(js_code)
         except Exception as e:
             print(f"JavaScript 실행 오류: {e}")
-            print(f"JavaScript 코드 길이: {len(js_code)}")
     
     def handle_input_key_press(self, event):
         """입력창 키 이벤트 처리"""
@@ -941,7 +945,8 @@ class ChatWidget(QWidget):
         recent_history = self.conversation_history.get_recent_messages(10)
         print(f"[디버그] 전달할 히스토리: {len(recent_history)}개")
         for i, msg in enumerate(recent_history[-3:]):
-            print(f"  [{i}] {msg.get('role', 'unknown')}: {msg.get('content', '')[:50]}...")
+            content = msg.get('content', '')[:50].replace('\n', ' ').replace('\r', ' ').strip()
+            print(f"  [{i}] {msg.get('role', 'unknown')}: {content}...")
         
         # 모드에 따라 에이전트 사용 여부 결정
         current_mode = self.mode_combo.currentText()
@@ -1238,10 +1243,14 @@ class ChatWidget(QWidget):
         self._safe_run_js(js_code)
     
     def on_ai_response(self, sender, text, used_tools):
-        # AI 응답 길이 디버그
+        # AI 응답 길이 디버그 (안전한 출력)
         print(f"[DEBUG] AI 응답 받음 - 길이: {len(text)}자")
-        print(f"[DEBUG] AI 응답 시작: {text[:100]}...")
-        print(f"[DEBUG] AI 응답 끝: ...{text[-100:]}")
+        safe_start = text[:100].replace('\n', ' ').replace('\r', ' ').strip()
+        # 끝부분에서 실제 내용이 있는 부분 찾기
+        trimmed_text = text.rstrip()
+        safe_end = trimmed_text[-100:].replace('\n', ' ').replace('\r', ' ').strip()
+        print(f"[DEBUG] 응답 시작: {safe_start}...")
+        print(f"[DEBUG] 응답 끝: ...{safe_end}")
         
         # 응답 시간 계산
         response_time = ""
@@ -1337,7 +1346,7 @@ class ChatWidget(QWidget):
         self.append_chat(sender, text)
     
     def append_chat(self, sender, text):
-        """채팅 메시지 표시 - 최적화"""
+        """채팅 메시지 표시 - 안정화"""
         # 발신자별 스타일
         if sender == '사용자':
             bg_color = 'rgba(163,135,215,0.15)'
@@ -1358,34 +1367,62 @@ class ChatWidget(QWidget):
         # 마크다운 처리
         formatted_text = self._format_markdown(text)
         
-        # 메시지 ID 생성
+        # Base64 인코딩으로 안전하게 전달
+        import base64
         import uuid
         message_id = f"msg_{uuid.uuid4().hex[:8]}"
         
-        # 단일 JavaScript로 메시지 추가
-        js_code = f"""
-        (function() {{
-            try {{
-                var div = document.createElement('div');
-                div.innerHTML = `
-                    <div style="margin:12px 0;padding:16px;background:{bg_color};border-radius:12px;border-left:4px solid {border_color};">
-                        <div style="margin:0 0 12px 0;font-weight:700;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;">
-                            <span style="font-size:16px;">{icon}</span><span>{sender}</span>
-                        </div>
-                        <div style="margin:0;padding-left:24px;line-height:1.6;color:#ffffff;font-size:13px;word-wrap:break-word;">
-                            {formatted_text.replace('`', '\\`').replace('${', '\\${')}
-                        </div>
-                    </div>
-                `;
-                document.getElementById('messages').appendChild(div);
-                window.scrollTo(0, document.body.scrollHeight);
-            }} catch(e) {{
-                console.log('Error:', e);
-            }}
-        }})();
-        """
+        # 1단계: 메시지 컨테이너 생성
+        create_js = f'''
+        try {{
+            var messagesDiv = document.getElementById('messages');
+            var messageDiv = document.createElement('div');
+            messageDiv.id = '{message_id}';
+            messageDiv.style.cssText = 'margin:12px 0;padding:16px;background:{bg_color};border-radius:12px;border-left:4px solid {border_color};';
+            
+            var headerDiv = document.createElement('div');
+            headerDiv.style.cssText = 'margin:0 0 12px 0;font-weight:700;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;';
+            headerDiv.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
+            
+            var contentDiv = document.createElement('div');
+            contentDiv.id = '{message_id}_content';
+            contentDiv.style.cssText = 'margin:0;padding-left:24px;line-height:1.6;color:#ffffff;font-size:13px;word-wrap:break-word;';
+            
+            messageDiv.appendChild(headerDiv);
+            messageDiv.appendChild(contentDiv);
+            messagesDiv.appendChild(messageDiv);
+            
+            window.scrollTo(0, document.body.scrollHeight);
+        }} catch(e) {{
+            console.log('Create message error:', e);
+        }}
+        '''
         
-        self._safe_run_js(js_code)
+        # 2단계: 콘텐츠 설정 - 단순화
+        def set_content():
+            # 안전한 텍스트 이스케이프
+            safe_content = formatted_text.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
+            
+            content_js = f'''
+            try {{
+                var contentDiv = document.getElementById('{message_id}_content');
+                if (contentDiv) {{
+                    contentDiv.innerHTML = `{safe_content}`;
+                    window.scrollTo(0, document.body.scrollHeight);
+                }}
+            }} catch(e) {{
+                console.log('Set content error:', e);
+                var contentDiv = document.getElementById('{message_id}_content');
+                if (contentDiv) {{
+                    contentDiv.textContent = 'Content display error';
+                }}
+            }}
+            '''
+            self.chat_display.page().runJavaScript(content_js)
+        
+        self.chat_display.page().runJavaScript(create_js)
+        # 짧은 지연 후 콘텐츠 설정
+        QTimer.singleShot(50, set_content)
     
     def start_optimized_typing(self, sender, text):
         """즉시 메시지 표시"""
@@ -1455,161 +1492,116 @@ class ChatWidget(QWidget):
         return self._basic_format_text(text)
     
     def _format_markdown(self, text):
-        """개선된 마크다운 포맷팅"""
+        """단순화된 마크다운 포맷팅"""
         import re
         
-        # 1. 코드 블록 먼저 보호 (이스케이프 방지)
-        code_blocks = []
-        def preserve_code_block(match):
-            code_blocks.append(match.group(0))
-            return f"__CODE_BLOCK_{len(code_blocks)-1}__"
-        
-        text = re.sub(r'```[\s\S]*?```', preserve_code_block, text)
-        
-        # 2. 테이블 처리 (HTML 이스케이프 전에)
-        text = self._format_table_improved(text)
-        
-        # 3. HTML 이스케이프 (테이블 HTML은 보호)
-        table_placeholders = []
-        def preserve_table_html(match):
-            table_placeholders.append(match.group(0))
-            return f"__TABLE_HTML_{len(table_placeholders)-1}__"
-        
-        # 테이블 HTML 보호
-        text = re.sub(r'<table[^>]*>.*?</table>', preserve_table_html, text, flags=re.DOTALL)
-        
-        # HTML 이스케이프
+        # 기본 HTML 이스케이프
         text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         
-        # 4. 코드 블록 복원 및 처리
-        for i, code_block in enumerate(code_blocks):
-            lang_match = re.match(r'```([^\n]*)', code_block)
-            lang = lang_match.group(1).strip() if lang_match else 'text'
-            code_content = re.sub(r'```[^\n]*\n?([\s\S]*?)```', r'\1', code_block)
-            
-            # 코드 ID 생성
-            import uuid
-            code_id = f"code_{uuid.uuid4().hex[:8]}"
-            
-            # HTML 이스케이프만 적용 (원본 형식 보존)
-            code_content = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-            
-            formatted_code = f'''
-<div style="background:#1e1e1e;border:1px solid #444;border-radius:8px;margin:12px 0;overflow:hidden;">
-    <div style="background:#2d2d2d;padding:6px 12px;font-size:11px;color:#888;border-bottom:1px solid #444;display:flex;justify-content:space-between;align-items:center;">
-        <span>{lang}</span>
-        <button onclick="copyCode('{code_id}')" style="background:#444;border:none;color:#fff;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;opacity:0.7;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">복사</button>
-    </div>
-    <pre id="{code_id}" style="background:none;color:#f8f8f2;padding:16px;margin:0;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.4;overflow-x:auto;white-space:pre;">{code_content}</pre>
-</div>
-            '''
-            text = text.replace(f"__CODE_BLOCK_{i}__", formatted_code)
-        
-        # 5. 헤딩 (H1-H6)
+        # 헤딩
         text = re.sub(r'^# (.*?)$', r'<h1 style="color:#ffffff;font-size:20px;margin:16px 0 8px 0;border-bottom:2px solid #444;padding-bottom:4px;">\1</h1>', text, flags=re.MULTILINE)
         text = re.sub(r'^## (.*?)$', r'<h2 style="color:#eeeeee;font-size:18px;margin:14px 0 6px 0;border-bottom:1px solid #333;padding-bottom:3px;">\1</h2>', text, flags=re.MULTILINE)
         text = re.sub(r'^### (.*?)$', r'<h3 style="color:#dddddd;font-size:16px;margin:12px 0 4px 0;">\1</h3>', text, flags=re.MULTILINE)
-        text = re.sub(r'^#### (.*?)$', r'<h4 style="color:#cccccc;font-size:14px;margin:10px 0 3px 0;font-weight:600;">\1</h4>', text, flags=re.MULTILINE)
-        text = re.sub(r'^##### (.*?)$', r'<h5 style="color:#bbbbbb;font-size:13px;margin:8px 0 2px 0;font-weight:600;">\1</h5>', text, flags=re.MULTILINE)
-        text = re.sub(r'^###### (.*?)$', r'<h6 style="color:#aaaaaa;font-size:12px;margin:6px 0 2px 0;font-weight:600;">\1</h6>', text, flags=re.MULTILINE)
         
-        # 6. 굵은 글씨
+        # 굵은 글씨
         text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color:#ffffff;font-weight:600;">\1</strong>', text)
         
-        # 7. 인라인 코드
+        # 인라인 코드
         text = re.sub(r'`([^`]+)`', r'<code style="background:#2d2d2d;color:#f8f8f2;padding:3px 6px;border-radius:3px;border:1px solid #444;">\1</code>', text)
         
-        # 8. 불릿 포인트
-        text = re.sub(r'(^|<br>)- (.*?)(?=<br>|$)', r'\1<div style="margin:2px 0;margin-left:16px;color:#cccccc;">• \2</div>', text, flags=re.MULTILINE)
-        text = re.sub(r'(^|<br>)\* (.*?)(?=<br>|$)', r'\1<div style="margin:2px 0;margin-left:16px;color:#cccccc;">• \2</div>', text, flags=re.MULTILINE)
-        
-        # 9. 번호 목록
-        text = re.sub(r'(^|<br>)(\d+)\. (.*?)(?=<br>|$)', r'\1<div style="margin:2px 0;margin-left:16px;color:#cccccc;">\2. \3</div>', text, flags=re.MULTILINE)
-        
-        # 10. 링크
+        # 링크
         text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color:#87CEEB;text-decoration:none;border-bottom:1px dotted #87CEEB;" target="_blank">\1</a>', text)
         
-        # 11. 테이블 HTML 복원
-        for i, table_html in enumerate(table_placeholders):
-            text = text.replace(f"__TABLE_HTML_{i}__", table_html)
+        # 구분선 (---)
+        text = re.sub(r'^---+$', r'<hr style="border:none;height:2px;background:linear-gradient(to right,transparent,#444,transparent);margin:20px 0;">', text, flags=re.MULTILINE)
         
-        # 12. 줄바꿈 및 정리
-        # 빈 줄을 단일 <br>로 변환
-        text = re.sub(r'\n\s*\n', '<br>', text)
-        # 나머지 줄바꿈은 공백으로
-        text = text.replace('\n', ' ')
-        # HTML 요소 주변 불필요한 <br> 제거
-        text = re.sub(r'<br>\s*(<[^>]+>)', r'\1', text)
-        text = re.sub(r'(<[^>]+>)\s*<br>', r'\1', text)
-        # 연속된 <br> 정리
-        text = re.sub(r'(<br>\s*){2,}', '<br>', text)
+        # 코드 블록 (단순화)
+        def format_code_block(match):
+            lang = match.group(1).strip() if match.group(1) else 'text'
+            code = match.group(2)
+            code = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
+            return f'''
+<div style="background:#1e1e1e;border:1px solid #444;border-radius:8px;margin:12px 0;overflow:hidden;">
+    <div style="background:#2d2d2d;padding:6px 12px;font-size:11px;color:#888;border-bottom:1px solid #444;">
+        <span>{lang}</span>
+    </div>
+    <pre style="background:none;color:#f8f8f2;padding:16px;margin:0;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.4;overflow-x:auto;white-space:pre;">{code}</pre>
+</div>
+            '''
         
-        return text
+        text = re.sub(r'```([^\n]*)\n([\s\S]*?)```', format_code_block, text)
+        
+        # 테이블 (단순화)
+        text = self._format_simple_table(text)
+        
+        # 리스트
+        lines = text.split('\n')
+        formatted_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                formatted_lines.append('<br>')
+            elif re.match(r'^- ', line):
+                formatted_lines.append(f'<div style="margin:4px 0;margin-left:16px;color:#cccccc;">• {line[2:]}</div>')
+            elif re.match(r'^\* ', line):
+                formatted_lines.append(f'<div style="margin:4px 0;margin-left:16px;color:#cccccc;">• {line[2:]}</div>')
+            elif re.match(r'^\d+\. ', line):
+                formatted_lines.append(f'<div style="margin:4px 0;margin-left:16px;color:#cccccc;">{line}</div>')
+            elif line.startswith('<'):
+                formatted_lines.append(line)
+            elif line == '---' or line.startswith('---'):
+                # 구분선은 이미 처리됨
+                formatted_lines.append(line)
+            else:
+                formatted_lines.append(f'<div style="margin:4px 0;color:#cccccc;">{line}</div>')
+        
+        return '\n'.join(formatted_lines)
     
-    def _format_table_improved(self, text):
-        """개선된 테이블 포맷팅 - 단순화"""
+    def _format_simple_table(self, text):
+        """단순화된 테이블 포맷팅"""
         import re
         
-        # 마크다운 테이블 패턴 매칭
-        table_pattern = r'((?:^.*\|.*$\n?)+)'
+        # 마크다운 테이블 패턴 찾기
+        table_pattern = r'(\|.*\|\n\|[-:]+\|\n(?:\|.*\|\n?)+)'
         
-        def format_table_match(match):
-            table_text = match.group(1).strip()
-            # 구분선이 있는 진짜 테이블인지 확인
-            if '---' in table_text or ':--' in table_text:
-                return self._build_simple_table(table_text.split('\n'))
-            else:
-                # 단순한 | 문자는 그대로 둘기
+        def replace_table(match):
+            table_text = match.group(1)
+            lines = [line.strip() for line in table_text.split('\n') if line.strip()]
+            
+            if len(lines) < 3:  # 헤더, 구분선, 데이터 최소 1줄
                 return table_text
+            
+            # 헤더
+            header_cells = [cell.strip() for cell in lines[0].split('|')[1:-1]]
+            
+            # 데이터 라인들 (구분선 제외)
+            data_lines = lines[2:]
+            
+            html = '<table style="border-collapse:collapse;width:100%;margin:16px 0;background:#2a2a2a;border-radius:8px;overflow:hidden;">'
+            
+            # 헤더
+            html += '<thead><tr style="background:#3a3a3a;">'
+            for cell in header_cells:
+                html += f'<th style="padding:12px;border:1px solid #555;color:#fff;font-weight:600;">{cell}</th>'
+            html += '</tr></thead>'
+            
+            # 데이터
+            html += '<tbody>'
+            for line in data_lines:
+                cells = [cell.strip() for cell in line.split('|')[1:-1]]
+                html += '<tr>'
+                for cell in cells:
+                    html += f'<td style="padding:12px;border:1px solid #444;color:#ccc;">{cell}</td>'
+                html += '</tr>'
+            html += '</tbody></table>'
+            
+            return html
         
-        # 테이블 변환
-        text = re.sub(table_pattern, format_table_match, text, flags=re.MULTILINE)
-        
-        return text
+        return re.sub(table_pattern, replace_table, text, flags=re.MULTILINE)
     
-    def _build_simple_table(self, table_lines):
-        """단순화된 테이블 HTML 생성"""
-        if not table_lines:
-            return ''
-        
-        # 구분선 제거
-        clean_lines = []
-        for line in table_lines:
-            if not ('---' in line or '===' in line or ':--' in line):
-                clean_lines.append(line.strip())
-        
-        if not clean_lines:
-            return ''
-        
-        html = '<table style="border-collapse:collapse;margin:12px 0;background:#2a2a2a;border-radius:6px;overflow:hidden;">'
-        
-        for i, line in enumerate(clean_lines):
-            # 파이프로 분할
-            cells = line.split('|')
-            
-            # 앞뒤 빈 셀 제거
-            if cells and not cells[0].strip():
-                cells.pop(0)
-            if cells and not cells[-1].strip():
-                cells.pop()
-            
-            if not cells:
-                continue
-            
-            html += '<tr>'
-            for cell in cells:
-                cell = cell.strip()
-                # 셀 내용에 마크다운 적용
-                formatted_cell = self._format_cell_markdown(cell)
-                
-                if i == 0:  # 헤더
-                    html += f'<th style="padding:8px 12px;border:1px solid #444;color:#fff;background:#3a3a3a;font-weight:bold;">{formatted_cell}</th>'
-                else:  # 데이터
-                    html += f'<td style="padding:8px 12px;border:1px solid #444;color:#ccc;vertical-align:top;">{formatted_cell}</td>'
-            html += '</tr>'
-        
-        html += '</table>'
-        return html
+
     
     def _format_cell_markdown(self, content):
         """테이블 셀 내 마크다운 처리"""

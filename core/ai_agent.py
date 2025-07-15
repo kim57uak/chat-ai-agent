@@ -116,7 +116,7 @@ Answer: YES or NO only."""
 
             messages = [
                 SystemMessage(
-                    content="You are an expert at analyzing user requests to determine if tools are needed."
+                    content="You are an expert at analyzing user requests to determine if tools are needed. When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row."
                 ),
                 HumanMessage(content=decision_prompt),
             ]
@@ -158,6 +158,8 @@ Answer: YES or NO only."""
 - Be friendly and helpful while maintaining accuracy
 - If multiple tools are needed, use them systematically
 - Focus on providing exactly what the user asked for
+
+**TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment.
 
 **Response Format:**
 - Use clear headings and bullet points when appropriate
@@ -306,6 +308,8 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 - **STRUCTURAL ANALYSIS**: Identify tables, lists, headers, paragraphs, and document layout
 - **MULTILINGUAL SUPPORT**: Handle Korean, English, numbers, and special characters flawlessly
 
+**TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment.
+
 **Response Format for Images:**
 ## 📄 추출된 텍스트
 [모든 텍스트를 정확히 나열 - 절대 누락 금지]
@@ -406,6 +410,7 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 3. **레이아웃 정보**: 텍스트의 위치, 크기, 배치 관계 설명
 4. **정확한 전사**: 오타 없이 정확하게 모든 문자 기록
 5. **맥락 설명**: 문서의 종류와 목적 파악
+6. **테이블 포맷**: 표를 만들 때는 마크다운 형식 사용: |Header1|Header2|\n|---|---|\n|Data1|Data2|
 
 **응답 형식:**
 ## 📄 추출된 텍스트
@@ -515,7 +520,9 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 - Highlight important information using **bold** formatting
 - Be friendly, helpful, and maintain conversation flow
 - Reference previous context when relevant
-- Provide comprehensive, well-structured responses"""
+- Provide comprehensive, well-structured responses
+
+**TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment."""
         
         if self.model_name.startswith("gemini"):
             messages.append(HumanMessage(content=unified_system_content))
@@ -619,7 +626,7 @@ Extract parameter values from user request or use reasonable defaults."""
 
             messages = [
                 SystemMessage(
-                    content="You are an expert at analyzing user requests to select the optimal tool."
+                    content="You are an expert at analyzing user requests to select the optimal tool. When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row."
                 ),
                 HumanMessage(content=selection_prompt),
             ]
@@ -935,7 +942,9 @@ Provide a helpful, natural Korean response in markdown format that directly addr
 - Extract and present the most relevant information
 - Use simple, clear sentences without technical jargon
 - Structure responses logically and systematically
-- Focus on what the user actually needs to know"""
+- Focus on what the user actually needs to know
+
+**TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment."""
             
             messages = [
                 SystemMessage(content=unified_system_message),
@@ -1059,7 +1068,7 @@ Use your judgment to select the most appropriate tool and extract relevant param
 
             messages = [
                 SystemMessage(
-                    content="You are an intelligent assistant that can analyze information gaps and select appropriate tools to gather missing data. Use your reasoning to determine what additional information would be valuable to complete the user's request."
+                    content="You are an intelligent assistant that can analyze information gaps and select appropriate tools to gather missing data. Use your reasoning to determine what additional information would be valuable to complete the user's request. When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row."
                 ),
                 HumanMessage(content=selection_prompt),
             ]
@@ -1097,7 +1106,7 @@ Next query:"""
 
             messages = [
                 SystemMessage(
-                    content="You are an intelligent assistant that can identify information gaps and determine what additional data is needed to complete a user's request."
+                    content="You are an intelligent assistant that can identify information gaps and determine what additional data is needed to complete a user's request. When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row."
                 ),
                 HumanMessage(content=prompt),
             ]
@@ -1147,7 +1156,7 @@ Provide a helpful, well-organized response in Korean that directly addresses the
 
             messages = [
                 SystemMessage(
-                    content="You are an expert at synthesizing information from multiple sources to provide comprehensive answers in Korean."
+                    content="You are an expert at synthesizing information from multiple sources to provide comprehensive answers in Korean. When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row."
                 ),
                 HumanMessage(content=response_prompt),
             ]

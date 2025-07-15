@@ -203,6 +203,9 @@ class ChatWidget(QWidget):
         self.layout.addLayout(info_layout)
         
         self.update_model_label()
+        # 도구 라벨 초기 설정 - 항상 보이도록
+        self.tools_label.setText('🔧 도구 확인중...')
+        self.tools_label.setVisible(True)
         self.update_tools_label()
         
         # 도구 상태 주기적 갱신 타이머 (초기 지연 후 시작)
@@ -787,7 +790,7 @@ class ChatWidget(QWidget):
             self.append_chat('시스템', f'모델 변경 중 오류가 발생했습니다: {e}')
     
     def update_tools_label(self):
-        """활성화된 도구 수 표시 업데이트"""
+        """활성화된 도구 수 표시 업데이트 - 동기 처리"""
         try:
             from mcp.servers.mcp import get_all_mcp_tools
             tools = get_all_mcp_tools()
@@ -807,31 +810,50 @@ class ChatWidget(QWidget):
     
 
     
+
+    
     def show_tools_popup(self, event):
-        """활성화된 도구 목록 팝업 표시 - 비동기 처리"""
-        import threading
+        """활성화된 도구 목록 팝업 표시 - 개선된 처리"""
+        print("[디버그] 도구 팝업 클릭됨")
         
-        def _load_tools():
+        try:
+            # 직접 동기 방식으로 처리 (간단하게)
+            from PyQt6.QtWidgets import QMenu, QMessageBox
+            from mcp.servers.mcp import get_all_mcp_tools
+            
+            print("[디버그] 도구 목록 조회 시작")
+            tools = get_all_mcp_tools()
+            print(f"[디버그] 조회된 도구 수: {len(tools) if tools else 0}")
+            
+            if not tools:
+                # 도구가 없을 때 메시지 표시
+                QMessageBox.information(
+                    self, 
+                    "도구 상태", 
+                    "활성화된 MCP 도구가 없습니다.\n\n설정 > MCP 서버 관리에서 서버를 활성화하세요."
+                )
+                return
+            
+            # 메뉴 생성 및 표시
+            self._show_tools_menu(event, tools)
+            
+        except Exception as e:
+            print(f"[디버그] 도구 팝업 표시 오류: {e}")
+            # 폴백: 간단한 메시지 표시
             try:
-                from PyQt6.QtWidgets import QMenu
-                from mcp.servers.mcp import get_all_mcp_tools
-                
-                tools = get_all_mcp_tools()
-                if not tools:
-                    return
-                
-                # 메인 스레드에서 팝업 표시
-                QTimer.singleShot(0, lambda: self._show_tools_menu(event, tools))
-                
-            except Exception as e:
-                print(f"도구 팝업 표시 오류: {e}")
-        
-        # 별도 스레드에서 도구 로드
-        threading.Thread(target=_load_tools, daemon=True).start()
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self, 
+                    "오류", 
+                    f"도구 상태를 확인할 수 없습니다.\n\n오류: {e}"
+                )
+            except:
+                print("[디버그] 폴백 메시지 표시도 실패")
     
     def _show_tools_menu(self, event, tools):
         """도구 메뉴 표시 (메인 스레드에서 실행)"""
         try:
+            print(f"[디버그] 메뉴 생성 시작, 도구 수: {len(tools)}")
             from PyQt6.QtWidgets import QMenu
             
             menu = QMenu(self)
@@ -857,16 +879,19 @@ class ChatWidget(QWidget):
             for tool in tools:
                 if isinstance(tool, str):
                     tool_name = tool
-                    server_name = 'Unknown'
+                    server_name = 'Tools'
                 else:
                     # MCPTool 객체의 속성 접근
                     tool_name = tool.name if hasattr(tool, 'name') else str(tool)
-                    server_name = tool.server_name if hasattr(tool, 'server_name') else 'Unknown'
+                    server_name = tool.server_name if hasattr(tool, 'server_name') else 'Tools'
                 
                 if server_name not in servers:
                     servers[server_name] = []
                 servers[server_name].append(tool_name)
             
+            print(f"[디버그] 서버별 그룹화 완료: {list(servers.keys())}")
+            
+            # 메뉴 항목 추가
             for server_name, tool_names in servers.items():
                 menu.addAction(f"📦 {server_name} ({len(tool_names)}개)")
                 for tool_name in tool_names[:5]:  # 최대 5개만 표시
@@ -875,11 +900,16 @@ class ChatWidget(QWidget):
                     menu.addAction(f"  ... 외 {len(tool_names)-5}개")
                 menu.addSeparator()
             
-            # 라벨 위치에서 팝업 표시
-            menu.exec(self.tools_label.mapToGlobal(event.pos()))
+            print("[디버그] 메뉴 표시 시작")
+            # 마우스 커서 위치에 표시
+            from PyQt6.QtGui import QCursor
+            menu.exec(QCursor.pos())
+            print("[디버그] 메뉴 표시 완료")
             
         except Exception as e:
-            print(f"도구 메뉴 표시 오류: {e}")
+            print(f"[디버그] 도구 메뉴 표시 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
     def send_message(self):
         user_text = self.input_text.toPlainText().strip()
@@ -1252,6 +1282,9 @@ class ChatWidget(QWidget):
         print(f"[DEBUG] 응답 시작: {safe_start}...")
         print(f"[DEBUG] 응답 끝: ...{safe_end}")
         
+        # 테이블 후처리 적용
+        processed_text = self._post_process_tables(text)
+        
         # 응답 시간 계산
         response_time = ""
         if self.request_start_time:
@@ -1263,7 +1296,7 @@ class ChatWidget(QWidget):
         current_model = load_last_model()
         
         # 모델명과 응답시간을 응답 끝에 추가
-        enhanced_text = f"{text}\n\n---\n*🤖 {current_model}{response_time}*"
+        enhanced_text = f"{processed_text}\n\n---\n*🤖 {current_model}{response_time}*"
         
         # 스트리밍 없이 즉시 완성된 응답 표시
         self.append_chat(sender, enhanced_text)
@@ -1364,8 +1397,9 @@ class ChatWidget(QWidget):
             icon = '⚙️'
             sender_color = 'rgb(215,163,135)'
         
-        # 마크다운 처리
-        formatted_text = self._format_markdown(text)
+        # 마크다운 처리 - IntelligentContentFormatter 사용
+        formatter = IntelligentContentFormatter()
+        formatted_text = formatter.format_content(text)
         
         # Base64 인코딩으로 안전하게 전달
         import base64
@@ -1398,16 +1432,17 @@ class ChatWidget(QWidget):
         }}
         '''
         
-        # 2단계: 콘텐츠 설정 - 단순화
+        # 2단계: 콘텐츠 설정 - JSON 안전 전달 방식
         def set_content():
-            # 안전한 텍스트 이스케이프
-            safe_content = formatted_text.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
+            import json
+            # JSON.stringify를 사용하여 모든 특수문자를 안전하게 전달
+            safe_content = json.dumps(formatted_text, ensure_ascii=False)
             
             content_js = f'''
             try {{
                 var contentDiv = document.getElementById('{message_id}_content');
                 if (contentDiv) {{
-                    contentDiv.innerHTML = `{safe_content}`;
+                    contentDiv.innerHTML = {safe_content};
                     window.scrollTo(0, document.body.scrollHeight);
                 }}
             }} catch(e) {{
@@ -1491,155 +1526,103 @@ class ChatWidget(QWidget):
         """Simple text formatting without LLM"""
         return self._basic_format_text(text)
     
-    def _format_markdown(self, text):
-        """단순화된 마크다운 포맷팅"""
-        import re
-        
-        # 기본 HTML 이스케이프
-        text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-        
-        # 헤딩
-        text = re.sub(r'^# (.*?)$', r'<h1 style="color:#ffffff;font-size:20px;margin:16px 0 8px 0;border-bottom:2px solid #444;padding-bottom:4px;">\1</h1>', text, flags=re.MULTILINE)
-        text = re.sub(r'^## (.*?)$', r'<h2 style="color:#eeeeee;font-size:18px;margin:14px 0 6px 0;border-bottom:1px solid #333;padding-bottom:3px;">\1</h2>', text, flags=re.MULTILINE)
-        text = re.sub(r'^### (.*?)$', r'<h3 style="color:#dddddd;font-size:16px;margin:12px 0 4px 0;">\1</h3>', text, flags=re.MULTILINE)
-        
-        # 굵은 글씨
-        text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color:#ffffff;font-weight:600;">\1</strong>', text)
-        
-        # 인라인 코드
-        text = re.sub(r'`([^`]+)`', r'<code style="background:#2d2d2d;color:#f8f8f2;padding:3px 6px;border-radius:3px;border:1px solid #444;">\1</code>', text)
-        
-        # 링크
-        text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color:#87CEEB;text-decoration:none;border-bottom:1px dotted #87CEEB;" target="_blank">\1</a>', text)
-        
-        # 구분선 (---)
-        text = re.sub(r'^---+$', r'<hr style="border:none;height:2px;background:linear-gradient(to right,transparent,#444,transparent);margin:20px 0;">', text, flags=re.MULTILINE)
-        
-        # 코드 블록 (단순화)
-        def format_code_block(match):
-            lang = match.group(1).strip() if match.group(1) else 'text'
-            code = match.group(2)
-            code = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-            
-            return f'''
-<div style="background:#1e1e1e;border:1px solid #444;border-radius:8px;margin:12px 0;overflow:hidden;">
-    <div style="background:#2d2d2d;padding:6px 12px;font-size:11px;color:#888;border-bottom:1px solid #444;">
-        <span>{lang}</span>
-    </div>
-    <pre style="background:none;color:#f8f8f2;padding:16px;margin:0;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.4;overflow-x:auto;white-space:pre;">{code}</pre>
-</div>
-            '''
-        
-        text = re.sub(r'```([^\n]*)\n([\s\S]*?)```', format_code_block, text)
-        
-        # 테이블 (단순화)
-        text = self._format_simple_table(text)
-        
-        # 리스트
-        lines = text.split('\n')
-        formatted_lines = []
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                formatted_lines.append('<br>')
-            elif re.match(r'^- ', line):
-                formatted_lines.append(f'<div style="margin:4px 0;margin-left:16px;color:#cccccc;">• {line[2:]}</div>')
-            elif re.match(r'^\* ', line):
-                formatted_lines.append(f'<div style="margin:4px 0;margin-left:16px;color:#cccccc;">• {line[2:]}</div>')
-            elif re.match(r'^\d+\. ', line):
-                formatted_lines.append(f'<div style="margin:4px 0;margin-left:16px;color:#cccccc;">{line}</div>')
-            elif line.startswith('<'):
-                formatted_lines.append(line)
-            elif line == '---' or line.startswith('---'):
-                # 구분선은 이미 처리됨
-                formatted_lines.append(line)
-            else:
-                formatted_lines.append(f'<div style="margin:4px 0;color:#cccccc;">{line}</div>')
-        
-        return '\n'.join(formatted_lines)
-    
-    def _format_simple_table(self, text):
-        """단순화된 테이블 포맷팅"""
-        import re
-        
-        # 마크다운 테이블 패턴 찾기
-        table_pattern = r'(\|.*\|\n\|[-:]+\|\n(?:\|.*\|\n?)+)'
-        
-        def replace_table(match):
-            table_text = match.group(1)
-            lines = [line.strip() for line in table_text.split('\n') if line.strip()]
-            
-            if len(lines) < 3:  # 헤더, 구분선, 데이터 최소 1줄
-                return table_text
-            
-            # 헤더
-            header_cells = [cell.strip() for cell in lines[0].split('|')[1:-1]]
-            
-            # 데이터 라인들 (구분선 제외)
-            data_lines = lines[2:]
-            
-            html = '<table style="border-collapse:collapse;width:100%;margin:16px 0;background:#2a2a2a;border-radius:8px;overflow:hidden;">'
-            
-            # 헤더
-            html += '<thead><tr style="background:#3a3a3a;">'
-            for cell in header_cells:
-                html += f'<th style="padding:12px;border:1px solid #555;color:#fff;font-weight:600;">{cell}</th>'
-            html += '</tr></thead>'
-            
-            # 데이터
-            html += '<tbody>'
-            for line in data_lines:
-                cells = [cell.strip() for cell in line.split('|')[1:-1]]
-                html += '<tr>'
-                for cell in cells:
-                    html += f'<td style="padding:12px;border:1px solid #444;color:#ccc;">{cell}</td>'
-                html += '</tr>'
-            html += '</tbody></table>'
-            
-            return html
-        
-        return re.sub(table_pattern, replace_table, text, flags=re.MULTILINE)
+
     
 
     
-    def _format_cell_markdown(self, content):
-        """테이블 셀 내 마크다운 처리"""
+
+    
+
+    
+    def _post_process_tables(self, text):
+        """테이블 후처리 - 구분선 정규화 및 긴 셀 처리"""
         import re
         
-        if not content or not content.strip():
-            return '&nbsp;'
+        if '|' not in text or '---' not in text:
+            return text
         
-        content = content.strip()
+        lines = text.split('\n')
+        processed_lines = []
         
-        # HTML 이스케이프
-        content = content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        for line in lines:
+            # 테이블 구분선 감지 및 정규화
+            if '|' in line and ('---' in line or ':--' in line or '--:' in line):
+                # 구분선 정규화
+                parts = line.split('|')
+                normalized_parts = []
+                
+                for part in parts:
+                    part = part.strip()
+                    if part and ('-' in part or ':' in part):
+                        normalized_parts.append('---')
+                    else:
+                        normalized_parts.append(part)
+                
+                processed_lines.append('|'.join(normalized_parts))
+            elif '|' in line and line.count('|') >= 2:
+                # 일반 테이블 행 - 긴 셀 처리
+                parts = line.split('|')
+                wrapped_parts = []
+                
+                for part in parts:
+                    part = part.strip()
+                    if len(part) > 30:
+                        # 긴 텍스트 줄바꿈
+                        wrapped = self._wrap_long_text(part, 30)
+                        wrapped_parts.append(wrapped)
+                    else:
+                        wrapped_parts.append(part)
+                
+                processed_lines.append('|'.join(wrapped_parts))
+            else:
+                processed_lines.append(line)
         
-        # 굵은 글씨
-        content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color:#fff;font-weight:600;">\1</strong>', content)
+        return '\n'.join(processed_lines)
+    
+    def _wrap_long_text(self, text, max_width):
+        """긴 텍스트 자동 줄바꿈 - 비정상적으로 긴 텍스트 처리"""
+        if len(text) <= max_width:
+            return text
         
-        # 기울임
-        content = re.sub(r'\*(.*?)\*', r'<em style="color:#ddd;font-style:italic;">\1</em>', content)
+        # 비정상적으로 긴 텍스트 (오류 데이터) 처리
+        if len(text) > 1000:
+            return f'<span style="color:#ff6b6b;font-style:italic;">[{len(text)}자 데이터 - 표시 생략]</span>'
         
-        # 인라인 코드
-        content = re.sub(r'`([^`]+)`', r'<code style="background:#1e1e1e;color:#f8f8f2;padding:2px 4px;border-radius:2px;font-size:11px;border:1px solid #444;">\1</code>', content)
+        # 공백 기준 분할 시도
+        words = text.split(' ')
+        if len(words) > 1:
+            lines = []
+            current_line = []
+            current_length = 0
+            
+            for word in words:
+                if current_length + len(word) + 1 <= max_width:
+                    current_line.append(word)
+                    current_length += len(word) + 1
+                else:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                    current_line = [word[:max_width]]  # 너무 긴 단어 자르기
+                    current_length = len(current_line[0])
+            
+            if current_line:
+                lines.append(' '.join(current_line))
+            
+            # 최대 5줄로 제한
+            if len(lines) > 5:
+                lines = lines[:5]
+                lines.append('<span style="color:#888;">... (내용 생략)</span>')
+            
+            return '<br>'.join(lines)
         
-        # 링크
-        content = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color:#87CEEB;text-decoration:none;border-bottom:1px dotted #87CEEB;" target="_blank">\1</a>', content)
+        # 강제 분할 (최대 200자로 제한)
+        if len(text) > 200:
+            return text[:200] + '<br><span style="color:#888;">... (내용 생략)</span>'
         
-        # 불릿 포인트 처리
-        lines = content.split('\n')
-        if len(lines) > 1:
-            formatted_lines = []
-            for line in lines:
-                line = line.strip()
-                if line.startswith('- ') or line.startswith('• '):
-                    formatted_lines.append(f'<div style="margin:2px 0;color:#ccc;">• {line[2:]}</div>')
-                elif line:
-                    formatted_lines.append(f'<div style="margin:2px 0;">{line}</div>')
-            content = ''.join(formatted_lines)
-        
-        return content
+        chunks = [text[i:i+max_width] for i in range(0, len(text), max_width)]
+        return '<br>'.join(chunks)
+    
+
     
     def scroll_to_bottom(self):
         """스크롤을 맨 아래로"""

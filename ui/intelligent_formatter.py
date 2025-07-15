@@ -28,6 +28,14 @@ class IntelligentContentFormatter:
     def format_content(self, text: str, sender: str = "AI") -> str:
         """Intelligently format content based on AI analysis"""
         try:
+            # 혼합 콘텐츠 처리 - 테이블과 일반 텍스트 모두 처리
+            if self._has_mixed_content(text):
+                return self._format_mixed_content(text)
+            
+            # 순수 테이블만 있는 경우
+            if self._is_markdown_table(text):
+                return self._format_markdown_table(text)
+            
             # Quick cache check for similar content
             content_hash = hash(text[:200])
             if content_hash in self._formatting_cache:
@@ -200,77 +208,116 @@ Respond with a JSON object containing:
         ]
         return sum(heading_indicators) >= 2
     
+    def _is_markdown_table(self, text: str) -> bool:
+        """마크다운 테이블 정확한 감지"""
+        lines = text.strip().split('\n')
+        table_lines = [line for line in lines if '|' in line and line.strip()]
+        
+        if len(table_lines) < 2:
+            return False
+        
+        # 구분선 확인
+        has_separator = any('---' in line or ':--' in line or '--:' in line for line in table_lines)
+        
+        # 최소 2개 이상의 파이프가 있는 라인이 2개 이상
+        valid_table_lines = [line for line in table_lines if line.count('|') >= 2]
+        
+        return len(valid_table_lines) >= 2 and (has_separator or len(valid_table_lines) >= 3)
+    
+    def _has_mixed_content(self, text: str) -> bool:
+        """테이블과 일반 텍스트가 혼재되어 있는지 확인"""
+        has_table = self._is_markdown_table(text)
+        has_other_markdown = any([
+            text.count('#') > 0,  # 헤더
+            text.count('---') > text.count('|---'),  # 구분선 (테이블 구분선 제외)
+            text.count('- ') > 0 or text.count('* ') > 0,  # 리스트
+            text.count('```') > 0,  # 코드 블록
+        ])
+        return has_table and has_other_markdown
+    
+    def _format_mixed_content(self, text: str) -> str:
+        """테이블과 일반 텍스트가 혼재된 콘텐츠 처리"""
+        lines = text.split('\n')
+        result_lines = []
+        i = 0
+        
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            # 테이블 시작 감지
+            if '|' in line and line.count('|') >= 2:
+                # 테이블 라인들 수집
+                table_lines = []
+                while i < len(lines) and '|' in lines[i] and lines[i].count('|') >= 2:
+                    table_lines.append(lines[i])
+                    i += 1
+                
+                # 테이블 HTML 생성
+                table_text = '\n'.join(table_lines)
+                if self._is_markdown_table(table_text):
+                    html_table = self._format_markdown_table(table_text)
+                    result_lines.append(html_table)
+                else:
+                    result_lines.extend(table_lines)
+            else:
+                result_lines.append(lines[i])
+                i += 1
+        
+        # 전체 텍스트에 기본 마크다운 적용
+        combined_text = '\n'.join(result_lines)
+        return self._apply_basic_formatting(combined_text)
+    
     def _apply_pattern_based_formatting(self, text: str) -> str:
         """Apply pattern-based formatting as fallback"""
-        # Force table detection for markdown tables
-        if '|' in text and ('---' in text or text.count('|') >= 6):
-            return self._format_detected_table(text)
+        # 혼합 콘텐츠 처리
+        if self._has_mixed_content(text):
+            return self._format_mixed_content(text)
+        # 순수 테이블 처리
+        if self._is_markdown_table(text):
+            return self._format_markdown_table(text)
         return self._apply_basic_formatting(text)
     
     def _format_detected_table(self, text: str) -> str:
-        """Format detected table content directly to HTML"""
-        lines = text.strip().split('\n')
-        table_lines = []
-        
-        for line in lines:
-            if '|' in line and line.strip():
-                cells = [cell.strip() for cell in line.split('|')]
-                while cells and not cells[0]:
-                    cells.pop(0)
-                while cells and not cells[-1]:
-                    cells.pop()
-                
-                if cells:
-                    table_lines.append(cells)
-        
-        if len(table_lines) >= 2:
-            # Generate HTML table directly
-            html = '<table style="border-collapse: collapse; width: 100%; margin: 16px 0; background-color: #2a2a2a; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">'
-            
-            header_processed = False
-            for row in table_lines:
-                if '---' in ''.join(row):  # Skip separator rows
-                    continue
-                    
-                if not header_processed:
-                    html += '<thead><tr style="background: linear-gradient(135deg, #3a3a3a, #4a4a4a);">'
-                    for cell in row:
-                        html += f'<th style="padding: 14px 16px; border: 1px solid #555; color: #ffffff; font-weight: 700; text-align: left; font-size: 13px; white-space: nowrap;">{cell}</th>'
-                    html += '</tr></thead><tbody>'
-                    header_processed = True
-                else:
-                    html += '<tr style="background-color: #2a2a2a;">'
-                    for cell in row:
-                        html += f'<td style="padding: 12px 16px; border: 1px solid #444; color: #cccccc; font-size: 13px; line-height: 1.4; vertical-align: top;">{cell}</td>'
-                    html += '</tr>'
-            
-            html += '</tbody></table>'
-            return html
-        
-        return text
+        """Format detected table content - simplified"""
+        return self._format_markdown_table(text)
     
     def _apply_basic_formatting(self, text: str) -> str:
         """Apply basic markdown formatting"""
         # Headers
-        text = re.sub(r'^# (.*?)$', r'<h1 style="color: #ffffff; margin: 20px 0 10px 0; font-size: 20px; font-weight: 600;">\\1</h1>', text, flags=re.MULTILINE)
-        text = re.sub(r'^## (.*?)$', r'<h2 style="color: #eeeeee; margin: 16px 0 8px 0; font-size: 18px; font-weight: 600;">\\1</h2>', text, flags=re.MULTILINE)
-        text = re.sub(r'^### (.*?)$', r'<h3 style="color: #dddddd; margin: 14px 0 7px 0; font-size: 16px; font-weight: 600;">\\1</h3>', text, flags=re.MULTILINE)
+        text = re.sub(r'^# (.*?)$', r'<h1 style="color: #ffffff; margin: 20px 0 10px 0; font-size: 20px; font-weight: 600;">\1</h1>', text, flags=re.MULTILINE)
+        text = re.sub(r'^## (.*?)$', r'<h2 style="color: #eeeeee; margin: 16px 0 8px 0; font-size: 18px; font-weight: 600;">\1</h2>', text, flags=re.MULTILINE)
+        text = re.sub(r'^### (.*?)$', r'<h3 style="color: #dddddd; margin: 14px 0 7px 0; font-size: 16px; font-weight: 600;">\1</h3>', text, flags=re.MULTILINE)
         
         # Bold text
-        text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #ffffff; font-weight: 600;">\\1</strong>', text)
+        text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #ffffff; font-weight: 600;">\1</strong>', text)
+        
+        # Italic text (avoid conflict with bold)
+        text = re.sub(r'(?<!\*)\*(.*?)\*(?!\*)', r'<em style="color: #ffffff; font-style: italic;">\1</em>', text)
+        
+        # Strikethrough
+        text = re.sub(r'~~(.*?)~~', r'<del style="color: #888; text-decoration: line-through;">\1</del>', text)
+        
+        # Code inline
+        text = re.sub(r'`(.*?)`', r'<code style="background-color: #444; padding: 2px 4px; border-radius: 3px; color: #fff;">\1</code>', text)
+        
+        # Links
+        text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color: #87CEEB; text-decoration: none; border-bottom: 1px dotted #87CEEB;" target="_blank">\1</a>', text)
+        
+        # Horizontal rule
+        text = re.sub(r'^---+$', r'<hr style="border: none; border-top: 1px solid #555; margin: 16px 0;">', text, flags=re.MULTILINE)
         
         # Lists
-        text = re.sub(r'^(\d+)\. (.*?)$', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #aaaaaa; margin-right: 6px;">\\1.</span>\\2</div>', text, flags=re.MULTILINE)
-        text = re.sub(r'^[•\-\*] (.*?)$', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #aaaaaa; margin-right: 6px;">•</span>\\1</div>', text, flags=re.MULTILINE)
+        text = re.sub(r'^(\d+)\. (.*?)$', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #aaaaaa; margin-right: 6px;">\1.</span>\2</div>', text, flags=re.MULTILINE)
+        text = re.sub(r'^[•\-\*] (.*?)$', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #aaaaaa; margin-right: 6px;">•</span>\1</div>', text, flags=re.MULTILINE)
         
-        # Tables
-        if '|' in text and ('---' in text or text.count('|') >= 6):
-            text = self._format_markdown_table(text)
+        # Tables - 마크다운 테이블 우선 처리
+        if self._is_markdown_table(text):
+            return self._format_markdown_table(text)
         
         return self._format_regular_text(text)
     
     def _format_markdown_table(self, text: str) -> str:
-        """Format markdown table to HTML"""
+        """Format markdown table to HTML with cell markdown parsing"""
         lines = text.strip().split('\n')
         table_lines = [line for line in lines if '|' in line and line.strip()]
         
@@ -295,13 +342,15 @@ Respond with a JSON object containing:
             if not header_processed:
                 html += '<thead><tr style="background-color: #3a3a3a;">'
                 for cell in cells:
-                    html += f'<th style="padding: 12px; border: 1px solid #555; color: #ffffff; font-weight: 600; text-align: left;">{cell}</th>'
+                    formatted_cell = self._format_cell_markdown(cell)
+                    html += f'<th style="padding: 12px; border: 1px solid #555; color: #ffffff; font-weight: 600; text-align: left;">{formatted_cell}</th>'
                 html += '</tr></thead><tbody>'
                 header_processed = True
             else:
                 html += '<tr style="background-color: #2a2a2a;">'
                 for cell in cells:
-                    html += f'<td style="padding: 10px; border: 1px solid #555; color: #cccccc;">{cell}</td>'
+                    formatted_cell = self._format_cell_markdown(cell)
+                    html += f'<td style="padding: 10px; border: 1px solid #555; color: #cccccc;">{formatted_cell}</td>'
                 html += '</tr>'
         
         html += '</tbody></table>'
@@ -322,6 +371,26 @@ Respond with a JSON object containing:
                 formatted_lines.append(f'<div style="margin: 2px 0; line-height: 1.4; color: #cccccc;">{line}</div>')
         
         return '\n'.join(formatted_lines)
+    
+    def _format_cell_markdown(self, cell_text: str) -> str:
+        """Format markdown within table cells"""
+        # Bold text
+        cell_text = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color: #ffffff; font-weight: 600;">\1</strong>', cell_text)
+        
+        # Italic text (avoid conflict with bold)
+        cell_text = re.sub(r'(?<!\*)\*(.*?)\*(?!\*)', r'<em style="color: #ffffff; font-style: italic;">\1</em>', cell_text)
+        
+        # Strikethrough
+        cell_text = re.sub(r'~~(.*?)~~', r'<del style="color: #888; text-decoration: line-through;">\1</del>', cell_text)
+        
+        # Code inline
+        cell_text = re.sub(r'`(.*?)`', r'<code style="background-color: #444; padding: 2px 4px; border-radius: 3px; color: #fff;">\1</code>', cell_text)
+        
+        # Links
+        cell_text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color: #87CEEB; text-decoration: none; border-bottom: 1px dotted #87CEEB;" target="_blank">\1</a>', cell_text)
+        
+        # Emojis and special characters are preserved
+        return cell_text
     
     def _apply_cached_formatting(self, text: str, cached_decision: Dict[str, Any]) -> str:
         """Apply previously cached formatting decision"""

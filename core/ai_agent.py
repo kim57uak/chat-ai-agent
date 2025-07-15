@@ -107,6 +107,7 @@ Requires tools:
 - If you request something You don't know, utilize appropriate tools.
 
 Does not require tools:
+- A question about knowledge you already know.
 - General conversation or questions
 - Explanations or opinions
 - Creative writing or idea suggestions
@@ -831,38 +832,39 @@ Extract parameter values from user request or use reasonable defaults."""
             return f"도구 실행 중 오류가 발생했습니다: {e}"
 
     def _is_tool_list_request(self, user_input: str) -> bool:
-        """도구 목록 요청인지 키워드 기반으로 빠르게 판단"""
+        """도구 목록 요청인지 AI가 판단"""
         try:
-            # 한국어 키워드 추가
-            keywords = [
-                '도구', '툴', 'tool', 'mcp', '기능', '역능', '목록', 'list',
-                '활성화', 'active', '사용가능', 'available', '어떤', 'what',
-                '보여', 'show', '알려', 'tell', '사용할수있', 'can use'
-            ]
-            
-            user_lower = user_input.lower()
-            
-            # 도구 관련 키워드 조합 검사
-            tool_keywords = ['도구', '툴', 'tool', 'mcp']
-            list_keywords = ['목록', 'list', '보여', 'show', '알려', 'tell']
-            
-            has_tool_keyword = any(keyword in user_lower for keyword in tool_keywords)
-            has_list_keyword = any(keyword in user_lower for keyword in list_keywords)
-            
-            # 도구 + 목록 키워드 조합이 있으면 도구 목록 요청으로 판단
-            if has_tool_keyword and has_list_keyword:
-                return True
+            # 도구 목록이 비어있으면 항상 False 반환
+            if not self.tools:
+                return False
                 
-            # '활성화된 도구' 같은 특정 표현 검사
-            specific_phrases = [
-                '활성화된 도구', '도구 목록', '사용가능한 도구',
-                'active tool', 'tool list', 'available tool', 'mcp tool'
+            # 간단한 프롬프트로 AI에게 판단 요청
+            prompt = f"""User input: "{user_input}"
+
+Determine if this user input is asking to see a list of available tools.
+Examples of tool list requests:
+- "What tools can I use?"
+- "Show me the available tools"
+- "List MCP tools"
+- "What active tools are there?"
+
+If this input is asking for a tool list, answer ONLY 'YES'. Otherwise, answer ONLY 'NO'."""
+            
+            messages = [
+                SystemMessage(content="You are a helpful assistant that determines if a user is asking to see a list of available tools."),
+                HumanMessage(content=prompt)
             ]
             
-            return any(phrase in user_lower for phrase in specific_phrases)
+            # 간단한 응답만 필요하므로 토큰 제한
+            response = self.llm.invoke(messages)
+            result = response.content.strip().upper()
+            
+            logger.info(f"도구 목록 요청 판단: {result}")
+            return 'YES' in result
 
         except Exception as e:
             logger.error(f"도구 목록 요청 판단 오류: {e}")
+            # 오류 발생 시 안전하게 False 반환
             return False
 
     def _show_tool_list(self) -> str:

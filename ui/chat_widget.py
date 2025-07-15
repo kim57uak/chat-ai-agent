@@ -1295,8 +1295,16 @@ class ChatWidget(QWidget):
         # 현재 모델 정보 가져오기
         current_model = load_last_model()
         
+        # 사용된 도구 정보 추가
+        tools_info = ""
+        if sender == '에이전트' and used_tools:
+            # 도구 이름 추출 및 이모지 매핑
+            tool_emojis = self._get_tool_emoji_list(used_tools)
+            tools_text = ", ".join([f"{emoji} {tool}" for emoji, tool in tool_emojis])
+            tools_info = f"\n\n*사용된 도구: {tools_text}*"
+        
         # 모델명과 응답시간을 응답 끝에 추가
-        enhanced_text = f"{processed_text}\n\n---\n*🤖 {current_model}{response_time}*"
+        enhanced_text = f"{processed_text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}*"
         
         # 스트리밍 없이 즉시 완성된 응답 표시
         self.append_chat(sender, enhanced_text)
@@ -1636,13 +1644,15 @@ class ChatWidget(QWidget):
             QTimer.singleShot(500, self._load_previous_conversations)
     
     def _load_previous_conversations(self):
-        """이전 대화 내용 로드 - 원본 그대로"""
+        """이전 대화 내용 로드 - 최신순 최대 10개 중복 제거"""
         try:
             self.conversation_history.load_from_file()
-            recent_messages = self.conversation_history.get_recent_messages(3)
+            recent_messages = self.conversation_history.get_recent_messages(20)  # 충분히 많은 메시지 가져오기
             
             if recent_messages:
-                self._append_simple_chat('시스템', f'이전 대화 {len(recent_messages)}개를 불러왔습니다.')
+                # 중복 제거를 위한 처리
+                unique_contents = set()
+                unique_messages = []
                 
                 for msg in recent_messages:
                     role = msg.get('role', '')
@@ -1651,7 +1661,21 @@ class ChatWidget(QWidget):
                     if not content or not content.strip():
                         continue
                     
-                    # 내용 생략하지 않음
+                    # 내용 기준으로 중복 제거
+                    content_key = f"{role}:{content[:50]}"  # 역할과 내용 앞부분으로 키 생성
+                    if content_key not in unique_contents:
+                        unique_contents.add(content_key)
+                        unique_messages.append(msg)
+                        
+                        # 최대 10개만 표시
+                        if len(unique_messages) >= 10:
+                            break
+                
+                self._append_simple_chat('시스템', f'이전 대화 {len(unique_messages)}개를 불러왔습니다.')
+                
+                for msg in unique_messages:
+                    role = msg.get('role', '')
+                    content = msg.get('content', '')
                     
                     if role == 'user':
                         self._append_simple_chat('사용자', content)
@@ -1661,6 +1685,7 @@ class ChatWidget(QWidget):
                 self._append_simple_chat('시스템', '새로운 대화를 시작합니다.')
                 
         except Exception as e:
+            print(f"대화 기록 로드 오류: {e}")
             self._append_simple_chat('시스템', '새로운 대화를 시작합니다.')
     
     def clear_conversation_history(self):
@@ -1694,3 +1719,54 @@ class ChatWidget(QWidget):
         # 타이머 정지
         if hasattr(self, 'tools_update_timer'):
             self.tools_update_timer.stop()
+            
+    def _get_tool_emoji_list(self, used_tools):
+        """사용된 모든 도구에 대한 이모티콘 목록 반환"""
+        if not used_tools:
+            return []
+        
+        # 도구 이름 키워드 기반 이모티콘 매핑
+        emoji_map = {
+            'search': '🔍',
+            'web': '🌐', 
+            'url': '🌐',
+            'fetch': '📄',
+            'database': '🗄️',
+            'mysql': '🗄️',
+            'sql': '🗄️',
+            'travel': '✈️',
+            'tour': '✈️',
+            'hotel': '🏨',
+            'flight': '✈️',
+            'map': '🗺️',
+            'location': '📍',
+            'geocode': '📍',
+            'weather': '🌤️',
+            'email': '📧',
+            'file': '📁',
+            'excel': '📊',
+            'chart': '📈',
+            'image': '🖼️',
+            'translate': '🌐',
+            'api': '🔧'
+        }
+        
+        result = []
+        for tool in used_tools:
+            tool_name = str(tool).lower()
+            emoji = "⚡"  # 기본 이모티콘
+            
+            # 키워드 기반 이모티콘 찾기
+            for keyword, e in emoji_map.items():
+                if keyword in tool_name:
+                    emoji = e
+                    break
+            
+            # 도구 이름 간단히 처리
+            display_name = str(tool)
+            if '.' in display_name:
+                display_name = display_name.split('.')[-1]  # 패키지명 제거
+            
+            result.append((emoji, display_name))
+        
+        return result[:5]  # 최대 5개만 표시

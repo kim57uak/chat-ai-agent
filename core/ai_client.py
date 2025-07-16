@@ -1,4 +1,6 @@
 from core.ai_agent_refactored import AIAgent
+from core.streaming_processor import StreamingChatProcessor, ChunkedResponseProcessor
+from core.llm_factory import LLMFactoryProvider
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +14,11 @@ class AIClient:
         self.model_name = model_name
         self.agent = AIAgent(api_key, model_name)
         self.conversation_history = []  # 대화 기록 저장
+        
+        # 스트리밍 처리기 초기화
+        self.streaming_processor = StreamingChatProcessor()
+        self.chunked_processor = ChunkedResponseProcessor()
+        self.streaming_llm = None  # 스트리밍용 LLM
 
         # 설정 파일에서 대화 기록 설정 로드
         from core.file_utils import load_config
@@ -428,6 +435,60 @@ class AIClient:
         except Exception as e:
             logger.error(f"유저 프롬프트 저장 오류: {e}")
             print(f"유저 프롬프트 저장 오류: {e}")
+    
+    def streaming_chat(
+        self, 
+        user_input: str, 
+        on_token=None, 
+        on_complete=None, 
+        on_error=None
+    ):
+        """스트리밍 채팅 - 대용량 응답 지원"""
+        try:
+            # 스트리밍용 LLM 생성 (한 번만)
+            if not self.streaming_llm:
+                self.streaming_llm = LLMFactoryProvider.create_llm(
+                    self.api_key, self.model_name, streaming=True
+                )
+                logger.info(f"스트리밍 LLM 생성: {self.model_name}")
+            
+            # 대화 기록 최적화
+            optimized_history = self._optimize_conversation_history()
+            
+            # 스트리밍 처리 시작
+            self.streaming_processor.process_streaming_chat(
+                user_input=user_input,
+                llm=self.streaming_llm,
+                conversation_history=optimized_history,
+                on_token=on_token,
+                on_complete=on_complete,
+                on_error=on_error
+            )
+            
+        except Exception as e:
+            error_msg = f"스트리밍 채팅 오류: {str(e)}"
+            logger.error(error_msg)
+            if on_error:
+                on_error(error_msg)
+    
+    def cancel_streaming(self):
+        """스트리밍 취소"""
+        self.streaming_processor.cancel_current_stream()
+        self.chunked_processor.cancel()
+        logger.info("스트리밍 취소 요청")
+    
+    def process_large_response(
+        self, 
+        response: str, 
+        on_chunk=None, 
+        on_complete=None
+    ):
+        """대용량 응답 처리 - 청크 단위 전송"""
+        self.chunked_processor.process_large_response(
+            response=response,
+            on_chunk=on_chunk,
+            on_complete=on_complete
+        )
 
 
 # 기존 호환성을 위한 전역 클라이언트

@@ -19,6 +19,9 @@ class ConversationHistory:
             
         content = content.strip()
         
+        # 과도한 구분선 정리
+        content = self._clean_excessive_separators(content)
+        
         # Prevent duplicate consecutive messages
         if (self.current_session and 
             self.current_session[-1]["role"] == role and 
@@ -93,3 +96,31 @@ class ConversationHistory:
         except Exception as e:
             print(f"History load failed: {e}")
             self.current_session = []
+    
+    def _clean_excessive_separators(self, content: str) -> str:
+        """과도한 구분선 정리"""
+        import re
+        
+        # 10개 이상의 대시, 등호, 별표를 3개로 정리
+        content = re.sub(r'^-{10,}$', '---', content, flags=re.MULTILINE)
+        content = re.sub(r'^={10,}$', '---', content, flags=re.MULTILINE)
+        content = re.sub(r'^\*{10,}$', '---', content, flags=re.MULTILINE)
+        
+        # 연속된 과도한 구분선 제거
+        lines = content.split('\n')
+        cleaned_lines = []
+        prev_was_separator = False
+        
+        for line in lines:
+            line_stripped = line.strip()
+            is_separator = line_stripped in ['---', '===', '***'] or len(line_stripped) > 50 and all(c in '-=*' for c in line_stripped)
+            
+            if is_separator:
+                if not prev_was_separator:
+                    cleaned_lines.append('---')
+                prev_was_separator = True
+            else:
+                cleaned_lines.append(line)
+                prev_was_separator = False
+        
+        return '\n'.join(cleaned_lines)

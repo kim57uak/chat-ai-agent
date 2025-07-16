@@ -17,13 +17,17 @@ class AIProcessor(QObject):
     finished = pyqtSignal(str, str, list)  # sender, text, used_tools
     error = pyqtSignal(str)
     streaming = pyqtSignal(str, str)  # sender, partial_text
+    streaming_complete = pyqtSignal(str, str, list)  # sender, full_text, used_tools
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self._cancelled = False
+        self._current_client = None
     
     def cancel(self):
         self._cancelled = True
+        if self._current_client:
+            self._current_client.cancel_streaming()
     
     def _simulate_streaming(self, sender, response):
         """가상 스트림 출력 시뮬레이션 - 단순화"""
@@ -424,6 +428,12 @@ class ChatWidget(QWidget):
         self.ai_processor.finished.connect(self.on_ai_response)
         self.ai_processor.error.connect(self.on_ai_error)
         self.ai_processor.streaming.connect(self.on_ai_streaming)
+        self.ai_processor.streaming_complete.connect(self.on_streaming_complete)
+        
+        # 스트리밍 처리용
+        self.current_stream_message_id = None
+        self.current_stream_content = ""
+        self.is_streaming = False
         
         # 타이핑 애니메이션용
         self.typing_timer = QTimer()
@@ -1164,6 +1174,10 @@ class ChatWidget(QWidget):
         """요청 취소 - 단순화된 방식"""
         print("취소 요청 시작")
         
+        # 스트리밍 취소
+        if hasattr(self, '_streaming_cancelled'):
+            self._streaming_cancelled = True
+        
         # UI 상태 복원
         self.set_ui_enabled(True)
         self.show_loading(False)
@@ -1306,8 +1320,13 @@ class ChatWidget(QWidget):
         # 모델명과 응답시간을 응답 끝에 추가
         enhanced_text = f"{processed_text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}*"
         
-        # 스트리밍 없이 즉시 완성된 응답 표시
-        self.append_chat(sender, enhanced_text)
+        # 대용량 응답인 경우 스트리밍 처리
+        if len(enhanced_text) > 1000:
+            print(f"[DEBUG] 대용량 응답 스트리밍 시작 - {len(enhanced_text)}자")
+            self._simple_streaming_display(sender, enhanced_text)
+        else:
+            # 작은 응답은 즉시 표시
+            self.append_chat(sender, enhanced_text)
         
         # 히스토리에는 원본 텍스트만 저장
         self.conversation_history.add_message('assistant', text)
@@ -1358,6 +1377,25 @@ class ChatWidget(QWidget):
         # 매핑되지 않은 도구의 기본 이모티콘
         return "⚡"
 
+    def on_streaming_complete(self, sender, full_text, used_tools):
+        """스트리밍 완료 처리"""
+        print(f"[DEBUG] 스트리밍 완료 - 길이: {len(full_text)}자")
+        
+        # 스트리밍 상태 초기화
+        if hasattr(self, 'current_stream_message_id'):
+            delattr(self, 'current_stream_message_id')
+        self.current_stream_content = ""
+        self.is_streaming = False
+        
+        # 히스토리에 저장
+        self.conversation_history.add_message('assistant', full_text)
+        self.conversation_history.save_to_file()
+        self.messages.append({'role': 'assistant', 'content': full_text})
+        
+        # UI 상태 복원
+        self.set_ui_enabled(True)
+        self.show_loading(False)
+    
     def on_ai_error(self, msg):
         # 오류 시에도 응답 시간 표시
         error_time = ""
@@ -1365,6 +1403,12 @@ class ChatWidget(QWidget):
             from datetime import datetime
             elapsed = datetime.now() - self.request_start_time
             error_time = f" (오류발생시간: {elapsed.total_seconds():.1f}초)"
+        
+        # 스트리밍 상태 초기화
+        if hasattr(self, 'current_stream_message_id'):
+            delattr(self, 'current_stream_message_id')
+        self.current_stream_content = ""
+        self.is_streaming = False
         
         self.append_chat('시스템', msg + error_time)
         self.set_ui_enabled(True)
@@ -1720,6 +1764,191 @@ class ChatWidget(QWidget):
         if hasattr(self, 'tools_update_timer'):
             self.tools_update_timer.stop()
             
+    def _start_streaming_display(self, sender, text):
+        """대용량 응답을 스트리밍으로 표시"""
+        import uuid
+        import threading
+        import time
+        
+        # 스트리밍 메시지 ID 생성
+        stream_id = f"stream_{uuid.uuid4().hex[:8]}"
+        self.current_stream_message_id = stream_id
+        self.current_stream_content = ""
+        
+        # 메시지 컴테이너 생성
+        self._create_stream_message_container(sender, stream_id)
+        
+        def stream_text():
+            try:
+                # 의미 단위로 분할
+                chunks = self._split_text_into_chunks(text)
+                print(f"[DEBUG] 스트리밍 청크 수: {len(chunks)}")
+                
+                for i, chunk in enumerate(chunks):
+                    if hasattr(self, '_streaming_cancelled') and self._streaming_cancelled:
+                        break
+                    
+                    self.current_stream_content += chunk
+                    
+                    # UI 업데이트는 메인 스레드에서 실행
+                    QTimer.singleShot(0, lambda c=self.current_stream_content: self._update_stream_content(stream_id, c))
+                    
+                    # 지연 시간 조정 (청크 크기에 따라)
+                    delay = min(0.1, len(chunk) / 1000)  # 최대 0.1초
+                    time.sleep(delay)
+                
+                # 스트리밍 완료 후 헤더 업데이트
+                QTimer.singleShot(0, lambda: self._finalize_stream_message(stream_id, sender))
+                print(f"[DEBUG] 스트리밍 완료")
+                
+            except Exception as e:
+                print(f"[DEBUG] 스트리밍 오류: {e}")
+        
+        # 별도 스레드에서 스트리밍 실행
+        self._streaming_cancelled = False
+        thread = threading.Thread(target=stream_text, daemon=True)
+        thread.start()
+    
+    def _split_text_into_chunks(self, text):
+        """텍스트를 의미 단위로 분할"""
+        import re
+        
+        # 문장 단위로 분할
+        sentences = re.split(r'([.!?]\s+|\n\n)', text)
+        chunks = []
+        current_chunk = ""
+        
+        for part in sentences:
+            current_chunk += part
+            
+            # 청크 크기 확인 (100-300자 사이)
+            if len(current_chunk) >= 100:
+                # 문장 끝에서 분할
+                if part.strip().endswith(('.', '!', '?')) or '\n\n' in part:
+                    chunks.append(current_chunk)
+                    current_chunk = ""
+                elif len(current_chunk) > 300:  # 너무 길면 강제 분할
+                    chunks.append(current_chunk)
+                    current_chunk = ""
+        
+        # 남은 내용 추가
+        if current_chunk.strip():
+            chunks.append(current_chunk)
+        
+        return chunks if chunks else [text]
+    
+    def _update_stream_content(self, stream_id, content):
+        """스트리밍 콘텐츠 업데이트"""
+        try:
+            # 마크다운 처리
+            from ui.intelligent_formatter import IntelligentContentFormatter
+            formatter = IntelligentContentFormatter()
+            formatted_content = formatter.format_content(content)
+            
+            # JSON 안전 전달
+            import json
+            safe_content = json.dumps(formatted_content, ensure_ascii=False)
+            
+            js_code = f'''
+            try {{
+                var contentDiv = document.getElementById('{stream_id}_content');
+                if (contentDiv) {{
+                    contentDiv.innerHTML = {safe_content};
+                    window.scrollTo(0, document.body.scrollHeight);
+                }}
+            }} catch(e) {{
+                console.log('Stream update error:', e);
+            }}
+            '''
+            
+            self.chat_display.page().runJavaScript(js_code)
+            
+        except Exception as e:
+            print(f"[DEBUG] 스트리밍 콘텐츠 업데이트 오류: {e}")
+    
+    def _finalize_stream_message(self, stream_id, sender):
+        """스트리밍 메시지 완료 처리"""
+        try:
+            # 헤더에서 '입력 중...' 제거
+            js_code = f'''
+            try {{
+                var messageDiv = document.getElementById('{stream_id}');
+                if (messageDiv) {{
+                    var headerDiv = messageDiv.querySelector('div:first-child');
+                    if (headerDiv) {{
+                        var spans = headerDiv.querySelectorAll('span');
+                        if (spans.length >= 3) {{
+                            spans[2].style.display = 'none'; // '• 입력 중...' 숨김
+                        }}
+                    }}
+                }}
+            }} catch(e) {{
+                console.log('Finalize stream error:', e);
+            }}
+            '''
+            
+            self.chat_display.page().runJavaScript(js_code)
+            print(f"[DEBUG] 스트리밍 메시지 완료 처리: {stream_id}")
+            
+        except Exception as e:
+            print(f"[DEBUG] 스트리밍 완뢬 처리 오류: {e}")
+    
+    def _simple_streaming_display(self, sender, text):
+        """간단한 스트리밍 표시 - 확실한 작동 보장"""
+        import uuid
+        
+        # 스트리밍 ID 생성
+        stream_id = f"simple_stream_{uuid.uuid4().hex[:8]}"
+        
+        # 메시지 컴테이너 생성
+        self._create_stream_message_container(sender, stream_id)
+        
+        # 0.5초 후 전체 콘텐츠 표시
+        def show_full_content():
+            try:
+                from ui.intelligent_formatter import IntelligentContentFormatter
+                formatter = IntelligentContentFormatter()
+                formatted_content = formatter.format_content(text)
+                
+                import json
+                safe_content = json.dumps(formatted_content, ensure_ascii=False)
+                
+                js_code = f'''
+                try {{
+                    var contentDiv = document.getElementById('{stream_id}_content');
+                    if (contentDiv) {{
+                        contentDiv.innerHTML = {safe_content};
+                        
+                        // 헤더에서 '입력 중...' 제거
+                        var messageDiv = document.getElementById('{stream_id}');
+                        if (messageDiv) {{
+                            var headerDiv = messageDiv.querySelector('div:first-child');
+                            if (headerDiv) {{
+                                var spans = headerDiv.querySelectorAll('span');
+                                if (spans.length >= 3) {{
+                                    spans[2].style.display = 'none';
+                                }}
+                            }}
+                        }}
+                        
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }}
+                }} catch(e) {{
+                    console.log('Simple stream error:', e);
+                }}
+                '''
+                
+                self.chat_display.page().runJavaScript(js_code)
+                print(f"[DEBUG] 간단 스트리밍 완료: {len(text)}자")
+                
+            except Exception as e:
+                print(f"[DEBUG] 간단 스트리밍 오류: {e}")
+                # 오류 시 기본 방식으로 표시
+                self.append_chat(sender, text)
+        
+        # 0.5초 후 실행
+        QTimer.singleShot(500, show_full_content)
+    
     def _get_tool_emoji_list(self, used_tools):
         """사용된 모든 도구에 대한 이모티콘 목록 반환"""
         if not used_tools:

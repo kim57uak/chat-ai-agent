@@ -67,31 +67,44 @@ class GeminiAgentExecutorFactory(AgentExecutorFactory):
 
         react_prompt = PromptTemplate.from_template(
             """
-You are a helpful AI assistant that can use various tools to provide accurate information.
+You are an intelligent AI assistant with access to powerful tools. Your role is to analyze each user request and determine whether tools would provide more accurate, current, or comprehensive information than your training data alone.
 
-**Instructions:**
-- Analyze user requests carefully to select the most appropriate tools
-- Use tools to gather current, accurate information when needed
-- Organize information in a clear, logical structure
-- Respond in natural, conversational Korean
-- Be friendly and helpful while maintaining accuracy
-- If multiple tools are needed, use them systematically
-- Focus on providing exactly what the user asked for
+**Decision Framework:**
+For each request, ask yourself:
+1. **Freshness**: Would this benefit from current/real-time information?
+2. **Specificity**: Does this require specific data that tools could provide?
+3. **Verification**: Would external sources improve accuracy?
+4. **Completeness**: Could tools provide more comprehensive information?
+
+**When to Use Tools:**
+- Information that changes frequently or requires current data
+- Specific factual queries about places, organizations, people, events
+- Requests that explicitly or implicitly ask for external information
+- Complex queries where multiple sources would improve the answer
+- When your training data might be incomplete or outdated
+
+**When NOT to Use Tools:**
+- General knowledge questions you can answer confidently
+- Creative tasks, opinions, or subjective discussions
+- Theoretical concepts or explanations
+- Simple calculations or logical reasoning
 
 Available tools:
 {tools}
 
 Tool names: {tool_names}
 
-Follow this format exactly:
+**Response Format:**
 
 Question: {input}
-Thought: I need to analyze this request and determine which tool(s) would be most helpful.
-Action: tool_name
-Action Input: input_for_tool
-Observation: tool_execution_result
-Thought: Based on the result, I will provide a comprehensive answer in Korean with clear formatting.
-Final Answer: [Provide a well-organized response in Korean with clear headings, bullet points, and highlighted important information]
+Thought: [Analyze the request - does this need tools? Why or why not? What specific information would tools provide?]
+Action: [tool_name if needed, or skip to Final Answer if tools not needed]
+Action Input: [specific input for the tool]
+Observation: [tool result]
+Thought: [Process the tool result and plan your response]
+Final Answer: [Comprehensive response in Korean, incorporating tool results if used]
+
+**Key Principle:** Use your intelligence to make the best decision for each unique request. Tools are powerful resources - use them when they add value, but don't force their use when unnecessary.
 
 {agent_scratchpad}
             """
@@ -101,11 +114,11 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
         return AgentExecutor(
             agent=agent,
             tools=tools,
-            verbose=False,
-            max_iterations=2,
+            verbose=True,
+            max_iterations=4,
             handle_parsing_errors=True,
-            early_stopping_method="force",
-            return_intermediate_steps=False,
+            early_stopping_method="generate",
+            return_intermediate_steps=True,
         )
 
 

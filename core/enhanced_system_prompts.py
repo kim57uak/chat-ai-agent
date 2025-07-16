@@ -52,6 +52,13 @@ When responding, analyze the content and automatically:
 - Include summary or conclusion when appropriate
 - Adapt tone and complexity to match the query type
 
+**CRITICAL FORMATTING RULES:**
+- NEVER use excessive dashes or repetitive characters (avoid: -----, ===== patterns)
+- Use simple horizontal rules: maximum 3 dashes (---) for section breaks
+- Keep all formatting concise and meaningful
+- Avoid decorative ASCII art or repetitive symbols
+- Focus on content quality over visual decoration
+
 **Table Creation Guidelines:**
 - Headers should clearly indicate what is being compared
 - Include all relevant comparison dimensions

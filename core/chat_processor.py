@@ -51,10 +51,7 @@ class SimpleChatProcessor(ChatProcessor):
             response = llm.invoke(messages)
             response_content = response.content
             
-            # 응답 길이 제한 적용
-            limited_response = self._limit_response_length(response_content)
-            
-            return limited_response
+            return response_content
 
         except Exception as e:
             logger.error(f"일반 채팅 오류: {e}")
@@ -252,10 +249,7 @@ class ToolChatProcessor(ChatProcessor):
             elapsed = time.time() - start_time
             logger.info(f"✅ 도구 채팅 완료: {elapsed:.2f}초")
             
-            # 응답 길이 제한 적용
-            limited_output = self._limit_response_length(output)
-            
-            return limited_output, used_tools
+            return output, used_tools
 
         except Exception as e:
             elapsed = time.time() - start_time
@@ -276,9 +270,42 @@ class ToolChatProcessor(ChatProcessor):
             return simple_processor.process_chat(user_input, llm), []
     
     def _gemini_tool_chat(self, user_input: str, llm: Any) -> Tuple[str, List]:
-        """Gemini 모델용 도구 채팅 (간단한 구현)"""
-        # 실제 구현은 기존 로직을 참조하여 작성
-        return f"Gemini 도구 채팅 결과: {user_input}", []
+        """Gemini 모델용 도구 채팅 - 실제 도구 사용"""
+        try:
+            # 에이전트 실행기가 없으면 생성
+            if not self.agent_executor:
+                logger.info("🔧 Gemini용 에이전트 실행기 생성")
+                self.agent_executor = self.agent_executor_factory.create_agent_executor(llm, self.tools)
+            
+            if not self.agent_executor:
+                logger.warning("에이전트 실행기 생성 실패")
+                return "사용 가능한 도구가 없습니다.", []
+            
+            # 에이전트 실행
+            logger.info(f"🔧 Gemini 에이전트 실행: {user_input[:50]}...")
+            result = self.agent_executor.invoke({"input": user_input})
+            output = result.get("output", "")
+            
+            # 사용된 도구 정보 추출
+            used_tools = []
+            if "intermediate_steps" in result:
+                for step in result["intermediate_steps"]:
+                    if len(step) >= 2 and hasattr(step[0], "tool"):
+                        used_tools.append(step[0].tool)
+            
+            if not output.strip() or "Agent stopped" in output:
+                logger.warning("Gemini 에이전트 실행 실패, 일반 채팅으로 대체")
+                simple_processor = SimpleChatProcessor()
+                return simple_processor.process_chat(user_input, llm), []
+            
+            logger.info(f"✅ Gemini 도구 채팅 성공: {len(used_tools)}개 도구 사용")
+            return output, used_tools
+            
+        except Exception as e:
+            logger.error(f"❌ Gemini 도구 채팅 오류: {e}")
+            # 오류 시 일반 채팅으로 폴백
+            simple_processor = SimpleChatProcessor()
+            return simple_processor.process_chat(user_input, llm), []
     
     def _limit_response_length(self, response: str) -> str:
         """응답 길이 제한"""

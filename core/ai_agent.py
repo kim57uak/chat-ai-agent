@@ -10,6 +10,7 @@ from tools.langchain.langchain_tools import tool_registry, MCPTool
 from mcp.servers.mcp import get_all_mcp_tools
 from mcp.tools.tool_manager import tool_manager, ToolCategory
 from core.conversation_history import ConversationHistory
+from core.message_validator import MessageValidator
 import logging
 from datetime import datetime, timedelta
 
@@ -509,6 +510,9 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 
     def _convert_history_to_messages(self, conversation_history: List[Dict]):
         """대화 기록을 LangChain 메시지로 변환 - 토큰 제한 고려"""
+        # Perplexity API 메시지 형식 검증
+        validated_history = MessageValidator.validate_and_fix_messages(conversation_history)
+        
         messages = []
 
         # 통일된 시스템 메시지 - 히스토리 활용 강조
@@ -532,9 +536,9 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 
         # 최근 대화 기록 사용 (더 많이 포함)
         recent_history = (
-            conversation_history[-6:]
-            if len(conversation_history) > 6
-            else conversation_history
+            validated_history[-6:]
+            if len(validated_history) > 6
+            else validated_history
         )
 
         for msg in recent_history:

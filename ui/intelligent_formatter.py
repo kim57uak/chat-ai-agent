@@ -325,6 +325,14 @@ Respond with a JSON object containing:
             flags=re.MULTILINE | re.DOTALL
         )
         
+        # 중복된 헤더 마크 정리 (### ### -> ###)
+        text = re.sub(r'^(#{1,6})\s*\1+\s*', r'\1 ', text, flags=re.MULTILINE)
+        
+        # 과도한 구분선 정리 (10개 이상의 대시 -> 3개)
+        text = re.sub(r'^-{10,}$', '---', text, flags=re.MULTILINE)
+        text = re.sub(r'^={10,}$', '---', text, flags=re.MULTILINE)
+        text = re.sub(r'^\*{10,}$', '---', text, flags=re.MULTILINE)
+        
         # Headers
         text = re.sub(r'^# (.*?)$', r'<h1 style="color: #ffffff; margin: 20px 0 10px 0; font-size: 20px; font-weight: 600;">\1</h1>', text, flags=re.MULTILINE)
         text = re.sub(r'^## (.*?)$', r'<h2 style="color: #eeeeee; margin: 16px 0 8px 0; font-size: 18px; font-weight: 600;">\1</h2>', text, flags=re.MULTILINE)

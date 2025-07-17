@@ -264,11 +264,20 @@ class AIClient:
                 self.conversation_history = recent_messages
                 logger.info(f"파일에서 대화 기록 로드: {len(recent_messages)}개")
 
-            optimized_history = self._optimize_conversation_history()
-            # Perplexity API 메시지 형식 검증 (이중 검증)
-            optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
-            optimized_history = MessageValidator.ensure_alternating_pattern(optimized_history)
-            logger.info(f"최적화된 히스토리 사용: {len(optimized_history)}개")
+            # 모델 타입 확인
+            model_lower = self.model_name.lower()
+            is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
+            
+            # Perplexity 모델은 히스토리 사용 안함
+            if is_perplexity:
+                logger.info(f"Perplexity 모델 감지: {self.model_name}, 히스토리 사용 안함")
+                optimized_history = []
+            else:
+                optimized_history = self._optimize_conversation_history()
+                # 메시지 형식 검증 (이중 검증)
+                optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
+                optimized_history = MessageValidator.ensure_alternating_pattern(optimized_history)
+                logger.info(f"최적화된 히스토리 사용: {len(optimized_history)}개")
 
             result = self._process_with_quota_handling(
                 user_input, optimized_history, force_agent=True
@@ -296,6 +305,10 @@ class AIClient:
             has_start_tag = "[IMAGE_BASE64]" in cleaned_input
             has_end_tag = "[/IMAGE_BASE64]" in cleaned_input
             has_image_data = has_start_tag and has_end_tag
+            
+            # 모델 타입 확인
+            model_lower = self.model_name.lower()
+            is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
             
             if has_image_data:
                 # 이미지 OCR에 최적화된 프롬프트 추가
@@ -326,11 +339,16 @@ class AIClient:
                 enhanced_input = f"{ocr_prompt}\n\n{user_input}"
                 return self.agent.simple_chat(enhanced_input)
             else:
-                optimized_history = self._optimize_conversation_history()
-                # Perplexity API 메시지 형식 검증 (이중 검증)
-                optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
-                optimized_history = MessageValidator.ensure_alternating_pattern(optimized_history)
-                return self.agent.simple_chat_with_history(user_input, optimized_history)
+                # Perplexity 모델은 히스토리 사용 안함
+                if is_perplexity:
+                    logger.info(f"Perplexity 모델 감지: {self.model_name}, 히스토리 없이 단순 채팅")
+                    return self.agent.simple_chat(user_input)
+                else:
+                    optimized_history = self._optimize_conversation_history()
+                    # 메시지 형식 검증
+                    optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
+                    optimized_history = MessageValidator.ensure_alternating_pattern(optimized_history)
+                    return self.agent.simple_chat_with_history(user_input, optimized_history)
         except Exception as e:
             logger.error(f"단순 채팅 오류: {e}")
             return f"오류: {e}"

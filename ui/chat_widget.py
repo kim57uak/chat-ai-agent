@@ -981,9 +981,18 @@ class ChatWidget(QWidget):
         self.set_ui_enabled(False)
         self.show_loading(True)
         
+        # 모델 타입 확인
+        model_lower = model.lower()
+        is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
+        
         # Perplexity API 오류 방지를 위해 히스토리 사용 안함
         validated_history = []
-        print(f"[디버그] 히스토리 사용 안함 (Perplexity API 호환성)")
+        if is_perplexity:
+            print(f"[디버그] 히스토리 사용 안함 (Perplexity API 호환성)")
+        else:
+            # 다른 모델은 히스토리 사용 가능
+            validated_history = self.conversation_history.get_recent_messages(5)
+            print(f"[디버그] 히스토리 사용: {len(validated_history)}개 메시지")
         
         # 모드에 따라 에이전트 사용 여부 결정
         current_mode = self.mode_combo.currentText()
@@ -991,7 +1000,7 @@ class ChatWidget(QWidget):
         print(f"[DEBUG] 선택된 모드: {current_mode}, 에이전트 사용: {use_agent}")
         
         self.ai_processor.process_request(
-            api_key, model, [], user_text,
+            api_key, model, validated_history, user_text,
             use_agent, file_prompt
         )
     

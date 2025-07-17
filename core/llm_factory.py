@@ -3,6 +3,7 @@ from typing import Any, Callable, Optional
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_perplexity import ChatPerplexity
+from core.perplexity_wrapper import PerplexityWrapper
 from core.file_utils import load_config
 import logging
 
@@ -63,14 +64,14 @@ class GeminiLLMFactory(LLMFactory):
 class PerplexityLLMFactory(LLMFactory):
     """Perplexity LLM 팩토리"""
     
-    def create_llm(self, api_key: str, model_name: str, streaming: bool = False) -> ChatPerplexity:
+    def create_llm(self, api_key: str, model_name: str, streaming: bool = False) -> PerplexityWrapper:
         config = load_config()
         response_settings = config.get("response_settings", {})
         max_tokens = response_settings.get("max_tokens", 4000)
         
         logger.info(f"Perplexity LLM 생성 - model: {model_name}, max_tokens: {max_tokens}")
         
-        return ChatPerplexity(
+        return PerplexityWrapper(
             model=model_name,
             pplx_api_key=api_key,
             temperature=0.1,

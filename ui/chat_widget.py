@@ -5,6 +5,7 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 from core.file_utils import load_config, load_model_api_key, load_last_model
 from core.ai_client import AIClient
 from core.conversation_history import ConversationHistory
+from core.message_validator import MessageValidator
 from ui.intelligent_formatter import IntelligentContentFormatter
 import os
 import threading
@@ -980,13 +981,18 @@ class ChatWidget(QWidget):
         self.set_ui_enabled(False)
         self.show_loading(True)
         
-        # 최신 대화 히스토리 가져오기 (파일에서 다시 로드)
-        self.conversation_history.load_from_file()
-        recent_history = self.conversation_history.get_recent_messages(10)
-        print(f"[디버그] 전달할 히스토리: {len(recent_history)}개")
-        for i, msg in enumerate(recent_history[-3:]):
-            content = msg.get('content', '')[:50].replace('\n', ' ').replace('\r', ' ').strip()
-            print(f"  [{i}] {msg.get('role', 'unknown')}: {content}...")
+        # 모델 타입 확인
+        model_lower = model.lower()
+        is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
+        
+        # Perplexity API 오류 방지를 위해 히스토리 사용 안함
+        validated_history = []
+        if is_perplexity:
+            print(f"[디버그] 히스토리 사용 안함 (Perplexity API 호환성)")
+        else:
+            # 다른 모델은 히스토리 사용 가능
+            validated_history = self.conversation_history.get_recent_messages(5)
+            print(f"[디버그] 히스토리 사용: {len(validated_history)}개 메시지")
         
         # 모드에 따라 에이전트 사용 여부 결정
         current_mode = self.mode_combo.currentText()
@@ -994,7 +1000,7 @@ class ChatWidget(QWidget):
         print(f"[DEBUG] 선택된 모드: {current_mode}, 에이전트 사용: {use_agent}")
         
         self.ai_processor.process_request(
-            api_key, model, recent_history, user_text,
+            api_key, model, validated_history, user_text,
             use_agent, file_prompt
         )
     

@@ -3,13 +3,18 @@ from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.agents import create_react_agent
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_perplexity import ChatPerplexity
+from core.perplexity_wrapper import PerplexityWrapper
 from langchain.prompts import PromptTemplate
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.tools import BaseTool
-from tools.langchain.langchain_tools import tool_registry, MCPTool
+from tools.langchain.langchain_tools import MCPTool, MCPToolRegistry
+from core.mcp_interface import MCPToolCaller
 from mcp.servers.mcp import get_all_mcp_tools
 from mcp.tools.tool_manager import tool_manager, ToolCategory
 from core.conversation_history import ConversationHistory
+from core.message_validator import MessageValidator
+from core.enhanced_system_prompts import SystemPrompts
 import logging
 from datetime import datetime, timedelta
 
@@ -43,17 +48,36 @@ class AIAgent:
                 convert_system_message_to_human=True,  # 시스템 메시지를 인간 메시지로 변환
                 max_tokens=4096,  # 충분한 토큰 할당
             )
+        elif (
+            "sonar" in self.model_name
+            or "r1-" in self.model_name
+            or "perplexity" in self.model_name
+        ):
+            # Perplexity 모델에 특별한 래퍼 클래스 사용
+            logger.info(f"Perplexity 모델 사용: {self.model_name}")
+            return PerplexityWrapper(
+                model=self.model_name,
+                pplx_api_key=self.api_key,
+                temperature=0.1,
+                max_tokens=4096,
+                request_timeout=120,
+            )
         else:
             return ChatOpenAI(
-                model=self.model_name, 
-                openai_api_key=self.api_key, 
+                model=self.model_name,
+                openai_api_key=self.api_key,
                 temperature=0.1,
-                max_tokens=4096
+                max_tokens=4096,
             )
 
     def _load_mcp_tools(self):
         """MCP 도구 로드 및 LangChain 도구로 등록"""
         try:
+            # 실제 MCP 도구 호출자 사용
+            from core.mcp_implementation import mcp_tool_caller
+
+            tool_registry = MCPToolRegistry(mcp_tool_caller)
+
             all_mcp_tools = get_all_mcp_tools()
             if all_mcp_tools:
                 # 모든 도구 등록
@@ -64,13 +88,53 @@ class AIAgent:
                 logger.warning("사용 가능한 MCP 도구가 없습니다")
         except Exception as e:
             logger.error(f"MCP 도구 로드 실패: {e}")
+            # 폴백: 실제 도구 호출 기능이 있는 MCP 도구 호출자 생성
+            try:
+                class SimpleMCPToolCaller(MCPToolCaller):
+                    def call_tool(self, server_name, tool_name, arguments=None):
+                        from mcp.servers.mcp import call_mcp_tool
+                        return call_mcp_tool(server_name, tool_name, arguments)
+                    
+                    def get_all_tools(self):
+                        return get_all_mcp_tools()
+                
+                # 도구 레지스트리 생성
+                mcp_caller = SimpleMCPToolCaller()
+                tool_registry = MCPToolRegistry(mcp_caller)
+                
+                all_mcp_tools = get_all_mcp_tools()
+                if all_mcp_tools:
+                    # 모든 도구 등록
+                    self.tools = tool_registry.register_mcp_tools(all_mcp_tools)
+                    tool_manager.register_tools(all_mcp_tools)
+                    logger.info(f"폴백 방식으로 AI 에이전트에 {len(self.tools)}개 도구 로드됨")
+                else:
+                    logger.warning("사용 가능한 MCP 도구가 없습니다")
+            except Exception as fallback_error:
+                logger.error(f"폴백 MCP 도구 로드 실패: {fallback_error}")
+                self.tools = []
 
     def _should_use_tools(self, user_input: str, force_agent: bool = False) -> bool:
         """AI가 자연어를 이해하여 도구 사용 여부를 지능적으로 결정"""
         import time
+
         start_time = time.time()
         logger.info(f"🤔 도구 사용 판단 시작: {user_input[:30]}...")
-        
+
+        # Perplexity 모델의 경우 항상 도구를 사용하도록 강제
+        if (
+            "sonar" in self.model_name
+            or "r1-" in self.model_name
+            or "perplexity" in self.model_name
+        ):
+            logger.info("🔧 Perplexity 모델은 항상 도구를 사용하도록 강제합니다")
+            return True
+
+        # Agent 모드가 강제된 경우 항상 도구 사용
+        if force_agent:
+            logger.info("🔧 Agent 모드가 강제되어 도구를 사용합니다")
+            return True
+
         try:
             # 도구 설명 수집
             tool_descriptions = []
@@ -89,7 +153,7 @@ class AIAgent:
             if force_agent:
                 agent_context = "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
 
-            decision_prompt = f"""User request: "{user_input}"
+            decision_prompt = f"""User request: "{user_input}". You must end with "Action" or "Final Answer."
 
 Available tools:
 {tools_info}
@@ -146,7 +210,11 @@ Answer: YES or NO only."""
             return None
 
         # OpenAI 도구 에이전트 생성 (GPT 모델용)
-        if not self.model_name.startswith("gemini"):
+        if not self.model_name.startswith("gemini") and not (
+            "sonar" in self.model_name
+            or "r1-" in self.model_name
+            or "perplexity" in self.model_name
+        ):
             from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 
             system_message = """You are a helpful AI assistant that can use various tools to provide accurate information.
@@ -164,7 +232,13 @@ Answer: YES or NO only."""
 
 **Response Format:**
 - Use clear headings and bullet points when appropriate
-- Highlight important information
+- Format information in a structured, readable way
+- Always end your response with either an Action or Final Answer
+- ONLY SHOW THE FINAL ANSWER TO THE USER - HIDE ALL THOUGHT PROCESSES
+
+**IMPORTANT**: 
+- Always end your response with either an Action or Final Answer
+- ONLY SHOW THE FINAL ANSWER TO THE USER - DO NOT SHOW ANY THOUGHT PROCESSES, ACTIONS, OR OBSERVATIONSghlight important information
 - Keep responses well-organized and easy to read"""
 
             prompt = ChatPromptTemplate.from_messages(
@@ -183,6 +257,93 @@ Answer: YES or NO only."""
                 max_iterations=2,
                 handle_parsing_errors=True,
             )
+
+        # Perplexity 모델용 ReAct 에이전트 생성
+        elif (
+            "sonar" in self.model_name
+            or "r1-" in self.model_name
+            or "perplexity" in self.model_name
+        ):
+            logger.info("Perplexity 모델용 ReAct 에이전트 생성")
+
+            # Perplexity 모델을 위한 특별한 프롬프트 (영어로 작성)
+            perplexity_react_prompt = PromptTemplate.from_template(
+                """
+ You are an AI assistant that uses various tools to provide accurate information.
+
+**Instructions:**
+- Carefully analyze user requests to select the most appropriate tools
+- Use tools to gather current, accurate information when needed
+- Organize information in a clear, logical structure
+- Respond in natural, conversational Korean
+- Be friendly and helpful while maintaining accuracy
+- If multiple tools are needed, use them systematically
+- Focus on providing exactly what the user asked for
+- Always parse MCP tool results accurately and present them to the user
+
+Available tools:
+{tools}
+
+Tool names: {tool_names}
+
+**IMPORTANT: YOU MUST FOLLOW THIS FORMAT EXACTLY**
+
+Question: {input}. You must end with "Action" or "Final Answer."
+Thought: I need to analyze this request and determine which tool(s) would be most helpful.
+Action: tool_name
+Action Input: {"param1": "value1", "param2": "value2"}
+Observation: tool_execution_result
+Thought: Based on the result, I will decide whether to use another tool.
+Action: another_tool_name
+Action Input: {"param1": "value1"}
+Observation: another_tool_execution_result
+Thought: Now I have enough information to provide a comprehensive answer.
+Final Answer: My comprehensive response in Korean
+
+**CRITICAL FORMAT RULES - FOLLOW THESE EXACTLY**:
+- After EVERY "Thought:" line, you MUST IMMEDIATELY include either "Action:" or "Final Answer:"
+- NEVER skip the "Action:" line after a "Thought:" line
+- NEVER include any other text between "Thought:" and "Action:" lines
+- ALWAYS follow "Action:" with "Action Input:" on the next line
+- ALWAYS use valid JSON format for "Action Input:" parameters
+- When finished, ALWAYS end with "Thought:" followed by "Final Answer:"
+
+**REMEMBER**: The format must be EXACTLY as shown above. This is CRITICAL for the system to work properly.
+
+{agent_scratchpad}
+
+{agent_scratchpad}
+                """
+            )
+
+            # 특별한 시스템 프롬프트 추가
+            try:
+                from core.perplexity_agent_helper import create_perplexity_agent
+                
+                agent = create_perplexity_agent(
+                    self.llm, self.tools, perplexity_react_prompt
+                )
+            except ImportError as e:
+                logger.error(f"perplexity_agent_helper 모듈 가져오기 실패: {e}")
+                # 폴백: 기본 ReAct 에이전트 생성
+                agent = create_react_agent(self.llm, self.tools, perplexity_react_prompt)
+
+            # AgentExecutor 생성 시 파싱 오류 처리 강화
+            executor = AgentExecutor(
+                agent=agent,
+                tools=self.tools,
+                verbose=True,  # 디버깅을 위해 verbose 활성화
+                max_iterations=3,  # 반복 횟수 증가
+                handle_parsing_errors=True,
+                early_stopping_method="force",
+                return_intermediate_steps=True,
+            )
+
+            # 추가 설정
+            if hasattr(executor, "handle_parsing_errors"):
+                executor.handle_parsing_errors = True
+
+            return executor
 
         # ReAct 에이전트 생성 (Gemini 등 다른 모델용)
         else:
@@ -206,7 +367,7 @@ Tool names: {tool_names}
 
 Follow this format exactly:
 
-Question: {input}
+Question: {input}.You must end with "Action" or "Final Answer."
 Thought: I need to analyze this request and determine which tool(s) would be most helpful.
 Action: tool_name
 Action Input: input_for_tool
@@ -232,9 +393,10 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
     def chat_with_tools(self, user_input: str) -> tuple[str, list]:
         """도구를 사용한 채팅"""
         import time
+
         start_time = time.time()
         logger.info(f"🚀 도구 채팅 시작: {user_input[:50]}...")
-        
+
         try:
             # 토큰 제한 오류 방지를 위해 대화 히스토리 제한
             if "context_length_exceeded" in str(getattr(self, "_last_error", "")):
@@ -246,7 +408,23 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
                 logger.info("🔧 Gemini 도구 채팅 시작")
                 gemini_start = time.time()
                 result = self._gemini_tool_chat(user_input)
-                logger.info(f"🔧 Gemini 도구 채팅 완료: {time.time() - gemini_start:.2f}초")
+                logger.info(
+                    f"🔧 Gemini 도구 채팅 완료: {time.time() - gemini_start:.2f}초"
+                )
+                return result
+
+            # Perplexity 모델은 직접 도구 호출 방식 사용
+            elif (
+                "sonar" in self.model_name
+                or "r1-" in self.model_name
+                or "perplexity" in self.model_name
+            ):
+                logger.info("🔧 Perplexity 도구 채팅 시작")
+                perplexity_start = time.time()
+                result = self._perplexity_tool_chat(user_input)
+                logger.info(
+                    f"🔧 Perplexity 도구 채팅 완료: {time.time() - perplexity_start:.2f}초"
+                )
                 return result
 
             # GPT 모델은 기존 에이전트 방식 사용
@@ -254,7 +432,9 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
                 logger.info("🔧 에이전트 실행기 생성 시작")
                 agent_create_start = time.time()
                 self.agent_executor = self._create_agent_executor()
-                logger.info(f"🔧 에이전트 실행기 생성 완료: {time.time() - agent_create_start:.2f}초")
+                logger.info(
+                    f"🔧 에이전트 실행기 생성 완료: {time.time() - agent_create_start:.2f}초"
+                )
 
             if not self.agent_executor:
                 return "사용 가능한 도구가 없습니다.", []
@@ -262,7 +442,9 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
             logger.info("🔧 에이전트 실행 시작")
             agent_invoke_start = time.time()
             result = self.agent_executor.invoke({"input": user_input})
-            logger.info(f"🔧 에이전트 실행 완료: {time.time() - agent_invoke_start:.2f}초")
+            logger.info(
+                f"🔧 에이전트 실행 완료: {time.time() - agent_invoke_start:.2f}초"
+            )
             output = result.get("output", "")
 
             # 사용된 도구 정보 추출
@@ -470,6 +652,18 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
             self.conversation_history.save_to_file()
             return response, []
 
+        # Perplexity 모델의 경우 항상 도구 사용
+        if (
+            "sonar" in self.model_name
+            or "r1-" in self.model_name
+            or "perplexity" in self.model_name
+        ):
+            logger.info("🔧 Perplexity 모델은 항상 도구를 사용합니다")
+            response, used_tools = self.chat_with_tools(user_input)
+            self.conversation_history.add_message("assistant", response)
+            self.conversation_history.save_to_file()
+            return response, used_tools
+
         # AI가 컨텍스트를 분석하여 도구 사용 여부 결정
         use_tools = self._should_use_tools(user_input)
 
@@ -509,6 +703,11 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 
     def _convert_history_to_messages(self, conversation_history: List[Dict]):
         """대화 기록을 LangChain 메시지로 변환 - 토큰 제한 고려"""
+        # Perplexity API 메시지 형식 검증
+        validated_history = MessageValidator.validate_and_fix_messages(
+            conversation_history
+        )
+
         messages = []
 
         # 통일된 시스템 메시지 - 히스토리 활용 강조
@@ -524,7 +723,7 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 - Provide comprehensive, well-structured responses
 
 **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment."""
-        
+
         if self.model_name.startswith("gemini"):
             messages.append(HumanMessage(content=unified_system_content))
         else:
@@ -532,9 +731,7 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 
         # 최근 대화 기록 사용 (더 많이 포함)
         recent_history = (
-            conversation_history[-6:]
-            if len(conversation_history) > 6
-            else conversation_history
+            validated_history[-6:] if len(validated_history) > 6 else validated_history
         )
 
         for msg in recent_history:
@@ -837,7 +1034,7 @@ Extract parameter values from user request or use reasonable defaults."""
             # 도구 목록이 비어있으면 항상 False 반환
             if not self.tools:
                 return False
-                
+
             # 간단한 프롬프트로 AI에게 판단 요청
             prompt = f"""User input: "{user_input}"
 
@@ -849,18 +1046,20 @@ Examples of tool list requests:
 - "What active tools are there?"
 
 If this input is asking for a tool list, answer ONLY 'YES'. Otherwise, answer ONLY 'NO'."""
-            
+
             messages = [
-                SystemMessage(content="You are a helpful assistant that determines if a user is asking to see a list of available tools."),
-                HumanMessage(content=prompt)
+                SystemMessage(
+                    content="You are a helpful assistant that determines if a user is asking to see a list of available tools."
+                ),
+                HumanMessage(content=prompt),
             ]
-            
+
             # 간단한 응답만 필요하므로 토큰 제한
             response = self.llm.invoke(messages)
             result = response.content.strip().upper()
-            
+
             logger.info(f"도구 목록 요청 판단: {result}")
-            return 'YES' in result
+            return "YES" in result
 
         except Exception as e:
             logger.error(f"도구 목록 요청 판단 오류: {e}")
@@ -947,7 +1146,7 @@ Provide a helpful, natural Korean response in markdown format that directly addr
 - Focus on what the user actually needs to know
 
 **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment."""
-            
+
             messages = [
                 SystemMessage(content=unified_system_message),
                 HumanMessage(content=response_prompt),
@@ -1168,6 +1367,222 @@ Provide a helpful, well-organized response in Korean that directly addresses the
 
         except Exception as e:
             logger.error(f"체인 응답 생성 오류: {e}")
+            return self._format_response(
+                "여러 도구를 사용하여 정보를 수집했지만 최종 응답 생성 중 오류가 발생했습니다."
+            )
+
+    def _perplexity_tool_chat(self, user_input: str) -> tuple[str, list]:
+        """퍼플렉시티 모델용 AI 기반 도구 선택 및 실행 - 연쇄적 도구 사용 지원"""
+        try:
+            if self._is_tool_list_request(user_input):
+                return self._show_tool_list(), []
+
+            # 연쇄적 도구 사용 시작
+            return self._execute_perplexity_tool_chain(user_input)
+
+        except Exception as e:
+            logger.error(f"퍼플렉시티 도구 채팅 오류: {e}")
+            return self.simple_chat(user_input), []
+
+    def _execute_perplexity_tool_chain(
+        self, user_input: str, max_iterations: int = 3
+    ) -> tuple[str, list]:
+        """퍼플렉시티 모델을 위한 연쇄적 도구 사용 실행"""
+        all_used_tools = []
+        accumulated_results = []
+        current_query = user_input
+
+        for iteration in range(max_iterations):
+            logger.info(f"도구 체인 {iteration + 1}단계 시작: {current_query[:50]}...")
+
+            # AI가 다음 도구 결정
+            tool_decision = self._ai_select_perplexity_tool(
+                current_query, accumulated_results, iteration
+            )
+
+            if not tool_decision or tool_decision.get("tool") == "none":
+                logger.info(f"도구 체인 {iteration + 1}단계에서 종료")
+                break
+
+            # 도구 실행
+            tool_result = self._execute_selected_tool(tool_decision)
+            used_tool_name = tool_decision.get("tool", "")
+
+            if used_tool_name:
+                all_used_tools.append(used_tool_name)
+
+            accumulated_results.append(
+                {
+                    "step": iteration + 1,
+                    "tool": used_tool_name,
+                    "query": current_query,
+                    "result": tool_result,
+                }
+            )
+
+            # 다음 단계 질의 생성
+            next_query = self._generate_perplexity_next_query(
+                user_input, accumulated_results
+            )
+            if not next_query or next_query == current_query:
+                logger.info(f"다음 단계 질의가 없어 종료")
+                break
+
+            current_query = next_query
+
+        # 최종 응답 생성
+        final_response = self._generate_perplexity_chain_response(
+            user_input, accumulated_results
+        )
+        return final_response, all_used_tools
+
+    def _ai_select_perplexity_tool(
+        self, current_query: str, previous_results: list, step: int
+    ):
+        """퍼플렉시티 모델을 위한 도구 선택"""
+        try:
+            # 도구 설명 수집
+            tools_info = []
+            for tool in self.tools:
+                desc = getattr(tool, "description", tool.name)
+                tools_info.append(f"- {tool.name}: {desc}")
+
+            tools_list = "\n".join(tools_info)
+
+            # 이전 결과 요약
+            previous_summary = ""
+            if previous_results:
+                previous_summary = "\n\n이전 단계:\n"
+                for result in previous_results:
+                    result_preview = (
+                        str(result["result"])[:200] + "..."
+                        if len(str(result["result"])) > 200
+                        else str(result["result"])
+                    )
+                    previous_summary += f"단계 {result['step']}: {result['tool']} 사용 -> {result_preview}\n"
+
+            selection_prompt = f"""현재 질의: "{current_query}"
+단계: {step + 1}
+
+{previous_summary}
+
+사용 가능한 도구:
+{tools_list}
+
+현재 질의와 이전 결과를 분석하여 사용자의 요청에 완전히 답변하는 데 필요한 추가 정보가 있는지 확인하세요.
+
+고려할 사항:
+- 사용자가 최종적으로 원하는 정보는 무엇인가?
+- 현재 결과에서 어떤 정보가 부족한가?
+- 어떤 도구가 부족한 정보를 제공할 수 있는가?
+- 원래 질문에 답변하기에 결과가 충분한가?
+
+응답 형식:
+- 도구 사용: TOOL: tool_name | PARAMS: {{"key": "value"}}
+- 더 이상 도구가 필요하지 않음: TOOL: none
+
+가장 적절한 도구를 선택하고 사용 가능한 정보에서 관련 파라미터를 추출하세요."""
+
+            # Perplexity 모델을 위한 특별한 시스템 프롬프트 추가
+            mcp_system_prompt = SystemPrompts.get_perplexity_mcp_prompt()
+            messages = [
+                SystemMessage(content=mcp_system_prompt),
+                HumanMessage(content=selection_prompt),
+            ]
+
+            response = self.llm.invoke(messages)
+            return self._parse_tool_decision(response.content)
+
+        except Exception as e:
+            logger.error(f"Perplexity 도구 선택 오류: {e}")
+            return None
+
+    def _generate_perplexity_next_query(
+        self, original_query: str, accumulated_results: list
+    ) -> str:
+        """퍼플렉시티 모델을 위한 다음 단계 질의 생성"""
+        try:
+            results_summary = "\n".join(
+                [
+                    f"단계 {r['step']}: {r['tool']} -> {str(r['result'])[:300]}..."
+                    for r in accumulated_results
+                ]
+            )
+
+            prompt = f"""원래 사용자 질의: "{original_query}"
+
+지금까지의 결과:
+{results_summary}
+
+사용자의 요청을 완전히 충족시키기 위해 어떤 정보가 여전히 부족한지 분석하세요.
+
+추가적인 구체적 정보가 필요하다면, 다음 단계를 위한 집중적인 질의를 생성하세요.
+현재 결과가 원래 질의에 답변하기에 충분하다면, "COMPLETE"로 응답하세요.
+
+다음 질의:"""
+
+            # Perplexity 모델을 위한 특별한 시스템 프롬프트 추가
+            mcp_system_prompt = SystemPrompts.get_perplexity_mcp_prompt()
+            messages = [
+                SystemMessage(content=mcp_system_prompt),
+                HumanMessage(content=prompt),
+            ]
+
+            response = self.llm.invoke(messages)
+            next_query = response.content.strip()
+
+            if "COMPLETE" in next_query.upper():
+                return None
+
+            return next_query
+
+        except Exception as e:
+            logger.error(f"Perplexity 다음 질의 생성 오류: {e}")
+            return None
+
+    def _generate_perplexity_chain_response(
+        self, original_query: str, accumulated_results: list
+    ) -> str:
+        """퍼플렉시티 모델을 위한 연쇄적 도구 사용 결과를 바탕으로 최종 응답 생성"""
+        try:
+            if not accumulated_results:
+                return self.simple_chat(original_query)
+
+            # 모든 결과 합치기
+            all_results = "\n\n".join(
+                [
+                    f"단계 {r['step']} ({r['tool']}):\n{r['result']}"
+                    for r in accumulated_results
+                ]
+            )
+
+            response_prompt = f"""사용자의 원래 요청: "{original_query}"
+
+여러 도구를 통해 수집한 정보:
+{all_results}
+
+수행할 작업:
+1. 모든 정보를 종합하여 포괄적인 답변 제공
+2. 정보를 논리적이고 명확하게 구성
+3. 사용자가 실제로 알고 싶어했던 내용에 집중
+4. 자연스러운 한국어 형식으로 정보 제공
+5. 위치 정보가 있는 경우 주소와 좌표 포함
+6. 비즈니스 정보가 있는 경우 이름, 주소, 연락처 포함
+
+사용자의 원래 요청에 직접적으로 대응하는 도움이 되고 잘 구성된 한국어 응답을 제공하세요."""
+
+            # Perplexity 모델을 위한 특별한 시스템 프롬프트 추가
+            mcp_system_prompt = SystemPrompts.get_perplexity_mcp_prompt()
+            messages = [
+                SystemMessage(content=mcp_system_prompt),
+                HumanMessage(content=response_prompt),
+            ]
+
+            response = self.llm.invoke(messages)
+            return self._format_response(response.content)
+
+        except Exception as e:
+            logger.error(f"Perplexity 체인 응답 생성 오류: {e}")
             return self._format_response(
                 "여러 도구를 사용하여 정보를 수집했지만 최종 응답 생성 중 오류가 발생했습니다."
             )

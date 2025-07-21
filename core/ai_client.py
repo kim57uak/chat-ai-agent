@@ -1,6 +1,7 @@
 from core.ai_agent_refactored import AIAgent
 from core.streaming_processor import StreamingChatProcessor, ChunkedResponseProcessor
 from core.llm_factory import LLMFactoryProvider
+from core.message_validator import MessageValidator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,9 @@ class AIClient:
                 if self.token_optimization
                 else self.conversation_history.copy()
             )
+            
+            # Perplexity API 메시지 형식 검증
+            optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
 
             return self._process_with_quota_handling(user_message, optimized_history)
 
@@ -260,8 +264,20 @@ class AIClient:
                 self.conversation_history = recent_messages
                 logger.info(f"파일에서 대화 기록 로드: {len(recent_messages)}개")
 
-            optimized_history = self._optimize_conversation_history()
-            logger.info(f"최적화된 히스토리 사용: {len(optimized_history)}개")
+            # 모델 타입 확인
+            model_lower = self.model_name.lower()
+            is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
+            
+            # Perplexity 모델은 히스토리 사용 안함
+            if is_perplexity:
+                logger.info(f"Perplexity 모델 감지: {self.model_name}, 히스토리 사용 안함")
+                optimized_history = []
+            else:
+                optimized_history = self._optimize_conversation_history()
+                # 메시지 형식 검증 (이중 검증)
+                optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
+                optimized_history = MessageValidator.ensure_alternating_pattern(optimized_history)
+                logger.info(f"최적화된 히스토리 사용: {len(optimized_history)}개")
 
             result = self._process_with_quota_handling(
                 user_input, optimized_history, force_agent=True
@@ -289,6 +305,10 @@ class AIClient:
             has_start_tag = "[IMAGE_BASE64]" in cleaned_input
             has_end_tag = "[/IMAGE_BASE64]" in cleaned_input
             has_image_data = has_start_tag and has_end_tag
+            
+            # 모델 타입 확인
+            model_lower = self.model_name.lower()
+            is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
             
             if has_image_data:
                 # 이미지 OCR에 최적화된 프롬프트 추가
@@ -319,8 +339,16 @@ class AIClient:
                 enhanced_input = f"{ocr_prompt}\n\n{user_input}"
                 return self.agent.simple_chat(enhanced_input)
             else:
-                optimized_history = self._optimize_conversation_history()
-                return self.agent.simple_chat_with_history(user_input, optimized_history)
+                # Perplexity 모델은 히스토리 사용 안함
+                if is_perplexity:
+                    logger.info(f"Perplexity 모델 감지: {self.model_name}, 히스토리 없이 단순 채팅")
+                    return self.agent.simple_chat(user_input)
+                else:
+                    optimized_history = self._optimize_conversation_history()
+                    # 메시지 형식 검증
+                    optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
+                    optimized_history = MessageValidator.ensure_alternating_pattern(optimized_history)
+                    return self.agent.simple_chat_with_history(user_input, optimized_history)
         except Exception as e:
             logger.error(f"단순 채팅 오류: {e}")
             return f"오류: {e}"
@@ -392,6 +420,7 @@ class AIClient:
                 {
                     "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
                     "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
+                    "perplexity": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools 8. Use your real-time search capabilities when needed.",
                 },
             )
             print(f"[디버그] 로드된 유저 프롬프트: {user_prompts}")
@@ -401,12 +430,15 @@ class AIClient:
             return {
                 "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
                 "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
+                "perplexity": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools 8. Use your real-time search capabilities when needed.",
             }
 
     def get_current_user_prompt(self):
         """현재 모델에 맞는 유저 프롬프트 반환"""
         if "gemini" in self.model_name.lower():
             return self.user_prompt.get("gemini", "")
+        elif "sonar" in self.model_name.lower() or "r1-" in self.model_name.lower():
+            return self.user_prompt.get("perplexity", "")
         else:
             return self.user_prompt.get("gpt", "")
 
@@ -415,10 +447,13 @@ class AIClient:
         if model_type == "both":
             self.user_prompt["gpt"] = prompt_text
             self.user_prompt["gemini"] = prompt_text
+            self.user_prompt["perplexity"] = prompt_text
         elif model_type == "gpt":
             self.user_prompt["gpt"] = prompt_text
         elif model_type == "gemini":
             self.user_prompt["gemini"] = prompt_text
+        elif model_type == "perplexity":
+            self.user_prompt["perplexity"] = prompt_text
 
         # 설정 파일에 저장
         self._save_user_prompt()

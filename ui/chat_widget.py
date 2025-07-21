@@ -230,13 +230,14 @@ class ChatWidget(QWidget):
         
         self.layout.addWidget(self.chat_display, 1)
         
-        # 로딩 표시
-        # 고급스러운 로딩 프로그레스바
+        # 로딩 표시 - 고급스러운 프로그레스바
         self.loading_bar = QProgressBar(self)
         self.loading_bar.setRange(0, 0)  # 무한 로딩 모드
-        self.loading_bar.setFixedHeight(4)  # 더 얼음한 높이
+        self.loading_bar.setFixedHeight(5)  # 약간 더 두꺼운 높이로 조정
         self.loading_bar.hide()
         self.loading_bar.setTextVisible(False)  # 텍스트 숨김
+        
+        # 고급스러운 스타일시트 설정 (box-shadow 경고 제거))
         self.loading_bar.setStyleSheet("""
             QProgressBar {
                 background-color: #2a2a2a;
@@ -247,9 +248,10 @@ class ChatWidget(QWidget):
             }
             QProgressBar::chunk {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                                          stop:0 rgb(163,135,215), 
-                                          stop:0.5 rgb(135,163,215), 
-                                          stop:1 rgb(163,135,215));
+                                          stop:0 rgba(163,135,215,180), 
+                                          stop:0.4 rgba(135,163,215,255), 
+                                          stop:0.6 rgba(135,163,215,255), 
+                                          stop:1 rgba(163,135,215,180));
                 border-radius: 2px;
             }
         """)
@@ -1445,38 +1447,132 @@ class ChatWidget(QWidget):
         self.upload_button.setEnabled(enabled)
     
     def show_loading(self, show):
-        """로딩 상태 표시/숨김 - 애니메이션 효과 추가"""
+        """로딩 상태 표시/숨김 - 고급 페이드 효과 추가"""
         if show:
-            # 애니메이션 효과로 서서히 나타나게
+            # 페이드 인 효과로 서서히 나타나게
+            self.loading_bar.setStyleSheet("""
+                QProgressBar {
+                    background-color: #2a2a2a;
+                    border: none;
+                    border-radius: 2px;
+                    margin: 0px;
+                    padding: 0px;
+                    opacity: 0;
+                }
+                QProgressBar::chunk {
+                    background: rgba(135,163,215,180);
+                    border-radius: 2px;
+                }
+            """)
             self.loading_bar.show()
             
-            # 로딩 애니메이션 효과 추가
-            self.loading_animation_timer = QTimer(self)
-            self.loading_animation_timer.timeout.connect(self._update_loading_animation)
-            self.loading_animation_timer.start(100)  # 100ms마다 업데이트
-            self.loading_animation_value = 0
+            # 페이드 인 효과를 위한 타이머
+            self.fade_timer = QTimer(self)
+            self.fade_value = 0
+            
+            def fade_in():
+                self.fade_value += 0.1
+                if self.fade_value >= 1.0:
+                    self.fade_value = 1.0
+                    self.fade_timer.stop()
+                    
+                    # 페이드 인 완료 후 애니메이션 시작
+                    self.loading_animation_timer = QTimer(self)
+                    self.loading_animation_timer.timeout.connect(self._update_loading_animation)
+                    self.loading_animation_timer.start(80)  # 80ms마다 업데이트 (조금 더 빠르게)
+                    self.loading_animation_value = 0
+                else:
+                    # 페이드 인 진행 (box-shadow 제거))
+                    style = f"""
+                        QProgressBar {{
+                            background-color: #2a2a2a;
+                            border: none;
+                            border-radius: 2px;
+                            margin: 0px;
+                            padding: 0px;
+                        }}
+                        QProgressBar::chunk {{
+                            background: rgba(135,163,215,{int(180 * self.fade_value)});
+                            border-radius: 2px;
+                        }}
+                    """
+                    self.loading_bar.setStyleSheet(style)
+            
+            self.fade_timer.timeout.connect(fade_in)
+            self.fade_timer.start(30)  # 30ms마다 페이드 인
+            
         else:
-            # 애니메이션 타이머 정지
+            # 페이드 아웃 효과를 위한 타이머
             if hasattr(self, 'loading_animation_timer') and self.loading_animation_timer.isActive():
                 self.loading_animation_timer.stop()
-            self.loading_bar.hide()
+                
+            self.fade_out_timer = QTimer(self)
+            self.fade_out_value = 1.0
+            
+            def fade_out():
+                self.fade_out_value -= 0.1
+                if self.fade_out_value <= 0:
+                    self.fade_out_value = 0
+                    self.fade_out_timer.stop()
+                    self.loading_bar.hide()
+                else:
+                    # 페이드 아웃 진행 (box-shadow 제거))
+                    style = f"""
+                        QProgressBar {{
+                            background-color: #2a2a2a;
+                            border: none;
+                            border-radius: 2px;
+                            margin: 0px;
+                            padding: 0px;
+                        }}
+                        QProgressBar::chunk {{
+                            background: rgba(135,163,215,{int(180 * self.fade_out_value)});
+                            border-radius: 2px;
+                        }}
+                    """
+                    self.loading_bar.setStyleSheet(style)
+            
+            self.fade_out_timer.timeout.connect(fade_out)
+            self.fade_out_timer.start(30)  # 30ms마다 페이드 아웃
     
     def _update_loading_animation(self):
-        """로딩 애니메이션 업데이트"""
+        """로딩 애니메이션 업데이트 - 고급 효과 추가"""
+        import math
+        
+        # 필요한 속성들 초기화 - 모든 속성을 한번에 초기화
         if not hasattr(self, 'loading_animation_value'):
             self.loading_animation_value = 0
+        if not hasattr(self, 'animation_direction'):
+            self.animation_direction = 1  # 애니메이션 방향 (1: 정방향, -1: 역방향)
+        if not hasattr(self, 'pulse_value'):
+            self.pulse_value = 0  # 펄스 효과를 위한 값
             
-        # 무한 로딩 효과를 위한 스타일시트 동적 업데이트
-        self.loading_animation_value = (self.loading_animation_value + 5) % 200
+        # 펄스 효과 업데이트 (빛나는 효과)
+        self.pulse_value = (self.pulse_value + 0.1) % (2 * 3.14159)  # 2파이 주기
+        pulse_factor = (math.sin(self.pulse_value) + 1) / 2  # 0~1 사이 값
+        
+        # 그라데이션 애니메이션 값 업데이트 (속도 조절)
+        self.loading_animation_value += 3 * self.animation_direction
+        
+        # 방향 전환 (양방향 애니메이션)
+        if self.loading_animation_value >= 200 or self.loading_animation_value <= 0:
+            self.animation_direction *= -1  # 방향 전환
+        
+        # 그라데이션 위치 계산
         offset = self.loading_animation_value / 100.0
         
-        # 그라데이션 위치 동적 변경
-        gradient = f"""qlineargradient(x1:{offset}, y1:0, x2:{offset+1}, y2:0, 
-                      stop:0 rgba(163,135,215,180), 
-                      stop:0.4 rgba(135,163,215,255), 
-                      stop:0.6 rgba(135,163,215,255), 
-                      stop:1 rgba(163,135,215,180))"""
+        # 색상 값 계산 (펄스 효과 적용)
+        color1_alpha = int(180 + 75 * pulse_factor)  # 180~255 사이 변화
+        color2_alpha = int(220 + 35 * pulse_factor)  # 220~255 사이 변화
         
+        # 그라데이션 정의 (동적 색상 및 위치)
+        gradient = f"""qlineargradient(x1:{offset}, y1:0, x2:{offset+1}, y2:0, 
+                      stop:0 rgba(163,135,215,{color1_alpha}), 
+                      stop:0.4 rgba(135,163,215,{color2_alpha}), 
+                      stop:0.6 rgba(135,163,215,{color2_alpha}), 
+                      stop:1 rgba(163,135,215,{color1_alpha}))"""
+        
+        # 고급 스타일시트 적용 (box-shadow 제거)
         style = f"""
             QProgressBar {{
                 background-color: #2a2a2a;

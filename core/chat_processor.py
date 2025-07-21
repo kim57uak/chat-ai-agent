@@ -293,8 +293,15 @@ class ToolChatProcessor(ChatProcessor):
                     if len(step) >= 2 and hasattr(step[0], "tool"):
                         used_tools.append(step[0].tool)
             
-            if not output.strip() or "Agent stopped" in output:
-                logger.warning("Gemini 에이전트 실행 실패, 일반 채팅으로 대체")
+            # 도구가 사용된 경우는 성공으로 처리
+            if len(used_tools) > 0:
+                if not output.strip() or "Agent stopped" in output:
+                    logger.info(f"Gemini 에이전트 응답이 비어있거나 중단되었지만 도구가 사용됨: {len(used_tools)}개")
+                    tool_names = [getattr(tool, '__name__', str(tool)) for tool in used_tools]
+                    output = f"도구 실행이 완료되었습니다. 사용된 도구: {', '.join(tool_names)}"
+            # 도구가 사용되지 않았고 응답이 비어있거나 에이전트가 중단된 경우
+            elif not output.strip() or "Agent stopped" in output:
+                logger.warning("Gemini 에이전트 응답이 비어있거나 중단됨, 일반 채팅으로 대체")
                 simple_processor = SimpleChatProcessor()
                 return simple_processor.process_chat(user_input, llm), []
             
@@ -302,7 +309,31 @@ class ToolChatProcessor(ChatProcessor):
             return output, used_tools
             
         except Exception as e:
+            error_msg = str(e)
             logger.error(f"❌ Gemini 도구 채팅 오류: {e}")
+            
+            # ReAct 형식 오류 처리
+            if "Invalid Format" in error_msg and len(self.tools) > 0:
+                # 형식 오류지만 도구가 있는 경우, 다른 프롬프트로 재시도
+                logger.info("ReAct 형식 오류 발생, 단순화된 프롬프트로 재시도")
+                try:
+                    # 단순화된 프롬프트 사용
+                    simple_prompt = f"""Please use the following tools to answer the user's question:
+
+{[str(tool) for tool in self.tools]}
+
+Question: {user_input}
+
+Please respond in the following format:
+1. Select the appropriate tool to use
+2. Explain the parameters to pass to the tool
+3. Interpret the results and provide a final answer in Korean"""
+                    messages = [HumanMessage(content=simple_prompt)]
+                    response = llm.invoke(messages)
+                    return response.content, []
+                except Exception as inner_e:
+                    logger.error(f"❌ 단순화된 프롬프트 실패: {inner_e}")
+            
             # 오류 시 일반 채팅으로 폴백
             simple_processor = SimpleChatProcessor()
             return simple_processor.process_chat(user_input, llm), []

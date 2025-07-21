@@ -61,7 +61,7 @@ class OpenAIAgentExecutorFactory(AgentExecutorFactory):
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=2,
+            max_iterations=3,
             handle_parsing_errors=True,
         )
 
@@ -133,7 +133,7 @@ Final Answer: [Comprehensive response in Korean, incorporating tool results]
             verbose=True,
             max_iterations=3,
             handle_parsing_errors=True,
-            early_stopping_method="generate",  # "force"에서 "generate"로 변경
+            early_stopping_method="force",  # Gemini는 "generate" 옵션을 지원하지 않음
             return_intermediate_steps=True,
         )
 

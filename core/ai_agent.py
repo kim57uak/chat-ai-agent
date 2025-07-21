@@ -153,7 +153,7 @@ class AIAgent:
             if force_agent:
                 agent_context = "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
 
-            decision_prompt = f"""User request: "{user_input}"
+            decision_prompt = f"""User request: "{user_input}". You must end with "Action" or "Final Answer."
 
 Available tools:
 {tools_info}
@@ -232,7 +232,13 @@ Answer: YES or NO only."""
 
 **Response Format:**
 - Use clear headings and bullet points when appropriate
-- Highlight important information
+- Format information in a structured, readable way
+- Always end your response with either an Action or Final Answer
+- ONLY SHOW THE FINAL ANSWER TO THE USER - HIDE ALL THOUGHT PROCESSES
+
+**IMPORTANT**: 
+- Always end your response with either an Action or Final Answer
+- ONLY SHOW THE FINAL ANSWER TO THE USER - DO NOT SHOW ANY THOUGHT PROCESSES, ACTIONS, OR OBSERVATIONSghlight important information
 - Keep responses well-organized and easy to read"""
 
             prompt = ChatPromptTemplate.from_messages(
@@ -282,7 +288,7 @@ Tool names: {tool_names}
 
 **IMPORTANT: YOU MUST FOLLOW THIS FORMAT EXACTLY**
 
-Question: {input}
+Question: {input}. You must end with "Action" or "Final Answer."
 Thought: I need to analyze this request and determine which tool(s) would be most helpful.
 Action: tool_name
 Action Input: {"param1": "value1", "param2": "value2"}
@@ -361,7 +367,7 @@ Tool names: {tool_names}
 
 Follow this format exactly:
 
-Question: {input}
+Question: {input}.You must end with "Action" or "Final Answer."
 Thought: I need to analyze this request and determine which tool(s) would be most helpful.
 Action: tool_name
 Action Input: input_for_tool

@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import List, Any, Optional
-from langchain.agents import AgentExecutor, create_openai_tools_agent, create_react_agent
+from langchain.agents import (
+    AgentExecutor,
+    create_openai_tools_agent,
+    create_react_agent,
+)
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from core.perplexity_agent_helper import create_perplexity_agent
 import logging
@@ -10,16 +14,20 @@ logger = logging.getLogger(__name__)
 
 class AgentExecutorFactory(ABC):
     """에이전트 실행기 생성을 위한 추상 팩토리"""
-    
+
     @abstractmethod
-    def create_agent_executor(self, llm: Any, tools: List[Any]) -> Optional[AgentExecutor]:
+    def create_agent_executor(
+        self, llm: Any, tools: List[Any]
+    ) -> Optional[AgentExecutor]:
         pass
 
 
 class OpenAIAgentExecutorFactory(AgentExecutorFactory):
     """OpenAI 에이전트 실행기 팩토리"""
-    
-    def create_agent_executor(self, llm: Any, tools: List[Any]) -> Optional[AgentExecutor]:
+
+    def create_agent_executor(
+        self, llm: Any, tools: List[Any]
+    ) -> Optional[AgentExecutor]:
         """OpenAI 도구 에이전트 생성"""
         if not tools:
             return None
@@ -60,8 +68,10 @@ class OpenAIAgentExecutorFactory(AgentExecutorFactory):
 
 class GeminiAgentExecutorFactory(AgentExecutorFactory):
     """Gemini 에이전트 실행기 팩토리"""
-    
-    def create_agent_executor(self, llm: Any, tools: List[Any]) -> Optional[AgentExecutor]:
+
+    def create_agent_executor(
+        self, llm: Any, tools: List[Any]
+    ) -> Optional[AgentExecutor]:
         """ReAct 에이전트 생성 (Gemini 등 다른 모델용)"""
         if not tools:
             return None
@@ -70,12 +80,15 @@ class GeminiAgentExecutorFactory(AgentExecutorFactory):
             """
 You are an intelligent AI assistant with access to powerful tools. Your role is to analyze each user request and determine whether tools would provide more accurate, current, or comprehensive information than your training data alone.
 
-**Decision Framework:**
-For each request, ask yourself:
-1. **Freshness**: Would this benefit from current/real-time information?
-2. **Specificity**: Does this require specific data that tools could provide?
-3. **Verification**: Would external sources improve accuracy?
-4. **Completeness**: Could tools provide more comprehensive information?
+**CRITICAL FORMAT INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY:**
+1. ALWAYS use the exact format shown below
+2. ALWAYS include "Thought:", "Action:", "Action Input:", "Observation:", and "Final Answer:" in your responses
+3. NEVER skip steps in the process
+4. NEVER create your own format
+5. ALWAYS provide valid JSON for Action Input - DO NOT NEST JSON OBJECTS
+6. NEVER include explanations outside of the specified format
+7. For Action Input, use FLAT JSON with simple key-value pairs only
+8. NEVER use double curly braces for JSON - use single curly braces only
 
 **When to Use Tools:**
 - Information that changes frequently or requires current data
@@ -89,23 +102,25 @@ For each request, ask yourself:
 - Creative tasks, opinions, or subjective discussions
 - Theoretical concepts or explanations
 - Simple calculations or logical reasoning
-
 Available tools:
 {tools}
 
 Tool names: {tool_names}
 
-**Response Format:**
+**RESPONSE FORMAT - FOLLOW THIS EXACTLY:**
 
-Question: {input}
+Question: You must end with "Action" or "Final Answer.". {input}.
 Thought: [Analyze the request - does this need tools? Why or why not? What specific information would tools provide?]
-Action: [tool_name if needed, or skip to Final Answer if tools not needed]
-Action Input: [specific input for the tool]
+Action: [tool_name]
+Action Input: {{"param1": "value1", "param2": "value2"}}
 Observation: [tool result]
 Thought: [Process the tool result and plan your response]
-Final Answer: [Comprehensive response in Korean, incorporating tool results if used]
+Action: [another_tool_name or proceed to Final Answer]
+Action Input: {{"param1": "value1"}}
+Observation: [another tool result]
+Thought: [Final analysis of all tool results]
+Final Answer: [Comprehensive response in Korean, incorporating tool results]
 
-**Key Principle:** Use your intelligence to make the best decision for each unique request. Tools are powerful resources - use them when they add value, but don't force their use when unnecessary.
 
 {agent_scratchpad}
             """
@@ -116,17 +131,19 @@ Final Answer: [Comprehensive response in Korean, incorporating tool results if u
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=4,
+            max_iterations=3,
             handle_parsing_errors=True,
-            early_stopping_method="generate",
+            early_stopping_method="generate",  # "force"에서 "generate"로 변경
             return_intermediate_steps=True,
         )
 
 
 class PerplexityAgentExecutorFactory(AgentExecutorFactory):
     """Perplexity 에이전트 실행기 팩토리"""
-    
-    def create_agent_executor(self, llm: Any, tools: List[Any]) -> Optional[AgentExecutor]:
+
+    def create_agent_executor(
+        self, llm: Any, tools: List[Any]
+    ) -> Optional[AgentExecutor]:
         """Perplexity 모델용 ReAct 에이전트 생성"""
         if not tools:
             return None
@@ -136,12 +153,17 @@ class PerplexityAgentExecutorFactory(AgentExecutorFactory):
             """
 You are an intelligent AI assistant with access to powerful tools and real-time search capabilities. Your role is to analyze each user request and determine whether tools would provide more accurate, current, or comprehensive information.
 
-**Decision Framework:**
-For each request, ask yourself:
-1. **Freshness**: Would this benefit from current/real-time information?
-2. **Specificity**: Does this require specific data that tools could provide?
-3. **Verification**: Would external sources improve accuracy?
-4. **Completeness**: Could tools provide more comprehensive information?
+**CRITICAL FORMAT INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY:**
+1. ALWAYS use the exact format shown below
+2. ALWAYS include "Thought:", "Action:", "Action Input:", "Observation:", and "Final Answer:" in your responses
+3. NEVER skip steps in the process
+4. NEVER create your own format
+5. ALWAYS provide valid JSON for Action Input - DO NOT NEST JSON OBJECTS
+6. NEVER include explanations outside of the specified format
+7. NEVER generate fake "Observation:" results - WAIT for the actual tool execution results
+8. NEVER continue with "Thought:" after "Action:" until you see the "Observation:" from the system
+9. For Action Input, use FLAT JSON with simple key-value pairs only
+10. NEVER use double curly braces for JSON - use single curly braces only
 
 **When to Use Tools:**
 - Information that changes frequently or requires current data
@@ -150,26 +172,25 @@ For each request, ask yourself:
 - Complex queries where multiple sources would improve the answer
 - When your training data might be incomplete or outdated
 
-**When NOT to Use Tools:**
-- General knowledge questions you can answer confidently
-- Creative tasks, opinions, or subjective discussions
-- Theoretical concepts or explanations
-- Simple calculations or logical reasoning
-
 Available tools:
 {tools}
 
 Tool names: {tool_names}
 
-**Response Format:**
+**RESPONSE FORMAT - FOLLOW THIS EXACTLY:**
 
-Question: {input}
-Thought: I need to analyze this request and determine which tool(s) would be most helpful.
-Action: tool_name
-Action Input: input_for_tool
-Observation: tool_execution_result
-Thought: Based on the result, I will provide a comprehensive answer in Korean with clear formatting.
-Final Answer: [Provide a well-organized response in Korean with clear headings, bullet points, and highlighted important information]
+Question: You must end with "Action" or "Final Answer.". {input}
+Thought: [Analyze the request - does this need tools? Why or why not? What specific information would tools provide?]
+Action: [tool_name]
+Action Input: {{"param1": "value1", "param2": "value2"}}
+Observation: [WAIT FOR ACTUAL TOOL RESULT - DO NOT GENERATE THIS]
+Thought: [AFTER SEEING THE OBSERVATION, YOU MUST INCLUDE THIS LINE - Process the tool result and plan your response]
+Action: [another_tool_name or proceed to Final Answer]
+Action Input: {{"param1": "value1"}}
+Observation: [WAIT FOR ACTUAL TOOL RESULT - DO NOT GENERATE THIS]
+Thought: [AFTER SEEING THE OBSERVATION, YOU MUST INCLUDE THIS LINE - Final analysis of all tool results]
+Final Answer: [Comprehensive response in Korean, incorporating tool results]
+
 
 {agent_scratchpad}
             """
@@ -181,10 +202,12 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
             agent = create_perplexity_agent(llm, tools, react_prompt)
             logger.info("커스텀 Perplexity 에이전트 생성 완료")
         except Exception as e:
-            logger.warning(f"커스텀 Perplexity 에이전트 생성 실패: {e}, 기본 방식으로 시도")
+            logger.warning(
+                f"커스텀 Perplexity 에이전트 생성 실패: {e}, 기본 방식으로 시도"
+            )
             # 실패 시 기본 방식으로 시도
             agent = create_react_agent(llm, tools, react_prompt)
-        
+
         # Perplexity API 호환성을 위해 추가 파라미터 제한
         executor_kwargs = {
             "agent": agent,
@@ -192,42 +215,51 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
             "verbose": True,
             "max_iterations": 3,
             "handle_parsing_errors": True,
-            "early_stopping_method": "force",
-            "return_intermediate_steps": True
+            "early_stopping_method": "force",  # Perplexity는 "generate" 옵션을 지원하지 않음
+            "return_intermediate_steps": True,
+            "max_execution_time": 120,  # 최대 실행 시간 증가 (2분)
         }
-        
+
         # stop 파라미터 사용 안함
-        if hasattr(llm, 'model_name') and ('sonar' in llm.model_name.lower() or 'r1-' in llm.model_name.lower()):
+        if hasattr(llm, "model_name") and (
+            "sonar" in llm.model_name.lower() or "r1-" in llm.model_name.lower()
+        ):
             logger.info("Perplexity 모델용 AgentExecutor 생성 - stop 파라미터 제외")
             # stop 파라미터 제거
-            executor_kwargs.pop('stop', None)
-        
+            executor_kwargs.pop("stop", None)
+
         return AgentExecutor(**executor_kwargs)
 
 
 class AgentExecutorFactoryProvider:
     """에이전트 실행기 팩토리 제공자"""
-    
+
     _factories = {
-        'openai': OpenAIAgentExecutorFactory(),
-        'gemini': GeminiAgentExecutorFactory(),
-        'perplexity': PerplexityAgentExecutorFactory()
+        "openai": OpenAIAgentExecutorFactory(),
+        "gemini": GeminiAgentExecutorFactory(),
+        "perplexity": PerplexityAgentExecutorFactory(),
     }
-    
+
     @classmethod
     def get_factory(cls, model_name: str) -> AgentExecutorFactory:
         """모델명에 따라 적절한 팩토리 반환"""
         model_name_lower = model_name.lower()
-        if 'gemini' in model_name_lower:
-            return cls._factories['gemini']
-        elif 'sonar' in model_name_lower or 'r1-' in model_name_lower or 'perplexity' in model_name_lower:
+        if "gemini" in model_name_lower:
+            return cls._factories["gemini"]
+        elif (
+            "sonar" in model_name_lower
+            or "r1-" in model_name_lower
+            or "perplexity" in model_name_lower
+        ):
             logger.info(f"Perplexity 모델 감지: {model_name}, Perplexity 팩토리 사용")
-            return cls._factories['perplexity']
-        return cls._factories['openai']
-    
+            return cls._factories["perplexity"]
+        return cls._factories["openai"]
+
     @classmethod
-    def create_agent_executor(cls, llm: Any, tools: List[Any]) -> Optional[AgentExecutor]:
+    def create_agent_executor(
+        cls, llm: Any, tools: List[Any]
+    ) -> Optional[AgentExecutor]:
         """에이전트 실행기 생성"""
-        model_name = getattr(llm, 'model_name', str(llm))
+        model_name = getattr(llm, "model_name", str(llm))
         factory = cls.get_factory(model_name)
         return factory.create_agent_executor(llm, tools)

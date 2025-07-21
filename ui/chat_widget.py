@@ -231,20 +231,26 @@ class ChatWidget(QWidget):
         self.layout.addWidget(self.chat_display, 1)
         
         # 로딩 표시
+        # 고급스러운 로딩 프로그레스바
         self.loading_bar = QProgressBar(self)
-        self.loading_bar.setRange(0, 0)
+        self.loading_bar.setRange(0, 0)  # 무한 로딩 모드
+        self.loading_bar.setFixedHeight(4)  # 더 얼음한 높이
         self.loading_bar.hide()
+        self.loading_bar.setTextVisible(False)  # 텍스트 숨김
         self.loading_bar.setStyleSheet("""
             QProgressBar {
                 background-color: #2a2a2a;
-                border: 1px solid #444444;
-                border-radius: 4px;
-                text-align: center;
-                color: #ffffff;
+                border: none;
+                border-radius: 2px;
+                margin: 0px;
+                padding: 0px;
             }
             QProgressBar::chunk {
-                background-color: rgb(163,135,215);
-                border-radius: 3px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                                          stop:0 rgb(163,135,215), 
+                                          stop:0.5 rgb(135,163,215), 
+                                          stop:1 rgb(163,135,215));
+                border-radius: 2px;
             }
         """)
         self.layout.addWidget(self.loading_bar)
@@ -569,6 +575,11 @@ class ChatWidget(QWidget):
                     border-bottom: 1px solid #B0E0E6;
                 }
                 
+                /* 모든 링크가 새 창에서 열리도록 설정 */
+                a[href] {
+                    cursor: pointer;
+                }
+                
                 /* 리스트 스타일 */
                 ul, ol {
                     padding-left: 20px;
@@ -684,6 +695,14 @@ class ChatWidget(QWidget):
                 }
             </style>
             <script>
+                // 모든 링크가 새 창에서 열리도록 설정
+                document.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'A' && e.target.href) {
+                        e.preventDefault();
+                        window.open(e.target.href, '_blank');
+                    }
+                });
+                
                 function copyCode(codeId) {
                     const codeElement = document.getElementById(codeId);
                     const text = codeElement.textContent;
@@ -1426,11 +1445,53 @@ class ChatWidget(QWidget):
         self.upload_button.setEnabled(enabled)
     
     def show_loading(self, show):
-        """로딩 상태 표시/숨김"""
+        """로딩 상태 표시/숨김 - 애니메이션 효과 추가"""
         if show:
+            # 애니메이션 효과로 서서히 나타나게
             self.loading_bar.show()
+            
+            # 로딩 애니메이션 효과 추가
+            self.loading_animation_timer = QTimer(self)
+            self.loading_animation_timer.timeout.connect(self._update_loading_animation)
+            self.loading_animation_timer.start(100)  # 100ms마다 업데이트
+            self.loading_animation_value = 0
         else:
+            # 애니메이션 타이머 정지
+            if hasattr(self, 'loading_animation_timer') and self.loading_animation_timer.isActive():
+                self.loading_animation_timer.stop()
             self.loading_bar.hide()
+    
+    def _update_loading_animation(self):
+        """로딩 애니메이션 업데이트"""
+        if not hasattr(self, 'loading_animation_value'):
+            self.loading_animation_value = 0
+            
+        # 무한 로딩 효과를 위한 스타일시트 동적 업데이트
+        self.loading_animation_value = (self.loading_animation_value + 5) % 200
+        offset = self.loading_animation_value / 100.0
+        
+        # 그라데이션 위치 동적 변경
+        gradient = f"""qlineargradient(x1:{offset}, y1:0, x2:{offset+1}, y2:0, 
+                      stop:0 rgba(163,135,215,180), 
+                      stop:0.4 rgba(135,163,215,255), 
+                      stop:0.6 rgba(135,163,215,255), 
+                      stop:1 rgba(163,135,215,180))"""
+        
+        style = f"""
+            QProgressBar {{
+                background-color: #2a2a2a;
+                border: none;
+                border-radius: 2px;
+                margin: 0px;
+                padding: 0px;
+            }}
+            QProgressBar::chunk {{
+                background: {gradient};
+                border-radius: 2px;
+            }}
+        """
+        
+        self.loading_bar.setStyleSheet(style)
 
     def _append_simple_chat(self, sender, text):
         """간단한 채팅 메시지 표시"""

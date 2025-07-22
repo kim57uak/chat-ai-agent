@@ -265,12 +265,12 @@ class ChatWidget(QWidget):
         input_container_layout.setContentsMargins(0, 0, 0, 0)
         input_container_layout.setSpacing(0)
         
-        # 모드 선택 콤보박스 (입력창 내부 왼쪽)
-        self.mode_combo = QComboBox(self)
-        self.mode_combo.addItems(["Ask", "Agent"])
-        self.mode_combo.setCurrentText("Ask")
-        self.mode_combo.setStyleSheet("""
-            QComboBox {
+        # 모드 선택 토글 버튼 (입력창 내부 왼쪽)
+        self.mode_toggle = QPushButton("💬 Ask", self)
+        self.mode_toggle.setCheckable(True)  # 토글 가능하게 설정
+        self.mode_toggle.setChecked(False)  # 기본값은 체크 해제 상태 (Ask 모드)
+        self.mode_toggle.setStyleSheet("""
+            QPushButton {
                 background-color: transparent;
                 color: #888888;
                 border: none;
@@ -279,39 +279,20 @@ class ChatWidget(QWidget):
                 padding: 4px 8px;
                 font-size: 11px;
                 font-weight: 500;
-                min-width: 45px;
-                max-width: 45px;
+                min-width: 80px;
+                max-width: 80px;
                 outline: none;
+                text-align: center;
             }
-            QComboBox:focus {
-                border: none;
-                border-right: 1px solid #444444;
-                outline: none;
-            }
-            QComboBox:hover {
+            QPushButton:hover {
                 color: #ffffff;
                 background-color: rgba(255,255,255,0.05);
             }
-            QComboBox::drop-down {
-                border: none;
-                width: 12px;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 3px solid transparent;
-                border-right: 3px solid transparent;
-                border-top: 3px solid #888888;
-                margin-right: 3px;
-            }
-            QComboBox:hover::down-arrow {
-                border-top: 3px solid #ffffff;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #2a2a2a;
-                color: #ffffff;
-                selection-background-color: rgb(163,135,215);
-                border: 1px solid #444444;
-                border-radius: 4px;
+            QPushButton:checked {
+                color: rgb(135,163,215);
+                font-weight: bold;
+                background-color: rgba(135,163,215,0.1);
+                border-bottom: 2px solid rgb(135,163,215);
             }
         """)
         
@@ -339,11 +320,11 @@ class ChatWidget(QWidget):
         """)
         
         # 컸테이너에 위젯 추가
-        input_container_layout.addWidget(self.mode_combo, 0)
+        input_container_layout.addWidget(self.mode_toggle, 0)
         input_container_layout.addWidget(self.input_text, 1)
         
-        # 모드 변경 시 플레이스홀더 업데이트
-        self.mode_combo.currentTextChanged.connect(self.update_placeholder)
+        # 모드 토글 버튼 클릭 이벤트 연결
+        self.mode_toggle.clicked.connect(self.toggle_mode)
         
         self.send_button = QPushButton('전송', self)
         self.send_button.setMinimumHeight(80)
@@ -486,13 +467,27 @@ class ChatWidget(QWidget):
             # 다른 키들은 기본 처리
             QTextEdit.keyPressEvent(self.input_text, event)
     
+    def toggle_mode(self):
+        """Mode toggle button click handler - asynchronous processing"""
+        # Delay UI update to run in the next event loop to prevent blocking
+        QTimer.singleShot(0, self._update_toggle_ui)        
+    
+    def _update_toggle_ui(self):
+        """Toggle button UI update - executed in main thread"""
+        try:
+            is_agent_mode = self.mode_toggle.isChecked()
+            if is_agent_mode:
+                self.mode_toggle.setText("🔧 Agent")
+                self.input_text.setPlaceholderText("Enter a message with tool access... (Enter to send, Shift+Enter for new line)")
+            else:
+                self.mode_toggle.setText("💬 Ask")
+                self.input_text.setPlaceholderText("Enter a simple query... (Enter to send, Shift+Enter for new line)")
+        except Exception as e:
+            print(f"[ERROR] Toggle UI update error: {e}")
+    
     def update_placeholder(self):
-        """모드에 따라 플레이스홀더 업데이트"""
-        current_mode = self.mode_combo.currentText()
-        if current_mode == "Ask":
-            self.input_text.setPlaceholderText("단순 질의를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
-        else:
-            self.input_text.setPlaceholderText("도구 사용 가능한 메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
+        """모드에 따라 플레이스홀더 업데이트 (후방 호환성 유지)"""
+        self.toggle_mode()
 
     def init_web_view(self):
         """웹 브라우저 초기화"""
@@ -998,32 +993,51 @@ class ChatWidget(QWidget):
             self._start_ai_request(api_key, model, user_text)
     
     def _start_ai_request(self, api_key, model, user_text, file_prompt=None):
-        """모드에 따라 AI 요청 시작"""
+        """Start AI request based on mode - improved asynchronous processing"""
+        # UI state changes executed immediately in the main thread
         self.set_ui_enabled(False)
         self.show_loading(True)
         
-        # 모델 타입 확인
-        model_lower = model.lower()
-        is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
-        
-        # Perplexity API 오류 방지를 위해 히스토리 사용 안함
-        validated_history = []
-        if is_perplexity:
-            print(f"[디버그] 히스토리 사용 안함 (Perplexity API 호환성)")
-        else:
-            # 다른 모델은 히스토리 사용 가능
-            validated_history = self.conversation_history.get_recent_messages(5)
-            print(f"[디버그] 히스토리 사용: {len(validated_history)}개 메시지")
-        
-        # 모드에 따라 에이전트 사용 여부 결정
-        current_mode = self.mode_combo.currentText()
-        use_agent = (current_mode == "Agent")
-        print(f"[DEBUG] 선택된 모드: {current_mode}, 에이전트 사용: {use_agent}")
-        
-        self.ai_processor.process_request(
-            api_key, model, validated_history, user_text,
-            use_agent, file_prompt
-        )
+        # Execute remaining tasks in the next event loop
+        QTimer.singleShot(0, lambda: self._prepare_and_send_request(api_key, model, user_text, file_prompt))
+    
+    def _prepare_and_send_request(self, api_key, model, user_text, file_prompt=None):
+        """Request preparation and sending - runs in main thread but splits work to prevent blocking"""
+        try:
+            # 모델 타입 확인
+            model_lower = model.lower()
+            is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
+            
+            # Skip history for Perplexity API to prevent errors
+            validated_history = []
+            if is_perplexity:
+                print(f"[DEBUG] Not using history (Perplexity API compatibility)")
+            else:
+                # Other models can use history
+                validated_history = self.conversation_history.get_recent_messages(5)
+                print(f"[DEBUG] Using history: {len(validated_history)} messages")
+            
+            # Determine agent usage based on mode - with exception handling for state access
+            try:
+                is_agent_mode = self.mode_toggle.isChecked()
+                current_mode = "Agent" if is_agent_mode else "Ask"
+                use_agent = is_agent_mode
+            except Exception as e:
+                print(f"[ERROR] Mode check error: {e}")
+                current_mode = "Ask"  # Default value on error
+                use_agent = False
+                
+            print(f"[DEBUG] Selected mode: {current_mode}, Agent usage: {use_agent}")
+            
+            # 실제 요청 처리는 별도 스레드에서 실행
+            self.ai_processor.process_request(
+                api_key, model, validated_history, user_text,
+                use_agent, file_prompt
+            )
+        except Exception as e:
+            print(f"[ERROR] AI request preparation error: {e}")
+            # Restore UI state on error
+            QTimer.singleShot(0, lambda: self.on_ai_error(f"Error during request preparation: {e}"))
     
     def old_start_ai_request(self, api_key, model, user_text, file_prompt=None):
         """AI 요청 시작 - 단순화된 방식"""

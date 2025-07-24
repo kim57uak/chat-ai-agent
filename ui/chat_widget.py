@@ -82,8 +82,13 @@ class AIProcessor(QObject):
                 client = AIClient(api_key, model)
                 # 대화 히스토리를 클라이언트에 설정
                 if messages:
+                    # 대화 히스토리를 직접 설정
                     client.conversation_history = messages
                     print(f"[디버그] 히스토리 설정: {len(messages)}개")
+                    if messages:
+                        print(f"[디버그] 마지막 메시지: {messages[-1]['role']}: {messages[-1]['content'][:50]}...")
+                else:
+                    print(f"[디버그] 히스토리 없음")
                 
                 response = None
                 sender = 'AI'
@@ -1008,14 +1013,25 @@ class ChatWidget(QWidget):
             model_lower = model.lower()
             is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
             
-            # Skip history for Perplexity API to prevent errors
+            # 대화 히스토리 준비 - 최근 5개 대화 포함
             validated_history = []
             if is_perplexity:
                 print(f"[DEBUG] Not using history (Perplexity API compatibility)")
             else:
-                # Other models can use history
-                validated_history = self.conversation_history.get_recent_messages(5)
+                # 최근 5개 대화 가져오기 (10개 메시지 = 5개 대화)
+                recent_messages = self.conversation_history.get_recent_messages(10)
+                validated_history = []
+                
+                for msg in recent_messages:
+                    if msg.get('content') and msg.get('content').strip():
+                        validated_history.append({
+                            'role': msg['role'],
+                            'content': msg['content']
+                        })
+                
                 print(f"[DEBUG] Using history: {len(validated_history)} messages")
+                if validated_history:
+                    print(f"[DEBUG] History preview: {validated_history[-1]['role']}: {validated_history[-1]['content'][:50]}...")
             
             # Determine agent usage based on mode - with exception handling for state access
             try:
@@ -1608,7 +1624,7 @@ class ChatWidget(QWidget):
         self.append_chat(sender, text)
     
     def append_chat(self, sender, text):
-        """채팅 메시지 표시 - 안정화"""
+        """채팅 메시지 표시 - 최신 메시지가 맨 아래에 추가됨"""
         # 발신자별 스타일
         if sender == '사용자':
             bg_color = 'rgba(163,135,215,0.15)'
@@ -1635,7 +1651,7 @@ class ChatWidget(QWidget):
         import uuid
         message_id = f"msg_{uuid.uuid4().hex[:8]}"
         
-        # 1단계: 메시지 컨테이너 생성
+        # 1단계: 메시지 컨테이너를 맨 아래에 생성
         create_js = f'''
         try {{
             var messagesDiv = document.getElementById('messages');
@@ -1653,8 +1669,11 @@ class ChatWidget(QWidget):
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(contentDiv);
+            
+            // 새 메시지를 맨 아래에 추가
             messagesDiv.appendChild(messageDiv);
             
+            // 스크롤을 맨 아래로 이동
             window.scrollTo(0, document.body.scrollHeight);
         }} catch(e) {{
             console.log('Create message error:', e);
@@ -1672,6 +1691,7 @@ class ChatWidget(QWidget):
                 var contentDiv = document.getElementById('{message_id}_content');
                 if (contentDiv) {{
                     contentDiv.innerHTML = {safe_content};
+                    // 콘텐츠 설정 후 다시 스크롤을 맨 아래로
                     window.scrollTo(0, document.body.scrollHeight);
                 }}
             }} catch(e) {{
@@ -1865,43 +1885,46 @@ class ChatWidget(QWidget):
             QTimer.singleShot(500, self._load_previous_conversations)
     
     def _load_previous_conversations(self):
-        """이전 대화 내용 로드 - 최신순 최대 10개 중복 제거"""
+        """이전 대화 내용 로드 - 최신 대화가 가장 아래에 표시"""
         try:
             self.conversation_history.load_from_file()
-            recent_messages = self.conversation_history.get_recent_messages(20)  # 충분히 많은 메시지 가져오기
+            # 전체 메시지에서 마지막 20개 메시지만 가져오기
+            all_messages = self.conversation_history.current_session
             
-            if recent_messages:
-                # 중복 제거를 위한 처리
+            if all_messages:
+                # 마지막 20개 메시지를 가져오기 (약 10개 대화)
+                display_messages = all_messages[-20:] if len(all_messages) > 20 else all_messages
+                
+                # 중복 제거
                 unique_contents = set()
                 unique_messages = []
                 
-                for msg in recent_messages:
+                for msg in display_messages:
                     role = msg.get('role', '')
                     content = msg.get('content', '')
                     
                     if not content or not content.strip():
                         continue
                     
-                    # 내용 기준으로 중복 제거
-                    content_key = f"{role}:{content[:50]}"  # 역할과 내용 앞부분으로 키 생성
+                    content_key = f"{role}:{content[:50]}"
                     if content_key not in unique_contents:
                         unique_contents.add(content_key)
                         unique_messages.append(msg)
-                        
-                        # 최대 10개만 표시
-                        if len(unique_messages) >= 10:
-                            break
                 
-                self._append_simple_chat('시스템', f'이전 대화 {len(unique_messages)}개를 불러왔습니다.')
-                
-                for msg in unique_messages:
-                    role = msg.get('role', '')
-                    content = msg.get('content', '')
+                if unique_messages:
+                    self._append_simple_chat('시스템', f'이전 대화 {len(unique_messages)}개를 불러왔습니다.')
                     
-                    if role == 'user':
-                        self._append_simple_chat('사용자', content)
-                    elif role == 'assistant':
-                        self._append_simple_chat('AI', content)
+                    # 시간순으로 표시 (오래된 것부터 최신 것까지)
+                    for msg in unique_messages:
+                        role = msg.get('role', '')
+                        content = msg.get('content', '')
+                        
+                        if role == 'user':
+                            self._append_simple_chat('사용자', content)
+                        elif role == 'assistant':
+                            self._append_simple_chat('AI', content)
+                else:
+                    self._append_simple_chat('시스템', '새로운 대화를 시작합니다.')
             else:
                 self._append_simple_chat('시스템', '새로운 대화를 시작합니다.')
                 

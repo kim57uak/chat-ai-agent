@@ -662,7 +662,7 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
 
         if not self.tools:
             response = self.simple_chat_with_history(
-                user_input, self.conversation_history.get_recent_messages(10)
+                user_input, self.conversation_history.get_recent_messages(10)  # 5개 대화
             )
             self.conversation_history.add_message("assistant", response)
             self.conversation_history.save_to_file()
@@ -690,7 +690,7 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
             return response, used_tools
         else:
             response = self.simple_chat_with_history(
-                user_input, self.conversation_history.get_recent_messages(10)
+                user_input, self.conversation_history.get_recent_messages(10)  # 5개 대화
             )
             self.conversation_history.add_message("assistant", response)
             self.conversation_history.save_to_file()
@@ -745,9 +745,9 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
         else:
             messages.append(SystemMessage(content=unified_system_content))
 
-        # 최근 대화 기록 사용 (더 많이 포함)
+        # 최근 5개 대화 기록 사용 (10개 메시지 = 5개 대화)
         recent_history = (
-            validated_history[-6:] if len(validated_history) > 6 else validated_history
+            validated_history[-10:] if len(validated_history) > 10 else validated_history
         )
 
         for msg in recent_history:

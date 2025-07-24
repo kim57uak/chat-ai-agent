@@ -41,14 +41,16 @@ class ConversationHistory:
             self.current_session = self.current_session[-self.max_history_length:]
 
     def get_recent_messages(self, count: int = 5) -> List[Dict]:
-        """Get recent messages for display"""
+        """Get recent messages for display - 시간순으로 정렬하여 반환"""
         if count <= 0:
             return []
-        return self.current_session[-count:] if self.current_session else []
+        # 최근 N개 메시지를 가져와서 시간순으로 정렬 (오래된 것부터)
+        recent = self.current_session[-count:] if self.current_session else []
+        return recent
 
     def get_context_messages(self) -> List[Dict]:
-        """Get messages for AI context"""
-        messages = self.get_recent_messages(8)
+        """Get messages for AI context - 최근 5개 대화 기준"""
+        messages = self.get_recent_messages(10)  # 5개 대화 = 10개 메시지 (user + assistant)
         return [{"role": msg["role"], "content": msg["content"]} for msg in messages]
 
     def clear_session(self):

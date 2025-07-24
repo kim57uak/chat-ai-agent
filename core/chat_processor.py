@@ -37,17 +37,22 @@ class SimpleChatProcessor(ChatProcessor):
             else:
                 messages = [SystemMessage(content=system_content)]
 
-            # 대화 히스토리 추가
+            # 대화 히스토리 추가 (순서 중요)
             if conversation_history:
-                messages.extend(self._convert_history_to_messages(conversation_history, model_name))
+                history_messages = self._convert_history_to_messages(conversation_history, model_name)
+                messages.extend(history_messages)
+                logger.info(f"대화 히스토리 사용: {len(history_messages)}개 메시지")
+            else:
+                logger.info("대화 히스토리 없음")
 
-                # 이미지 데이터 처리
+            # 이미지 데이터 처리
             if self._contains_image_data(user_input):
                 processed_input = self._process_image_input(user_input, model_name)
                 messages.append(processed_input)
             else:
                 messages.append(HumanMessage(content=user_input))
 
+            logger.info(f"총 메시지 수: {len(messages)}개")
             response = llm.invoke(messages)
             response_content = response.content
             
@@ -61,21 +66,35 @@ class SimpleChatProcessor(ChatProcessor):
         """대화 기록을 LangChain 메시지로 변환"""
         messages = []
         
-        # 최근 대화 기록 사용
+        # 대화 기록이 비어있으면 빈 리스트 반환
+        if not conversation_history:
+            return messages
+        
+        # 최근 대화 기록 사용 (더 많이 포함)
         recent_history = (
-            conversation_history[-6:]
-            if len(conversation_history) > 6
+            conversation_history[-10:]
+            if len(conversation_history) > 10
             else conversation_history
         )
 
         for msg in recent_history:
             role = msg.get("role", "")
-            content = msg.get("content", "")[:500]  # 내용 제한
+            content = msg.get("content", "")
+            
+            # 내용이 비어있으면 건너뛰기
+            if not content or not content.strip():
+                continue
+                
+            # 내용 제한을 더 늘리고 중요한 내용은 유지
+            if len(content) > 1000:
+                content = content[:1000] + "..."
+            
             if role == "user":
                 messages.append(HumanMessage(content=content))
             elif role == "assistant":
                 messages.append(AIMessage(content=content))
 
+        logger.info(f"대화 기록 변환 완료: {len(recent_history)}개 -> {len(messages)}개 메시지")
         return messages
     
     def _contains_image_data(self, user_input: str) -> bool:
@@ -293,12 +312,29 @@ class ToolChatProcessor(ChatProcessor):
                     if len(step) >= 2 and hasattr(step[0], "tool"):
                         used_tools.append(step[0].tool)
             
-            # 도구가 사용된 경우는 성공으로 처리
+            # 도구가 사용된 경우 결과 처리
             if len(used_tools) > 0:
-                if not output.strip() or "Agent stopped" in output:
-                    logger.info(f"Gemini 에이전트 응답이 비어있거나 중단되었지만 도구가 사용됨: {len(used_tools)}개")
+                # 도구 실행 결과 수집
+                tool_results = []
+                if "intermediate_steps" in result:
+                    for step in result["intermediate_steps"]:
+                        if len(step) >= 2:
+                            tool_results.append(step[1])
+                
+                # 에이전트 응답이 부적절한 경우 도구 결과를 직접 정리
+                if not output.strip() or "Agent stopped" in output or "도구 실행이 완료되었습니다" in output:
+                    logger.info(f"Gemini 에이전트 응답 부적절, 도구 결과 직접 정리: {len(used_tools)}개 도구")
+                    
+                    # 도구 결과를 기반으로 새로운 응답 생성
+                    if tool_results:
+                        self.llm = llm  # AI 포맷팅을 위해 LLM 저장
+                        formatted_results = self._format_tool_results(used_tools, tool_results, user_input)
+                        if formatted_results:
+                            return formatted_results, used_tools
+                    
+                    # 도구 결과가 없으면 기본 메시지
                     tool_names = [getattr(tool, '__name__', str(tool)) for tool in used_tools]
-                    output = f"도구 실행이 완료되었습니다. 사용된 도구: {', '.join(tool_names)}"
+                    output = f"요청하신 작업을 완료했습니다. 사용된 도구: {', '.join(tool_names)}"
             # 도구가 사용되지 않았고 응답이 비어있거나 에이전트가 중단된 경우
             elif not output.strip() or "Agent stopped" in output:
                 logger.warning("Gemini 에이전트 응답이 비어있거나 중단됨, 일반 채팅으로 대체")
@@ -337,6 +373,50 @@ Please respond in the following format:
             # 오류 시 일반 채팅으로 폴백
             simple_processor = SimpleChatProcessor()
             return simple_processor.process_chat(user_input, llm), []
+    
+    def _format_tool_results(self, used_tools: List, tool_results: List, user_input: str) -> str:
+        """도구 실행 결과를 AI가 지능적으로 포맷팅"""
+        try:
+            if not tool_results:
+                return None
+            
+            # AI에게 결과 포맷팅 요청
+            tool_names = [getattr(tool, '__name__', str(tool)) for tool in used_tools]
+            results_text = "\n\n".join([f"Tool {i+1} Result: {str(result)}" for i, result in enumerate(tool_results)])
+            
+            format_prompt = f"""Please format the following tool execution results in a user-friendly way in Korean:
+
+User Question: {user_input}
+Used Tools: {', '.join(tool_names)}
+Tool Results:
+{results_text}
+
+Please:
+1. Analyze the results and provide a clear summary
+2. Use appropriate emojis and formatting
+3. Structure the information logically
+4. Keep it concise but informative
+5. Respond in Korean
+
+Format the response as if you're directly answering the user's question based on these tool results."""
+            
+            # SimpleChatProcessor를 사용하여 AI가 결과 포맷팅
+            from core.llm_factory import LLMFactoryProvider
+            formatting_llm = LLMFactoryProvider.create_llm("dummy", "gpt-3.5-turbo")
+            
+            if hasattr(self, 'llm') and self.llm:
+                formatting_llm = self.llm
+            
+            messages = [HumanMessage(content=format_prompt)]
+            response = formatting_llm.invoke(messages)
+            
+            return response.content
+            
+        except Exception as e:
+            logger.error(f"도구 결과 포맷팅 오류: {e}")
+            # 폴백: 기본 포맷팅
+            tool_names = [getattr(tool, '__name__', str(tool)) for tool in used_tools]
+            return f"✅ 작업 완료 (사용된 도구: {', '.join(tool_names)})\n\n" + "\n\n".join([str(result) for result in tool_results])
     
     def _limit_response_length(self, response: str) -> str:
         """응답 길이 제한"""

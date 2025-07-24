@@ -105,14 +105,15 @@ class AIClient:
                 return "처리할 메시지를 찾을 수 없습니다."
             logger.info(f"채팅 요청 처리 시작: {user_message[:50]}...")
 
-            # 대화 기록 사용 여부 확인
-            if not self.enable_history:
-                return self._process_with_quota_handling(user_message, [])
-
             # 대화 기록 업데이트 및 최적화
             self.conversation_history = [
                 msg for msg in messages if isinstance(msg, dict)
             ]
+            
+            # 대화 기록 사용 여부 확인
+            if not self.enable_history:
+                return self._process_with_quota_handling(user_message, [])
+
             optimized_history = (
                 self._optimize_conversation_history()
                 if self.token_optimization

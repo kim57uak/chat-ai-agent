@@ -61,7 +61,7 @@ class OpenAIAgentExecutorFactory(AgentExecutorFactory):
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=3,
+            max_iterations=2,
             handle_parsing_errors=True,
         )
 
@@ -131,7 +131,7 @@ Final Answer: [Comprehensive response in Korean, incorporating tool results]
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=3,
+            max_iterations=2,
             handle_parsing_errors=True,
             early_stopping_method="force",  # Gemini는 "generate" 옵션을 지원하지 않음
             return_intermediate_steps=True,
@@ -165,6 +165,12 @@ You are an intelligent AI assistant with access to powerful tools and real-time 
 9. For Action Input, use FLAT JSON with simple key-value pairs only
 10. NEVER use double curly braces for JSON - use single curly braces only
 
+**TOOL USAGE RULES:**
+- For Action, you MUST use one of the tool names below. (Do NOT modify them)
+- tool_names: {tool_names}
+- Tool descriptions:
+{tools}
+
 **When to Use Tools:**
 - Information that changes frequently or requires current data
 - Specific factual queries about places, organizations, people, events
@@ -172,25 +178,57 @@ You are an intelligent AI assistant with access to powerful tools and real-time 
 - Complex queries where multiple sources would improve the answer
 - When your training data might be incomplete or outdated
 
-Available tools:
-{tools}
-
-Tool names: {tool_names}
-
 **RESPONSE FORMAT - FOLLOW THIS EXACTLY:**
 
 Question: You must end with "Action" or "Final Answer.". {input}
 Thought: [Analyze the request - does this need tools? Why or why not? What specific information would tools provide?]
-Action: [tool_name]
-Action Input: {{"param1": "value1", "param2": "value2"}}
+Action: [Use one of the tool_names above]
+Action Input: {{{{"param1": "value1", "param2": "value2"}}}}
 Observation: [WAIT FOR ACTUAL TOOL RESULT - DO NOT GENERATE THIS]
 Thought: [AFTER SEEING THE OBSERVATION, YOU MUST INCLUDE THIS LINE - Process the tool result and plan your response]
 Action: [another_tool_name or proceed to Final Answer]
-Action Input: {{"param1": "value1"}}
+Action Input: {{{{"param1": "value1"}}}}
 Observation: [WAIT FOR ACTUAL TOOL RESULT - DO NOT GENERATE THIS]
 Thought: [AFTER SEEING THE OBSERVATION, YOU MUST INCLUDE THIS LINE - Final analysis of all tool results]
-Final Answer: [Comprehensive response in Korean, incorporating tool results]
+Final Answer: [**You MUST summarize, quote, or present the most recent Observation (tool result) in a table or clear format. Your answer MUST be based on the tool result. If there is no Observation, do NOT write a Final Answer.**]
 
+**CRITICAL FINAL ANSWER RULES:**
+- The Final Answer MUST always include the most recent Observation (tool result) as a summary, quote, or table.
+- If there is no tool result, do NOT write a Final Answer.
+- Do NOT ignore the tool result and do NOT answer with general explanations, prior knowledge, or web search results only.
+- Your answer MUST be based ONLY on the tool result.
+
+**Examples:**
+
+Question: What's the weather in Seoul today?
+Thought: The user wants today's weather in Seoul. I need to use the weather_search tool for up-to-date information.
+Action: weather_search
+Action Input: {{{{"location": "Seoul"}}}}
+Observation: Clear, 25°C, Humidity 60%, Fine dust Good
+Thought: I got the weather information for Seoul from the tool result. I will present it in a table.
+Final Answer:
+
+## Seoul Weather Today
+
+| Condition | Temperature | Humidity | Fine Dust |
+|-----------|-------------|----------|-----------|
+| Clear     | 25°C        | 60%      | Good      |
+
+The table above is based on the actual tool result (Observation).
+
+Question: Translate "apple" to Korean
+Thought: This is a translation request, so I need to use the translate tool.
+Action: translate
+Action Input: {{{{"text": "apple", "target_lang": "ko"}}}}
+Observation: 사과
+Thought: I got the translation result from the tool. I will show it as a quote.
+Final Answer:
+
+The Korean translation of "apple" is:
+
+> 사과
+
+This translation is based on the Observation from the translate tool.
 
 {agent_scratchpad}
             """
@@ -213,7 +251,7 @@ Final Answer: [Comprehensive response in Korean, incorporating tool results]
             "agent": agent,
             "tools": tools,
             "verbose": True,
-            "max_iterations": 3,
+            "max_iterations": 2,
             "handle_parsing_errors": True,
             "early_stopping_method": "force",  # Perplexity는 "generate" 옵션을 지원하지 않음
             "return_intermediate_steps": True,

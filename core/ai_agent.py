@@ -16,6 +16,7 @@ from core.conversation_history import ConversationHistory
 from core.message_validator import MessageValidator
 from core.enhanced_system_prompts import SystemPrompts
 import logging
+import time
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -455,7 +456,22 @@ Final Answer: [Provide a well-organized response in Korean with clear headings, 
                         used_tools.append(step[0].tool)
 
             if "Agent stopped" in output or not output.strip():
-                logger.warning("에이전트 중단로 인해 일반 채팅으로 대체")
+                logger.warning("에이전트 중단 감지, 결과 확인 중...")
+                
+                # 중간 단계에서 도구가 사용되었는지 확인
+                if "intermediate_steps" in result and result["intermediate_steps"]:
+                    # 도구가 사용되었으면 마지막 도구 결과 확인
+                    last_step = result["intermediate_steps"][-1]
+                    if len(last_step) >= 2:
+                        tool_result = last_step[1]
+                        logger.info(f"도구 결과 발견: {str(tool_result)[:100]}...")
+                        
+                        # 도구 결과를 바탕으로 최종 응답 생성
+                        final_response = self._generate_final_response(user_input, str(tool_result))
+                        return final_response, [last_step[0].tool]
+                
+                # 도구 결과가 없으면 일반 채팅으로 대체
+                logger.warning("유효한 도구 결과 없음, 일반 채팅으로 대체")
                 return self.simple_chat(user_input), []
 
             elapsed = time.time() - start_time
@@ -1377,8 +1393,61 @@ Provide a helpful, well-organized response in Korean that directly addresses the
             if self._is_tool_list_request(user_input):
                 return self._show_tool_list(), []
 
-            # 연쇄적 도구 사용 시작
-            return self._execute_perplexity_tool_chain(user_input)
+            # 직접 에이전트 실행기 생성 및 실행 시도
+            try:
+                logger.info("🔧 퍼플렉시티 에이전트 실행기 생성 시작")
+                agent_create_start = time.time()
+                agent_executor = self._create_agent_executor()
+                logger.info(
+                    f"🔧 퍼플렉시티 에이전트 실행기 생성 완료: {time.time() - agent_create_start:.2f}초"
+                )
+                
+                if not agent_executor:
+                    return "사용 가능한 도구가 없습니다.", []
+                
+                logger.info("🔧 퍼플렉시티 에이전트 실행 시작")
+                agent_invoke_start = time.time()
+                result = agent_executor.invoke({"input": user_input})
+                logger.info(
+                    f"🔧 퍼플렉시티 에이전트 실행 완료: {time.time() - agent_invoke_start:.2f}초"
+                )
+                
+                output = result.get("output", "")
+                
+                # 사용된 도구 정보 추출
+                used_tools = []
+                if "intermediate_steps" in result:
+                    for step in result["intermediate_steps"]:
+                        if len(step) >= 2 and hasattr(step[0], "tool"):
+                            used_tools.append(step[0].tool)
+                
+                if "Agent stopped" in output or not output.strip():
+                    logger.warning("퍼플렉시티 에이전트 중단 감지, 결과 확인 중...")
+                    
+                    # 중간 단계에서 도구가 사용되었는지 확인
+                    if "intermediate_steps" in result and result["intermediate_steps"]:
+                        # 도구가 사용되었으면 마지막 도구 결과 확인
+                        last_step = result["intermediate_steps"][-1]
+                        if len(last_step) >= 2:
+                            tool_result = last_step[1]
+                            logger.info(f"도구 결과 발견: {str(tool_result)[:100]}...")
+                            
+                            # 도구 결과를 바탕으로 최종 응답 생성
+                            final_response = self._generate_perplexity_final_response(user_input, str(tool_result))
+                            return final_response, [last_step[0].tool]
+                
+                # 정상 출력이 있으면 그대로 반환
+                if output.strip():
+                    return output, used_tools
+                
+                # 출력이 없으면 연쇄적 도구 사용 시도
+                logger.warning("퍼플렉시티 에이전트 출력 없음, 연쇄적 도구 사용 시도")
+                return self._execute_perplexity_tool_chain(user_input)
+                
+            except Exception as agent_error:
+                logger.error(f"퍼플렉시티 에이전트 실행 오류: {agent_error}, 연쇄적 도구 사용 시도")
+                # 에이전트 실행 실패 시 연쇄적 도구 사용 시도
+                return self._execute_perplexity_tool_chain(user_input)
 
         except Exception as e:
             logger.error(f"퍼플렉시티 도구 채팅 오류: {e}")
@@ -1540,6 +1609,50 @@ Provide a helpful, well-organized response in Korean that directly addresses the
             logger.error(f"Perplexity 다음 질의 생성 오류: {e}")
             return None
 
+    def _generate_perplexity_final_response(self, user_input: str, tool_result: str) -> str:
+        """도구 결과를 바탕으로 퍼플렉시티 모델을 위한 최종 응답 생성"""
+        try:
+            # 도구 결과가 너무 길면 요약
+            if len(tool_result) > 3000:
+                tool_result = tool_result[:3000] + "...(생략)"
+
+            response_prompt = f"""사용자 질문: "{user_input}"
+
+도구에서 가져온 데이터:
+{tool_result}
+
+수행할 작업:
+1. 사용자의 질문에 직접적으로 답변하는 가장 관련성 높은 정보 추출
+2. 정보를 논리적이고 이해하기 쉽게 구성
+3. 자연스러운 한국어로 친구에게 설명하듯 작성
+4. 사용자가 실제로 알고 싶어하는 내용에 집중
+5. 기술적 용어 없이 간결하고 명확한 문장 사용
+6. 여러 정보가 있는 경우 가장 중요한 정보를 우선순위로 배치
+7. 간단한 마크다운(## 제목, **강조**, - 글머리 기호)를 사용하여 응답 형식화
+8. 형식을 최소화하고 깔끔하게 유지
+9. 목록과 구조화된 데이터에 일관된 들여쓰기 사용
+
+사용자가 알고 싶어했던 내용에 직접적으로 대응하는 마크다운 형식의 도움되고 자연스러운 한국어 응답을 제공하세요."""
+
+            # Perplexity 모델을 위한 특별한 시스템 프롬프트 추가
+            mcp_system_prompt = SystemPrompts.get_perplexity_mcp_prompt()
+            messages = [
+                SystemMessage(content=mcp_system_prompt),
+                HumanMessage(content=response_prompt),
+            ]
+
+            response = self.llm.invoke(messages)
+            return self._format_response(response.content)
+
+        except Exception as e:
+            logger.error(f"Perplexity 최종 응답 생성 오류: {e}")
+            # 오류 발생 시 원본 도구 결과 반환
+            return self._format_response(
+                f"""도구 결과를 처리하는 중 오류가 발생했습니다. 원본 결과를 표시합니다:
+
+{tool_result}"""
+            )
+
     def _generate_perplexity_chain_response(
         self, original_query: str, accumulated_results: list
     ) -> str:
@@ -1555,6 +1668,10 @@ Provide a helpful, well-organized response in Korean that directly addresses the
                     for r in accumulated_results
                 ]
             )
+
+            # 결과가 너무 길면 요약
+            if len(all_results) > 3000:
+                all_results = all_results[:3000] + "...(생략)"
 
             response_prompt = f"""사용자의 원래 요청: "{original_query}"
 
@@ -1583,6 +1700,15 @@ Provide a helpful, well-organized response in Korean that directly addresses the
 
         except Exception as e:
             logger.error(f"Perplexity 체인 응답 생성 오류: {e}")
-            return self._format_response(
-                "여러 도구를 사용하여 정보를 수집했지만 최종 응답 생성 중 오류가 발생했습니다."
-            )
+            # 오류 발생 시 마지막 도구 결과 반환
+            if accumulated_results:
+                last_result = accumulated_results[-1]['result']
+                return self._format_response(
+                    f"""여러 도구를 사용하여 정보를 수집했지만 최종 응답 생성 중 오류가 발생했습니다. 마지막 도구 결과를 표시합니다:
+
+{last_result}"""
+                )
+            else:
+                return self._format_response(
+                    "여러 도구를 사용하여 정보를 수집했지만 최종 응답 생성 중 오류가 발생했습니다."
+                )

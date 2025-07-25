@@ -135,7 +135,7 @@ Thought:{agent_scratchpad}"""
                 max_iterations=4,
                 max_execution_time=30,
                 handle_parsing_errors=True,
-                early_stopping_method="generate",
+                early_stopping_method="force",
                 return_intermediate_steps=True,
             )
         except Exception as e:

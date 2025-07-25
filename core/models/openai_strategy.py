@@ -162,7 +162,7 @@ Answer: YES or NO only."""
             verbose=True,
             max_iterations=5,
             max_execution_time=30,
-            early_stopping_method="generate",
+            early_stopping_method="force",
             handle_parsing_errors="Check your output and make sure you are not providing both an Action and a Final Answer at the same time. Either provide an Action to use a tool, or provide a Final Answer to respond to the user.",
             return_intermediate_steps=True,
         )

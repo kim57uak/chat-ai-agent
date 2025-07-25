@@ -121,15 +121,23 @@ class AIAgentV2:
         return result
     
     def _process_with_tools(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
-        """도구를 사용한 처리"""
+        """도구를 사용한 처리 - 5단계 대화 히스토리 포함"""
         # 도구 처리기 지연 로딩
         if not self.tool_processor:
             self.tool_processor = ToolChatProcessor(self.model_strategy, self.tools)
         
+        # 대화 히스토리가 없으면 내부 히스토리에서 5단계 가져오기
+        if not conversation_history:
+            conversation_history = self.conversation_history.get_context_messages()
+        
         return self.tool_processor.process_message(user_input, conversation_history)
     
     def _process_simple(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
-        """단순 처리"""
+        """단순 처리 - 5단계 대화 히스토리 포함"""
+        # 대화 히스토리가 없으면 내부 히스토리에서 5단계 가져오기
+        if not conversation_history:
+            conversation_history = self.conversation_history.get_context_messages()
+        
         response, used_tools = self.simple_processor.process_message(user_input, conversation_history)
         return response, used_tools
     

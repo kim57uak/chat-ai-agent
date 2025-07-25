@@ -196,7 +196,7 @@ Question: {input}
             max_iterations=5,
             max_execution_time=30,
             handle_parsing_errors="Invalid format! You must follow the exact format: Thought -> Action -> Action Input. Do NOT include both Action and Final Answer in the same response.",
-            early_stopping_method="generate",
+            early_stopping_method="force",
             return_intermediate_steps=True,
         )
     

@@ -145,6 +145,12 @@ class AIClient:
         try:
             start_time = time.time()
             mode_info = " (Agent 모드)" if force_agent else " (Ask 모드)"
+            
+            # UI에서 설정된 conversation_history가 있으면 우선 사용
+            if hasattr(self, 'conversation_history') and self.conversation_history:
+                history = self.conversation_history
+                logger.info(f"UI 히스토리 사용: {len(history)}개")
+            
             logger.info(
                 f"AI 요청 시작{mode_info}: {self.model_name} (히스토리: {len(history)}개)"
             )

@@ -82,8 +82,9 @@ class AIProcessor(QObject):
                 client = AIClient(api_key, model)
                 # 대화 히스토리를 클라이언트에 설정
                 if messages:
-                    # 대화 히스토리를 직접 설정
+                    # 대화 히스토리를 직접 설정 (두 곳 모두)
                     client.conversation_history = messages
+                    client._conversation_manager.conversation_history = messages
                     print(f"[디버그] 히스토리 설정: {len(messages)}개")
                     if messages:
                         print(f"[디버그] 마지막 메시지: {messages[-1]['role']}: {messages[-1]['content'][:50]}...")
@@ -113,7 +114,11 @@ class AIProcessor(QObject):
                 else:
                     if agent_mode:
                         print(f"[DEBUG] 에이전트 모드로 처리: {user_text[:50]}...")
-                        result = client.agent_chat(user_text)
+                        # 에이전트 모드에서는 히스토리를 직접 전달
+                        if messages:
+                            result = client.agent.process_message_with_history(user_text, messages, force_agent=True)
+                        else:
+                            result = client.agent_chat(user_text)
                         if isinstance(result, tuple):
                             response, used_tools = result
                             print(f"[DEBUG] 에이전트 응답 완료, 사용된 도구: {used_tools}")
@@ -123,7 +128,11 @@ class AIProcessor(QObject):
                         sender = '에이전트'
                     else:
                         print(f"[DEBUG] 단순 채팅 모드로 처리: {user_text[:50]}...")
-                        response = client.simple_chat(user_text)
+                        # 단순 모드에서도 히스토리 전달
+                        if messages:
+                            response = client.agent.simple_chat_with_history(user_text, messages)
+                        else:
+                            response = client.simple_chat(user_text)
                         sender = 'AI'
                         used_tools = []
                 

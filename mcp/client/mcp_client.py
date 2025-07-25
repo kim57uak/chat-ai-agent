@@ -300,12 +300,17 @@ class MCPManager:
     def get_all_tools(self) -> Dict[str, List[Dict[str, Any]]]:
         """모든 서버의 도구 목록 조회 (실시간)"""
         all_tools = {}
-        for name, client in self.clients.items():
+        
+        # 딕셔너리 변경 오류 방지를 위해 복사본 사용
+        clients_copy = dict(self.clients)
+        
+        for name, client in clients_copy.items():
             if client and client.initialized and client.process and client.process.poll() is None:
                 try:
                     tools = client.list_tools()
                     if tools:
-                        all_tools[name] = tools
+                        # 도구 목록도 복사본으로 저장
+                        all_tools[name] = list(tools)
                         logger.info(f"서버 '{name}'에서 {len(tools)}개 도구 조회됨")
                     else:
                         logger.warning(f"서버 '{name}'에서 도구를 찾을 수 없음")

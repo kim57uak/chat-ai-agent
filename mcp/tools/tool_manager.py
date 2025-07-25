@@ -46,10 +46,16 @@ class ToolManager:
         """MCP 도구들을 등록하고 동적 분류"""
         self.tools.clear()
         
-        for server_name, tools in all_mcp_tools.items():
+        # 딕셔너리 변경 오류 방지를 위해 복사본 사용
+        tools_copy = dict(all_mcp_tools)
+        
+        for server_name, tools in tools_copy.items():
             category = self._classify_server_dynamically(server_name, tools)
             
-            for tool_schema in tools:
+            # 도구 목록도 복사본 사용
+            tools_list = list(tools)
+            
+            for tool_schema in tools_list:
                 tool_name = tool_schema.get('name')
                 if not tool_name:
                     continue

@@ -14,7 +14,7 @@ class MCPTool(BaseTool):
     server_name: str = Field(description="MCP 서버 이름")
     tool_name: str = Field(description="MCP 도구 이름")
     tool_schema: Dict[str, Any] = Field(description="MCP 도구 스키마")
-    mcp_caller: MCPToolCaller = Field(description="MCP 도구 호출자")
+    mcp_caller: MCPToolCaller = Field(description="MCP 도구 호출자", exclude=True)
     
     def __init__(self, server_name: str, tool_name: str, tool_schema: Dict[str, Any], mcp_caller: MCPToolCaller, **kwargs):
         # 도구 이름 길이 제한 (OpenAI API 64자 제한)
@@ -199,10 +199,16 @@ class MCPToolRegistry:
         self.tools.clear()
         self.tools_by_category.clear()
         
-        for server_name, tools in all_mcp_tools.items():
+        # 딕셔너리 변경 오류 방지를 위해 복사본 사용
+        tools_copy = dict(all_mcp_tools)
+        
+        for server_name, tools in tools_copy.items():
             server_tools = []
             
-            for tool_schema in tools:
+            # 도구 목록도 복사본 사용
+            tools_list = list(tools)
+            
+            for tool_schema in tools_list:
                 tool_name = tool_schema.get("name")
                 if not tool_name:
                     continue

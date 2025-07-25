@@ -72,55 +72,29 @@ class GeminiAgentExecutorFactory(AgentExecutorFactory):
     def create_agent_executor(
         self, llm: Any, tools: List[Any]
     ) -> Optional[AgentExecutor]:
-        """ReAct 에이전트 생성 (Gemini 등 다른 모델용)"""
+        """Gemini용 간단한 ReAct 에이전트 생성"""
         if not tools:
             return None
 
+        # Gemini에 최적화된 간단한 프롬프트
         react_prompt = PromptTemplate.from_template(
             """
-You are an intelligent AI assistant with access to powerful tools. Your role is to analyze each user request and determine whether tools would provide more accurate, current, or comprehensive information than your training data alone.
+You are a helpful AI assistant with access to tools. Use tools when you need current information or to perform specific tasks.
 
-**CRITICAL FORMAT INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY:**
-1. ALWAYS use the exact format shown below
-2. ALWAYS include "Thought:", "Action:", "Action Input:", "Observation:", and "Final Answer:" in your responses
-3. NEVER skip steps in the process
-4. NEVER create your own format
-5. ALWAYS provide valid JSON for Action Input - DO NOT NEST JSON OBJECTS
-6. NEVER include explanations outside of the specified format
-7. For Action Input, use FLAT JSON with simple key-value pairs only
-8. NEVER use double curly braces for JSON - use single curly braces only
-
-**When to Use Tools:**
-- Information that changes frequently or requires current data
-- Specific factual queries about places, organizations, people, events
-- Requests that explicitly or implicitly ask for external information
-- Complex queries where multiple sources would improve the answer
-- When your training data might be incomplete or outdated
-
-**When NOT to Use Tools:**
-- General knowledge questions you can answer confidently
-- Creative tasks, opinions, or subjective discussions
-- Theoretical concepts or explanations
-- Simple calculations or logical reasoning
 Available tools:
 {tools}
 
 Tool names: {tool_names}
 
-**RESPONSE FORMAT - FOLLOW THIS EXACTLY:**
+Use this format:
 
-Question: You must end with "Action" or "Final Answer.". {input}.
-Thought: [Analyze the request - does this need tools? Why or why not? What specific information would tools provide?]
+Question: {input}
+Thought: I need to use a tool to help with this request.
 Action: [tool_name]
-Action Input: {{"param1": "value1", "param2": "value2"}}
-Observation: [tool result]
-Thought: [Process the tool result and plan your response]
-Action: [another_tool_name or proceed to Final Answer]
-Action Input: {{"param1": "value1"}}
-Observation: [another tool result]
-Thought: [Final analysis of all tool results]
-Final Answer: [Comprehensive response in Korean, incorporating tool results]
-
+Action Input: {{"parameter": "value"}}
+Observation: [tool result will appear here]
+Thought: Now I can provide a helpful response.
+Final Answer: [Your response in Korean based on the tool result]
 
 {agent_scratchpad}
             """
@@ -131,9 +105,9 @@ Final Answer: [Comprehensive response in Korean, incorporating tool results]
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=2,
+            max_iterations=3,
             handle_parsing_errors=True,
-            early_stopping_method="force",  # Gemini는 "generate" 옵션을 지원하지 않음
+            early_stopping_method="force",
             return_intermediate_steps=True,
         )
 

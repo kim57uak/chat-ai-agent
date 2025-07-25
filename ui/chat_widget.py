@@ -216,14 +216,13 @@ class ChatWidget(QWidget):
         # 도구 라벨 초기 설정 - 항상 보이도록
         self.tools_label.setText('🔧 도구 확인중...')
         self.tools_label.setVisible(True)
-        self.update_tools_label()
         
-        # 도구 상태 주기적 갱신 타이머 (초기 지연 후 시작)
+        # 도구 상태 주기적 갱신 타이머 (MCP 서버 시작 후 지연)
         self.tools_update_timer = QTimer()
         self.tools_update_timer.timeout.connect(self.update_tools_label)
-        # 초기 업데이트 후 주기적 갱신 시작
-        QTimer.singleShot(2000, self.update_tools_label)  # 2초 후 첫 업데이트
-        QTimer.singleShot(5000, lambda: self.tools_update_timer.start(10000))  # 5초 후 시작, 10초마다 갱신
+        # MCP 서버 시작을 기다린 후 도구 업데이트 (MainWindow에서 1.1초 후 시작)
+        QTimer.singleShot(1500, self.update_tools_label)  # 1.5초 후 첫 업데이트
+        QTimer.singleShot(3000, lambda: self.tools_update_timer.start(10000))  # 3초 후 시작, 10초마다 갱신
 
         # 채팅 표시 영역 - QWebEngineView로 교체
         self.chat_display = QWebEngineView(self)

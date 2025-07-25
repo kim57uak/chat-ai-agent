@@ -1,4 +1,8 @@
-from core.ai_agent_refactored import AIAgent
+"""AI Client - refactored to follow SOLID principles."""
+
+# Backward compatibility imports
+from .client import ChatClient, ConversationManager, PromptManager
+from .config import ConfigManager
 from core.streaming_processor import StreamingChatProcessor, ChunkedResponseProcessor
 from core.llm_factory import LLMFactoryProvider
 from core.message_validator import MessageValidator
@@ -8,32 +12,34 @@ logger = logging.getLogger(__name__)
 
 
 class AIClient:
-    """AI 클라이언트 - 에이전트 기반 채팅"""
+    """AI 클라이언트 - 리팩토링된 버전 (하위 호환성 유지)"""
 
     def __init__(self, api_key, model_name="gpt-3.5-turbo"):
         self.api_key = api_key
         self.model_name = model_name
-        self.agent = AIAgent(api_key, model_name)
-        self.conversation_history = []  # 대화 기록 저장
         
-        # 스트리밍 처리기 초기화
+        # 리팩토링된 컴포넌트들 사용
+        self._chat_client = ChatClient(api_key, model_name)
+        self._config_manager = ConfigManager()
+        self._conversation_manager = ConversationManager()
+        self._prompt_manager = PromptManager(self._config_manager)
+        
+        # 스트리밍 처리기 (기존 호환성)
         self.streaming_processor = StreamingChatProcessor()
         self.chunked_processor = ChunkedResponseProcessor()
-        self.streaming_llm = None  # 스트리밍용 LLM
-
-        # 설정 파일에서 대화 기록 설정 로드
-        from core.file_utils import load_config
-
-        config = load_config()
-        conv_settings = config.get("conversation_settings", {})
-
+        self.streaming_llm = None
+        
+        # 설정 로드
+        conv_settings = self._config_manager.get("conversation_settings", {})
         self.max_history_pairs = conv_settings.get("max_history_pairs", 5)
         self.max_tokens_estimate = conv_settings.get("max_tokens_estimate", 2000)
         self.enable_history = conv_settings.get("enable_history", True)
         self.token_optimization = conv_settings.get("token_optimization", True)
-
-        # 유저 프롬프트 설정
-        self.user_prompt = self._load_user_prompt()
+        
+        # 하위 호환성을 위한 속성들
+        self.agent = self._chat_client.agent
+        self.conversation_history = self._conversation_manager.conversation_history
+        self.user_prompt = self._prompt_manager._prompts
 
     def chat(self, messages):
         """토큰 최적화된 대화 기록 사용 (할당량 초과 시 청크 분할) - 안정성 개선"""
@@ -243,133 +249,35 @@ class AIClient:
         return chunks
 
     def agent_chat(self, user_input: str):
-        """에이전트 채팅 (할당량 초과 시 청크 분할) - 안정성 개선"""
+        """에이전트 채팅 - 리팩토링된 버전"""
         try:
-            # 입력 검증
             if not user_input or not isinstance(user_input, str):
                 return "유효하지 않은 입력입니다.", []
-
+            
             user_input = user_input.strip()
             if not user_input:
                 return "빈 메시지는 처리할 수 없습니다.", []
-
-            logger.info(f"에이전트 채팅 요청: {user_input[:50]}...")
-
-            # 대화 기록이 비어있으면 파일에서 로드
-            if not self.conversation_history:
-                from core.conversation_history import ConversationHistory
-
-                conv_hist = ConversationHistory()
-                conv_hist.load_from_file()
-                recent_messages = conv_hist.get_recent_messages(10)
-                self.conversation_history = recent_messages
-                logger.info(f"파일에서 대화 기록 로드: {len(recent_messages)}개")
-
-            # 모델 타입 확인
-            model_lower = self.model_name.lower()
-            is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
             
-            # Perplexity 모델은 히스토리 사용 안함
-            if is_perplexity:
-                logger.info(f"Perplexity 모델 감지: {self.model_name}, 히스토리 사용 안함")
-                optimized_history = []
-            else:
-                optimized_history = self._optimize_conversation_history()
-                # 메시지 형식 검증 (이중 검증)
-                optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
-                optimized_history = MessageValidator.ensure_alternating_pattern(optimized_history)
-                logger.info(f"최적화된 히스토리 사용: {len(optimized_history)}개")
-
-            result = self._process_with_quota_handling(
-                user_input, optimized_history, force_agent=True
-            )
-
-            # 결과가 튜플인지 확인
-            if isinstance(result, tuple):
-                return result
-            else:
-                return result, []
-
+            # 리팩토링된 컴포넌트 사용
+            return self._chat_client.agent_chat(user_input)
+            
         except Exception as e:
             error_msg = str(e)
             logger.error(f"에이전트 채팅 오류: {error_msg}")
-            return (
-                f"에이전트 채팅 처리 중 오류가 발생했습니다: {error_msg[:100]}...",
-                [],
-            )
+            return f"에이전트 채팅 오류: {error_msg[:100]}...", []
 
     def simple_chat(self, user_input: str):
-        """단순 채팅 (도구 사용 안함)"""
+        """단순 채팅 - 리팩토링된 버전"""
         try:
-            # 이미지 데이터 감지 시 OCR 최적화 (줄바꿈 무시)
-            cleaned_input = user_input.replace("\n", "")
-            has_start_tag = "[IMAGE_BASE64]" in cleaned_input
-            has_end_tag = "[/IMAGE_BASE64]" in cleaned_input
-            has_image_data = has_start_tag and has_end_tag
-            
-            # 모델 타입 확인
-            model_lower = self.model_name.lower()
-            is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
-            
-            if has_image_data:
-                # 이미지 OCR에 최적화된 프롬프트 추가
-                ocr_prompt = """Please **extract all text accurately (OCR)** from this image.
-
-**Required Tasks:**
-1. **Complete Text Extraction**: Extract all Korean, English, numbers, and symbols without omission
-2. **Structure Analysis**: Identify document structures like tables, lists, headings, paragraphs
-3. **Layout Information**: Describe text position, size, and arrangement relationships
-4. **Accurate Transcription**: Record all characters precisely without typos
-5. **Context Description**: Identify document type and purpose
-6. **Table Format**: When creating tables, use markdown format: |Header1|Header2|\n|---|---|\n|Data1|Data2|
-
-**TABLE FORMAT RULES**: When creating tables from extracted data, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment.
-
-**Response Format:**
-## 📄 Extracted Text
-[List all text accurately]
-
-## 📋 Document Structure
-[Describe structure of tables, lists, headings, etc.]
-
-## 📍 Layout Information
-[Text arrangement and positional relationships]
-
-**Important**: Please extract all readable text from the image completely without any omissions."""
-                
-                enhanced_input = f"{ocr_prompt}\n\n{user_input}"
-                return self.agent.simple_chat(enhanced_input)
-            else:
-                # Perplexity 모델은 히스토리 사용 안함
-                if is_perplexity:
-                    logger.info(f"Perplexity 모델 감지: {self.model_name}, 히스토리 없이 단순 채팅")
-                    return self.agent.simple_chat(user_input)
-                else:
-                    optimized_history = self._optimize_conversation_history()
-                    # 메시지 형식 검증
-                    optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
-                    optimized_history = MessageValidator.ensure_alternating_pattern(optimized_history)
-                    return self.agent.simple_chat_with_history(user_input, optimized_history)
+            # 기본 채팅 처리
+            return self._chat_client.chat(user_input)
         except Exception as e:
             logger.error(f"단순 채팅 오류: {e}")
             return f"오류: {e}"
 
     def _optimize_conversation_history(self):
-        """대화 기록 최적화 - 토큰 사용량 절약"""
-        if not self.conversation_history:
-            return []
-
-        # 1. 최근 N개 대화 쌍만 유지
-        if len(self.conversation_history) > self.max_history_pairs * 2:
-            # 마지막 메시지는 항상 유지
-            recent_history = self.conversation_history[-(self.max_history_pairs * 2) :]
-        else:
-            recent_history = self.conversation_history.copy()
-
-        # 2. 토큰 수 추정 및 제한
-        optimized_history = self._limit_by_tokens(recent_history)
-
-        return optimized_history
+        """대화 기록 최적화 - 리팩토링된 버전"""
+        return self._conversation_manager.get_optimized_history()
 
     def _estimate_tokens(self, text: str) -> int:
         """토큰 수 대략 추정 (한글 1자 = 1.5토큰, 영어 1단어 = 1.3토큰)"""
@@ -435,29 +343,16 @@ class AIClient:
             }
 
     def get_current_user_prompt(self):
-        """현재 모델에 맞는 유저 프롬프트 반환"""
-        if "gemini" in self.model_name.lower():
-            return self.user_prompt.get("gemini", "")
-        elif "sonar" in self.model_name.lower() or "r1-" in self.model_name.lower():
-            return self.user_prompt.get("perplexity", "")
-        else:
-            return self.user_prompt.get("gpt", "")
+        """현재 모델에 맞는 유저 프롬프트 반환 - 리팩토링된 버전"""
+        return self._prompt_manager.get_prompt_for_model(self.model_name)
 
     def update_user_prompt(self, prompt_text, model_type="both"):
-        """유저 프롬프트 업데이트"""
+        """유저 프롬프트 업데이트 - 리팩토링된 버전"""
         if model_type == "both":
-            self.user_prompt["gpt"] = prompt_text
-            self.user_prompt["gemini"] = prompt_text
-            self.user_prompt["perplexity"] = prompt_text
-        elif model_type == "gpt":
-            self.user_prompt["gpt"] = prompt_text
-        elif model_type == "gemini":
-            self.user_prompt["gemini"] = prompt_text
-        elif model_type == "perplexity":
-            self.user_prompt["perplexity"] = prompt_text
-
-        # 설정 파일에 저장
-        self._save_user_prompt()
+            for mt in ["gpt", "gemini", "perplexity"]:
+                self._prompt_manager.update_prompt(mt, prompt_text)
+        else:
+            self._prompt_manager.update_prompt(model_type, prompt_text)
 
     def _save_user_prompt(self):
         """유저 프롬프트 저장"""

@@ -1,41 +1,33 @@
-import json
-import os
+"""File utilities - refactored to follow SRP."""
 
-CONFIG_PATH = 'config.json'
+# Backward compatibility imports
+from .config import ConfigManager, ModelConfigManager
 
+# Global instances for backward compatibility
+_config_manager = ConfigManager()
+_model_config = ModelConfigManager(_config_manager)
+
+# Legacy function wrappers for backward compatibility
 def save_config(data):
-    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    """Legacy wrapper for config saving."""
+    _config_manager.save(data)
 
 def load_config():
-    if not os.path.exists(CONFIG_PATH):
-        return {}
-    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    """Legacy wrapper for config loading."""
+    return _config_manager.load()
 
 def save_model_api_key(model, api_key):
-    config = load_config()
-    if 'models' not in config:
-        config['models'] = {}
-    
-    if model not in config['models']:
-        config['models'][model] = {}
-    
-    config['models'][model]['api_key'] = api_key
-    config['current_model'] = model
-    save_config(config)
+    """Legacy wrapper for saving model API key."""
+    _model_config.save_api_key(model, api_key)
 
 def load_model_api_key(model):
-    config = load_config()
-    models = config.get('models', {})
-    model_config = models.get(model, {})
-    return model_config.get('api_key', '')
+    """Legacy wrapper for loading model API key."""
+    return _model_config.load_api_key(model)
 
 def load_last_model():
-    config = load_config()
-    return config.get('current_model', 'gpt-3.5-turbo')
+    """Legacy wrapper for getting current model."""
+    return _model_config.get_current_model()
 
 def save_last_model(model):
-    config = load_config()
-    config['current_model'] = model
-    save_config(config) 
+    """Legacy wrapper for setting current model."""
+    _model_config.set_current_model(model) 

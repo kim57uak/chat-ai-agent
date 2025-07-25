@@ -266,15 +266,25 @@ class MCPManager:
         self.clients: Dict[str, MCPClient] = {}
         
     def load_from_config(self, config_path: str) -> bool:
-        """mcp.json에서 설정 로드 및 서버 시작"""
+        """mcp.json에서 설정 로드 및 활성화된 서버만 시작"""
         try:
+            # MCP 설정 파일 로드
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 
+            # 서버 상태 파일 로드
+            from .mcp_state import mcp_state
+            
             servers = config.get("mcpServers", {})
             
             for name, server_config in servers.items():
+                # 설정에서 비활성화된 서버 건너뛰기
                 if server_config.get("disabled", False):
+                    continue
+                
+                # 상태 파일에서 비활성화된 서버 건너뛰기
+                if not mcp_state.is_server_enabled(name):
+                    logger.info(f"MCP 서버 '{name}' 상태 파일에서 비활성화됨")
                     continue
                     
                 command = server_config.get("command")
@@ -300,12 +310,17 @@ class MCPManager:
     def get_all_tools(self) -> Dict[str, List[Dict[str, Any]]]:
         """모든 서버의 도구 목록 조회 (실시간)"""
         all_tools = {}
-        for name, client in self.clients.items():
+        
+        # 딕셔너리 변경 오류 방지를 위해 복사본 사용
+        clients_copy = dict(self.clients)
+        
+        for name, client in clients_copy.items():
             if client and client.initialized and client.process and client.process.poll() is None:
                 try:
                     tools = client.list_tools()
                     if tools:
-                        all_tools[name] = tools
+                        # 도구 목록도 복사본으로 저장
+                        all_tools[name] = list(tools)
                         logger.info(f"서버 '{name}'에서 {len(tools)}개 도구 조회됨")
                     else:
                         logger.warning(f"서버 '{name}'에서 도구를 찾을 수 없음")

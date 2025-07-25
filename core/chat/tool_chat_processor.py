@@ -153,14 +153,23 @@ class ToolChatProcessor(BaseChatProcessor):
         # Agent stopped 메시지 감지 및 처리
         if output and "Agent stopped due to iteration limit or time limit" in output:
             logger.warning("Agent stopped 메시지 감지 - 도구 결과에서 응답 생성 시도")
-            # intermediate_steps에서 마지막 도구 결과 사용
+            # intermediate_steps에서 모든 도구 결과 수집
             if "intermediate_steps" in result and result["intermediate_steps"]:
-                last_step = result["intermediate_steps"][-1]
-                if len(last_step) >= 2 and last_step[1]:
-                    tool_result = str(last_step[1]).strip()
-                    if tool_result:
-                        logger.info("Agent stopped 상황에서 도구 결과로 응답 생성")
-                        return self._generate_final_response(user_input, tool_result), [getattr(last_step[0], 'tool', 'unknown')]
+                all_tool_results = []
+                used_tool_names = []
+                
+                for step in result["intermediate_steps"]:
+                    if len(step) >= 2 and step[1]:
+                        tool_result = str(step[1]).strip()
+                        tool_name = getattr(step[0], 'tool', 'unknown')
+                        if tool_result:
+                            all_tool_results.append(f"[{tool_name}] {tool_result}")
+                            used_tool_names.append(tool_name)
+                
+                if all_tool_results:
+                    combined_results = "\n\n".join(all_tool_results)
+                    logger.info(f"Agent stopped 상황에서 {len(all_tool_results)}개 도구 결과로 응답 생성")
+                    return self._generate_final_response(user_input, combined_results), used_tool_names
         
         if output and output.strip() and "Agent stopped" not in output and len(output) > 50:
             logger.info(f"에이전트 출력에서 결과 발견")
@@ -171,11 +180,9 @@ class ToolChatProcessor(BaseChatProcessor):
             logger.warning("도구를 사용했지만 유효한 결과가 없음")
             return "도구를 사용했지만 예상한 결과를 얻지 못했습니다. 다시 시도해주세요.", []
         
-        # 4. 도구를 사용하지 않은 경우에만 단순 채팅으로 대체
-        logger.warning("도구 사용 없이 에이전트 중단, 단순 채팅으로 대체")
-        from .simple_chat_processor import SimpleChatProcessor
-        simple_processor = SimpleChatProcessor(self.model_strategy)
-        return simple_processor.process_message(user_input)
+        # 4. 도구를 사용하지 않은 경우 - 더 유용한 메시지 제공
+        logger.warning("도구 사용 없이 에이전트 중단")
+        return "요청을 처리하는 중에 시간이 초과되었습니다. 질문을 더 구체적으로 다시 해주시거나, 단순 채팅 모드를 사용해보세요.", []
     
 
     
@@ -218,27 +225,45 @@ class ToolChatProcessor(BaseChatProcessor):
         """도구 결과를 바탕으로 최종 응답 생성"""
         try:
             # 도구 결과가 너무 길면 요약
-            if len(tool_result) > 2000:
-                tool_result = tool_result[:2000] + "...(생략)"
+            if len(tool_result) > 3000:
+                tool_result = tool_result[:3000] + "\n\n...(결과가 길어서 일부만 표시)"
             
-            response_prompt = f"""User asked: "{user_input}"
+            # 도구 결과가 비어있거나 오류인 경우 처리
+            if not tool_result or tool_result.strip() == "":
+                return "도구를 실행했지만 결과를 가져올 수 없었습니다. 다시 시도해주세요."
+            
+            # 오류 메시지인 경우 처리
+            if "error" in tool_result.lower() or "failed" in tool_result.lower():
+                return f"도구 실행 중 문제가 발생했습니다: {tool_result[:200]}..."
+            
+            response_prompt = f"""사용자 질문: "{user_input}"
 
-Data from tools:
+도구 실행 결과:
 {tool_result}
 
-Your task:
-1. Extract the most relevant information that directly answers the user's question
-2. Organize the information in a logical, easy-to-follow structure
-3. Write in conversational Korean as if explaining to a friend
-4. Focus on what the user actually needs to know
-5. Use simple, clear sentences without technical jargon
+위 도구 실행 결과를 바탕으로 사용자의 질문에 대한 답변을 작성해주세요.
 
-Provide a helpful, natural Korean response that directly addresses what the user wanted to know."""
+답변 작성 지침:
+1. 사용자가 실제로 알고 싶어하는 정보에 집중
+2. 결과를 논리적이고 읽기 쉬운 구조로 정리
+3. 자연스러운 한국어로 친근하게 설명
+4. 표나 목록이 있다면 마크다운 형식으로 정리
+5. 기술적 용어는 쉽게 풀어서 설명
+6. 핵심 정보를 놓치지 않고 포함
+
+사용자에게 도움이 되는 명확하고 유용한 한국어 답변을 제공해주세요."""
 
             messages = self.model_strategy.create_messages(response_prompt)
             response = self.model_strategy.llm.invoke(messages)
-            return self.format_response(response.content)
+            
+            final_response = response.content.strip()
+            if not final_response or len(final_response) < 10:
+                # 응답이 너무 짧거나 비어있으면 도구 결과를 직접 포맷팅
+                return self.format_response(f"요청하신 정보입니다:\n\n{tool_result}")
+            
+            return self.format_response(final_response)
             
         except Exception as e:
             logger.error(f"최종 응답 생성 오류: {e}")
-            return self.format_response("도구 실행은 성공했지만 응답 생성 중 오류가 발생했습니다.")
+            # 오류 시 도구 결과를 직접 반환
+            return self.format_response(f"도구 실행 결과:\n\n{tool_result[:1000]}{'...' if len(tool_result) > 1000 else ''}")

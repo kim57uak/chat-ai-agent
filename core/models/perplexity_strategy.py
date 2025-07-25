@@ -132,9 +132,10 @@ Thought:{agent_scratchpad}"""
                 agent=agent,
                 tools=tools,
                 verbose=True,
-                max_iterations=2,
+                max_iterations=4,
+                max_execution_time=30,
                 handle_parsing_errors=True,
-                early_stopping_method="force",
+                early_stopping_method="generate",
                 return_intermediate_steps=True,
             )
         except Exception as e:

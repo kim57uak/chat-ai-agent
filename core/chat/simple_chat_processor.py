@@ -18,7 +18,14 @@ class SimpleChatProcessor(BaseChatProcessor):
             if self._has_image_data(user_input):
                 processed_message = self.model_strategy.process_image_input(user_input)
                 response = self.model_strategy.llm.invoke([processed_message])
-                return self.format_response(response.content), []
+                
+                # Perplexity 응답 처리 (문자열 또는 객체)
+                if isinstance(response, str):
+                    response_content = response
+                else:
+                    response_content = getattr(response, 'content', str(response))
+                
+                return self.format_response(response_content), []
             
             # 대화 히스토리 포함 처리
             if conversation_history:
@@ -28,7 +35,14 @@ class SimpleChatProcessor(BaseChatProcessor):
                 messages = self.model_strategy.create_messages(user_input)
             
             response = self.model_strategy.llm.invoke(messages)
-            return self.format_response(response.content), []
+            
+            # Perplexity 응답 처리 (문자열 또는 객체)
+            if isinstance(response, str):
+                response_content = response
+            else:
+                response_content = getattr(response, 'content', str(response))
+            
+            return self.format_response(response_content), []
             
         except Exception as e:
             logger.error(f"Simple chat processing error: {e}")

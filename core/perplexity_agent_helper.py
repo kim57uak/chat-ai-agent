@@ -292,11 +292,77 @@ Incorrect format (avoid):
 Action Input: query: search term, filter: recent
 """
 
+class PerplexityAgent:
+    """
+    Perplexity 모델을 위한 독립적인 에이전트 클래스
+    """
+    
+    def __init__(self, llm: BaseLanguageModel, tools: List[BaseTool], prompt: BasePromptTemplate):
+        self.llm = llm
+        self.tools = {tool.name: tool for tool in tools}
+        self.prompt = prompt
+        self.parser = PerplexityOutputParser()
+        
+    def invoke(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """에이전트 실행"""
+        user_input = inputs.get("input", "")
+        max_iterations = 10
+        intermediate_steps = []
+        
+        for i in range(max_iterations):
+            # 프롬프트 준비
+            tool_strings = "\n".join([f"{name}: {tool.description}" for name, tool in self.tools.items()])
+            tool_names = ", ".join(self.tools.keys())
+            
+            # 중간 단계 포맷팅
+            scratchpad = "\n".join([
+                f"Action: {action.tool}\nAction Input: {json.dumps(action.tool_input)}\nObservation: {observation}"
+                for action, observation in intermediate_steps
+            ])
+            
+            # 프롬프트 포맷팅
+            formatted_prompt = self.prompt.format(
+                input=user_input,
+                tools=tool_strings,
+                tool_names=tool_names,
+                agent_scratchpad=scratchpad
+            )
+            
+            # LLM 호출
+            response = self.llm.invoke(formatted_prompt)
+            text = response.content if hasattr(response, 'content') else str(response)
+            
+            # 파싱
+            try:
+                result = self.parser.parse(text)
+                
+                if isinstance(result, AgentFinish):
+                    return {"output": result.return_values["output"]}
+                    
+                elif isinstance(result, AgentAction):
+                    # 도구 실행
+                    tool_name = result.tool
+                    if tool_name in self.tools:
+                        try:
+                            observation = self.tools[tool_name].invoke(result.tool_input)
+                            intermediate_steps.append((result, str(observation)))
+                        except Exception as e:
+                            observation = f"Error: {str(e)}"
+                            intermediate_steps.append((result, observation))
+                    else:
+                        observation = f"Tool '{tool_name}' not found"
+                        intermediate_steps.append((result, observation))
+                        
+            except Exception as e:
+                return {"output": f"Parsing error: {str(e)}"}
+                
+        return {"output": "Maximum iterations reached"}
+
 def create_perplexity_agent(
     llm: BaseLanguageModel,
     tools: List[BaseTool],
     prompt: BasePromptTemplate
-) -> Any:
+) -> PerplexityAgent:
     """
     Perplexity 모델을 위한 커스텀 에이전트 생성
     
@@ -308,43 +374,7 @@ def create_perplexity_agent(
     Returns:
         Perplexity 모델용 커스텀 에이전트
     """
-    from langchain.agents import Agent
-    from langchain_core.runnables import RunnablePassthrough
-    
-    # 커스텀 출력 파서 생성
-    output_parser = PerplexityOutputParser()
-    
-    # 도구 이름 목록 생성
-    tool_names = [tool.name for tool in tools]
-    
-    # 도구 설명 생성
-    tool_strings = "\n".join([f"{tool.name}: {tool.description}" for tool in tools])
-    
-    # 프롬프트에 도구 정보 추가
-    prompt = prompt.partial(
-        tools=tool_strings,
-        tool_names=", ".join(tool_names),
-    )
-    
-    # 에이전트 체인 생성
-    agent = (
-        RunnablePassthrough.assign(
-            agent_scratchpad=lambda x: format_to_openai_function_messages(
-                x["intermediate_steps"]
-            )
-        )
-        | prompt
-        | llm
-        | output_parser
-    )
-    
-    # 에이전트 객체 생성
-    return Agent(
-        agent=agent,
-        tools=tools,
-        output_parser=output_parser,
-        allowed_tools=tool_names,
-    )
+    return PerplexityAgent(llm, tools, prompt)
 
 def format_to_openai_function_messages(intermediate_steps):
     """

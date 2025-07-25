@@ -3,7 +3,9 @@ from langchain.schema import BaseMessage, HumanMessage, SystemMessage
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import PromptTemplate
 from .base_model_strategy import BaseModelStrategy
+from core.perplexity_llm import PerplexityLLM
 from core.perplexity_wrapper import PerplexityWrapper
+from core.perplexity_output_parser import PerplexityOutputParser
 from core.enhanced_system_prompts import SystemPrompts
 import logging
 
@@ -11,16 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class PerplexityStrategy(BaseModelStrategy):
-    """Perplexity 모델 전략"""
+    """Perplexity 모델 전략 - 단순화된 구현"""
     
     def create_llm(self):
         """Perplexity LLM 생성"""
         return PerplexityWrapper(
-            model=self.model_name,
             pplx_api_key=self.api_key,
-            temperature=0.1,
-            max_tokens=4096,
-            request_timeout=120,
+            model=self.model_name
         )
     
     def create_messages(self, user_input: str, system_prompt: str = None) -> List[BaseMessage]:
@@ -43,82 +42,109 @@ class PerplexityStrategy(BaseModelStrategy):
         return HumanMessage(content=cleaned_input.strip() or "이미지 처리는 지원되지 않습니다.")
     
     def should_use_tools(self, user_input: str) -> bool:
-        """Perplexity 모델은 항상 도구 사용"""
-        logger.info("Perplexity 모델은 항상 도구를 사용하도록 강제합니다")
-        return True
+        """도구 사용 여부 결정 - AI가 컨텍스트를 이해하여 판단"""
+        try:
+            # 사용 가능한 도구 정보 수집
+            available_tools = []
+            if hasattr(self, 'tools') and self.tools:
+                for tool in self.tools[:5]:  # 주요 도구 5개만
+                    tool_desc = getattr(tool, 'description', tool.name)
+                    available_tools.append(f"- {tool.name}: {tool_desc[:80]}")
+            
+            tools_info = "\n".join(available_tools) if available_tools else "사용 가능한 도구 없음"
+            
+            decision_prompt = f"""User request: "{user_input}"
+
+Available tools:
+{tools_info}
+
+Analyze if this request requires using external tools to provide accurate information.
+
+Use tools for:
+- Real-time data queries (databases, web searches, file systems)
+- Specific information lookups that I don't have in my knowledge
+- External API calls or system operations
+- Current/live information requests
+- Data processing or calculations requiring external resources
+
+Do NOT use tools for:
+- General knowledge questions I can answer
+- Simple conversations or greetings
+- Creative writing or brainstorming
+- Explanations of concepts I know
+- Opinion-based discussions
+
+Answer: YES or NO only."""
+            
+            # Perplexity LLM에 직접 요청
+            response = self.llm._call(decision_prompt)
+            decision = response.strip().upper()
+            
+            result = "YES" in decision
+            logger.info(f"Perplexity AI 도구 사용 판단: '{user_input}' -> {decision} -> {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Perplexity 도구 사용 판단 오류: {e}")
+            # 오류 시 기본적으로 도구 사용
+            return True
     
     def create_agent_executor(self, tools: List) -> Optional[AgentExecutor]:
-        """Perplexity ReAct 에이전트 생성"""
+        """Perplexity ReAct 에이전트 생성 - 단순화된 구현"""
         if not tools:
             return None
         
-        perplexity_react_prompt = PromptTemplate.from_template(
-            """You are an AI assistant that uses various tools to provide accurate information.
+        react_prompt = PromptTemplate.from_template(
+            """You are a helpful assistant that uses tools to answer questions.
 
-**Instructions:**
-- Carefully analyze user requests to select the most appropriate tools
-- Use tools to gather current, accurate information when needed
-- Organize information in a clear, logical structure
-- Respond in natural, conversational Korean
-- Be friendly and helpful while maintaining accuracy
-- If multiple tools are needed, use them systematically
-- Focus on providing exactly what the user asked for
-- Always parse MCP tool results accurately and present them to the user
+**CRITICAL: Follow EXACT format - ONE step at a time:**
 
-Available tools:
-{tools}
+Thought: [what you need to do]
+Action: [tool_name]
+Action Input: [input_for_tool]
 
+(Wait for Observation)
+
+Thought: [analyze result]
+Final Answer: [response in Korean]
+
+**RULES:**
+1. Use ONE tool at a time
+2. NEVER output Action and Final Answer together
+3. Wait for Observation before Final Answer
+4. Be precise and follow format exactly
+
+Tools: {tools}
 Tool names: {tool_names}
 
-**IMPORTANT: YOU MUST FOLLOW THIS FORMAT EXACTLY**
-
-Question: {input}. You must end with "Action" or "Final Answer."
-Thought: I need to analyze this request and determine which tool(s) would be most helpful.
-Action: tool_name
-Action Input: {{"param1": "value1", "param2": "value2"}}
-Observation: tool_execution_result
-Thought: Based on the result, I will decide whether to use another tool.
-Action: another_tool_name
-Action Input: {{"param1": "value1"}}
-Observation: another_tool_execution_result
-Thought: Now I have enough information to provide a comprehensive answer.
-Final Answer: My comprehensive response in Korean
-
-**CRITICAL FORMAT RULES - FOLLOW THESE EXACTLY**:
-- After EVERY "Thought:" line, you MUST IMMEDIATELY include either "Action:" or "Final Answer:"
-- NEVER skip the "Action:" line after a "Thought:" line
-- NEVER include any other text between "Thought:" and "Action:" lines
-- ALWAYS follow "Action:" with "Action Input:" on the next line
-- ALWAYS use valid JSON format for "Action Input:" parameters
-- When finished, ALWAYS end with "Thought:" followed by "Final Answer:"
-
-**REMEMBER**: The format must be EXACTLY as shown above. This is CRITICAL for the system to work properly.
-
-{agent_scratchpad}
-            """
+Question: {input}
+Thought:{agent_scratchpad}"""
         )
 
         try:
-            from core.perplexity_agent_helper import create_perplexity_agent
-            agent = create_perplexity_agent(self.llm, tools, perplexity_react_prompt)
-        except ImportError as e:
-            logger.error(f"perplexity_agent_helper module import failed: {e}")
-            agent = create_react_agent(self.llm, tools, perplexity_react_prompt)
-
-        return AgentExecutor(
-            agent=agent,
-            tools=tools,
-            verbose=True,
-            max_iterations=3,
-            handle_parsing_errors=True,
-            early_stopping_method="force",
-            return_intermediate_steps=True,
-        )
+            # 커스텀 파서 사용
+            custom_parser = PerplexityOutputParser()
+            
+            # 에이전트 생성 시 커스텀 파서 사용
+            agent = create_react_agent(self.llm, tools, react_prompt, output_parser=custom_parser)
+            
+            return AgentExecutor(
+                agent=agent,
+                tools=tools,
+                verbose=True,
+                max_iterations=2,
+                handle_parsing_errors=True,
+                early_stopping_method="force",
+                return_intermediate_steps=True,
+            )
+        except Exception as e:
+            logger.error(f"Perplexity agent creation failed: {e}")
+            return None
     
     def get_perplexity_system_prompt(self) -> str:
         """Perplexity 전용 시스템 프롬프트"""
         return SystemPrompts.get_perplexity_mcp_prompt()
     
     def supports_streaming(self) -> bool:
-        """Perplexity는 스트리밍 제한적 지원"""
+        """Perplexity는 스트리밍 미지원"""
         return False

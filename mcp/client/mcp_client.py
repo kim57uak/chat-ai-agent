@@ -266,15 +266,25 @@ class MCPManager:
         self.clients: Dict[str, MCPClient] = {}
         
     def load_from_config(self, config_path: str) -> bool:
-        """mcp.json에서 설정 로드 및 서버 시작"""
+        """mcp.json에서 설정 로드 및 활성화된 서버만 시작"""
         try:
+            # MCP 설정 파일 로드
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 
+            # 서버 상태 파일 로드
+            from .mcp_state import mcp_state
+            
             servers = config.get("mcpServers", {})
             
             for name, server_config in servers.items():
+                # 설정에서 비활성화된 서버 건너뛰기
                 if server_config.get("disabled", False):
+                    continue
+                
+                # 상태 파일에서 비활성화된 서버 건너뛰기
+                if not mcp_state.is_server_enabled(name):
+                    logger.info(f"MCP 서버 '{name}' 상태 파일에서 비활성화됨")
                     continue
                     
                 command = server_config.get("command")

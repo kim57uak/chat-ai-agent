@@ -71,24 +71,35 @@ class OpenAIStrategy(BaseModelStrategy):
     def should_use_tools(self, user_input: str) -> bool:
         """OpenAI 모델의 도구 사용 여부 결정"""
         try:
-            decision_prompt = f"""User request: "{user_input}". You must end with "Action" or "Final Answer."
+            # 사용 가능한 도구 정보 수집
+            available_tools = []
+            if hasattr(self, 'tools') and self.tools:
+                for tool in self.tools[:5]:  # 주요 도구 5개만
+                    tool_desc = getattr(tool, 'description', tool.name)
+                    available_tools.append(f"- {tool.name}: {tool_desc[:80]}")
+            
+            tools_info = "\n".join(available_tools) if available_tools else "사용 가능한 도구 없음"
+            
+            decision_prompt = f"""User request: "{user_input}"
 
-Determine if this request requires using tools to provide accurate information.
+Available tools:
+{tools_info}
 
-Requires tools:
-- Real-time information search (web search, news, weather, etc.)
-- Database queries (travel products, flights, etc.)
-- External API calls (maps, translation, etc.)
-- File processing or calculations
-- Current time or date-related information
-- Specific data lookups or searches
-- Location-based queries
+Analyze if this request requires using external tools to provide accurate information.
 
-Does not require tools:
-- General conversation or questions
-- Explanations or opinions
-- Creative writing or idea suggestions
-- General knowledge already known
+Use tools for:
+- Real-time data queries (databases, web searches, file systems)
+- Specific information lookups that I don't have in my knowledge
+- External API calls or system operations
+- Current/live information requests
+- Data processing or calculations requiring external resources
+
+Do NOT use tools for:
+- General knowledge questions I can answer
+- Simple conversations or greetings
+- Creative writing or brainstorming
+- Explanations of concepts I know
+- Opinion-based discussions
 
 Answer: YES or NO only."""
 
@@ -101,7 +112,7 @@ Answer: YES or NO only."""
             decision = response.content.strip().upper()
             
             result = "YES" in decision
-            logger.info(f"Tool usage decision: {decision} -> {result}")
+            logger.info(f"OpenAI AI 도구 사용 판단: '{user_input}' -> {decision} -> {result}")
             return result
 
         except Exception as e:
@@ -115,13 +126,19 @@ Answer: YES or NO only."""
         
         system_message = """You are a helpful AI assistant that can use various tools to provide accurate information.
 
+**CRITICAL RULES:**
+1. NEVER output both Action and Final Answer in the same response
+2. If you need to use a tool, output ONLY the Action (no Final Answer)
+3. After tool execution, output ONLY the Final Answer (no more Actions)
+4. Follow the exact format: either "Action: [tool_name]" OR "Final Answer: [response]"
+
 **Instructions:**
 - Analyze user requests carefully to select the most appropriate tools
 - Use tools to gather current, accurate information when needed
 - Organize information in a clear, logical structure
 - Respond in natural, conversational Korean
 - Be friendly and helpful while maintaining accuracy
-- If multiple tools are needed, use them systematically
+- If multiple tools are needed, use them one at a time
 - Focus on providing exactly what the user asked for
 
 **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row.
@@ -129,8 +146,8 @@ Answer: YES or NO only."""
 **Response Format:**
 - Use clear headings and bullet points when appropriate
 - Format information in a structured, readable way
-- Always end your response with either an Action or Final Answer
-- ONLY SHOW THE FINAL ANSWER TO THE USER - HIDE ALL THOUGHT PROCESSES"""
+- STRICTLY follow the Action/Final Answer format
+- NEVER mix Action and Final Answer in one response"""
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_message),
@@ -143,8 +160,9 @@ Answer: YES or NO only."""
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=2,
-            handle_parsing_errors=True,
+            max_iterations=3,
+            handle_parsing_errors="Check your output and make sure you are not providing both an Action and a Final Answer at the same time. Either provide an Action to use a tool, or provide a Final Answer to respond to the user.",
+            return_intermediate_steps=True,
         )
     
     def _get_ocr_prompt(self) -> str:

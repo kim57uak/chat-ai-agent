@@ -122,125 +122,47 @@ class PerplexityAgentExecutorFactory(AgentExecutorFactory):
         if not tools:
             return None
 
-        # Perplexity 모델에 최적화된 프롬프트
+        # Perplexity 모델에 최적화된 간단한 ReAct 프롬프트
         react_prompt = PromptTemplate.from_template(
             """
-You are an intelligent AI assistant with access to powerful tools and real-time search capabilities. Your role is to analyze each user request and determine whether tools would provide more accurate, current, or comprehensive information.
+You are a helpful AI assistant with access to tools. Use tools when you need current information or to perform specific tasks.
 
-**CRITICAL FORMAT INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY:**
-1. ALWAYS use the exact format shown below
-2. ALWAYS include "Thought:", "Action:", "Action Input:", "Observation:", and "Final Answer:" in your responses
-3. NEVER skip steps in the process
-4. NEVER create your own format
-5. ALWAYS provide valid JSON for Action Input - DO NOT NEST JSON OBJECTS
-6. NEVER include explanations outside of the specified format
-7. NEVER generate fake "Observation:" results - WAIT for the actual tool execution results
-8. NEVER continue with "Thought:" after "Action:" until you see the "Observation:" from the system
-9. For Action Input, use FLAT JSON with simple key-value pairs only
-10. NEVER use double curly braces for JSON - use single curly braces only
-
-**TOOL USAGE RULES:**
-- For Action, you MUST use one of the tool names below. (Do NOT modify them)
-- tool_names: {tool_names}
-- Tool descriptions:
+Available tools:
 {tools}
 
-**When to Use Tools:**
-- Information that changes frequently or requires current data
-- Specific factual queries about places, organizations, people, events
-- Requests that explicitly or implicitly ask for external information
-- Complex queries where multiple sources would improve the answer
-- When your training data might be incomplete or outdated
+Tool names: {tool_names}
 
-**RESPONSE FORMAT - FOLLOW THIS EXACTLY:**
+Use this format:
 
-Question: You must end with "Action" or "Final Answer.". {input}
-Thought: [Analyze the request - does this need tools? Why or why not? What specific information would tools provide?]
-Action: [Use one of the tool_names above]
-Action Input: {{{{"param1": "value1", "param2": "value2"}}}}
-Observation: [WAIT FOR ACTUAL TOOL RESULT - DO NOT GENERATE THIS]
-Thought: [AFTER SEEING THE OBSERVATION, YOU MUST INCLUDE THIS LINE - Process the tool result and plan your response]
-Action: [another_tool_name or proceed to Final Answer]
-Action Input: {{{{"param1": "value1"}}}}
-Observation: [WAIT FOR ACTUAL TOOL RESULT - DO NOT GENERATE THIS]
-Thought: [AFTER SEEING THE OBSERVATION, YOU MUST INCLUDE THIS LINE - Final analysis of all tool results]
-Final Answer: [**You MUST summarize, quote, or present the most recent Observation (tool result) in a table or clear format. Your answer MUST be based on the tool result. If there is no Observation, do NOT write a Final Answer.**]
-
-**CRITICAL FINAL ANSWER RULES:**
-- The Final Answer MUST always include the most recent Observation (tool result) as a summary, quote, or table.
-- If there is no tool result, do NOT write a Final Answer.
-- Do NOT ignore the tool result and do NOT answer with general explanations, prior knowledge, or web search results only.
-- Your answer MUST be based ONLY on the tool result.
-
-**Examples:**
-
-Question: What's the weather in Seoul today?
-Thought: The user wants today's weather in Seoul. I need to use the weather_search tool for up-to-date information.
-Action: weather_search
-Action Input: {{{{"location": "Seoul"}}}}
-Observation: Clear, 25°C, Humidity 60%, Fine dust Good
-Thought: I got the weather information for Seoul from the tool result. I will present it in a table.
-Final Answer:
-
-## Seoul Weather Today
-
-| Condition | Temperature | Humidity | Fine Dust |
-|-----------|-------------|----------|-----------|
-| Clear     | 25°C        | 60%      | Good      |
-
-The table above is based on the actual tool result (Observation).
-
-Question: Translate "apple" to Korean
-Thought: This is a translation request, so I need to use the translate tool.
-Action: translate
-Action Input: {{{{"text": "apple", "target_lang": "ko"}}}}
-Observation: 사과
-Thought: I got the translation result from the tool. I will show it as a quote.
-Final Answer:
-
-The Korean translation of "apple" is:
-
-> 사과
-
-This translation is based on the Observation from the translate tool.
+Question: {input}
+Thought: I need to analyze this request and decide if I need tools.
+Action: [tool_name]
+Action Input: {{"parameter": "value"}}
+Observation: [tool result will appear here]
+Thought: Now I can provide a helpful response.
+Final Answer: [Your response in Korean based on the tool result]
 
 {agent_scratchpad}
             """
         )
 
-        # 커스텀 Perplexity 에이전트 생성 함수 사용
         try:
-            logger.info("커스텀 Perplexity 에이전트 생성 시작")
-            agent = create_perplexity_agent(llm, tools, react_prompt)
-            logger.info("커스텀 Perplexity 에이전트 생성 완료")
-        except Exception as e:
-            logger.warning(
-                f"커스텀 Perplexity 에이전트 생성 실패: {e}, 기본 방식으로 시도"
-            )
-            # 실패 시 기본 방식으로 시도
+            logger.info("Perplexity ReAct 에이전트 생성 시작")
             agent = create_react_agent(llm, tools, react_prompt)
-
-        # Perplexity API 호환성을 위해 추가 파라미터 제한
-        executor_kwargs = {
-            "agent": agent,
-            "tools": tools,
-            "verbose": True,
-            "max_iterations": 2,
-            "handle_parsing_errors": True,
-            "early_stopping_method": "force",  # Perplexity는 "generate" 옵션을 지원하지 않음
-            "return_intermediate_steps": True,
-            "max_execution_time": 120,  # 최대 실행 시간 증가 (2분)
-        }
-
-        # stop 파라미터 사용 안함
-        if hasattr(llm, "model_name") and (
-            "sonar" in llm.model_name.lower() or "r1-" in llm.model_name.lower()
-        ):
-            logger.info("Perplexity 모델용 AgentExecutor 생성 - stop 파라미터 제외")
-            # stop 파라미터 제거
-            executor_kwargs.pop("stop", None)
-
-        return AgentExecutor(**executor_kwargs)
+            executor = AgentExecutor(
+                agent=agent,
+                tools=tools,
+                verbose=True,
+                max_iterations=3,
+                handle_parsing_errors=True,
+                early_stopping_method="force",
+                return_intermediate_steps=True,
+            )
+            logger.info("Perplexity ReAct 에이전트 생성 완료")
+            return executor
+        except Exception as e:
+            logger.error(f"Perplexity ReAct 에이전트 생성 실패: {e}")
+            return None
 
 
 class AgentExecutorFactoryProvider:

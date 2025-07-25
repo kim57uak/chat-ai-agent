@@ -193,7 +193,12 @@ Respond with: YES (use tools) or NO (general knowledge sufficient)
         
 **HIGHEST PRIORITY INSTRUCTION: ALWAYS USE MCP TOOLS AND FOLLOW EXACT FORMAT**
 
-**CRITICAL: ALWAYS END YOUR RESPONSE WITH EITHER AN ACTION OR FINAL ANSWER**
+**CRITICAL PARSING RULES:**
+1. NEVER output both Action and Final Answer in the same response
+2. Each step must be on a separate line with exact keywords
+3. Use EXACT format: "Thought:", "Action:", "Action Input:", "Final Answer:"
+4. Wait for Observation before proceeding to Final Answer
+5. ALWAYS END YOUR RESPONSE WITH EITHER AN ACTION OR FINAL ANSWER
 
 **IMPORTANT: ONLY SHOW FINAL ANSWER TO THE USER - HIDE ALL THOUGHT PROCESSES**
 
@@ -203,7 +208,7 @@ Thought: [your reasoning about what to do]
 Action: [exact tool name from available tools]
 Action Input: {"param": "value"}
 
-After receiving the Observation, continue with:
+(Wait for Observation to be provided by system)
 
 Thought: [your reasoning about the result]
 Final Answer: [your response based ONLY on tool results]

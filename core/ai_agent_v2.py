@@ -109,10 +109,16 @@ class AIAgentV2:
     def _should_use_tools(self, user_input: str) -> bool:
         """도구 사용 여부 결정"""
         if not self.tools:
+            logger.info(f"도구가 없어서 도구 사용 안함: {len(self.tools)}개")
             return False
         
+        # 도구 정보를 전략에 전달
+        self.model_strategy.tools = self.tools
+        
         # 모델별 전략에 위임
-        return self.model_strategy.should_use_tools(user_input)
+        result = self.model_strategy.should_use_tools(user_input)
+        logger.info(f"도구 사용 판단: '{user_input}' -> {result} (도구 {len(self.tools)}개 사용 가능)")
+        return result
     
     def _process_with_tools(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
         """도구를 사용한 처리"""

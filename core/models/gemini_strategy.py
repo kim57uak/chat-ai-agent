@@ -81,18 +81,14 @@ class GeminiStrategy(BaseModelStrategy):
             return True
         
         try:
-            # 도구 설명 수집 (tools 속성이 있는 경우에만)
-            tool_descriptions = []
+            # 사용 가능한 도구 정보 수집
+            available_tools = []
             if hasattr(self, 'tools') and self.tools:
-                for tool in self.tools[:8]:  # 주요 도구들만
-                    desc = getattr(tool, "description", tool.name)
-                    tool_descriptions.append(f"- {tool.name}: {desc[:100]}")
+                for tool in self.tools[:5]:  # 주요 도구 5개만
+                    tool_desc = getattr(tool, 'description', tool.name)
+                    available_tools.append(f"- {tool.name}: {tool_desc[:80]}")
             
-            tools_info = (
-                "\n".join(tool_descriptions)
-                if tool_descriptions
-                else "사용 가능한 도구 없음"
-            )
+            tools_info = "\n".join(available_tools) if available_tools else "사용 가능한 도구 없음"
             
             # Agent 모드 선택 시 더 적극적인 판단 기준 적용
             agent_context = ""
@@ -104,24 +100,21 @@ class GeminiStrategy(BaseModelStrategy):
 Available tools:
 {tools_info}
 
-Determine if this request requires using tools to provide accurate information.
+Analyze if this request requires using external tools to provide accurate information.
 
-Requires tools:
-- Real-time information search (web search, news, weather, etc.)
-- Database queries (travel products, flights, etc.)
-- External API calls (maps, translation, etc.)
-- File processing or calculations
-- Current time or date-related information
-- Specific data lookups or searches
-- Location-based queries
-- If you request something you don't know, utilize appropriate tools
+Use tools for:
+- Real-time data queries (databases, web searches, file systems)
+- Specific information lookups that I don't have in my knowledge
+- External API calls or system operations
+- Current/live information requests
+- Data processing or calculations requiring external resources
 
-Does not require tools:
-- A question about knowledge you already know
-- General conversation or questions
-- Explanations or opinions
-- Creative writing or idea suggestions
-- General knowledge already known{agent_context}
+Do NOT use tools for:
+- General knowledge questions I can answer
+- Simple conversations or greetings
+- Creative writing or brainstorming
+- Explanations of concepts I know
+- Opinion-based discussions{agent_context}
 
 Answer: YES or NO only."""
             
@@ -158,38 +151,39 @@ Answer: YES or NO only."""
         react_prompt = PromptTemplate.from_template(
             """You are a helpful AI assistant that can use various tools to provide accurate information.
 
-**CRITICAL: You MUST follow the exact format below. Do NOT deviate from this format.**
+**CRITICAL PARSING RULES:**
+1. NEVER output both Action and Final Answer in the same response
+2. Follow EXACT format: Thought -> Action -> Action Input -> (wait for Observation) -> Thought -> Final Answer
+3. Each step must be on a separate line
+4. Use EXACT keywords: "Thought:", "Action:", "Action Input:", "Final Answer:"
+5. Do NOT include "Observation:" - it will be added automatically
 
 Available tools:
 {tools}
 
 Tool names: {tool_names}
 
-**FORMAT REQUIREMENTS:**
-1. Always start with "Thought:"
-2. Then "Action:" followed by tool name
-3. Then "Action Input:" followed by input
-4. After tool execution, start with "Thought:" again
-5. End with "Final Answer:" followed by your response
+**STRICT FORMAT:**
+Thought: [your reasoning]
+Action: [exact_tool_name]
+Action Input: [input_for_tool]
+
+(System will add Observation automatically)
+
+Thought: [analyze the observation]
+Final Answer: [your response in Korean]
 
 **EXAMPLE:**
 Question: Show me files in /home
-Thought: I need to list directory contents.
+Thought: I need to list directory contents to show the user what files are in /home.
 Action: filesystem_list_directory
 Action Input: /home
-Observation: [tool result]
-Thought: Now I can provide the file list to the user.
-Final Answer: Here are the files in /home directory: [formatted list]
 
-**YOUR TASK:**
+(After receiving observation:)
+Thought: Now I have the directory listing and can provide a formatted response to the user.
+Final Answer: /home 디렉토리에는 다음 파일들이 있습니다: [formatted list]
+
 Question: {input}
-Thought: I need to analyze this request and determine which tool(s) would be most helpful.
-Action: [tool_name]
-Action Input: [input_for_tool]
-Observation: [This will be filled by the tool]
-Thought: Based on the result, I will provide a comprehensive answer in Korean.
-Final Answer: [Provide a well-organized response in Korean]
-
 {agent_scratchpad}
             """
         )
@@ -200,9 +194,9 @@ Final Answer: [Provide a well-organized response in Korean]
             tools=tools,
             verbose=True,
             max_iterations=3,
-            handle_parsing_errors="Check your output and make sure it conforms to the expected format!",
+            handle_parsing_errors="Invalid format! You must follow the exact format: Thought -> Action -> Action Input. Do NOT include both Action and Final Answer in the same response.",
             early_stopping_method="force",
-            return_intermediate_steps=False,
+            return_intermediate_steps=True,
         )
     
     def _get_ocr_prompt(self) -> str:

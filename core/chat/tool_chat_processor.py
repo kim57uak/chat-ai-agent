@@ -33,8 +33,27 @@ class ToolChatProcessor(BaseChatProcessor):
             if not self._agent_executor:
                 return "에이전트 실행기를 생성할 수 없습니다.", []
             
-            # 에이전트 실행
-            result = self._agent_executor.invoke({"input": user_input})
+            # 에이전트 실행 (파싱 오류 처리 강화)
+            try:
+                result = self._agent_executor.invoke({"input": user_input})
+            except Exception as agent_error:
+                # 파싱 오류 전용 처리
+                if "parse" in str(agent_error).lower() or "format" in str(agent_error).lower():
+                    logger.warning(f"에이전트 파싱 오류: {str(agent_error)[:200]}...")
+                    
+                    # 예외 객체에서 결과 추출 시도
+                    if hasattr(agent_error, 'llm_output') and agent_error.llm_output:
+                        logger.info("예외에서 LLM 출력 발견, 처리 중...")
+                        return self._extract_response_from_error(agent_error.llm_output, user_input)
+                    
+                    # 단순 채팅으로 대체
+                    logger.info("파싱 오류로 인해 단순 채팅으로 대체")
+                    from .simple_chat_processor import SimpleChatProcessor
+                    simple_processor = SimpleChatProcessor(self.model_strategy)
+                    return simple_processor.process_message(user_input, conversation_history)
+                else:
+                    raise agent_error
+            
             output = result.get("output", "")
             
             # 사용된 도구 정보 추출
@@ -125,12 +144,24 @@ class ToolChatProcessor(BaseChatProcessor):
                     else:
                         logger.warning(f"단계 {i}: 도구 결과가 None")
         
-        # 2. output에 결과가 있는지 확인
+        # 2. output에 결과가 있는지 확인 (Agent stopped 메시지 처리)
         output = result.get("output", "")
         logger.info(f"output 존재: {bool(output)}, 길이: {len(output) if output else 0}")
         if output:
             logger.info(f"output 내용: {output[:200]}...")
             
+        # Agent stopped 메시지 감지 및 처리
+        if output and "Agent stopped due to iteration limit or time limit" in output:
+            logger.warning("Agent stopped 메시지 감지 - 도구 결과에서 응답 생성 시도")
+            # intermediate_steps에서 마지막 도구 결과 사용
+            if "intermediate_steps" in result and result["intermediate_steps"]:
+                last_step = result["intermediate_steps"][-1]
+                if len(last_step) >= 2 and last_step[1]:
+                    tool_result = str(last_step[1]).strip()
+                    if tool_result:
+                        logger.info("Agent stopped 상황에서 도구 결과로 응답 생성")
+                        return self._generate_final_response(user_input, tool_result), [getattr(last_step[0], 'tool', 'unknown')]
+        
         if output and output.strip() and "Agent stopped" not in output and len(output) > 50:
             logger.info(f"에이전트 출력에서 결과 발견")
             return self.format_response(output), self._extract_used_tools(result)
@@ -147,6 +178,41 @@ class ToolChatProcessor(BaseChatProcessor):
         return simple_processor.process_message(user_input)
     
 
+    
+    def _extract_response_from_error(self, llm_output: str, user_input: str) -> Tuple[str, List]:
+        """파싱 오류에서 응답 추출"""
+        try:
+            # Final Answer 부분 추출 시도
+            if "Final Answer:" in llm_output:
+                final_answer = llm_output.split("Final Answer:")[-1].strip()
+                if final_answer and len(final_answer) > 10:
+                    logger.info(f"Final Answer에서 응답 추출: {final_answer[:100]}...")
+                    return self.format_response(final_answer), []
+            
+            # 도구 결과가 있는지 확인
+            if "Observation:" in llm_output:
+                # 마지막 Observation 부분 추출
+                observation_parts = llm_output.split("Observation:")
+                if len(observation_parts) > 1:
+                    tool_result = observation_parts[-1].strip()
+                    if tool_result and len(tool_result) > 10:
+                        logger.info(f"Observation에서 도구 결과 추출: {tool_result[:100]}...")
+                        return self._generate_final_response(user_input, tool_result), []
+            
+            # 전체 출력에서 의미 있는 내용 추출
+            if len(llm_output.strip()) > 50:
+                logger.info(f"전체 LLM 출력 사용: {llm_output[:100]}...")
+                return self.format_response(llm_output.strip()), []
+            
+            # 추출 실패 시 단순 채팅으로 대체
+            logger.warning("파싱 오류에서 응답 추출 실패, 단순 채팅으로 대체")
+            from .simple_chat_processor import SimpleChatProcessor
+            simple_processor = SimpleChatProcessor(self.model_strategy)
+            return simple_processor.process_message(user_input)
+            
+        except Exception as e:
+            logger.error(f"오류 응답 추출 실패: {e}")
+            return "도구 실행 중 오류가 발생했습니다. 다시 시도해주세요.", []
     
     def _generate_final_response(self, user_input: str, tool_result: str) -> str:
         """도구 결과를 바탕으로 최종 응답 생성"""

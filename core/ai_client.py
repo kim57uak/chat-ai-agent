@@ -111,25 +111,16 @@ class AIClient:
                 return "처리할 메시지를 찾을 수 없습니다."
             logger.info(f"채팅 요청 처리 시작: {user_message[:50]}...")
 
-            # 대화 기록 업데이트 및 최적화
-            self.conversation_history = [
-                msg for msg in messages if isinstance(msg, dict)
-            ]
+            # 전달받은 메시지를 그대로 사용 (하이브리드 히스토리 적용)
+            validated_messages = MessageValidator.validate_and_fix_messages(messages)
             
             # 대화 기록 사용 여부 확인
             if not self.enable_history:
-                return self._process_with_quota_handling(user_message, [])
+                # 히스토리 없이 마지막 사용자 메시지만 처리
+                last_user_msg = [msg for msg in validated_messages if msg.get('role') == 'user'][-1:]
+                return self._process_with_quota_handling(user_message, last_user_msg)
 
-            optimized_history = (
-                self._optimize_conversation_history()
-                if self.token_optimization
-                else self.conversation_history.copy()
-            )
-            
-            # Perplexity API 메시지 형식 검증
-            optimized_history = MessageValidator.validate_and_fix_messages(optimized_history)
-
-            return self._process_with_quota_handling(user_message, optimized_history)
+            return self._process_with_quota_handling(user_message, validated_messages)
 
         except Exception as e:
             error_msg = str(e)
@@ -145,11 +136,6 @@ class AIClient:
         try:
             start_time = time.time()
             mode_info = " (Agent 모드)" if force_agent else " (Ask 모드)"
-            
-            # UI에서 설정된 conversation_history가 있으면 우선 사용
-            if hasattr(self, 'conversation_history') and self.conversation_history:
-                history = self.conversation_history
-                logger.info(f"UI 히스토리 사용: {len(history)}개")
             
             logger.info(
                 f"AI 요청 시작{mode_info}: {self.model_name} (히스토리: {len(history)}개)"

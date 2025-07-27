@@ -2,15 +2,24 @@ import json
 import os
 from datetime import datetime
 from typing import List, Dict
+from core.file_utils import load_config
 
 
 class ConversationHistory:
-    """Simple conversation history management"""
+    """Hybrid conversation history management"""
 
     def __init__(self, history_file: str = "conversation_history.json"):
         self.history_file = history_file
         self.current_session = []
-        self.max_history_length = 50
+        self.config = load_config()
+        self.settings = self.config.get("conversation_settings", {})
+        
+        # 설정값 로드
+        self.hybrid_mode = self.settings.get("hybrid_mode", True)
+        self.user_message_limit = self.settings.get("user_message_limit", 10)
+        self.ai_response_limit = self.settings.get("ai_response_limit", 10)
+        self.ai_response_token_limit = self.settings.get("ai_response_token_limit", 15000)
+        self.max_history_length = 100  # 전체 세션 최대 길이
 
     def add_message(self, role: str, content: str):
         """Add message with duplicate prevention"""
@@ -18,8 +27,6 @@ class ConversationHistory:
             return
             
         content = content.strip()
-        
-        # 과도한 구분선 정리
         content = self._clean_excessive_separators(content)
         
         # Prevent duplicate consecutive messages
@@ -32,6 +39,7 @@ class ConversationHistory:
             "role": role,
             "content": content,
             "timestamp": datetime.now().isoformat(),
+            "token_count": self._estimate_tokens(content)
         }
         
         self.current_session.append(message)
@@ -40,30 +48,80 @@ class ConversationHistory:
         if len(self.current_session) > self.max_history_length:
             self.current_session = self.current_session[-self.max_history_length:]
 
-    def get_recent_messages(self, count: int = 5) -> List[Dict]:
-        """Get recent messages for display - 시간순으로 정렬하여 반환"""
-        if count <= 0:
-            return []
-        # 최근 N개 메시지를 가져와서 시간순으로 정렬 (오래된 것부터)
-        recent = self.current_session[-count:] if self.current_session else []
-        return recent
-
     def get_context_messages(self) -> List[Dict]:
-        """Get messages for AI context - 정확히 최근 5단계 대화만 제공"""
-        # 최근 10개 메시지 (5개 대화 = user + assistant 쌍)
+        """Get messages for AI context using hybrid approach"""
+        if not self.hybrid_mode:
+            return self._get_legacy_context()
+        
+        # 하이브리드 방식: 사용자 메시지와 AI 응답을 별도로 처리
+        user_messages = []
+        ai_messages = []
+        
+        # 역순으로 순회하여 최근 메시지부터 수집
+        for msg in reversed(self.current_session):
+            if msg["role"] == "user":
+                if len(user_messages) < self.user_message_limit:
+                    user_messages.insert(0, msg)
+            elif msg["role"] in ["assistant", "agent"]:
+                if len(ai_messages) < self.ai_response_limit:
+                    ai_messages.insert(0, msg)
+        
+        # AI 응답에 토큰 제한 적용
+        ai_messages = self._apply_token_limit(ai_messages)
+        
+        # 시간순으로 병합
+        all_messages = user_messages + ai_messages
+        all_messages.sort(key=lambda x: x["timestamp"])
+        
+        return [{"role": msg["role"], "content": msg["content"]} for msg in all_messages]
+
+    def _apply_token_limit(self, ai_messages: List[Dict]) -> List[Dict]:
+        """Apply token limit to AI responses"""
+        if not ai_messages:
+            return []
+        
+        total_tokens = 0
+        filtered_messages = []
+        
+        # 최신 메시지부터 토큰 제한까지 추가
+        for msg in reversed(ai_messages):
+            msg_tokens = msg.get("token_count", self._estimate_tokens(msg["content"]))
+            if total_tokens + msg_tokens <= self.ai_response_token_limit:
+                filtered_messages.insert(0, msg)
+                total_tokens += msg_tokens
+            else:
+                break
+        
+        return filtered_messages
+
+    def _estimate_tokens(self, text: str) -> int:
+        """Estimate token count (rough approximation)"""
+        # 한국어와 영어 혼합 텍스트를 고려한 토큰 추정
+        # 한국어: 1글자 ≈ 1.5토큰, 영어: 1단어 ≈ 1.3토큰
+        korean_chars = len([c for c in text if ord(c) > 127])
+        english_words = len(text.replace('\n', ' ').split()) - korean_chars
+        
+        return int(korean_chars * 1.5 + english_words * 1.3)
+
+    def _get_legacy_context(self) -> List[Dict]:
+        """Legacy context method for backward compatibility"""
         messages = self.get_recent_messages(10)
         
-        # 대화 쌍이 완전하지 않으면 조정 (user-assistant 쌍 맞추기)
         if messages:
-            # 마지막이 user 메시지면 제거 (완전한 대화 쌍만 유지)
             if messages[-1]["role"] == "user":
                 messages = messages[:-1]
             
-            # 정확히 5개 대화 쌍만 유지 (10개 메시지)
             if len(messages) > 10:
                 messages = messages[-10:]
         
         return [{"role": msg["role"], "content": msg["content"]} for msg in messages]
+
+    def get_recent_messages(self, count: int = 5) -> List[Dict]:
+        """Get recent messages for display"""
+        if count <= 0:
+            return []
+        recent = self.current_session[-count:] if self.current_session else []
+        return recent
 
     def clear_session(self):
         """Clear current session"""
@@ -102,9 +160,13 @@ class ConversationHistory:
                     "role" in msg and 
                     "content" in msg and 
                     msg["content"].strip()):
+                    
+                    # 토큰 수가 없으면 추가
+                    if "token_count" not in msg:
+                        msg["token_count"] = self._estimate_tokens(msg["content"])
+                    
                     valid_messages.append(msg)
             
-            # 로딩 시에는 모든 히스토리를 로드하되, 최대 50개까지만 유지
             self.current_session = valid_messages[-self.max_history_length:]
             
         except Exception as e:
@@ -112,7 +174,7 @@ class ConversationHistory:
             self.current_session = []
     
     def _clean_excessive_separators(self, content: str) -> str:
-        """과도한 구분선 정리"""
+        """Clean excessive separators"""
         import re
         
         # 10개 이상의 대시, 등호, 별표를 3개로 정리
@@ -138,3 +200,17 @@ class ConversationHistory:
                 prev_was_separator = False
         
         return '\n'.join(cleaned_lines)
+
+    def get_stats(self) -> Dict:
+        """Get conversation statistics"""
+        user_count = len([m for m in self.current_session if m["role"] == "user"])
+        ai_count = len([m for m in self.current_session if m["role"] in ["assistant", "agent"]])
+        total_tokens = sum(m.get("token_count", 0) for m in self.current_session)
+        
+        return {
+            "total_messages": len(self.current_session),
+            "user_messages": user_count,
+            "ai_messages": ai_count,
+            "total_tokens": total_tokens,
+            "hybrid_mode": self.hybrid_mode
+        }

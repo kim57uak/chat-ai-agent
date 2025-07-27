@@ -307,9 +307,8 @@ class ChatWidget(QWidget):
         self.chat_display.append_message('사용자', user_text)
         self.input_text.clear()
         
-        # 히스토리에 추가
+        # 사용자 메시지를 히스토리에 즉시 추가 (하이브리드 방식에서는 즉시 추가)
         self.conversation_history.add_message('user', user_text)
-        self.conversation_history.save_to_file()
         self.messages.append({'role': 'user', 'content': user_text})
         
         model = load_last_model()
@@ -341,20 +340,21 @@ class ChatWidget(QWidget):
         QTimer.singleShot(0, lambda: self._prepare_and_send_request(api_key, model, user_text, file_prompt))
     
     def _prepare_and_send_request(self, api_key, model, user_text, file_prompt=None):
-        """요청 준비 및 전송"""
+        """요청 준비 및 전송 - 모든 모델에 하이브리드 히스토리 사용"""
         try:
-            model_lower = model.lower()
-            is_perplexity = 'sonar' in model_lower or 'r1-' in model_lower or 'perplexity' in model_lower
+            # 모든 모델에 대해 하이브리드 방식으로 컨텍스트 메시지 가져오기
+            context_messages = self.conversation_history.get_context_messages()
             
             validated_history = []
-            if not is_perplexity:
-                recent_messages = self.conversation_history.get_recent_messages(10)
-                for msg in recent_messages:
-                    if msg.get('content') and msg.get('content').strip():
-                        validated_history.append({
-                            'role': msg['role'],
-                            'content': msg['content']
-                        })
+            # 유효한 메시지만 필터링
+            for msg in context_messages:
+                if msg.get('content') and msg.get('content').strip():
+                    validated_history.append({
+                        'role': msg['role'],
+                        'content': msg['content']
+                    })
+            
+            print(f"하이브리드 히스토리 로드됨: {len(validated_history)}개 메시지 (모델: {model})")
             
             try:
                 is_agent_mode = self.mode_toggle.isChecked()
@@ -446,7 +446,7 @@ class ChatWidget(QWidget):
         
         self.chat_display.append_message(sender, enhanced_text)
         
-        # 히스토리 저장
+        # AI 응답을 히스토리에 추가 (사용자 메시지는 이미 추가됨)
         self.conversation_history.add_message('assistant', text)
         self.conversation_history.save_to_file()
         self.messages.append({'role': 'assistant', 'content': text})

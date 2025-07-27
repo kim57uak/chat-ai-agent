@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple, Optional
+from core.response_formatter import ResponseFormatter
 
 
 class BaseChatProcessor(ABC):
@@ -23,13 +24,5 @@ class BaseChatProcessor(ABC):
         return bool(user_input and user_input.strip())
     
     def format_response(self, response: str) -> str:
-        """응답 포맷팅"""
-        if not response:
-            return response
-        
-        import re
-        # 과도한 줄바꿈 정리
-        formatted = re.sub(r"\n{3,}", "\n\n", response)
-        # 불규칙한 들여쓰기 정리
-        formatted = re.sub(r"\n\s{5,}", "\n    ", formatted)
-        return formatted.strip()
+        """응답 포맷팅 - 모든 AI 모델에 일관된 형식 적용"""
+        return ResponseFormatter.format_response(response)

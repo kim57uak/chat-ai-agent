@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.schema import BaseMessage, HumanMessage, SystemMessage
+from langchain.schema import BaseMessage, HumanMessage, SystemMessage, AIMessage
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import PromptTemplate
 from .base_model_strategy import BaseModelStrategy
@@ -22,17 +22,51 @@ class GeminiStrategy(BaseModelStrategy):
             max_tokens=4096,
         )
     
-    def create_messages(self, user_input: str, system_prompt: str = None) -> List[BaseMessage]:
-        """Gemini 메시지 형식 생성 (시스템 메시지를 인간 메시지로 변환)"""
+    def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
+        """Gemini 메시지 형식 생성 - 대화 히스토리 포함"""
         messages = []
         
+        # 시스템 프롬프트 추가
         if system_prompt:
-            messages.append(HumanMessage(content=system_prompt))
+            enhanced_prompt = self.enhance_prompt_with_format(system_prompt)
         else:
-            messages.append(HumanMessage(content=self.get_default_system_prompt()))
+            enhanced_prompt = self.get_default_system_prompt()
         
+        # 대화 히스토리가 있으면 시스템 프롬프트에 컨텍스트 추가
+        if conversation_history:
+            history_context = self._format_conversation_history(conversation_history)
+            enhanced_prompt += f"\n\n**Previous Conversation Context:**\n{history_context}\n\nPlease consider this conversation history when responding."
+        
+        messages.append(HumanMessage(content=enhanced_prompt))
+        
+        # 대화 히스토리를 실제 메시지로 변환
+        if conversation_history:
+            for msg in conversation_history:
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                
+                if role == "user" and content.strip():
+                    messages.append(HumanMessage(content=content))
+                elif role in ["assistant", "agent"] and content.strip():
+                    messages.append(AIMessage(content=content))
+        
+        # 현재 사용자 입력 추가
         messages.append(HumanMessage(content=user_input))
         return messages
+    
+    def _format_conversation_history(self, conversation_history: List[Dict]) -> str:
+        """대화 히스토리를 텍스트로 포맷팅"""
+        formatted_history = []
+        for msg in conversation_history:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            
+            if role == "user":
+                formatted_history.append(f"User: {content}")
+            elif role in ["assistant", "agent"]:
+                formatted_history.append(f"Assistant: {content}")
+        
+        return "\n".join(formatted_history)
     
     def process_image_input(self, user_input: str) -> BaseMessage:
         """Gemini 이미지 입력 처리"""

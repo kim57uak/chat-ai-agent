@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from langchain_openai import ChatOpenAI
-from langchain.schema import BaseMessage, HumanMessage, SystemMessage
+from langchain.schema import BaseMessage, HumanMessage, SystemMessage, AIMessage
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from .base_model_strategy import BaseModelStrategy
@@ -21,17 +21,46 @@ class OpenAIStrategy(BaseModelStrategy):
             max_tokens=4096,
         )
     
-    def create_messages(self, user_input: str, system_prompt: str = None) -> List[BaseMessage]:
-        """OpenAI 메시지 형식 생성"""
+    def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
+        """OpenAI 메시지 형식 생성 - 대화 히스토리 포함"""
         messages = []
         
+        # 시스템 프롬프트 생성
         if system_prompt:
-            messages.append(SystemMessage(content=system_prompt))
+            enhanced_prompt = self.enhance_prompt_with_format(system_prompt)
         else:
-            messages.append(SystemMessage(content=self.get_default_system_prompt()))
+            enhanced_prompt = self.get_default_system_prompt()
         
+        messages.append(SystemMessage(content=enhanced_prompt))
+        
+        # 대화 히스토리를 실제 메시지로 변환 (시스템 프롬프트가 아닌 메시지로)
+        if conversation_history:
+            for msg in conversation_history:
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                
+                if role == "user" and content.strip():
+                    messages.append(HumanMessage(content=content))
+                elif role in ["assistant", "agent"] and content.strip():
+                    messages.append(AIMessage(content=content))
+        
+        # 현재 사용자 입력 추가
         messages.append(HumanMessage(content=user_input))
         return messages
+    
+    def _format_conversation_history(self, conversation_history: List[Dict]) -> str:
+        """대화 히스토리를 텍스트로 포맷팅"""
+        formatted_history = []
+        for msg in conversation_history:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            
+            if role == "user":
+                formatted_history.append(f"User: {content}")
+            elif role in ["assistant", "agent"]:
+                formatted_history.append(f"Assistant: {content}")
+        
+        return "\n".join(formatted_history)
     
     def process_image_input(self, user_input: str) -> BaseMessage:
         """OpenAI 이미지 입력 처리"""

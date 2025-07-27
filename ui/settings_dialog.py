@@ -47,6 +47,33 @@ class SettingsDialog(QDialog):
         response_layout.addWidget(self.max_response_length_spin)
         
         layout.addWidget(response_group)
+        
+        # 하이브리드 대화 히스토리 설정 그룹
+        history_group = QGroupBox('하이브리드 대화 히스토리 설정')
+        history_layout = QVBoxLayout(history_group)
+        
+        self.hybrid_mode = QCheckBox('하이브리드 모드 사용')
+        history_layout.addWidget(self.hybrid_mode)
+        
+        history_layout.addWidget(QLabel('사용자 메시지 제한 (1-50):'))
+        self.user_message_limit_spin = QSpinBox()
+        self.user_message_limit_spin.setRange(1, 50)
+        self.user_message_limit_spin.setValue(10)
+        history_layout.addWidget(self.user_message_limit_spin)
+        
+        history_layout.addWidget(QLabel('AI 응답 제한 (1-50):'))
+        self.ai_response_limit_spin = QSpinBox()
+        self.ai_response_limit_spin.setRange(1, 50)
+        self.ai_response_limit_spin.setValue(10)
+        history_layout.addWidget(self.ai_response_limit_spin)
+        
+        history_layout.addWidget(QLabel('AI 응답 토큰 제한 (1000-50000):'))
+        self.ai_response_token_limit_spin = QSpinBox()
+        self.ai_response_token_limit_spin.setRange(1000, 50000)
+        self.ai_response_token_limit_spin.setValue(15000)
+        history_layout.addWidget(self.ai_response_token_limit_spin)
+        
+        layout.addWidget(history_group)
 
         self.save_button = QPushButton('저장', self)
         layout.addWidget(self.save_button)
@@ -68,6 +95,14 @@ class SettingsDialog(QDialog):
         self.enable_length_limit.setChecked(response_settings.get('enable_length_limit', True))
         self.max_tokens_spin.setValue(response_settings.get('max_tokens', 1500))
         self.max_response_length_spin.setValue(response_settings.get('max_response_length', 8000))
+        
+        # 하이브리드 대화 히스토리 설정 로드
+        conversation_settings = config.get('conversation_settings', {})
+        
+        self.hybrid_mode.setChecked(conversation_settings.get('hybrid_mode', True))
+        self.user_message_limit_spin.setValue(conversation_settings.get('user_message_limit', 10))
+        self.ai_response_limit_spin.setValue(conversation_settings.get('ai_response_limit', 10))
+        self.ai_response_token_limit_spin.setValue(conversation_settings.get('ai_response_token_limit', 15000))
 
     def on_model_changed(self, model):
         self.api_key_edit.setText(load_model_api_key(model))
@@ -85,6 +120,15 @@ class SettingsDialog(QDialog):
         config['response_settings']['enable_length_limit'] = self.enable_length_limit.isChecked()
         config['response_settings']['max_tokens'] = self.max_tokens_spin.value()
         config['response_settings']['max_response_length'] = self.max_response_length_spin.value()
+        
+        # 하이브리드 대화 히스토리 설정 저장
+        if 'conversation_settings' not in config:
+            config['conversation_settings'] = {}
+        
+        config['conversation_settings']['hybrid_mode'] = self.hybrid_mode.isChecked()
+        config['conversation_settings']['user_message_limit'] = self.user_message_limit_spin.value()
+        config['conversation_settings']['ai_response_limit'] = self.ai_response_limit_spin.value()
+        config['conversation_settings']['ai_response_token_limit'] = self.ai_response_token_limit_spin.value()
         
         save_config(config)
         self.accept() 

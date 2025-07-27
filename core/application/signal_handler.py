@@ -14,8 +14,12 @@ class SignalHandler:
     
     def _setup_handlers(self) -> None:
         """Setup signal handlers for graceful shutdown."""
-        signal.signal(signal.SIGINT, self._handle_signal)
-        signal.signal(signal.SIGTERM, self._handle_signal)
+        try:
+            signal.signal(signal.SIGINT, self._handle_signal)
+            signal.signal(signal.SIGTERM, self._handle_signal)
+        except ValueError:
+            # Signal handlers can only be set in main thread
+            pass
     
     def _handle_signal(self, signum: int, frame) -> None:
         """Handle received signals."""

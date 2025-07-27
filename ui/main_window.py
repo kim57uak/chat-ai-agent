@@ -122,7 +122,7 @@ class MainWindow(QMainWindow):
                     else:
                         print("활성화된 MCP 서버가 없습니다")
                         # 서버가 없을 때도 라벨 업데이트
-                        QTimer.singleShot(500, self.chat_widget.update_tools_label)
+                        QTimer.singleShot(500, self.chat_widget.model_manager.update_tools_label)
                 else:
                     print("MCP 서버 상태 파일이 없습니다")
             except Exception as e:
@@ -134,7 +134,7 @@ class MainWindow(QMainWindow):
         """도구 업데이트를 재시도와 함께 수행"""
         def update_with_retry(attempt=1, max_attempts=3):
             try:
-                self.chat_widget.update_tools_label()
+                self.chat_widget.model_manager.update_tools_label()
                 print(f"도구 라벨 업데이트 성공 (시도 {attempt})")
             except Exception as e:
                 print(f"도구 라벨 업데이트 실패 (시도 {attempt}): {e}")
@@ -147,8 +147,8 @@ class MainWindow(QMainWindow):
         """Open settings dialog."""
         dlg = SettingsDialog(self)
         dlg.exec()
-        self.chat_widget.update_model_label()
-        self.chat_widget.update_tools_label()
+        self.chat_widget.model_manager.update_model_label()
+        self.chat_widget.model_manager.update_tools_label()
     
     def open_mcp(self) -> None:
         """Open MCP import dialog."""
@@ -171,7 +171,7 @@ class MainWindow(QMainWindow):
         """Open MCP manager dialog."""
         dlg = MCPManagerDialog(self)
         dlg.exec()
-        self.chat_widget.update_tools_label()
+        self.chat_widget.model_manager.update_tools_label()
     
     def clear_conversation_history(self) -> None:
         """Clear conversation history with confirmation."""

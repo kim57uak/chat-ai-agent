@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Tuple
 from langchain.schema import BaseMessage
+from core.response_formatter import SystemPromptEnhancer
 
 
 class BaseModelStrategy(ABC):
@@ -48,14 +49,19 @@ class BaseModelStrategy(ABC):
         return True
     
     def get_default_system_prompt(self) -> str:
-        """기본 시스템 프롬프트"""
-        return """You are a helpful AI assistant that provides accurate and well-structured responses.
-        
-**Response Guidelines:**
-- Always respond in natural, conversational Korean
-- Organize information clearly with headings and bullet points
-- Highlight important information using **bold** formatting
-- Be friendly, helpful, and accurate
-- Use proper markdown table format when creating tables
+        """기본 시스템 프롬프트 - 일관된 형식 지침 포함"""
+        base_prompt = """You are a helpful AI assistant that provides accurate and well-structured responses in Korean.
+
+**Core Guidelines:**
+- Always respond naturally in Korean language
+- Be helpful, accurate, and user-friendly
+- Provide clear and structured information
+- Use appropriate technical explanations when needed
 
 **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\\n|---|---|---|\\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment."""
+        
+        return SystemPromptEnhancer.enhance_prompt(base_prompt)
+    
+    def enhance_prompt_with_format(self, prompt: str) -> str:
+        """프롬프트에 형식 지침 추가"""
+        return SystemPromptEnhancer.enhance_prompt(prompt)

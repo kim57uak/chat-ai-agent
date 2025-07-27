@@ -22,7 +22,7 @@ class AIProcessor(QObject):
             self._current_client.cancel_streaming()
     
     def process_request(self, api_key, model, messages, user_text=None, agent_mode=False, file_prompt=None):
-        """AI 요청 처리"""
+        """AI 요청 처리 - 대화 히스토리 포함"""
         def _process():
             try:
                 if self._cancelled:
@@ -30,16 +30,20 @@ class AIProcessor(QObject):
                 
                 from core.ai_client import AIClient
                 client = AIClient(api_key, model)
+                self._current_client = client
                 
+                # 대화 히스토리 설정
                 if messages:
                     client.conversation_history = messages
-                    client._conversation_manager.conversation_history = messages
+                    if hasattr(client, '_conversation_manager'):
+                        client._conversation_manager.conversation_history = messages
                 
                 response = None
                 sender = 'AI'
                 used_tools = []
                 
                 if file_prompt:
+                    # 파일 프롬프트 처리
                     if agent_mode:
                         result = client.agent_chat(file_prompt)
                         if isinstance(result, tuple):
@@ -53,24 +57,47 @@ class AIProcessor(QObject):
                         sender = 'AI'
                         used_tools = []
                 else:
+                    # 일반 텍스트 처리
                     if agent_mode:
+                        # 에이전트 모드: 대화 히스토리 포함
                         if messages:
-                            result = client.agent.process_message_with_history(user_text, messages, force_agent=True)
+                            # 히스토리를 포함한 메시지 리스트 생성
+                            full_messages = messages + [{'role': 'user', 'content': user_text}]
+                            result = client.chat(full_messages)
+                            if isinstance(result, tuple):
+                                response, used_tools = result
+                            else:
+                                response = result
+                                used_tools = []
                         else:
                             result = client.agent_chat(user_text)
-                        if isinstance(result, tuple):
-                            response, used_tools = result
-                        else:
-                            response = result
-                            used_tools = []
+                            if isinstance(result, tuple):
+                                response, used_tools = result
+                            else:
+                                response = result
+                                used_tools = []
                         sender = '에이전트'
                     else:
+                        # Ask 모드: 도구 사용 없이 단순 채팅만 (히스토리 포함)
                         if messages:
-                            response = client.agent.simple_chat_with_history(user_text, messages)
+                            # Perplexity 모델의 경우 특별 처리
+                            if 'sonar' in model.lower() or 'perplexity' in model.lower():
+                                # Perplexity는 전체 메시지 리스트로 처리
+                                full_messages = messages + [{'role': 'user', 'content': user_text}]
+                                result = client.chat(full_messages)
+                                if isinstance(result, tuple):
+                                    response, used_tools = result
+                                else:
+                                    response = result
+                                    used_tools = []
+                            else:
+                                # 다른 모델은 기존 방식
+                                response = client.agent.simple_chat_with_history(user_text, messages)
+                                used_tools = []
                         else:
                             response = client.simple_chat(user_text)
+                            used_tools = []
                         sender = 'AI'
-                        used_tools = []
                 
                 if not self._cancelled and response:
                     self.finished.emit(sender, response, used_tools)

@@ -1,4 +1,5 @@
 import sys
+import threading
 from core.application import SignalHandler, AppInitializer, AppRunner
 
 
@@ -8,8 +9,9 @@ def main() -> int:
     initializer = AppInitializer(sys.argv)
     app = initializer.create_application()
     
-    # Setup signal handling
-    signal_handler = SignalHandler()
+    # Setup signal handling only in main thread
+    if threading.current_thread() is threading.main_thread():
+        signal_handler = SignalHandler()
     
     # Run application
     runner = AppRunner(app)

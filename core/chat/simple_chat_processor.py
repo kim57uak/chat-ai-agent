@@ -9,10 +9,14 @@ class SimpleChatProcessor(BaseChatProcessor):
     """단순 채팅 처리기 (도구 사용 없음)"""
     
     def process_message(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
-        """단순 채팅 처리"""
+        """단순 채팅 처리 - 대화 히스토리 포함"""
         try:
             if not self.validate_input(user_input):
                 return "유효하지 않은 입력입니다.", []
+            
+            # 모델 전략에 도구 사용 안함을 명시
+            if hasattr(self.model_strategy, '_use_tools_mode'):
+                self.model_strategy._use_tools_mode = False
             
             # 이미지 데이터 처리
             if self._has_image_data(user_input):
@@ -27,12 +31,20 @@ class SimpleChatProcessor(BaseChatProcessor):
                 
                 return self.format_response(response_content), []
             
-            # 대화 히스토리 포함 처리
+            # 대화 히스토리 로깅
             if conversation_history:
-                messages = self._convert_history_to_messages(conversation_history)
-                messages.extend(self.model_strategy.create_messages(user_input))
+                logger.info(f"Simple chat에 대화 히스토리 {len(conversation_history)}개 전달됨")
             else:
-                messages = self.model_strategy.create_messages(user_input)
+                logger.info("Simple chat에 대화 히스토리 없음")
+            
+            # 대화 히스토리를 포함한 메시지 생성
+            messages = self.model_strategy.create_messages(
+                user_input, 
+                system_prompt=None,
+                conversation_history=conversation_history
+            )
+            
+            logger.info(f"생성된 메시지 수: {len(messages)}")
             
             response = self.model_strategy.llm.invoke(messages)
             
@@ -56,19 +68,3 @@ class SimpleChatProcessor(BaseChatProcessor):
         """이미지 데이터 포함 여부 확인"""
         cleaned_input = user_input.replace("\n", "")
         return "[IMAGE_BASE64]" in cleaned_input and "[/IMAGE_BASE64]" in cleaned_input
-    
-    def _convert_history_to_messages(self, conversation_history: List[Dict]):
-        """대화 히스토리를 메시지로 변환"""
-        from langchain.schema import HumanMessage, AIMessage
-        
-        messages = []
-        for msg in conversation_history[-10:]:  # 최근 10개만
-            role = msg.get("role", "")
-            content = msg.get("content", "")[:500]  # 내용 제한
-            
-            if role == "user":
-                messages.append(HumanMessage(content=content))
-            elif role == "assistant":
-                messages.append(AIMessage(content=content))
-        
-        return messages

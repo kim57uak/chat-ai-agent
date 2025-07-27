@@ -50,10 +50,16 @@ class ToolChatProcessor:
             self._last_error = error_msg
             logger.error(f"❌ 도구 사용 채팅 오류: {elapsed:.2f}초, 오류: {e}")
 
-            # 토큰 제한 오류 처리
+            # 특정 오류 처리
             if ("context_length_exceeded" in error_msg or 
                 "maximum context length" in error_msg):
                 logger.warning("토큰 제한 오류 발생, 일반 채팅으로 대체")
+                return self._fallback_to_simple_chat(user_input, llm)
+            
+            if ("iteration limit" in error_msg or 
+                "time limit" in error_msg or
+                "Agent stopped" in error_msg):
+                logger.warning("에이전트 실행 제한 오류 발생, 일반 채팅으로 대체")
                 return self._fallback_to_simple_chat(user_input, llm)
 
             return self._fallback_to_simple_chat(user_input, llm)

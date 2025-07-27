@@ -48,6 +48,13 @@ class PerplexityLLM(LLMInterface):
     
     def generate(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """메시지 생성 - 메인 API 호출 메서드"""
+        # 대화 히스토리 로깅
+        logger.info(f"Perplexity에 전달되는 메시지 수: {len(messages)}")
+        for i, msg in enumerate(messages):
+            role = msg.get('role', 'unknown')
+            content_preview = msg.get('content', '')[:100] + '...' if len(msg.get('content', '')) > 100 else msg.get('content', '')
+            logger.info(f"메시지 {i+1}: {role} - {content_preview}")
+        
         payload = self._build_payload(messages, **kwargs)
         
         try:
@@ -68,11 +75,23 @@ class PerplexityLLM(LLMInterface):
     
     def _make_request(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """HTTP 요청 실행"""
+        # 전송되는 메시지 수 로깅
+        messages_count = len(payload.get('messages', []))
+        logger.info(f"Perplexity API 요청 - 메시지 수: {messages_count}, 모델: {payload.get('model')}")
+        
+        # 메시지 내용 요약 로깅
+        for i, msg in enumerate(payload.get('messages', [])):
+            role = msg.get('role')
+            content_len = len(msg.get('content', ''))
+            logger.info(f"  메시지 {i+1}: {role} ({content_len}자)")
+        
         response = self._session.post(
             self.API_URL, 
             json=payload, 
             timeout=self.DEFAULT_TIMEOUT
         )
+        if not response.ok:
+            logger.error(f"Perplexity API 오류: {response.status_code} - {response.text}")
         response.raise_for_status()
         return response.json()
     

@@ -36,27 +36,39 @@ class GPTModelStrategy(ModelStrategy):
     
     def process_tool_chat(self, user_input: str, llm: Any, tools: List, agent_executor_factory, agent_executor=None) -> Tuple[str, List]:
         """GPT 모델용 도구 채팅 처리"""
-        if not agent_executor:
-            agent_executor = agent_executor_factory.create_agent_executor(llm, tools)
-        
-        if not agent_executor:
-            return "사용 가능한 도구가 없습니다.", []
-        
-        result = agent_executor.invoke({"input": user_input})
-        output = result.get("output", "")
-        
-        used_tools = []
-        if "intermediate_steps" in result:
-            for step in result["intermediate_steps"]:
-                if len(step) >= 2 and hasattr(step[0], "tool"):
-                    used_tools.append(step[0].tool)
-        
-        if "Agent stopped" in output or not output.strip():
+        try:
+            if not agent_executor:
+                agent_executor = agent_executor_factory.create_agent_executor(llm, tools)
+            
+            if not agent_executor:
+                return "사용 가능한 도구가 없습니다.", []
+            
+            result = agent_executor.invoke({"input": user_input})
+            output = result.get("output", "")
+            
+            used_tools = []
+            if "intermediate_steps" in result:
+                for step in result["intermediate_steps"]:
+                    if len(step) >= 2 and hasattr(step[0], "tool"):
+                        used_tools.append(step[0].tool)
+            
+            # 에이전트 중단 또는 빈 결과 처리
+            if ("Agent stopped" in output or 
+                "iteration limit" in output or
+                "time limit" in output or
+                not output.strip()):
+                logger.warning("GPT 에이전트 중단 감지, 단순 채팅으로 대체")
+                from core.processors.simple_chat_processor import SimpleChatProcessor
+                simple_processor = SimpleChatProcessor()
+                return simple_processor.process_chat(user_input, llm), []
+            
+            return output, used_tools
+            
+        except Exception as e:
+            logger.error(f"GPT 도구 채팅 오류: {e}")
             from core.processors.simple_chat_processor import SimpleChatProcessor
             simple_processor = SimpleChatProcessor()
             return simple_processor.process_chat(user_input, llm), []
-        
-        return output, used_tools
 
 
 class GeminiModelStrategy(ModelStrategy):
@@ -88,8 +100,12 @@ class GeminiModelStrategy(ModelStrategy):
                         used_tools.append(step[0].tool)
             
             # 에이전트가 중단되거나 빈 결과인 경우 단순 채팅으로 대체
-            if not output.strip() or "Agent stopped" in output or "에이전트 중단 감지" in output:
-                logger.warning("Gemini 에이전트 결과 비어있음, 단순 채팅으로 대체")
+            if (not output.strip() or 
+                "Agent stopped" in output or 
+                "iteration limit" in output or
+                "time limit" in output or
+                "에이전트 중단 감지" in output):
+                logger.warning("Gemini 에이전트 중단 감지, 단순 채팅으로 대체")
                 from core.processors.simple_chat_processor import SimpleChatProcessor
                 simple_processor = SimpleChatProcessor()
                 return simple_processor.process_chat(user_input, llm), []

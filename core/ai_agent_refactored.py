@@ -118,15 +118,29 @@ class AIAgent:
 
     def simple_chat(self, user_input: str) -> str:
         """단순 채팅 (도구 사용 없음)"""
-        return self.simple_chat_processor.process_chat(user_input, self.llm)
+        # 모델 전략 생성
+        from core.models.model_strategy_factory import ModelStrategyFactory
+        model_strategy = ModelStrategyFactory.create_strategy(self.api_key, self.model_name)
+        
+        # SimpleChatProcessor 생성 및 처리
+        from core.chat.simple_chat_processor import SimpleChatProcessor
+        processor = SimpleChatProcessor(model_strategy)
+        response, _ = processor.process_message(user_input)
+        return response
 
     def simple_chat_with_history(
         self, user_input: str, conversation_history: List[Dict]
     ) -> str:
         """대화 기록을 포함한 일반 채팅"""
-        return self.simple_chat_processor.process_chat(
-            user_input, self.llm, conversation_history
-        )
+        # 모델 전략 생성
+        from core.models.model_strategy_factory import ModelStrategyFactory
+        model_strategy = ModelStrategyFactory.create_strategy(self.api_key, self.model_name)
+        
+        # SimpleChatProcessor 생성 및 처리
+        from core.chat.simple_chat_processor import SimpleChatProcessor
+        processor = SimpleChatProcessor(model_strategy)
+        response, _ = processor.process_message(user_input, conversation_history)
+        return response
 
     def chat_with_tools(self, user_input: str) -> Tuple[str, List]:
         """도구를 사용한 채팅"""

@@ -4,190 +4,149 @@
 
 ## ✨ 주요 기능
 
-- **MCP 서버 연동**: 다양한 외부 도구와 API 연동
-- **지능형 도구 선택**: 사용자 질의에 따라 적절한 도구 자동 선택
-- **GUI 인터페이스**: PyQt6 기반의 사용자 친화적 인터페이스
-- **다중 LLM 지원**: OpenAI GPT, Google Gemini 등 다양한 모델 지원
-- **실시간 스트리밍**: 대용량 AI 응답을 실시간으로 스트리밍하여 표시
-- **대용량 응답 처리**: 긴 응답도 끊김 없이 완전하게 수신 및 표시
-- **MCP 서버 관리**: 실시간 서버 상태 모니터링 및 제어
-- **개선된 UI/UX**: 어두운 테마와 가독성 좋은 채팅 인터페이스
-- **웹뷰 엔진**: QWebEngineView 기반의 고급 텍스트 렌더링
-- **마크다운 지원**: 굵은 텍스트, 불릿 포인트, 코드 블록 포맷팅
-- **대화 히스토리**: 이전 대화 문맥을 기억하여 연속적인 대화 지원
+### 🔗 MCP 서버 연동
+- **다양한 외부 도구**: 15개 이상의 MCP 서버 지원
+- **실시간 도구 감지**: 동적으로 사용 가능한 도구 자동 인식
+- **지능형 도구 선택**: AI가 상황에 맞는 최적의 도구 자동 선택
+
+### 🧠 다중 LLM 지원
+- **OpenAI**: GPT-3.5, GPT-4, GPT-4V
+- **Google**: Gemini Pro, Gemini 2.0 Flash
+- **Perplexity**: Sonar 시리즈, R1 모델
+- **확장 가능**: 새로운 모델 쉽게 추가 가능
+
+### 💬 고급 채팅 인터페이스
+- **PyQt6 기반**: 네이티브 데스크톱 앱 성능
+- **웹뷰 엔진**: QWebEngineView 기반 고급 텍스트 렌더링
+- **마크다운 지원**: 굵은 텍스트, 불릿 포인트, 코드 블록
+- **다크 테마**: 눈에 편한 어두운 인터페이스
+
+### 🔄 실시간 스트리밍
+- **대용량 응답 처리**: 긴 응답도 끊김 없이 완전 수신
+- **청크 단위 처리**: 메모리 효율적인 스트리밍
+- **타이핑 애니메이션**: 자연스러운 대화 경험
+
+### 🧠 대화 히스토리
+- **문맥 유지**: 이전 대화 내용 자동 기억
+- **토큰 최적화**: 비용 효율적인 히스토리 관리
+- **영구 저장**: 앱 재시작 후에도 대화 연속성 유지
 
 ## 🛠️ 지원 도구
 
-### 검색 도구
-- 웹 검색 (Google, Bing 등)
+### 검색 및 웹
+- 웹 검색 (Google, Bing, DuckDuckGo)
 - URL 페이지 내용 가져오기
+- Wikipedia 검색
 
-### 데이터베이스 도구
+### 데이터베이스
 - MySQL 데이터베이스 조회
 - 테이블 스키마 확인
 - SQL 쿼리 실행
 
-### 여행 서비스 도구
+### 여행 서비스
 - 하나투어 API 연동
 - 여행 상품 검색
 - 지역별 여행 정보 조회
 
-### 웹뷰 엔진 도구
-- QWebEngineView 기반 렌더링
-- 실시간 스트리밍 응답 표시
-- 대용량 응답 청크 단위 처리
-- 마크다운 포맷팅 (굵은 텍스트, 불릿 포인트)
-- 코드 블록 신택스 하이라이팅
-- 다크 테마 지원
-- 반응형 레이아웃
+### 오피스 도구
+- Excel 파일 읽기/쓰기
+- PowerPoint 프레젠테이션 생성/편집
+- PDF, Word 문서 처리
 
-### 기타 도구
+### 개발 도구
+- Bitbucket 저장소 관리
+- Jira/Confluence 연동
 - 파일 시스템 접근
-- 이메일 관리
-- 지도/위치 서비스
 
-## 📦 설치 및 설정
+### 기타 서비스
+- Gmail 이메일 관리
+- 지도/위치 서비스 (OpenStreetMap)
+- YouTube 트랜스크립트
+- Notion API 연동
 
-### 1. 의존성 설치
+## 🚀 빠른 시작
+
+### 1. 설치
 ```bash
+# 저장소 클론
+git clone <repository-url>
+cd chat-ai-agent
+
+# 가상환경 생성 및 활성화
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 의존성 설치
 pip install -r requirements.txt
 ```
 
-### 2. 설정 파일 구성
-
-#### config.json
+### 2. 설정
+`config.json` 파일에서 API 키 설정:
 ```json
 {
   "models": {
     "gpt-3.5-turbo": {
-      "api_key": "your-openai-api-key"
+      "api_key": "your-openai-api-key",
+      "provider": "openai"
     },
-    "gemini-pro": {
-      "api_key": "your-google-api-key"
-    }
-  },
-  "default_model": "gpt-3.5-turbo"
-}
-```
-
-#### mcp.json
-```json
-{
-  "servers": {
-    "search-mcp-server": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-search"],
-      "env": {}
-    },
-    "mysql": {
-      "command": "uvx",
-      "args": ["mcp-server-mysql", "--host", "localhost", "--user", "root"],
-      "env": {}
+    "gemini-2.0-flash": {
+      "api_key": "your-google-api-key",
+      "provider": "google"
     }
   }
 }
 ```
 
-### 3. 환경 변수 설정 (선택사항)
-```bash
-cp .env.example .env
-# .env 파일을 편집하여 필요한 환경 변수 설정
-```
-
-## 🚀 실행 방법
-
-### GUI 모드
+### 3. 실행
 ```bash
 python main.py
 ```
 
-### 테스트 실행
-```bash
-# AI 에이전트 테스트
-python test/test_agent.py
+## 📖 사용법
 
-# MCP 연결 테스트
-python test/test_mcp.py
+### 기본 대화
+- 채팅창에 질문을 입력하면 AI가 응답합니다
+- 필요시 자동으로 적절한 도구를 선택하여 사용합니다
 
-# 대화 히스토리 테스트
-python test_conversation_history.py
-
-# 스트리밍 기능 테스트
-python test_streaming.py
-
-# 기타 테스트 파일들
-python test/quick_test.py
+### 도구 사용 예시
 ```
+사용자: "MySQL 데이터베이스 목록을 보여주세요"
+AI: [MySQL 도구 사용] → 데이터베이스 목록 표시
 
-## 📁 프로젝트 구조
+사용자: "파리 여행 상품을 찾아주세요"
+AI: [하나투어 API 사용] → 파리 여행 상품 검색 결과
 
+사용자: "이 Excel 파일의 내용을 요약해주세요"
+AI: [Excel 도구 사용] → 파일 분석 후 요약 제공
 ```
-chat-ai-agent/
-├── core/                   # 핵심 모듈
-│   ├── ai_agent.py        # AI 에이전트 메인 클래스
-│   ├── ai_client.py       # LLM 클라이언트
-│   ├── mcp_client.py      # MCP 클라이언트 관리
-│   ├── mcp.py             # MCP 서버 제어
-│   ├── tool_manager.py    # 도구 관리
-│   ├── langchain_tools.py # LangChain 도구 래퍼
-│   ├── conversation_history.py # 대화 히스토리 관리
-│   └── file_utils.py      # 파일 유틸리티
-├── ui/                     # GUI 인터페이스
-│   ├── main_window.py     # 메인 윈도우
-│   ├── chat_widget.py     # 채팅 위젯
-│   ├── settings_dialog.py # 설정 대화상자
-│   ├── mcp_dialog.py      # MCP 설정 대화상자
-│   └── mcp_manager_dialog.py # MCP 서버 관리 대화상자
-├── test/                   # 테스트 파일들
-│   ├── test_agent.py      # AI 에이전트 테스트
-│   ├── test_mcp.py        # MCP 연결 테스트
-│   ├── debug_*.py         # 디버그 파일들
-│   └── quick_test.py      # 빠른 테스트
-├── config.json            # 설정 파일
-├── mcp.json              # MCP 서버 설정
-├── main.py               # GUI 실행 파일
-├── test_conversation_history.py # 대화 히스토리 테스트
-├── setup_env.sh          # 가상환경 설정 스크립트
-└── run.sh                # 실행 스크립트
-```
-
-## 🔧 사용법
-
-### 1. GUI에서 사용
-1. `python main.py` 실행
-2. 설정에서 API 키와 모델 선택
-3. MCP 서버 연결 확인
-4. 채팅창에서 질문 입력
 
 ### MCP 서버 관리
-- **설정 > MCP 서버 관리** 메뉴로 접근
-- 서버 상태 실시간 모니터링
-- 개별 서버 시작/중지/재시작 기능
-- 사용 가능한 도구 목록 확인
+- **설정 > MCP 서버 관리**에서 서버 상태 확인
+- 개별 서버 시작/중지/재시작 가능
+- 사용 가능한 도구 목록 실시간 확인
 
-### 대화 히스토리 관리
-- **설정 > 대화 기록 초기화** 메뉴로 접근
-- 이전 대화 내용을 자동으로 기억
-- 연속적인 대화에서 문맥 유지
-- 필요시 대화 기록 완전 초기화 가능
+## 🔧 고급 설정
 
-### 2. 프로그래밍 방식 사용
-```python
-from core.ai_agent import AIAgent
-from core.mcp import start_mcp_servers
-from core.file_utils import load_model_api_key
+### 대화 히스토리 설정
+```json
+{
+  "conversation_settings": {
+    "enable_history": true,
+    "max_history_pairs": 5,
+    "max_tokens_estimate": 20000
+  }
+}
+```
 
-# MCP 서버 시작
-start_mcp_servers('mcp.json')
-
-# AI 에이전트 생성
-api_key = load_model_api_key('gpt-3.5-turbo')
-agent = AIAgent(api_key, 'gpt-3.5-turbo')
-
-# 메시지 처리
-response, used_tools = agent.process_message("MySQL 데이터베이스 목록을 보여주세요")
-print(f"응답: {response}")
-print(f"도구 사용됨: {used_tools}")
+### 응답 설정
+```json
+{
+  "response_settings": {
+    "max_tokens": 4096,
+    "enable_streaming": true,
+    "streaming_chunk_size": 100
+  }
+}
 ```
 
 ## 🤝 기여하기
@@ -200,48 +159,67 @@ print(f"도구 사용됨: {used_tools}")
 
 ## 📄 라이선스
 
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
+### MIT 라이선스
+
+이 프로젝트는 MIT 라이선스 하에 배포됩니다.
+
+```
+MIT License
+
+Copyright (c) 2024 Chat AI Agent Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### 오픈소스 사용 허가
+
+✅ **상업적 사용**: 상업적 목적으로 자유롭게 사용 가능  
+✅ **수정**: 소스 코드 수정 및 개선 가능  
+✅ **배포**: 원본 또는 수정된 버전 배포 가능  
+✅ **사적 사용**: 개인적 용도로 자유롭게 사용 가능  
+✅ **특허 사용**: 기여자의 특허 권리 부여  
+
+### 의무사항
+
+📋 **라이선스 고지**: 소프트웨어 배포 시 라이선스 전문 포함 필수  
+📋 **저작권 고지**: 원저작자 정보 유지 필수  
+
+### 면책사항
+
+⚠️ **보증 없음**: 소프트웨어는 "있는 그대로" 제공되며 어떠한 보증도 하지 않음  
+⚠️ **책임 제한**: 사용으로 인한 손해에 대해 개발자는 책임지지 않음
 
 ## 🐛 문제 해결
 
 ### 일반적인 문제들
 
-1. **MCP 서버 연결 실패**
-   - Node.js 및 필요한 패키지가 설치되어 있는지 확인
-   - `mcp.json` 설정이 올바른지 확인
+**MCP 서버 연결 실패**
+- Node.js 및 필요한 패키지가 설치되어 있는지 확인
+- `mcp.json` 설정이 올바른지 확인
 
-2. **API 키 오류**
-   - `config.json`에 올바른 API 키가 설정되어 있는지 확인
-   - API 키에 충분한 크레딧이 있는지 확인
+**API 키 오류**
+- `config.json`에 올바른 API 키가 설정되어 있는지 확인
+- API 키에 충분한 크레딧이 있는지 확인
 
-3. **도구 실행 오류**
-   - 해당 서비스(MySQL, 웹 검색 등)가 접근 가능한지 확인
-   - 필요한 권한이 설정되어 있는지 확인
-
-4. **스트리밍 응답 문제**
-   - 네트워크 연결 상태 확인
-   - `config.json`의 `response_settings`에서 `max_tokens` 값 조정
-   - 방화벽이나 프록시 설정 확인
-
-5. **대용량 응답 처리 문제**
-   - 메모리 사용량 확인 (8GB 이상 권장)
-   - `config.json`의 `max_response_length` 설정 조정
-   - 브라우저 캐시 정리
-
-### 로그 확인
-프로그램 실행 시 콘솔에 출력되는 로그를 확인하여 문제를 진단할 수 있습니다.
-
-### 스트리밍 기능 테스트
-```bash
-# 스트리밍 기능이 정상 작동하는지 테스트
-python test_streaming.py
-```
-
-이 테스트는 다음을 확인합니다:
-- 실시간 스트리밍 응답 수신
-- 대용량 응답 완전 수신
-- 청크 단위 응답 처리
-- 네트워크 타임아웃 처리
+**도구 실행 오류**
+- 해당 서비스가 접근 가능한지 확인
+- 필요한 권한이 설정되어 있는지 확인
 
 ## 📞 지원
 

@@ -6,3 +6,10 @@ config_local.json
 *.log
 *.json
 *.html
+*.toc
+*.zip
+*.pyz
+*.spec
+/build/
+/dist/
+.idea/

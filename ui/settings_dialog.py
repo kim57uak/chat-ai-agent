@@ -1,5 +1,6 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QLineEdit, QLabel, QPushButton, QSpinBox, QCheckBox, QGroupBox
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QLineEdit, QLabel, QPushButton, QSpinBox, QCheckBox, QGroupBox, QHBoxLayout
 from core.file_utils import save_model_api_key, load_model_api_key, load_last_model, load_config, save_config
+from core.config.ai_model_manager import AIModelManager
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
@@ -7,19 +8,27 @@ class SettingsDialog(QDialog):
         self.setWindowTitle('환경설정')
         self.setMinimumWidth(350)
         layout = QVBoxLayout(self)
+        
+        # AI 모델 매니저 초기화
+        self.model_manager = AIModelManager()
 
-        layout.addWidget(QLabel('AI 모델 선택'))
+        # AI 제공업체 선택
+        provider_layout = QHBoxLayout()
+        provider_layout.addWidget(QLabel('AI 제공업체:'))
+        self.provider_combo = QComboBox(self)
+        self.provider_combo.addItems(['OpenAI', 'Google', 'Claude', 'Perplexity'])
+        provider_layout.addWidget(self.provider_combo)
+        layout.addLayout(provider_layout)
+        
+        # 상세 모델 선택
+        model_layout = QHBoxLayout()
+        model_layout.addWidget(QLabel('모델:'))
         self.model_combo = QComboBox(self)
-        self.model_combo.addItems([
-            'gpt-3.5-turbo',
-            'gpt-4',
-            'claude-2',
-            'gemini-1.5-pro',
-            'gemini-2.0-flash-exp',
-            'gemini-2.5-pro',
-            'gemini-2.5-flash'
-        ])
-        layout.addWidget(self.model_combo)
+        model_layout.addWidget(self.model_combo)
+        layout.addLayout(model_layout)
+        
+        # 이벤트 연결
+        self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
         self.model_combo.currentTextChanged.connect(self.on_model_changed)
 
         layout.addWidget(QLabel('API Key'))
@@ -80,13 +89,55 @@ class SettingsDialog(QDialog):
         self.save_button.clicked.connect(self.save)
 
         self.load()
+    
+    def on_provider_changed(self, provider):
+        """Handle provider selection change."""
+        self.model_combo.clear()
+        
+        models_by_category = self.model_manager.get_models_by_category()
+        category_models = models_by_category.get(provider, [])
+        
+        for model in category_models:
+            self.model_combo.addItem(model['name'])
+            self.model_combo.setItemData(self.model_combo.count() - 1, model['id'])
+        
+        # Load API key for first model if available
+        if self.model_combo.count() > 0:
+            first_model_id = self.model_combo.itemData(0)
+            if first_model_id:
+                self.api_key_edit.setText(load_model_api_key(first_model_id))
 
     def load(self):
         last_model = load_last_model()
-        idx = self.model_combo.findText(last_model)
-        if idx >= 0:
-            self.model_combo.setCurrentIndex(idx)
-        self.api_key_edit.setText(load_model_api_key(self.model_combo.currentText()))
+        
+        # Find provider for the last model
+        model_info = self.model_manager.get_model_info(last_model)
+        if model_info:
+            category = model_info.get('category', 'OpenAI')
+            
+            # Set provider
+            provider_index = self.provider_combo.findText(category)
+            if provider_index >= 0:
+                self.provider_combo.setCurrentIndex(provider_index)
+            
+            # Populate models for this provider
+            self.on_provider_changed(category)
+            
+            # Find and select the specific model
+            for i in range(self.model_combo.count()):
+                item_data = self.model_combo.itemData(i)
+                if item_data == last_model:
+                    self.model_combo.setCurrentIndex(i)
+                    break
+        else:
+            # Default to first provider and model
+            self.on_provider_changed(self.provider_combo.currentText())
+        
+        # Load API key
+        current_index = self.model_combo.currentIndex()
+        model_id = self.model_combo.itemData(current_index)
+        if model_id:
+            self.api_key_edit.setText(load_model_api_key(model_id))
         
         # 응답 길이 제한 설정 로드
         config = load_config()
@@ -104,13 +155,23 @@ class SettingsDialog(QDialog):
         self.ai_response_limit_spin.setValue(conversation_settings.get('ai_response_limit', 10))
         self.ai_response_token_limit_spin.setValue(conversation_settings.get('ai_response_token_limit', 15000))
 
-    def on_model_changed(self, model):
-        self.api_key_edit.setText(load_model_api_key(model))
+    def on_model_changed(self, model_name):
+        """Handle model selection change."""
+        current_index = self.model_combo.currentIndex()
+        model_id = self.model_combo.itemData(current_index)
+        
+        if model_id:
+            self.api_key_edit.setText(load_model_api_key(model_id))
 
     def save(self):
-        model = self.model_combo.currentText()
+        current_index = self.model_combo.currentIndex()
+        model_id = self.model_combo.itemData(current_index)
+        
+        if not model_id:
+            return
+            
         api_key = self.api_key_edit.text()
-        save_model_api_key(model, api_key)
+        save_model_api_key(model_id, api_key)
         
         # 응답 길이 제한 설정 저장
         config = load_config()

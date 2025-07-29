@@ -223,11 +223,17 @@ class MCPClient:
             
         params = {"name": name}
         if arguments is not None:
-            params["arguments"] = arguments
+            # arguments가 딕셔너리가 아닌 경우 (예: 리스트) 그대로 전달
+            if isinstance(arguments, dict):
+                params["arguments"] = arguments
+            else:
+                # 리스트나 다른 타입의 경우, 빈 딕셔너리로 감싸지 않고 그대로 전달
+                params["arguments"] = arguments
         else:
             params["arguments"] = {}
             
         try:
+            logger.debug(f"도구 '{name}' 호출 파라미터: {params}")
             request_id = self._send_request("tools/call", params)
             if not request_id:
                 return None

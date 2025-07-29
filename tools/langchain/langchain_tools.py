@@ -67,6 +67,9 @@ class MCPTool(BaseTool):
             processed_input = self._process_openai_input(input_data)
             logger.info(f"처리된 입력 데이터: {processed_input}")
             
+            # 매개변수 매핑 처리
+            processed_input = self._map_parameters(processed_input)
+            
             # run_manager 제거
             clean_input = {k: v for k, v in processed_input.items() if k != 'run_manager'}
             
@@ -89,6 +92,11 @@ class MCPTool(BaseTool):
                         arguments[key] = int(value)
                     else:
                         arguments[key] = value
+            
+            # 기본값 추가 (선택적 파라미터)
+            for key, prop_schema in properties.items():
+                if key not in arguments and 'default' in prop_schema:
+                    arguments[key] = prop_schema['default']
             
             logger.info(f"MCP 도구에 전달할 arguments: {arguments}")
             
@@ -116,26 +124,104 @@ class MCPTool(BaseTool):
     
     def _process_openai_input(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """OpenAI 도구 에이전트의 입력 형식을 스키마 기반으로 처리"""
-        # {'args': []} 형태를 스키마 기반으로 매핑
         if 'args' in input_data and isinstance(input_data['args'], list):
             args = input_data['args']
             input_schema = self.tool_schema.get('inputSchema', {})
             required = input_schema.get('required', [])
             properties = input_schema.get('properties', {})
             
+            # 전체 properties 키 순서를 사용하되, required 필드를 우선 배치
+            all_fields = list(properties.keys())
+            field_order = required + [f for f in all_fields if f not in required]
+            
             result = {}
             for i, arg in enumerate(args):
-                if i < len(required):
-                    field_name = required[i]
+                if i < len(field_order) and arg is not None and arg != "":
+                    field_name = field_order[i]
                     field_schema = properties.get(field_name, {})
+                    
+                    # 타입별 처리
                     if field_schema.get('type') == 'array':
                         result[field_name] = [arg] if isinstance(arg, str) else arg
+                    elif field_schema.get('type') == 'number':
+                        # 숫자 타입 변환
+                        try:
+                            result[field_name] = int(arg) if isinstance(arg, str) and arg.isdigit() else arg
+                        except (ValueError, TypeError):
+                            result[field_name] = arg
                     else:
                         result[field_name] = arg
             
+            logger.debug(f"args 변환 결과: {args} -> {result}")
             return result if result else {'input': args[0] if args else ''}
         
         return input_data
+    
+    def _map_parameters(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """매개변수 매핑 처리 - 스키마 기반 동적 매핑"""
+        input_schema = self.tool_schema.get('inputSchema', {})
+        properties = input_schema.get('properties', {})
+        
+        if not properties:
+            return input_data
+        
+        # 입력 데이터의 키들과 스키마의 키들을 비교하여 매핑
+        mapped_data = {}
+        
+        for input_key, input_value in input_data.items():
+            # 정확히 일치하는 키가 있으면 그대로 사용
+            if input_key in properties:
+                mapped_data[input_key] = input_value
+            else:
+                # 유사한 키 찾기
+                mapped_key = self._find_similar_key(input_key, list(properties.keys()))
+                if mapped_key:
+                    mapped_data[mapped_key] = input_value
+                    logger.info(f"매개변수 매핑: {input_key} -> {mapped_key}")
+                else:
+                    # 매핑되지 않은 키는 그대로 유지
+                    mapped_data[input_key] = input_value
+        
+        return mapped_data
+    
+    def _find_similar_key(self, input_key: str, schema_keys: List[str]) -> Optional[str]:
+        """유사한 키 찾기"""
+        input_lower = input_key.lower()
+        
+        # 정확한 매치 (대소문자 무시)
+        for key in schema_keys:
+            if key.lower() == input_lower:
+                return key
+        
+        # 축약형 매치 - 더 엄격한 기준
+        for key in schema_keys:
+            key_lower = key.lower()
+            # productAreaCd -> productAreaCode 같은 경우
+            if input_lower.endswith('cd') and key_lower.endswith('code'):
+                input_base = input_lower[:-2]  # 'cd' 제거
+                key_base = key_lower[:-4]      # 'code' 제거
+                if input_base == key_base:
+                    return key
+            
+            # 일반적인 접두사 매치
+            if len(input_lower) >= 5 and len(key_lower) >= 5:
+                if key_lower.startswith(input_lower) or input_lower.startswith(key_lower):
+                    return key
+        
+        return None
+    
+    def _calculate_similarity(self, str1: str, str2: str) -> float:
+        """문자열 유사도 계산"""
+        if not str1 or not str2:
+            return 0.0
+        
+        # 간단한 Jaccard 유사도
+        set1 = set(str1)
+        set2 = set(str2)
+        intersection = len(set1.intersection(set2))
+        union = len(set1.union(set2))
+        
+        return intersection / union if union > 0 else 0.0
     
     def _format_search_result(self, result: Dict[str, Any]) -> str:
         """검색 결과 포맷팅 (요약하지 않고 구조화)"""

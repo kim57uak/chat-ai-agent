@@ -149,6 +149,75 @@ AI: [Excel 도구 사용] → 파일 분석 후 요약 제공
 }
 ```
 
+### 🎯 프롬프트 시스템 관리
+
+#### 프롬프트 중앙 관리
+모든 AI 모델의 프롬프트를 중앙에서 관리할 수 있습니다:
+
+```python
+from ui.prompts import prompt_manager, ModelType
+
+# 전체 프롬프트 가져오기
+full_prompt = prompt_manager.get_full_prompt(ModelType.OPENAI.value)
+
+# 특정 프롬프트만 가져오기
+system_prompt = prompt_manager.get_system_prompt(ModelType.GOOGLE.value)
+tool_prompt = prompt_manager.get_tool_prompt(ModelType.PERPLEXITY.value)
+
+# 프롬프트 업데이트
+prompt_manager.update_prompt(ModelType.OPENAI.value, "custom_key", "새로운 프롬프트")
+```
+
+#### 프롬프트 설정 파일 편집
+`ui/prompt_config.json` 파일을 직접 편집하여 프롬프트를 수정할 수 있습니다:
+
+```json
+{
+  "openai": {
+    "system_enhancement": "OpenAI 모델 전용 시스템 프롬프트",
+    "tool_calling": "도구 호출 관련 프롬프트",
+    "conversation_style": "대화 스타일 프롬프트"
+  },
+  "google": {
+    "react_pattern": "ReAct 패턴 프롬프트"
+  },
+  "common": {
+    "system_base": "모든 모델에서 공통으로 사용하는 기본 프롬프트"
+  }
+}
+```
+
+#### 지원하는 AI 모델
+- **OpenAI**: GPT 시리즈 모델 최적화
+- **Google**: Gemini 모델의 ReAct 패턴 지원
+- **Perplexity**: 연구 중심 접근법 최적화
+- **Common**: 모든 모델에서 공통 사용
+
+### 프롬프트 커스터마이징
+
+#### 새로운 모델 프롬프트 추가
+```python
+# 새로운 모델 타입 추가
+class ModelType(Enum):
+    CUSTOM_MODEL = "custom_model"
+
+# 프롬프트 설정
+prompt_manager.update_prompt(
+    ModelType.CUSTOM_MODEL.value, 
+    "system_enhancement", 
+    "커스텀 모델 전용 프롬프트"
+)
+```
+
+#### 프롬프트 파일 저장/로드
+```python
+# 프롬프트를 파일로 저장
+prompt_manager.save_prompts_to_file("custom_prompts.json")
+
+# 파일에서 프롬프트 로드
+prompt_manager.load_prompts_from_file("custom_prompts.json")
+```
+
 ## 🤝 기여하기
 
 1. Fork the repository

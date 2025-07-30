@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Callable, Optional
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema.output import LLMResult
+from ui.prompts import prompt_manager, ModelType
 import logging
 import threading
 import time
@@ -104,9 +105,8 @@ class StreamingChatProcessor:
         """메시지 구성"""
         messages = []
         
-        # 시스템 메시지 추가
-        system_prompt = """You are a helpful AI assistant. Provide comprehensive and detailed responses.
-When generating long responses, ensure all content is delivered completely without truncation."""
+        # 시스템 메시지 추가 (공통 프롬프트 사용)
+        system_prompt = prompt_manager.get_system_prompt(ModelType.COMMON.value)
         messages.append(SystemMessage(content=system_prompt))
         
         # 대화 히스토리 추가

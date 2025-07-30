@@ -202,6 +202,69 @@ class ChatDisplay:
                         window.open(e.target.href, '_blank');
                     }
                 });
+                
+                function copyCode(codeId) {
+                    try {
+                        const codeElement = document.getElementById(codeId);
+                        if (!codeElement) {
+                            console.error('Code element not found:', codeId);
+                            return;
+                        }
+                        
+                        const textContent = codeElement.textContent || codeElement.innerText;
+                        
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(textContent).then(() => {
+                                showCopyFeedback(codeId);
+                            }).catch(err => {
+                                console.error('Clipboard API failed:', err);
+                                fallbackCopyText(textContent, codeId);
+                            });
+                        } else {
+                            fallbackCopyText(textContent, codeId);
+                        }
+                    } catch (error) {
+                        console.error('Copy failed:', error);
+                    }
+                }
+                
+                function fallbackCopyText(text, codeId) {
+                    try {
+                        const textArea = document.createElement('textarea');
+                        textArea.value = text;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        textArea.style.top = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        
+                        const successful = document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        
+                        if (successful) {
+                            showCopyFeedback(codeId);
+                        } else {
+                            console.error('Fallback copy failed');
+                        }
+                    } catch (err) {
+                        console.error('Fallback copy error:', err);
+                    }
+                }
+                
+                function showCopyFeedback(codeId) {
+                    const button = document.querySelector(`button[onclick="copyCode('${codeId}')"]`);
+                    if (button) {
+                        const originalText = button.textContent;
+                        button.textContent = '복사됨!';
+                        button.style.background = '#28a745';
+                        
+                        setTimeout(() => {
+                            button.textContent = originalText;
+                            button.style.background = '#444';
+                        }, 2000);
+                    }
+                }
             </script>
         </head>
         <body>

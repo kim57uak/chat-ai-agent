@@ -57,7 +57,7 @@ class IntelligentContentFormatter:
             len(text) > 500,
             text.count('\n') > 5,
             '|' in text and text.count('|') > 3,
-            any(keyword in text.lower() for keyword in ['비교', 'vs', '차이', '특징', 'compare']),
+            any(keyword in text.lower() for keyword in ['compare', 'vs', 'difference', 'feature', 'contrast', '비교', '차이', '특징']),
             re.search(r'\d+\.\s', text),
             text.count('**') > 2,
         ]
@@ -66,11 +66,14 @@ class IntelligentContentFormatter:
     def _get_ai_formatting_decision(self, text: str) -> Dict[str, Any]:
         """Use AI to determine optimal formatting approach"""
         try:
+            from ui.prompts import prompt_manager
+            
+            content_analysis_prompt = prompt_manager.get_prompt("formatting", "content_analysis")
             analysis_prompt = f"""Analyze this content and determine the optimal formatting approach:
 
 Content: "{text[:1000]}..."
 
-{SystemPrompts.get_content_formatting_prompt()}
+{content_analysis_prompt}
 
 Respond with a JSON object containing:
 {{
@@ -84,8 +87,9 @@ Respond with a JSON object containing:
 
             if self.llm:
                 from langchain.schema import HumanMessage, SystemMessage
+                system_prompt = prompt_manager.get_prompt("formatting", "content_analyst")
                 messages = [
-                    SystemMessage(content="You are an expert content formatting analyst."),
+                    SystemMessage(content=system_prompt),
                     HumanMessage(content=analysis_prompt)
                 ]
                 response = self.llm.invoke(messages)
@@ -133,6 +137,7 @@ Respond with a JSON object containing:
         """Intelligently detect if content should be formatted as a table"""
         comparison_patterns = [
             r'(\w+)\s*vs\s*(\w+)',
+            r'(\w+)\s*compare\s*(\w+)',
             r'(\w+)\s*대\s*(\w+)',
             r'(\w+)\s*비교\s*(\w+)',
             r'\|.*\|.*\|',
@@ -201,7 +206,7 @@ Respond with a JSON object containing:
             len(line) < 50,
             line.endswith(':'),
             not line.endswith('.'),
-            any(word in line.lower() for word in ['특징', '장점', '단점', '비교', '차이점', '요약'])
+            any(word in line.lower() for word in ['feature', 'advantage', 'disadvantage', 'compare', 'difference', 'summary', '특징', '장점', '단점', '비교', '차이점', '요약'])
         ]
         return sum(heading_indicators) >= 2
     

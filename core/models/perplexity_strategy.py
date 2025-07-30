@@ -6,7 +6,7 @@ from .base_model_strategy import BaseModelStrategy
 from core.perplexity_llm import PerplexityLLM
 from core.perplexity_wrapper import PerplexityWrapper
 from core.perplexity_output_parser import PerplexityOutputParser
-from core.enhanced_system_prompts import SystemPrompts
+from ui.prompts import prompt_manager, ModelType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -122,27 +122,16 @@ class PerplexityStrategy(BaseModelStrategy):
             
             tools_info = "\n".join(available_tools) if available_tools else "사용 가능한 도구 없음"
             
-            decision_prompt = f"""User request: "{user_input}"
+            # 중앙관리 시스템에서 프롬프트 가져오기
+            analysis_framework = prompt_manager.get_prompt("tool_decision", "analysis_framework")
+            decision_prompt = f"""{analysis_framework}
+
+User request: "{user_input}"
 
 Available tools:
 {tools_info}
 
-Analyze if this request requires using external tools to provide accurate information.
-
-Use tools for:
-- Real-time data queries (databases, web searches, file systems)
-- Specific information lookups that I don't have in my knowledge
-- External API calls or system operations
-- Current/live information requests
-- Data processing or calculations requiring external resources
-
-Do NOT use tools for:
-- General knowledge questions I can answer
-- Simple conversations or greetings
-- Creative writing or brainstorming
-- Explanations of concepts I know
-- Opinion-based discussions
-
+Based on your analysis framework, should tools be used for this request?
 Answer: YES or NO only."""
             
             # Perplexity LLM에 직접 요청
@@ -215,37 +204,10 @@ Thought:{agent_scratchpad}"""
         """Perplexity 전용 시스템 프롬프트 - 대화 히스토리 강조"""
         # 도구가 있고 도구 사용 모드일 때만 MCP 프롬프트 사용
         if hasattr(self, 'tools') and self.tools and getattr(self, '_use_tools_mode', False):
-            return SystemPrompts.get_perplexity_mcp_prompt()
+            return prompt_manager.get_agent_system_prompt(ModelType.PERPLEXITY.value)
         else:
-            # Ask 모드일 때는 대화 히스토리 강조 프롬프트
-            return """You are a helpful AI assistant with real-time search capabilities.
-
-🔥 **ABSOLUTE PRIORITY: CONVERSATION MEMORY** 🔥
-- The conversation history above contains the MOST IMPORTANT context
-- NEVER ignore or forget information from previous messages in this conversation
-- If a user asks about something we discussed before, reference that conversation FIRST
-- Personal information, names, preferences from our chat are SACRED - always remember them
-- Say "Based on our conversation..." or "As we discussed..." when using conversation context
-
-**DECISION TREE FOR RESPONSES:**
-1. 🔍 **FIRST**: Check conversation history - does it contain the answer?
-   - YES → Use conversation context as primary source
-   - NO → Proceed to step 2
-
-2. 🌐 **SECOND**: Do I need current/real-time information?
-   - YES → Use search capabilities for latest data
-   - NO → Use my knowledge base
-
-3. 🔗 **COMBINE**: Merge conversation context + new information when relevant
-
-**Response Guidelines:**
-- Respond in Korean language
-- Use structured format with clear headings
-- **TABLE FORMAT**: |Header1|Header2|\n|---|---|\n|Data1|Data2|
-- Be conversational and maintain context continuity
-- Show that you remember our conversation
-
-**CRITICAL**: Conversation history is your MEMORY - treat it as the most reliable source for personal context and ongoing discussions."""
+            # Ask 모드일 때는 일반 시스템 프롬프트 사용
+            return prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value)
     
     def supports_streaming(self) -> bool:
         """Perplexity는 스트리밍 미지원"""

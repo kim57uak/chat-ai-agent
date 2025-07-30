@@ -28,21 +28,15 @@ class AIBasedToolResultFormatter(ToolResultFormatter):
             tool_names = [getattr(tool, '__name__', str(tool)) for tool in used_tools]
             results_text = "\n\n".join([f"Tool {i+1} Result: {str(result)}" for i, result in enumerate(tool_results)])
             
-            format_prompt = f"""Please format the following tool execution results in a user-friendly way in Korean:
+            from ui.prompts import prompt_manager
+            
+            formatter_prompt = prompt_manager.get_prompt("tool_formatting", "result_formatter")
+            format_prompt = f"""{formatter_prompt}
 
 User Question: {user_input}
 Used Tools: {', '.join(tool_names)}
 Tool Results:
-{results_text}
-
-Please:
-1. Analyze the results and provide a clear summary
-2. Use appropriate emojis and formatting
-3. Structure the information logically
-4. Keep it concise but informative
-5. Respond in Korean
-
-Format the response as if you're directly answering the user's question based on these tool results."""
+{results_text}"""
             
             if llm:
                 messages = [HumanMessage(content=format_prompt)]

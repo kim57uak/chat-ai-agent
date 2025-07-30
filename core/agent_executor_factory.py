@@ -7,6 +7,7 @@ from langchain.agents import (
 )
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from core.perplexity_agent_helper import create_perplexity_agent
+from ui.prompts import prompt_manager, ModelType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,21 +33,7 @@ class OpenAIAgentExecutorFactory(AgentExecutorFactory):
         if not tools:
             return None
 
-        system_message = """You are a helpful AI assistant that can use various tools to provide accurate information.
-
-**Instructions:**
-- Analyze user requests carefully to select the most appropriate tools
-- Use tools to gather current, accurate information when needed
-- Organize information in a clear, logical structure
-- Respond in natural, conversational Korean
-- Be friendly and helpful while maintaining accuracy
-- If multiple tools are needed, use them systematically
-- Focus on providing exactly what the user asked for
-
-**Response Format:**
-- Use clear headings and bullet points when appropriate
-- Highlight important information
-- Keep responses well-organized and easy to read"""
+        system_message = prompt_manager.get_full_prompt(ModelType.OPENAI.value)
 
         prompt = ChatPromptTemplate.from_messages(
             [
@@ -78,26 +65,21 @@ class GeminiAgentExecutorFactory(AgentExecutorFactory):
             return None
 
         # Gemini에 최적화된 간단한 프롬프트
+        base_prompt = prompt_manager.get_system_prompt(ModelType.GOOGLE.value)
+        react_pattern = prompt_manager.get_tool_prompt(ModelType.GOOGLE.value)
+        
         react_prompt = PromptTemplate.from_template(
-            """
-You are a helpful AI assistant with access to tools. Use tools when you need current information or to perform specific tasks.
+            f"""{base_prompt}
 
 Available tools:
-{tools}
+{{tools}}
 
-Tool names: {tool_names}
+Tool names: {{tool_names}}
 
-Use this format:
+{react_pattern}
 
-Question: {input}
-Thought: I need to use a tool to help with this request.
-Action: [tool_name]
-Action Input: {{"parameter": "value"}}
-Observation: [tool result will appear here]
-Thought: Now I can provide a helpful response.
-Final Answer: [Your response in Korean based on the tool result]
-
-{agent_scratchpad}
+Question: {{input}}
+{{agent_scratchpad}}
             """
         )
 
@@ -125,26 +107,21 @@ class PerplexityAgentExecutorFactory(AgentExecutorFactory):
             return None
 
         # Perplexity 모델에 최적화된 간단한 ReAct 프롬프트
+        base_prompt = prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value)
+        research_approach = prompt_manager.get_tool_prompt(ModelType.PERPLEXITY.value)
+        
         react_prompt = PromptTemplate.from_template(
-            """
-You are a helpful AI assistant with access to tools. Use tools when you need current information or to perform specific tasks.
+            f"""{base_prompt}
 
 Available tools:
-{tools}
+{{tools}}
 
-Tool names: {tool_names}
+Tool names: {{tool_names}}
 
-Use this format:
+{research_approach}
 
-Question: {input}
-Thought: I need to analyze this request and decide if I need tools.
-Action: [tool_name]
-Action Input: {{"parameter": "value"}}
-Observation: [tool result will appear here]
-Thought: Now I can provide a helpful response.
-Final Answer: [Your response in Korean based on the tool result]
-
-{agent_scratchpad}
+Question: {{input}}
+{{agent_scratchpad}}
             """
         )
 

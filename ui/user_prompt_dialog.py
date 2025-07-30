@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QComboBox, QMessageBox
 from PyQt6.QtCore import Qt
+from ui.prompts import prompt_manager, ModelType
 
 class UserPromptDialog(QDialog):
     def __init__(self, ai_client, parent=None):
@@ -102,5 +103,12 @@ class UserPromptDialog(QDialog):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            default_prompt = '다음 규칙을 따라 답변해주세요: 1. 구조화된 답변 2. 가독성 우선 3. 명확한 분류 4. 핵심 요약 5. 한국어 사용'
+            # 중앙관리 시스템에서 기본 프롬프트 가져오기
+            model_type = self.model_combo.currentText().lower()
+            if model_type == 'gpt':
+                default_prompt = prompt_manager.get_system_prompt(ModelType.OPENAI.value)
+            elif model_type == 'gemini':
+                default_prompt = prompt_manager.get_system_prompt(ModelType.GOOGLE.value)
+            else:
+                default_prompt = prompt_manager.get_system_prompt(ModelType.COMMON.value)
             self.prompt_text.setPlainText(default_prompt)

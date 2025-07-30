@@ -1,6 +1,7 @@
 """이미지 처리를 담당하는 모듈"""
 from abc import ABC, abstractmethod
 from langchain.schema import HumanMessage
+from ui.prompts import prompt_manager
 import logging
 import re
 import base64
@@ -79,24 +80,5 @@ class StandardImageProcessor(ImageProcessor):
             )
     
     def _get_default_image_analysis_prompt(self) -> str:
-        """기본 이미지 분석 프롬프트"""
-        return """Analyze this image comprehensively and extract all information.
-
-**Analysis Tasks:**
-1. **Complete Text Extraction**: Extract all visible text with perfect accuracy
-2. **Content Understanding**: Identify the type and purpose of the document/image
-3. **Structure Analysis**: Describe layout, organization, and visual hierarchy
-4. **Context Interpretation**: Explain what the image represents and its significance
-
-**Response Requirements:**
-- Extract ALL text without any omissions
-- Organize information logically and clearly
-- Use appropriate formatting (tables, lists, headings) based on content
-- Provide context and interpretation where helpful
-- Respond in Korean unless the content suggests otherwise
-
-**Quality Standards:**
-- Accuracy: 100% faithful text extraction
-- Completeness: Cover all visible information
-- Clarity: Well-organized, easy to understand presentation
-- Intelligence: Apply appropriate formatting based on content type"""
+        """기본 이미지 분석 프롬프트 - 중앙관리 시스템에서 가져오기"""
+        return prompt_manager.get_ocr_prompt()

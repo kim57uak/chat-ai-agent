@@ -63,30 +63,9 @@ class AIClient:
             has_image_data = has_start_tag and has_end_tag
             
             if has_image_data:
-                # 이미지 OCR에 최적화된 프롬프트 사용
-                ocr_prompt = """Please **extract all text accurately (OCR)** from this image.
-
-**Required Tasks:**
-1. **Complete Text Extraction**: Extract all Korean, English, numbers, and symbols without omission
-2. **Structure Analysis**: Identify document structures like tables, lists, headings, paragraphs
-3. **Layout Information**: Describe text position, size, and arrangement relationships
-4. **Accurate Transcription**: Record all characters precisely without typos
-5. **Context Description**: Identify document type and purpose
-6. **Table Format**: When creating tables, use markdown format: |Header1|Header2|\n|---|---|\n|Data1|Data2|
-
-**TABLE FORMAT RULES**: When creating tables from extracted data, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment.
-
-**Response Format:**
-## 📄 Extracted Text
-[List all text accurately]
-
-## 📋 Document Structure
-[Describe structure of tables, lists, headings, etc.]
-
-## 📍 Layout Information
-[Text arrangement and positional relationships]
-
-**Important**: Please extract all readable text from the image completely without any omissions."""
+                # 중앙관리 시스템에서 OCR 프롬프트 가져오기
+                from ui.prompts import prompt_manager
+                ocr_prompt = prompt_manager.get_ocr_prompt()
                 
                 # 마지막 사용자 메시지에 OCR 프롬프트 추가
                 for i in range(len(messages) - 1, -1, -1):
@@ -311,27 +290,31 @@ class AIClient:
         return limited_history
 
     def _load_user_prompt(self):
-        """유저 프롬프트 로드"""
+        """유저 프롬프트 로드 - 중앙관리 시스템 사용"""
         try:
             from core.file_utils import load_config
+            from ui.prompts import prompt_manager, ModelType
 
             config = load_config()
+            # 설정 파일에서 커스텀 프롬프트가 있으면 사용, 없으면 중앙관리 시스템 사용
             user_prompts = config.get(
                 "user_prompt",
                 {
-                    "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
-                    "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
-                    "perplexity": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools 8. Use your real-time search capabilities when needed.",
+                    "gpt": prompt_manager.get_system_prompt(ModelType.OPENAI.value),
+                    "gemini": prompt_manager.get_system_prompt(ModelType.GOOGLE.value),
+                    "perplexity": prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value),
                 },
             )
-            print(f"[디버그] 로드된 유저 프롬프트: {user_prompts}")
+            logger.info(f"유저 프롬프트 로드 완료: {len(user_prompts)}개 모델")
             return user_prompts
         except Exception as e:
-            print(f"[디버그] 유저 프롬프트 로드 오류: {e}")
+            logger.error(f"유저 프롬프트 로드 오류: {e}")
+            # 오류 시 중앙관리 시스템에서 기본 프롬프트 사용
+            from ui.prompts import prompt_manager, ModelType
             return {
-                "gpt": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
-                "gemini": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools",
-                "perplexity": "Please follow these rules: 1. Structured responses 2. Prioritize readability 3. Clear categorization 4. Key summaries 5. Use Korean language 6. **TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\n|---|---|---|\n|Data1|Data2|Data3|\n|Data4|Data5|Data6|. Never use tabs or spaces for table alignment. Always include the header separator row with dashes. 7. When asked about 'MCP tools', 'active tools', or 'available tools', use the get_all_mcp_tools function to show current MCP server tools 8. Use your real-time search capabilities when needed.",
+                "gpt": prompt_manager.get_system_prompt(ModelType.OPENAI.value),
+                "gemini": prompt_manager.get_system_prompt(ModelType.GOOGLE.value),
+                "perplexity": prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value),
             }
 
     def get_current_user_prompt(self):

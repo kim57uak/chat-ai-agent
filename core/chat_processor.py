@@ -104,10 +104,13 @@ class ToolChatProcessor(RefactoredToolChatProcessor):
                 # 형식 오류지만 도구가 있는 경우, 다른 프롬프트로 재시도
                 logger.info("ReAct 형식 오류 발생, 단순화된 프롬프트로 재시도")
                 try:
-                    # 단순화된 프롬프트 사용
-                    simple_prompt = f"""Please use the following tools to answer the user's question:
+                    from ui.prompts import prompt_manager
+                    
+                    # 중앙화된 프롬프트 사용
+                    tool_usage_guide = prompt_manager.get_prompt("common", "tool_selection")
+                    simple_prompt = f"""{tool_usage_guide}
 
-{[str(tool) for tool in self.tools]}
+Available tools: {[str(tool) for tool in self.tools]}
 
 Question: {user_input}
 
@@ -135,21 +138,15 @@ Please respond in the following format:
             tool_names = [getattr(tool, '__name__', str(tool)) for tool in used_tools]
             results_text = "\n\n".join([f"Tool {i+1} Result: {str(result)}" for i, result in enumerate(tool_results)])
             
-            format_prompt = f"""Please format the following tool execution results in a user-friendly way in Korean:
+            from ui.prompts import prompt_manager
+            
+            formatter_prompt = prompt_manager.get_prompt("tool_formatting", "result_formatter")
+            format_prompt = f"""{formatter_prompt}
 
 User Question: {user_input}
 Used Tools: {', '.join(tool_names)}
 Tool Results:
-{results_text}
-
-Please:
-1. Analyze the results and provide a clear summary
-2. Use appropriate emojis and formatting
-3. Structure the information logically
-4. Keep it concise but informative
-5. Respond in Korean
-
-Format the response as if you're directly answering the user's question based on these tool results."""
+{results_text}"""
             
             # SimpleChatProcessor를 사용하여 AI가 결과 포맷팅
             from core.llm_factory import LLMFactoryProvider

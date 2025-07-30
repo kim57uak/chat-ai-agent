@@ -4,6 +4,7 @@ from langchain.schema import BaseMessage, HumanMessage, SystemMessage, AIMessage
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import PromptTemplate
 from .base_model_strategy import BaseModelStrategy
+from ui.prompts import prompt_manager, ModelType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -129,28 +130,15 @@ class GeminiStrategy(BaseModelStrategy):
             if force_agent:
                 agent_context = "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
             
-            decision_prompt = f"""User request: "{user_input}"
-
-Available tools:
-{tools_info}
-
-Analyze if this request requires using external tools to provide accurate information.
-
-Use tools for:
-- Real-time data queries (databases, web searches, file systems)
-- Specific information lookups that I don't have in my knowledge
-- External API calls or system operations
-- Current/live information requests
-- Data processing or calculations requiring external resources
-
-Do NOT use tools for:
-- General knowledge questions I can answer
-- Simple conversations or greetings
-- Creative writing or brainstorming
-- Explanations of concepts I know
-- Opinion-based discussions{agent_context}
-
-Answer: YES or NO only."""
+            # 중앙관리 시스템에서 프롬프트 가져오기
+            available_tools = getattr(self, 'tools', [])
+            decision_prompt = prompt_manager.get_tool_decision_prompt(
+                ModelType.GOOGLE.value, user_input, available_tools
+            )
+            
+            # Agent 모드 컨텍스트 추가
+            if force_agent:
+                decision_prompt += "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
             
             # Gemini는 시스템 메시지를 인간 메시지로 변환
             messages = [
@@ -181,44 +169,20 @@ Answer: YES or NO only."""
         if not tools:
             return None
         
+        # 중앙관리 시스템에서 에이전트 시스템 프롬프트 가져오기
+        agent_system_prompt = prompt_manager.get_agent_system_prompt(ModelType.GOOGLE.value)
+        
         # Gemini는 ReAct 에이전트만 지원
         react_prompt = PromptTemplate.from_template(
-            """You are a helpful AI assistant that can use various tools to provide accurate information.
-
-**CRITICAL PARSING RULES:**
-1. NEVER output both Action and Final Answer in the same response
-2. Follow EXACT format: Thought -> Action -> Action Input -> (wait for Observation) -> Thought -> Final Answer
-3. Each step must be on a separate line
-4. Use EXACT keywords: "Thought:", "Action:", "Action Input:", "Final Answer:"
-5. Do NOT include "Observation:" - it will be added automatically
+            f"""{agent_system_prompt}
 
 Available tools:
-{tools}
+{{tools}}
 
-Tool names: {tool_names}
+Tool names: {{tool_names}}
 
-**STRICT FORMAT:**
-Thought: [your reasoning]
-Action: [exact_tool_name]
-Action Input: [input_for_tool]
-
-(System will add Observation automatically)
-
-Thought: [analyze the observation]
-Final Answer: [your response in Korean]
-
-**EXAMPLE:**
-Question: Show me files in /home
-Thought: I need to list directory contents to show the user what files are in /home.
-Action: filesystem_list_directory
-Action Input: /home
-
-(After receiving observation:)
-Thought: Now I have the directory listing and can provide a formatted response to the user.
-Final Answer: /home 디렉토리에는 다음 파일들이 있습니다: [formatted list]
-
-Question: {input}
-{agent_scratchpad}
+Question: {{input}}
+{{agent_scratchpad}}
             """
         )
 
@@ -236,19 +200,4 @@ Question: {input}
     
     def _get_ocr_prompt(self) -> str:
         """OCR 전용 프롬프트"""
-        return """이 이미지에서 **모든 텍스트를 정확히 추출(OCR)**해주세요.
-
-**필수 작업:**
-1. **완전한 텍스트 추출**: 이미지 내 모든 한글, 영어, 숫자, 기호를 빠짐없이 추출
-2. **구조 분석**: 표, 목록, 제목, 단락 등의 문서 구조 파악
-3. **레이아웃 정보**: 텍스트의 위치, 크기, 배치 관계 설명
-4. **정확한 전사**: 오타 없이 정확하게 모든 문자 기록
-
-**응답 형식:**
-## 📄 추출된 텍스트
-[모든 텍스트를 정확히 나열]
-
-## 📋 문서 구조
-[표, 목록, 제목 등의 구조 설명]
-
-**중요**: 이미지에서 읽을 수 있는 모든 텍스트를 절대 누락하지 말고 완전히 추출해주세요."""
+        return prompt_manager.get_ocr_prompt()

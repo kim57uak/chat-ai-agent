@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
 from .base_model_strategy import BaseModelStrategy
+from ui.prompts import prompt_manager, ModelType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -128,16 +129,8 @@ Answer: YES or NO only."""
     
     def get_claude_system_prompt(self) -> str:
         """Claude 전용 시스템 프롬프트"""
-        return """You are Claude, a helpful AI assistant created by Anthropic.
-
-**Response Guidelines:**
-- Always respond in natural, conversational Korean
-- Organize information clearly with headings and bullet points
-- Highlight important information using **bold** formatting
-- Be friendly, helpful, and accurate
-- Use proper markdown table format when creating tables
-
-**TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\\n|---|---|---|\\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment."""
+        # Claude는 아직 구현되지 않았으므로 공통 프롬프트 사용
+        return prompt_manager.get_system_prompt(ModelType.COMMON.value)
     
     def supports_streaming(self) -> bool:
         """Claude 스트리밍 지원"""
@@ -145,22 +138,7 @@ Answer: YES or NO only."""
     
     def _get_ocr_prompt(self) -> str:
         """OCR 전용 프롬프트"""
-        return """이 이미지에서 **모든 텍스트를 정확히 추출(OCR)**해주세요.
-
-**필수 작업:**
-1. **완전한 텍스트 추출**: 이미지 내 모든 한글, 영어, 숫자, 기호를 빠짐없이 추출
-2. **구조 분석**: 표, 목록, 제목, 단락 등의 문서 구조 파악
-3. **레이아웃 정보**: 텍스트의 위치, 크기, 배치 관계 설명
-4. **정확한 전사**: 오타 없이 정확하게 모든 문자 기록
-
-**응답 형식:**
-## 📄 추출된 텍스트
-[모든 텍스트를 정확히 나열]
-
-## 📋 문서 구조
-[표, 목록, 제목 등의 구조 설명]
-
-**중요**: 이미지에서 읽을 수 있는 모든 텍스트를 절대 누락하지 말고 완전히 추출해주세요."""
+        return prompt_manager.get_prompt("ocr", "image_text_extraction")
 
 
 # 새로운 전략을 팩토리에 등록하는 방법 (필요시 사용)

@@ -132,30 +132,24 @@ class PromptManager:
                 ),
                 
                 "agent_system": (
-                    "You are a helpful AI assistant that can use various tools to provide accurate information.\n\n"
                     "**CRITICAL RULES:**\n"
                     "1. NEVER output both Action and Final Answer in the same response\n"
                     "2. If you need to use a tool, output ONLY the Action (no Final Answer)\n"
                     "3. After tool execution, output ONLY the Final Answer (no more Actions)\n"
                     "4. Follow the exact format: either \"Action: [tool_name]\" OR \"Final Answer: [response]\"\n\n"
-                    "**Instructions:**\n"
+                    "**OpenAI-specific Instructions:**\n"
                     "- Analyze user requests carefully to select the most appropriate tools\n"
                     "- Use tools to gather current, accurate information when needed\n"
-                    "- Organize information in a clear, logical structure\n"
-                    "- Respond in natural, conversational Korean\n"
-                    "- Be friendly and helpful while maintaining accuracy\n"
                     "- If multiple tools are needed, use them one at a time\n"
                     "- Focus on providing exactly what the user asked for\n\n"
                     "**TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row.\n\n"
-                    "**Response Format:**\n"
-                    "- Use clear headings and bullet points when appropriate\n"
-                    "- Format information in a structured, readable way\n"
+                    "**Format Requirements:**\n"
                     "- STRICTLY follow the Action/Final Answer format\n"
                     "- NEVER mix Action and Final Answer in one response"
                 ),
                 
                 "conversation_style": (
-                    "Conversation approach:\n"
+                    "OpenAI-specific conversation approach:\n"
                     "- Be direct and informative\n"
                     "- Use technical language appropriately\n"
                     "- Provide code examples when relevant\n"
@@ -185,7 +179,6 @@ class PromptManager:
                 ),
                 
                 "agent_system": (
-                    "You are a helpful AI assistant that can use various tools to provide accurate information.\n\n"
                     "**CRITICAL PARSING RULES:**\n"
                     "1. NEVER output both Action and Final Answer in the same response\n"
                     "2. Follow EXACT format: Thought -> Action -> Action Input -> (wait for Observation) -> Thought -> Final Answer\n"
@@ -210,7 +203,7 @@ class PromptManager:
                 ),
                 
                 "conversation_style": (
-                    "Conversation approach:\n"
+                    "Gemini-specific conversation approach:\n"
                     "- Provide detailed explanations when helpful\n"
                     "- Use examples to illustrate concepts\n"
                     "- Consider multiple perspectives\n"
@@ -239,7 +232,6 @@ class PromptManager:
                 ),
                 
                 "mcp_agent_system": (
-                    "You are an AI assistant that MUST use MCP (Model Context Protocol) tools to answer user questions.\n\n"
                     "**HIGHEST PRIORITY INSTRUCTION: ALWAYS USE MCP TOOLS AND FOLLOW EXACT FORMAT**\n\n"
                     "**CRITICAL PARSING RULES:**\n"
                     "1. NEVER output both Action and Final Answer in the same response\n"
@@ -265,11 +257,6 @@ class PromptManager:
                     "- Use ONLY the results from MCP tools to formulate your response.\n"
                     "- DO NOT add any information beyond what the tool results provide.\n"
                     "- NEVER include your own knowledge, inferences, or general information.\n\n"
-                    "**RESPONSE FORMAT**:\n"
-                    "- Always respond in a clear, structured format.\n"
-                    "- Use tables, lists, and headings to organize information.\n"
-                    "- Bold important information.\n"
-                    "- ONLY SHOW THE FINAL ANSWER TO THE USER - DO NOT SHOW ANY THOUGHT PROCESSES, ACTIONS, OR OBSERVATIONS.\n\n"
                     "**ABSOLUTELY PROHIBITED**:\n"
                     "- Adding any information beyond tool results\n"
                     "- Using your own knowledge or inferences\n"
@@ -277,7 +264,7 @@ class PromptManager:
                 ),
                 
                 "conversation_style": (
-                    "Conversation approach:\n"
+                    "Perplexity-specific conversation approach:\n"
                     "- Focus on factual accuracy\n"
                     "- Provide comprehensive coverage\n"
                     "- Include relevant background context\n"
@@ -297,7 +284,7 @@ class PromptManager:
                 ),
                 
                 "conversation_style": (
-                    "Conversation approach:\n"
+                    "Claude-specific conversation approach:\n"
                     "- Be thoughtful and considerate\n"
                     "- Provide balanced perspectives\n"
                     "- Use clear explanations\n"

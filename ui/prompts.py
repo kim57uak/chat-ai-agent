@@ -28,22 +28,29 @@ class PromptManager:
         self._prompts = self._load_prompts()
     
     def _load_prompts(self) -> Dict[str, Dict[str, str]]:
-        """Load prompt configuration"""
+        """Load optimized prompt configuration"""
         return {
-            # Common prompts
+            # Common base prompts
             ModelType.COMMON.value: {
                 "system_base": (
-                    "You are an AI assistant that can use various tools through MCP (Model Context Protocol) servers.\n\n"
-                    "Key capabilities:\n"
-                    "- Access to 15+ different MCP servers with various tools\n"
-                    "- Dynamic tool detection and intelligent tool selection\n"
-                    "- Real-time streaming responses\n"
-                    "- Conversation history management\n\n"
-                    "Guidelines:\n"
-                    "- Always respond in Korean unless specifically requested otherwise\n"
-                    "- Use tools when they can provide better or more accurate information\n"
-                    "- Be concise and helpful in your responses\n"
-                    "- Maintain conversation context"
+                    "You are a powerful AI assistant that collaborates with users to achieve their goals. "
+                    "You have access to various MCP tools for real-time data and operations. "
+                    "Always respond in Korean unless requested otherwise."
+                ),
+                
+                "ocr_prompt": (
+                    "Extract all text from this image with complete accuracy (OCR).\n\n"
+                    "**Required Tasks:**\n"
+                    "1. **Complete Text Extraction**: Extract all Korean, English, numbers, and symbols\n"
+                    "2. **Structure Analysis**: Identify document structure including tables, lists, headings\n"
+                    "3. **Layout Information**: Describe text position and arrangement\n"
+                    "4. **Accurate Transcription**: Record all characters precisely\n\n"
+                    "**Response Format:**\n"
+                    "## 📄 Extracted Text\n"
+                    "[List all text accurately]\n\n"
+                    "## 📋 Document Structure\n"
+                    "[Describe structure]\n\n"
+                    "**Important**: Extract ALL readable text completely."
                 ),
                 
                 "ocr_prompt": (
@@ -61,339 +68,227 @@ class PromptManager:
                     "**Important**: Extract ALL readable text from the image completely without any omissions."
                 ),
                 
-                "tool_decision_base": (
-                    "Analyze if this request requires using external tools to provide accurate information.\n\n"
-                    "Use tools for:\n"
-                    "- Real-time data queries (databases, web searches, file systems)\n"
-                    "- Specific information lookups that I don't have in my knowledge\n"
-                    "- External API calls or system operations\n"
-                    "- Current/live information requests\n"
-                    "- Data processing or calculations requiring external resources\n\n"
-                    "Do NOT use tools for:\n"
-                    "- General knowledge questions I can answer\n"
-                    "- Simple conversations or greetings\n"
-                    "- Creative writing or brainstorming\n"
-                    "- Explanations of concepts I know\n"
-                    "- Opinion-based discussions\n\n"
-                    "Answer: YES or NO only."
-                ),
-                
                 "tool_selection": (
-                    "When selecting tools, consider:\n"
-                    "1. User's specific request and context\n"
-                    "2. Available tools and their capabilities\n"
-                    "3. Most efficient way to get accurate information\n"
-                    "4. Avoid unnecessary tool calls\n\n"
-                    "Available tool categories:\n"
-                    "- Web search and content retrieval\n"
-                    "- Database queries (MySQL)\n"
-                    "- Travel services (Hanatour API)\n"
-                    "- Office tools (Excel, PowerPoint)\n"
-                    "- Development tools (Bitbucket, Jira, Confluence)\n"
-                    "- Email management (Gmail)\n"
-                    "- Location services (OpenStreetMap)\n"
-                    "- Document processing"
+                    "**CRITICAL TOOL PARAMETER RULES:**\n"
+                    "- ALWAYS use EXACT parameter names from tool schema\n"
+                    "- Include ALL required parameters - check schema carefully\n"
+                    "- Follow schema exactly - never modify parameter names\n"
+                    "- Verify JSON syntax: proper quotes, commas, brackets\n"
+                    "- If tool fails with parameter error, check schema and retry\n"
+                    "- Use tools for: real-time data, specific lookups, external operations\n"
+                    "- Don't use tools for: general knowledge, conversations, creative tasks\n"
+                    "- Be proactive: prefer autonomous tool use over asking user\n"
+                    "- Never mention tool names to user - describe actions directly"
                 ),
                 
                 "error_handling": (
-                    "When tool calls fail:\n"
-                    "1. Analyze the error message carefully\n"
-                    "2. Try alternative approaches if available\n"
-                    "3. Provide helpful explanation to user\n"
-                    "4. Suggest manual alternatives when appropriate"
+                    "When tools fail: analyze error carefully, try alternative approaches, "
+                    "provide helpful explanation, suggest manual alternatives when appropriate."
                 ),
                 
                 "response_format": (
-                    "Response formatting:\n"
-                    "- Use markdown for better readability\n"
-                    "- Structure information clearly\n"
-                    "- Include relevant details without overwhelming\n"
-                    "- Provide actionable next steps when appropriate"
+                    "**ALWAYS format output for maximum readability using Markdown:**\n"
+                    "- Use code blocks with language tags for code snippets\n"
+                    "- Use headers, tables, bullet lists for clarity\n"
+                    "- Highlight file paths, commands, function names with inline code formatting\n"
+                    "- Structure information clearly with relevant details"
                 )
             },
             
-            # OpenAI model-specific prompts
+            # OpenAI: Function calling optimized
             ModelType.OPENAI.value: {
                 "system_enhancement": (
-                    "You are powered by OpenAI's language model with enhanced tool-calling capabilities.\n\n"
-                    "Specific instructions for OpenAI models:\n"
-                    "- Utilize function calling efficiently\n"
-                    "- Handle parallel tool calls when beneficial\n"
-                    "- Maintain conversation flow with streaming responses\n"
-                    "- Optimize token usage while preserving quality"
-                ),
-                
-                "tool_calling": (
-                    "For tool execution:\n"
-                    "- Use structured function calls with proper parameters\n"
-                    "- Handle parameter mapping intelligently\n"
-                    "- Generate smart defaults for missing required parameters\n"
-                    "- Validate inputs before making calls"
+                    "OpenAI model with advanced function calling capabilities. "
+                    "Use parallel calls when beneficial. Optimize tokens while maintaining quality."
                 ),
                 
                 "agent_system": (
-                    "**CRITICAL RULES:**\n"
-                    "1. NEVER output both Action and Final Answer in the same response\n"
-                    "2. If you need to use a tool, output ONLY the Action (no Final Answer)\n"
-                    "3. After tool execution, output ONLY the Final Answer (no more Actions)\n"
-                    "4. Follow the exact format: either \"Action: [tool_name]\" OR \"Final Answer: [response]\"\n\n"
-                    "**OpenAI-specific Instructions:**\n"
-                    "- Analyze user requests carefully to select the most appropriate tools\n"
-                    "- Use tools to gather current, accurate information when needed\n"
-                    "- If multiple tools are needed, use them one at a time\n"
-                    "- Focus on providing exactly what the user asked for\n\n"
-                    "**TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row.\n\n"
-                    "**Format Requirements:**\n"
-                    "- STRICTLY follow the Action/Final Answer format\n"
-                    "- NEVER mix Action and Final Answer in one response"
-                ),
-                
-                "conversation_style": (
-                    "OpenAI-specific conversation approach:\n"
-                    "- Be direct and informative\n"
-                    "- Use technical language appropriately\n"
-                    "- Provide code examples when relevant\n"
-                    "- Focus on practical solutions"
+                    "**TOOL CALLING RULES:**\n"
+                    "- Follow tool schemas exactly with all required parameters\n"
+                    "- Use EXACT parameter names from schema (check spelling carefully)\n"
+                    "- Include ALL required parameters in function call\n"
+                    "- Never output Action and Final Answer together\n"
+                    "- Format: Either \"Action: [tool]\" OR \"Final Answer: [response]\"\n"
+                    "- Use tools proactively when solution is evident\n"
+                    "- Always use proper markdown formatting in responses"
                 )
             },
             
-            # Google (Gemini) model-specific prompts
+            # Google: ReAct pattern optimized
             ModelType.GOOGLE.value: {
                 "system_enhancement": (
-                    "You are powered by Google's Gemini model with multimodal capabilities.\n\n"
-                    "Specific instructions for Gemini:\n"
-                    "- Leverage multimodal understanding when applicable\n"
-                    "- Handle complex reasoning tasks effectively\n"
-                    "- Use ReAct pattern for tool interactions\n"
-                    "- Maintain coherent long-form responses"
-                ),
-                
-                "react_pattern": (
-                    "For ReAct tool usage:\n"
-                    "Thought: Analyze what needs to be done\n"
-                    "Action: Select and execute appropriate tool\n"
-                    "Observation: Process the tool result\n"
-                    "... (repeat as needed)\n"
-                    "Final Answer: Provide comprehensive response\n\n"
-                    "Always structure your reasoning clearly and maintain logical flow."
+                    "Gemini model with multimodal capabilities and strong reasoning. "
+                    "Use ReAct pattern for systematic tool usage. Be proactive in tool selection."
                 ),
                 
                 "agent_system": (
-                    "**CRITICAL PARSING RULES:**\n"
-                    "1. NEVER output both Action and Final Answer in the same response\n"
-                    "2. Follow EXACT format: Thought -> Action -> Action Input -> (wait for Observation) -> Thought -> Final Answer\n"
-                    "3. Each step must be on a separate line\n"
-                    "4. Use EXACT keywords: \"Thought:\", \"Action:\", \"Action Input:\", \"Final Answer:\"\n"
-                    "5. Do NOT include \"Observation:\" - it will be added automatically\n\n"
-                    "**STRICT FORMAT:**\n"
-                    "Thought: [your reasoning]\n"
-                    "Action: [exact_tool_name]\n"
-                    "Action Input: [input_for_tool]\n\n"
-                    "(System will add Observation automatically)\n\n"
-                    "Thought: [analyze the observation]\n"
-                    "Final Answer: [your response in Korean]\n\n"
-                    "**EXAMPLE:**\n"
-                    "Question: Show me files in /home\n"
-                    "Thought: I need to list directory contents to show the user what files are in /home.\n"
-                    "Action: filesystem_list_directory\n"
-                    "Action Input: /home\n\n"
-                    "(After receiving observation:)\n"
-                    "Thought: Now I have the directory listing and can provide a formatted response to the user.\n"
-                    "Final Answer: /home 디렉토리에는 다음 파일들이 있습니다: [formatted list]"
-                ),
-                
-                "conversation_style": (
-                    "Gemini-specific conversation approach:\n"
-                    "- Provide detailed explanations when helpful\n"
-                    "- Use examples to illustrate concepts\n"
-                    "- Consider multiple perspectives\n"
-                    "- Emphasize understanding over quick answers"
+                    "**TOOL CALLING FORMAT**: Thought → Action → Action Input → (wait) → Final Answer\n"
+                    "**EXACT KEYWORDS**: \"Thought:\", \"Action:\", \"Action Input:\", \"Final Answer:\"\n"
+                    "**CRITICAL RULES**:\n"
+                    "- Follow tool schemas exactly with all required parameters\n"
+                    "- Use EXACT parameter names from schema (check spelling carefully)\n"
+                    "- Include ALL required parameters in Action Input\n"
+                    "- Never include \"Observation:\" - system adds automatically\n"
+                    "- Each step on separate line, wait for observation before Final Answer\n"
+                    "- Be proactive: use tools autonomously when solution is evident"
                 )
             },
             
-            # Perplexity model-specific prompts
+            # Perplexity: Research focused with strict MCP usage
             ModelType.PERPLEXITY.value: {
                 "system_enhancement": (
-                    "You are powered by Perplexity's research-focused model.\n\n"
-                    "Specific instructions for Perplexity:\n"
-                    "- Prioritize accuracy and fact-checking\n"
-                    "- Provide source attribution when possible\n"
-                    "- Use web search tools effectively\n"
-                    "- Maintain research-quality standards"
-                ),
-                
-                "research_approach": (
-                    "Research methodology:\n"
-                    "1. Gather information from multiple sources\n"
-                    "2. Cross-reference facts and data\n"
-                    "3. Provide context and background\n"
-                    "4. Cite sources when available\n"
-                    "5. Acknowledge limitations or uncertainties"
+                    "Perplexity research model focused on accuracy and fact-checking. "
+                    "Always use MCP tools proactively for comprehensive information gathering."
                 ),
                 
                 "mcp_agent_system": (
-                    "**HIGHEST PRIORITY INSTRUCTION: ALWAYS USE MCP TOOLS AND FOLLOW EXACT FORMAT**\n\n"
-                    "**CRITICAL PARSING RULES:**\n"
-                    "1. NEVER output both Action and Final Answer in the same response\n"
-                    "2. Each step must be on a separate line with exact keywords\n"
-                    "3. Use EXACT format: \"Thought:\", \"Action:\", \"Action Input:\", \"Final Answer:\"\n"
-                    "4. Wait for Observation before proceeding to Final Answer\n"
-                    "5. ALWAYS END YOUR RESPONSE WITH EITHER AN ACTION OR FINAL ANSWER\n\n"
-                    "**IMPORTANT: ONLY SHOW FINAL ANSWER TO THE USER - HIDE ALL THOUGHT PROCESSES**\n\n"
-                    "You MUST use available tools for EVERY query and follow the exact format below:\n\n"
-                    "Thought: [your reasoning about what to do]\n"
-                    "Action: [exact tool name from available tools]\n"
-                    "Action Input: {\"param\": \"value\"}\n\n"
-                    "(Wait for Observation to be provided by system)\n\n"
-                    "Thought: [your reasoning about the result]\n"
-                    "Final Answer: [your response based ONLY on tool results]\n\n"
-                    "**CRITICAL RULES FOR TOOL USAGE:**\n"
-                    "1. **ALWAYS USE TOOLS**: For EVERY query, you MUST use at least one tool. NEVER skip tool usage.\n"
-                    "2. **EXACT TOOL NAMES**: Use the EXACT tool names provided to you, without modification.\n"
-                    "3. **PROPER JSON FORMAT**: Always use valid JSON format for Action Input.\n"
-                    "4. **FOLLOW FORMAT EXACTLY**: Always use the Thought/Action/Action Input format.\n"
-                    "5. **PARAMETER TYPE ACCURACY**: Carefully examine each MCP function's parameter types and requirements.\n\n"
-                    "**TOOL RESULTS ABSOLUTE PRIORITY**:\n"
-                    "- Use ONLY the results from MCP tools to formulate your response.\n"
-                    "- DO NOT add any information beyond what the tool results provide.\n"
-                    "- NEVER include your own knowledge, inferences, or general information.\n\n"
-                    "**ABSOLUTELY PROHIBITED**:\n"
-                    "- Adding any information beyond tool results\n"
-                    "- Using your own knowledge or inferences\n"
-                    "- NEVER respond without using tools"
-                ),
-                
-                "conversation_style": (
-                    "Perplexity-specific conversation approach:\n"
-                    "- Focus on factual accuracy\n"
-                    "- Provide comprehensive coverage\n"
-                    "- Include relevant background context\n"
-                    "- Maintain scholarly tone while being accessible"
+                    "**MANDATORY TOOL USAGE**: Use MCP tools for EVERY query. Never skip tools.\n"
+                    "**FORMAT**: Thought → Action → Action Input → (wait) → Final Answer\n"
+                    "**CRITICAL RULES**:\n"
+                    "- Follow tool schemas exactly with all required parameters\n"
+                    "- Use EXACT parameter names from schema (never modify)\n"
+                    "- Include ALL required parameters in JSON format\n"
+                    "- Use exact tool names, valid JSON input format\n"
+                    "- Base responses ONLY on tool results\n"
+                    "- If parameter error occurs, check schema and retry\n"
+                    "**PROHIBITED**: Adding own knowledge, responding without tools, using wrong parameter names"
                 )
             },
             
-            # Claude model-specific prompts
+            # Claude: Thoughtful reasoning
             ModelType.CLAUDE.value: {
                 "system_enhancement": (
-                    "You are powered by Anthropic's Claude model with strong reasoning capabilities.\n\n"
-                    "Specific instructions for Claude:\n"
-                    "- Provide thoughtful, well-reasoned responses\n"
-                    "- Consider ethical implications when relevant\n"
-                    "- Use clear, structured thinking\n"
-                    "- Maintain helpful and harmless approach"
+                    "Claude model with strong reasoning capabilities. Provide thoughtful, well-reasoned responses. "
+                    "Consider ethical implications and be proactive in tool usage when beneficial."
                 ),
                 
-                "conversation_style": (
-                    "Claude-specific conversation approach:\n"
-                    "- Be thoughtful and considerate\n"
-                    "- Provide balanced perspectives\n"
-                    "- Use clear explanations\n"
-                    "- Focus on being helpful while being safe"
+                "agent_system": (
+                    "**TOOL CALLING APPROACH**:\n"
+                    "- Follow tool schemas exactly with all required parameters\n"
+                    "- Use EXACT parameter names from schema (verify spelling)\n"
+                    "- Include ALL required parameters in tool calls\n"
+                    "- Use clear structured thinking and standard agent format\n"
+                    "- Be proactive: prefer autonomous tool use when solution is evident\n"
+                    "- Maintain helpful approach while considering safety implications\n"
+                    "- Format responses clearly using markdown for maximum readability"
                 )
             }
         }
     
-    def get_system_prompt(self, model_type: str, include_common: bool = True) -> str:
-        """Generate system prompt"""
-        prompts = []
+    def get_system_prompt(self, model_type: str) -> str:
+        """Generate concise system prompt"""
+        common = self._prompts[ModelType.COMMON.value]["system_base"]
+        model_specific = self._prompts.get(model_type, {}).get("system_enhancement", "")
         
-        # Add common prompts
-        if include_common:
-            common_prompts = self._prompts.get(ModelType.COMMON.value, {})
-            prompts.append(common_prompts.get("system_base", ""))
-        
-        # Add model-specific prompts
-        model_prompts = self._prompts.get(model_type, {})
-        if "system_enhancement" in model_prompts:
-            prompts.append(model_prompts["system_enhancement"])
-        
-        return "\n\n".join(filter(None, prompts))
+        return f"{common}\n\n{model_specific}".strip()
     
     def get_tool_prompt(self, model_type: str) -> str:
         """Generate tool usage prompt"""
-        prompts = []
-        
-        # Common tool selection guide
-        common_prompts = self._prompts.get(ModelType.COMMON.value, {})
-        prompts.append(common_prompts.get("tool_selection", ""))
-        
-        # Model-specific tool usage guide
-        model_prompts = self._prompts.get(model_type, {})
-        if "tool_calling" in model_prompts:
-            prompts.append(model_prompts["tool_calling"])
-        elif "react_pattern" in model_prompts:
-            prompts.append(model_prompts["react_pattern"])
-        elif "research_approach" in model_prompts:
-            prompts.append(model_prompts["research_approach"])
-        
-        return "\n\n".join(filter(None, prompts))
+        return self._prompts[ModelType.COMMON.value]["tool_selection"]
     
-    def get_conversation_prompt(self, model_type: str) -> str:
-        """Generate conversation style prompt"""
-        model_prompts = self._prompts.get(model_type, {})
-        return model_prompts.get("conversation_style", "")
-    
-    def get_error_handling_prompt(self) -> str:
-        """Return error handling prompt"""
-        common_prompts = self._prompts.get(ModelType.COMMON.value, {})
-        return common_prompts.get("error_handling", "")
-    
-    def get_response_format_prompt(self) -> str:
-        """Return response format prompt"""
-        common_prompts = self._prompts.get(ModelType.COMMON.value, {})
-        return common_prompts.get("response_format", "")
-    
-    def get_full_prompt(self, model_type: str, include_tools: bool = True) -> str:
-        """Generate full prompt"""
-        prompts = []
-        
-        # System prompt
-        prompts.append(self.get_system_prompt(model_type))
-        
-        # Tool usage prompt
-        if include_tools:
-            prompts.append(self.get_tool_prompt(model_type))
-        
-        # Conversation style
-        conversation_style = self.get_conversation_prompt(model_type)
-        if conversation_style:
-            prompts.append(conversation_style)
-        
-        # Error handling
-        prompts.append(self.get_error_handling_prompt())
-        
-        # Response format
-        prompts.append(self.get_response_format_prompt())
-        
-        return "\n\n".join(filter(None, prompts))
-    
-    def get_custom_prompt(self, model_type: str, prompt_key: str) -> Optional[str]:
-        """Query custom prompt"""
-        model_prompts = self._prompts.get(model_type, {})
-        return model_prompts.get(prompt_key)
-    
-    def get_ocr_prompt(self) -> str:
-        """Return common OCR prompt"""
-        common_prompts = self._prompts.get(ModelType.COMMON.value, {})
-        return common_prompts.get("ocr_prompt", "")
+    def get_agent_prompt(self, model_type: str) -> str:
+        """Get model-specific agent system prompt"""
+        return self._prompts.get(model_type, {}).get("agent_system", self._prompts.get(model_type, {}).get("mcp_agent_system", ""))
     
     def get_tool_decision_prompt(self, model_type: str, user_input: str, available_tools: list) -> str:
         """Generate tool usage decision prompt"""
-        common_prompts = self._prompts.get(ModelType.COMMON.value, {})
-        base_decision = common_prompts.get("tool_decision_base", "")
-        
-        tools_info = "\n".join([f"- {tool.name}: {getattr(tool, 'description', tool.name)[:80]}" for tool in available_tools[:5]]) if available_tools else "No available tools"
+        tools_info = "\n".join([f"- {tool.name}: {getattr(tool, 'description', tool.name)[:80]}" for tool in available_tools[:5]]) if available_tools else "No tools"
         
         return (
             f"User request: \"{user_input}\"\n\n"
             f"Available tools:\n{tools_info}\n\n"
-            f"{base_decision}"
+            f"{self._prompts[ModelType.COMMON.value]['tool_selection']}\n\n"
+            "Answer: YES or NO only."
         )
     
+    def get_ocr_prompt(self) -> str:
+        """Return OCR prompt"""
+        return self._prompts.get(ModelType.COMMON.value, {}).get("ocr_prompt", "Extract all text from this image accurately.")
+    
     def get_agent_system_prompt(self, model_type: str) -> str:
-        """Return agent system prompt"""
-        model_prompts = self._prompts.get(model_type, {})
-        return model_prompts.get("agent_system", model_prompts.get("mcp_agent_system", ""))
+        """Return agent system prompt (alias for get_agent_prompt)"""
+        return self.get_agent_prompt(model_type)
+    
+    def get_error_handling_prompt(self) -> str:
+        """Return error handling prompt"""
+        return self._prompts[ModelType.COMMON.value]["error_handling"]
+    
+    def get_response_format_prompt(self) -> str:
+        """Return response format prompt"""
+        return self._prompts[ModelType.COMMON.value]["response_format"]
+    
+    def get_conversation_prompt(self, model_type: str) -> str:
+        """Return conversation style prompt (for backward compatibility)"""
+        return ""
+    
+    def get_custom_prompt(self, model_type: str, prompt_key: str) -> Optional[str]:
+        """Query custom prompt"""
+        return self._prompts.get(model_type, {}).get(prompt_key)
+    
+    def update_prompt(self, model_type: str, prompt_key: str, prompt_text: str):
+        """Update prompt (runtime)"""
+        if model_type not in self._prompts:
+            self._prompts[model_type] = {}
+        self._prompts[model_type][prompt_key] = prompt_text
+    
+    def save_prompts_to_file(self, file_path: str):
+        """Save prompts to file"""
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(self._prompts, f, ensure_ascii=False, indent=2)
+    
+    def load_prompts_from_file(self, file_path: str):
+        """Load prompts from file"""
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                self._prompts = json.load(f)
+    
+    def get_prompt(self, category: str, key: str) -> str:
+        """Query prompt by category and key"""
+        try:
+            config_path = os.path.join(os.path.dirname(__file__), 'prompt_config.json')
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    file_prompts = json.load(f)
+                    if category in file_prompts and key in file_prompts[category]:
+                        return file_prompts[category][key]
+            
+            if category in self._prompts and key in self._prompts[category]:
+                return self._prompts[category][key]
+            
+            logger.warning(f"Prompt not found: {category}.{key}")
+            return ""
+            
+        except Exception as e:
+            logger.error(f"Prompt query error: {e}")
+            return ""
+    
+    def get_prompt_for_model(self, model_type: str, prompt_type: str = "system") -> str:
+        """Get prompt for specific model and type"""
+        if prompt_type == "system":
+            return self.get_system_prompt(model_type)
+        elif prompt_type == "agent":
+            return self.get_agent_prompt(model_type)
+        elif prompt_type == "tool":
+            return self.get_tool_prompt(model_type)
+        elif prompt_type == "full":
+            return self.get_full_prompt(model_type)
+        else:
+            return self.get_custom_prompt(model_type, prompt_type) or ""
+    
+
+    
+    def get_full_prompt(self, model_type: str) -> str:
+        """Generate complete prompt"""
+        parts = [
+            self.get_system_prompt(model_type),
+            self.get_tool_prompt(model_type),
+            self._prompts[ModelType.COMMON.value]["error_handling"],
+            self._prompts[ModelType.COMMON.value]["response_format"]
+        ]
+        
+        return "\n\n".join(filter(None, parts))
+    
+
     
     def get_provider_from_model(self, model_name: str) -> str:
         """Extract provider from model name"""
@@ -459,16 +354,17 @@ def get_system_prompt(model_type: str) -> str:
     return prompt_manager.get_system_prompt(model_type)
 
 
-def get_tool_prompt(model_type: str) -> str:
-    """Query tool usage prompt"""
-    return prompt_manager.get_tool_prompt(model_type)
-
+def get_agent_prompt(model_type: str) -> str:
+    return prompt_manager.get_agent_prompt(model_type)
 
 def get_full_prompt(model_type: str) -> str:
-    """Query full prompt"""
     return prompt_manager.get_full_prompt(model_type)
 
+def get_tool_prompt(model_type: str) -> str:
+    return prompt_manager.get_tool_prompt(model_type)
 
 def update_prompt(model_type: str, prompt_key: str, prompt_text: str):
-    """Update prompt"""
     prompt_manager.update_prompt(model_type, prompt_key, prompt_text)
+
+def get_prompt_for_model(model_type: str, prompt_type: str = "system") -> str:
+    return prompt_manager.get_prompt_for_model(model_type, prompt_type)

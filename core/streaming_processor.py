@@ -3,6 +3,7 @@ from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema.output import LLMResult
 from ui.prompts import prompt_manager, ModelType
+from core.token_logger import TokenLogger
 import logging
 import threading
 import time
@@ -85,6 +86,12 @@ class StreamingChatProcessor:
                         full_response = response.content
                     
                     logger.info(f"스트리밍 응답 완료 - 길이: {len(full_response)}자")
+                    
+                    # 토큰 사용량 로깅
+                    model_name = getattr(llm, 'model_name', getattr(llm, 'model', 'unknown'))
+                    TokenLogger.log_messages_token_usage(
+                        model_name, messages, full_response, "streaming_chat"
+                    )
                     
                     if on_complete:
                         on_complete(full_response)

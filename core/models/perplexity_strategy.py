@@ -7,6 +7,7 @@ from core.perplexity_llm import PerplexityLLM
 from core.perplexity_wrapper import PerplexityWrapper
 from core.perplexity_output_parser import PerplexityOutputParser
 from ui.prompts import prompt_manager, ModelType
+from core.token_logger import TokenLogger
 import logging
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,11 @@ Answer: YES or NO only."""
             # Perplexity LLM에 직접 요청
             response = self.llm._call(decision_prompt)
             decision = response.strip().upper()
+            
+            # 토큰 사용량 로깅
+            TokenLogger.log_token_usage(
+                self.model_name, decision_prompt, decision, "tool_decision"
+            )
             
             result = "YES" in decision
             logger.info(f"Perplexity AI 도구 사용 판단: '{user_input}' -> {decision} -> {result}")

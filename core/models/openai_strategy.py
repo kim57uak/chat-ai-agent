@@ -5,6 +5,7 @@ from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from .base_model_strategy import BaseModelStrategy
 from ui.prompts import prompt_manager, ModelType
+from core.token_logger import TokenLogger
 import logging
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,11 @@ class OpenAIStrategy(BaseModelStrategy):
 
             response = self.llm.invoke(messages)
             decision = response.content.strip().upper()
+            
+            # 토큰 사용량 로깅
+            TokenLogger.log_messages_token_usage(
+                self.model_name, messages, decision, "tool_decision"
+            )
             
             result = "YES" in decision
             logger.info(f"OpenAI AI 도구 사용 판단: '{user_input}' -> {decision} -> {result}")

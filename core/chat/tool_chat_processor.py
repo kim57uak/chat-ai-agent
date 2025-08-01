@@ -1,5 +1,6 @@
 from typing import List, Dict, Tuple
 from .base_chat_processor import BaseChatProcessor
+from core.token_logger import TokenLogger
 import logging
 import time
 
@@ -48,7 +49,17 @@ class ToolChatProcessor(BaseChatProcessor):
                     agent_input["input"] = enhanced_input
                     logger.info(f"Agent 모드에 대화 히스토리 {len(conversation_history)}개 전달")
                 
+                # 에이전트 실행 전 입력 토큰 로깅을 위한 준비
+                input_text = agent_input["input"]
+                
                 result = self._agent_executor.invoke(agent_input)
+                
+                # 에이전트 실행 결과 토큰 로깅
+                output_text = result.get("output", "")
+                if output_text:
+                    TokenLogger.log_token_usage(
+                        self.model_strategy.model_name, input_text, output_text, "agent_execution"
+                    )
                     
             except Exception as agent_error:
                 error_msg = str(agent_error)
@@ -402,6 +413,11 @@ class ToolChatProcessor(BaseChatProcessor):
             
             # 모델별 응답 추출
             final_response = self._extract_response_text(response)
+            
+            # 토큰 사용량 로깅
+            TokenLogger.log_messages_token_usage(
+                self.model_strategy.model_name, messages, final_response, "tool_response_generation"
+            )
             if not final_response or len(final_response) < 10:
                 # 응답이 너무 짧거나 비어있으면 도구 결과를 직접 포맷팅
                 return self.format_response(f"요청하신 정보입니다:\n\n{limited_result}")

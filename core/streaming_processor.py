@@ -116,9 +116,11 @@ class StreamingChatProcessor:
         system_prompt = prompt_manager.get_system_prompt(ModelType.COMMON.value)
         messages.append(SystemMessage(content=system_prompt))
         
-        # 대화 히스토리 추가
+        # 대화 히스토리 추가 (여행 검색 시 더 많은 컨텍스트 유지)
         if conversation_history:
-            for msg in conversation_history[-10:]:  # 최근 10개만
+            # 여행 관련 요청인 경우 더 많은 히스토리 유지
+            history_limit = 15 if any(keyword in user_input.lower() for keyword in ['여행', '상품', '검색', '페이지']) else 10
+            for msg in conversation_history[-history_limit:]:
                 role = msg.get('role', '')
                 content = msg.get('content', '')
                 
@@ -136,7 +138,7 @@ class StreamingChatProcessor:
 class ChunkedResponseProcessor:
     """대용량 응답을 청크 단위로 처리하는 프로세서"""
     
-    def __init__(self, chunk_size: int = 100):
+    def __init__(self, chunk_size: int = 500):
         self.chunk_size = chunk_size
         self._cancelled = False
     

@@ -25,6 +25,12 @@ class AIBasedToolResultFormatter(ToolResultFormatter):
             if not tool_results:
                 return None
             
+            # 다중 페이지 데이터인지 확인하고 완전 출력 포맷터 사용
+            if self._has_multi_part_data(tool_results):
+                from .complete_output_formatter import CompleteOutputFormatter
+                complete_formatter = CompleteOutputFormatter()
+                return complete_formatter.format_tool_results(used_tools, tool_results, user_input, llm)
+            
             tool_names = [getattr(tool, '__name__', str(tool)) for tool in used_tools]
             results_text = "\n\n".join([f"Tool {i+1} Result: {str(result)}" for i, result in enumerate(tool_results)])
             
@@ -48,6 +54,22 @@ Tool Results:
         except Exception as e:
             logger.error(f"도구 결과 포맷팅 오류: {e}")
             return self._fallback_format(used_tools, tool_results)
+    
+    def _has_multi_part_data(self, tool_results: List) -> bool:
+        """다중 파트 데이터인지 확인"""
+        import re
+        multi_part_indicators = [
+            r'\d+/\d+',  # 페이지 표시
+            r'페이지\s*\d+',  # 페이지 언급
+            r'page\s*\d+',  # 영어 페이지
+            r'섹션\s*\d+',  # 섹션 언급
+        ]
+        
+        for result in tool_results:
+            result_str = str(result).lower()
+            if any(re.search(pattern, result_str) for pattern in multi_part_indicators):
+                return True
+        return False
     
     def _fallback_format(self, used_tools: List, tool_results: List) -> str:
         """폴백 포맷팅"""

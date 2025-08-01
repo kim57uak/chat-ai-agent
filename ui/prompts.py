@@ -205,6 +205,10 @@ class PromptManager:
         """Return OCR prompt"""
         return self._prompts.get(ModelType.COMMON.value, {}).get("ocr_prompt", "Extract all text from this image accurately.")
     
+    def get_complete_output_prompt(self) -> str:
+        """Return complete output prompt for multi-page data"""
+        return self.get_prompt("common", "complete_output")
+    
     def get_agent_system_prompt(self, model_type: str) -> str:
         """Return agent system prompt (alias for get_agent_prompt)"""
         return self.get_agent_prompt(model_type)

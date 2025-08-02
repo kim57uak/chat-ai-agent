@@ -38,47 +38,21 @@ class PromptManager:
                     "Always respond in Korean unless requested otherwise."
                 ),
                 
-                "ocr_prompt": (
-                    "Extract all text from this image with complete accuracy (OCR).\n\n"
-                    "**Required Tasks:**\n"
-                    "1. **Complete Text Extraction**: Extract all Korean, English, numbers, and symbols\n"
-                    "2. **Structure Analysis**: Identify document structure including tables, lists, headings\n"
-                    "3. **Layout Information**: Describe text position and arrangement\n"
-                    "4. **Accurate Transcription**: Record all characters precisely\n\n"
-                    "**Response Format:**\n"
-                    "## 📄 Extracted Text\n"
-                    "[List all text accurately]\n\n"
-                    "## 📋 Document Structure\n"
-                    "[Describe structure]\n\n"
-                    "**Important**: Extract ALL readable text completely."
-                ),
-                
-                "ocr_prompt": (
-                    "Extract all text from this image with complete accuracy (OCR).\n\n"
-                    "**Required Tasks:**\n"
-                    "1. **Complete Text Extraction**: Extract all Korean, English, numbers, and symbols without omission\n"
-                    "2. **Structure Analysis**: Identify document structure including tables, lists, headings, paragraphs\n"
-                    "3. **Layout Information**: Describe text position, size, and arrangement relationships\n"
-                    "4. **Accurate Transcription**: Record all characters precisely without errors\n\n"
-                    "**Response Format:**\n"
-                    "## 📄 Extracted Text\n"
-                    "[List all text accurately]\n\n"
-                    "## 📋 Document Structure\n"
-                    "[Describe structure including tables, lists, headings]\n\n"
-                    "**Important**: Extract ALL readable text from the image completely without any omissions."
-                ),
+                "ocr_prompt": "Extract all text from image accurately. Format: ## Text\n[content]\n## Structure\n[layout]",
                 
                 "tool_selection": (
-                    "**CRITICAL TOOL PARAMETER RULES:**\n"
+                    "**TOOL USAGE DECISION:**\n"
+                    "- If user mentions 'tool', 'use', 'search', 'find', 'get' = YES\n"
+                    "- If user requests data, files, external operations = YES\n"
+                    "- If user mentions specific tool names from available list = YES\n"
+                    "- For general knowledge, conversations, explanations = NO\n\n"
+                    "**SCHEMA COMPLIANCE MANDATORY:**\n"
                     "- ALWAYS use EXACT parameter names from tool schema\n"
                     "- Include ALL required parameters - check schema carefully\n"
-                    "- Follow schema exactly - never modify parameter names\n"
+                    "- Follow parameter types and formats exactly\n"
                     "- Verify JSON syntax: proper quotes, commas, brackets\n"
-                    "- If tool fails with parameter error, check schema and retry\n"
-                    "- Use tools for: real-time data, specific lookups, external operations\n"
-                    "- Don't use tools for: general knowledge, conversations, creative tasks\n"
-                    "- Be proactive: prefer autonomous tool use over asking user\n"
-                    "- Never mention tool names to user - describe actions directly"
+                    "- If tool fails with parameter error, check schema and retry\n\n"
+                    "**When in doubt about tool usage, choose YES**"
                 ),
                 
                 "error_handling": (
@@ -122,15 +96,14 @@ class PromptManager:
                 ),
                 
                 "agent_system": (
-                    "**TOOL CALLING FORMAT**: Thought → Action → Action Input → (wait) → Final Answer\n"
-                    "**EXACT KEYWORDS**: \"Thought:\", \"Action:\", \"Action Input:\", \"Final Answer:\"\n"
-                    "**CRITICAL RULES**:\n"
-                    "- Follow tool schemas exactly with all required parameters\n"
-                    "- Use EXACT parameter names from schema (check spelling carefully)\n"
-                    "- Include ALL required parameters in Action Input\n"
-                    "- Never include \"Observation:\" - system adds automatically\n"
-                    "- Each step on separate line, wait for observation before Final Answer\n"
-                    "- Be proactive: use tools autonomously when solution is evident"
+                    "**STEP 1 - Tool Use:**\n"
+                    "Thought: [reasoning]\n"
+                    "Action: [exact_tool_name]\n"
+                    "Action Input: [json_params]\n\n"
+                    "**STEP 2 - After Observation:**\n"
+                    "Thought: [analyze the observation result]\n"
+                    "Final Answer: [Korean response based on observation]\n\n"
+                    "**CRITICAL:** Never skip Observation. Never mix steps."
                 )
             },
             

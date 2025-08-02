@@ -69,12 +69,9 @@ class ToolChatProcessor(BaseChatProcessor):
                     logger.warning(f"에이전트 실행 시간/반복 제한 도달: {error_msg[:100]}")
                     return "요청이 복잡하여 처리 시간이 초과되었습니다. 더 구체적이고 간단한 질문으로 다시 시도해주세요.", []
                 
-                # 파싱 오류 처리
-                if "parse" in error_msg.lower() or "format" in error_msg.lower():
-                    logger.warning(f"에이전트 파싱 오류: {error_msg[:200]}...")
-                    
-                    # 단순 채팅으로 대체
-                    logger.info("파싱 오류로 인해 단순 채팅으로 대체")
+                # 파싱 오류 또는 형식 오류 처리
+                if any(keyword in error_msg.lower() for keyword in ["parse", "format", "invalid format", "exact format"]):
+                    logger.warning(f"에이전트 형식 오류 감지, 단순 채팅으로 전환: {error_msg[:100]}")
                     from .simple_chat_processor import SimpleChatProcessor
                     simple_processor = SimpleChatProcessor(self.model_strategy)
                     return simple_processor.process_message(user_input, conversation_history)

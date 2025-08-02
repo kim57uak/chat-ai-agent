@@ -180,12 +180,19 @@ class GeminiStrategy(BaseModelStrategy):
         
         # Gemini는 ReAct 에이전트만 지원
         react_prompt = PromptTemplate.from_template(
-            f"""{agent_system_prompt}
+            f"""CRITICAL: Tool name must be EXACT - no extra text!
+
+{agent_system_prompt}
 
 Available tools:
 {{tools}}
 
 Tool names: {{tool_names}}
+
+EXAMPLE:
+Thought: I need to use a tool
+Action: [exact_tool_name_from_list]
+Action Input: {{{{"param": "value"}}}}
 
 Question: {{input}}
 {{agent_scratchpad}}

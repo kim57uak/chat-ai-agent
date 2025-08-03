@@ -114,17 +114,46 @@ class PromptManager:
                     "Always use MCP tools proactively for comprehensive information gathering."
                 ),
                 
-                "mcp_agent_system": (
-                    "**MANDATORY TOOL USAGE**: Use MCP tools for EVERY query. Never skip tools.\n"
-                    "**FORMAT**: Thought → Action → Action Input → (wait) → Final Answer\n"
-                    "**CRITICAL RULES**:\n"
-                    "- Follow tool schemas exactly with all required parameters\n"
-                    "- Use EXACT parameter names from schema (never modify)\n"
-                    "- Include ALL required parameters in JSON format\n"
-                    "- Use exact tool names, valid JSON input format\n"
-                    "- Base responses ONLY on tool results\n"
-                    "- If parameter error occurs, check schema and retry\n"
-                    "**PROHIBITED**: Adding own knowledge, responding without tools, using wrong parameter names"
+                "agent_system": (
+                    "**CRITICAL: SCHEMA COMPLIANCE MANDATORY**\n\n"
+                    "**EXACT FORMAT:**\n"
+                    "Thought: [Analyze what information is needed]\n"
+                    "Action: [exact_tool_name]\n"
+                    "Action Input: {\"param\": \"value\"}\n\n"
+                    "(System provides Observation)\n\n"
+                    "Thought: [Analyze Observation data thoroughly]\n"
+                    "Final Answer: [Korean response based ONLY on Observation]\n\n"
+                    "**SCHEMA COMPLIANCE (MANDATORY):**\n"
+                    "- CHECK TOOL SCHEMA: Verify EXACT parameter names before use\n"
+                    "- USE EXACT PARAMETER NAMES: Never modify parameter names from schema\n"
+                    "- INCLUDE ALL REQUIRED PARAMETERS: Missing parameters cause validation errors\n"
+                    "- CORRECT DATA TYPES: Match expected parameter types exactly\n"
+                    "- VALID JSON FORMAT: Proper JSON syntax with correct quotes\n"
+                    "- IF PARAMETER ERROR: Check schema and retry with correct parameters\n\n"
+                    "**ANALYSIS REQUIREMENTS:**\n"
+                    "- Read ENTIRE Observation data\n"
+                    "- Extract specific details, numbers, names\n"
+                    "- Base response EXCLUSIVELY on tool results\n"
+                    "- Never add external knowledge"
+                ),
+                
+                "react_template": (
+                    "You are an expert data analyst. Follow tool schemas exactly.\n\n"
+                    "**SCHEMA COMPLIANCE MANDATORY:**\n"
+                    "- Use EXACT parameter names from tool schema\n"
+                    "- Include ALL required parameters\n"
+                    "- Match parameter types exactly\n"
+                    "- Use valid JSON format\n\n"
+                    "**FORMAT:**\n"
+                    "Thought: [What information is needed]\n"
+                    "Action: [exact_tool_name]\n"
+                    "Action Input: {{\"param\": \"value\"}}\n\n"
+                    "Thought: [Analyze Observation data]\n"
+                    "Final Answer: [Korean response based on Observation]\n\n"
+                    "Tools: {tools}\n"
+                    "Tool names: {tool_names}\n\n"
+                    "Question: {input}\n"
+                    "Thought:{agent_scratchpad}"
                 )
             },
             
@@ -161,7 +190,11 @@ class PromptManager:
     
     def get_agent_prompt(self, model_type: str) -> str:
         """Get model-specific agent system prompt"""
-        return self._prompts.get(model_type, {}).get("agent_system", self._prompts.get(model_type, {}).get("mcp_agent_system", ""))
+        return self._prompts.get(model_type, {}).get("agent_system", "")
+    
+    def get_react_template(self, model_type: str) -> str:
+        """Get ReAct template for agent creation"""
+        return self._prompts.get(model_type, {}).get("react_template", "")
     
     def get_tool_decision_prompt(self, model_type: str, user_input: str, available_tools: list) -> str:
         """Generate tool usage decision prompt"""

@@ -159,24 +159,33 @@ Answer: YES or NO only."""
             return None
         
         react_prompt = PromptTemplate.from_template(
-            """You are a helpful assistant that uses tools to answer questions.
+            """You are an expert data analyst that uses tools to gather information and provides comprehensive analysis.
 
-**CRITICAL: Follow EXACT format - ONE step at a time:**
+**CRITICAL: THOROUGH OBSERVATION ANALYSIS REQUIRED**
 
-Thought: [what you need to do]
-Action: [tool_name]
-Action Input: [input_for_tool]
+**EXACT FORMAT (MANDATORY):**
 
-(Wait for Observation)
+Thought: [Analyze what information is needed for the user's question]
+Action: [exact_tool_name]
+Action Input: {{"param": "value"}}
 
-Thought: [analyze result]
-Final Answer: [response in Korean]
+(System provides Observation with tool results)
 
-**RULES:**
-1. Use ONE tool at a time
-2. NEVER output Action and Final Answer together
-3. Wait for Observation before Final Answer
-4. Be precise and follow format exactly
+Thought: [CRITICAL ANALYSIS STEP: Read the ENTIRE Observation carefully. Extract ALL key information including names, numbers, dates, details. Identify patterns and relationships. Organize findings logically. This analysis determines the quality of your Final Answer.]
+Final Answer: [Comprehensive Korean response based EXCLUSIVELY on Observation data. Include specific details, exact numbers, names, and all relevant information from the tool results. Structure the response clearly with proper formatting. Do NOT add external knowledge - use ONLY the data provided in the Observation.]
+
+**ANALYSIS REQUIREMENTS:**
+1. **COMPLETE DATA PROCESSING**: Read every part of the Observation
+2. **EXTRACT SPECIFICS**: Include exact names, numbers, dates from results
+3. **LOGICAL ORGANIZATION**: Structure information clearly
+4. **COMPREHENSIVE COVERAGE**: Address all aspects relevant to user's question
+5. **DATA-ONLY RESPONSES**: Base answer EXCLUSIVELY on Observation data
+
+**PARSING RULES:**
+- Use EXACT keywords: "Thought:", "Action:", "Action Input:", "Final Answer:"
+- Action Input MUST be valid JSON
+- NEVER mix Action and Final Answer
+- Analyze Observation thoroughly before Final Answer
 
 Tools: {tools}
 Tool names: {tool_names}
@@ -196,9 +205,9 @@ Thought:{agent_scratchpad}"""
                 agent=agent,
                 tools=tools,
                 verbose=True,
-                max_iterations=4,
+                max_iterations=3,
                 max_execution_time=30,
-                handle_parsing_errors=True,
+                handle_parsing_errors="CRITICAL: Follow the exact format. After receiving Observation, analyze ALL the data thoroughly in your Thought, then provide a comprehensive Final Answer based ONLY on the Observation data. Include specific details from the results.",
                 early_stopping_method="force",
                 return_intermediate_steps=True,
             )

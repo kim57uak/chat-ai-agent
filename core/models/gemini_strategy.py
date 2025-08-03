@@ -34,10 +34,14 @@ class GeminiStrategy(BaseModelStrategy):
         else:
             enhanced_prompt = self.get_default_system_prompt()
         
-        # 대화 히스토리가 있으면 시스템 프롬프트에 컨텍스트 추가
+        # 대화 히스토리 컨텍스트 추가
         if conversation_history:
             history_context = self._format_conversation_history(conversation_history)
-            enhanced_prompt += f"\n\n**Previous Conversation Context:**\n{history_context}\n\nPlease consider this conversation history when responding."
+            enhanced_prompt += (
+                f"\n\n## 💬 Previous Conversation:\n"
+                f"{history_context}\n\n"
+                f"ℹ️ Please consider this conversation history when responding."
+            )
         
         messages.append(HumanMessage(content=enhanced_prompt))
         
@@ -57,18 +61,18 @@ class GeminiStrategy(BaseModelStrategy):
         return messages
     
     def _format_conversation_history(self, conversation_history: List[Dict]) -> str:
-        """대화 히스토리를 텍스트로 포맷팅"""
+        """대화 히스토리를 가독성 좋게 포맷팅"""
         formatted_history = []
-        for msg in conversation_history:
+        for i, msg in enumerate(conversation_history, 1):
             role = msg.get("role", "")
             content = msg.get("content", "")
             
             if role == "user":
-                formatted_history.append(f"User: {content}")
+                formatted_history.append(f"**[{i}] 👤 User:** {content}")
             elif role in ["assistant", "agent"]:
-                formatted_history.append(f"Assistant: {content}")
+                formatted_history.append(f"**[{i}] 🤖 Assistant:** {content}")
         
-        return "\n".join(formatted_history)
+        return "\n\n".join(formatted_history)
     
     def process_image_input(self, user_input: str) -> BaseMessage:
         """Gemini 이미지 입력 처리"""
@@ -139,11 +143,21 @@ class GeminiStrategy(BaseModelStrategy):
             
             # Agent 모드 컨텍스트 추가
             if force_agent:
-                decision_prompt += "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
+                decision_prompt += (
+                    "\n\n## 🔧 Agent Mode Active\n"
+                    "User selected Agent mode - be more inclined to use tools for:\n"
+                    "- Information gathering\n"
+                    "- Searches and data processing\n"
+                    "- External API calls"
+                )
             
-            # Gemini는 시스템 메시지를 인간 메시지로 변환
+            # Gemini 메시지 구성 (가독성 개선)
             messages = [
-                HumanMessage(content="You are an expert at analyzing user requests to determine if tools are needed. When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row."),
+                HumanMessage(content=(
+                    "# Tool Decision Expert\n\n"
+                    "You analyze user requests to determine if tools are needed.\n\n"
+                    "ℹ️ **Important:** When creating tables, use proper markdown format with pipe separators."
+                )),
                 HumanMessage(content=decision_prompt),
             ]
             
@@ -171,42 +185,121 @@ class GeminiStrategy(BaseModelStrategy):
             return False
     
     def create_agent_executor(self, tools: List) -> Optional[AgentExecutor]:
-        """Gemini ReAct 에이전트 생성 (도구 호환성 개선)"""
+        """Gemini ReAct 에이전트 생성 (모델별 프롬프트 분기)"""
         if not tools:
             return None
         
-        # 중앙관리 시스템에서 에이전트 시스템 프롬프트 가져오기
-        agent_system_prompt = prompt_manager.get_agent_system_prompt(ModelType.GOOGLE.value)
+        # 모델별 프롬프트 선택
+        if "2.5-pro" in self.model_name.lower():
+            # Pro 모델용 파싱 강제 프롬프트
+            agent_system_prompt = (
+                "## 🚨 CRITICAL: Every response MUST start with a keyword\n\n"
+                "### Required Keywords:\n"
+                "- `Thought:` [your reasoning]\n"
+                "- `Action:` [exact_tool_name]\n"
+                "- `Action Input:` [json_parameters]\n"
+                "- `Final Answer:` [complete response with tables/content]\n\n"
+                "### ✅ Correct Examples:\n"
+                "```\n"
+                "Final Answer: 검색 결과입니다.\n"
+                "| 상품명 | 가격 |\n"
+                "Thought: 도구를 사용해야 합니다.\n"
+                "```\n\n"
+                "### ❌ Wrong Examples (Cause Parsing Error):\n"
+                "```\n"
+                "검색 결과입니다. | 상품명 | 가격 |\n"
+                "2023년 1월 유럽 여행 상품을 조회했습니다.\n"
+                "```\n\n"
+                "**Rule: ANY response to user MUST start with 'Final Answer:'**"
+            )
+        else:
+            # Flash 및 기타 모델용 기존 프롬프트 (가독성 개선)
+            agent_system_prompt = (
+                "## Google Gemini ReAct Format\n\n"
+                "### Step 1 - Tool Use:\n"
+                "`Thought:` [your reasoning]\n"
+                "`Action:` [exact_tool_name]\n"
+                "`Action Input:` [json_params]\n\n"
+                "### Step 2 - After Observation:\n"
+                "`Thought:` [analyze the observation result]\n"
+                "`Final Answer:` [Korean response based on observation]\n\n"
+                "### 🚨 Critical Rules:\n"
+                "- Never skip Observation\n"
+                "- Never mix steps\n"
+                "- Use exact tool names from schema\n"
+                "- Wait for system Observation before Final Answer"
+            )
         
         # Gemini는 ReAct 에이전트만 지원
-        react_prompt = PromptTemplate.from_template(
-            f"""CRITICAL: Tool name must be EXACT - no extra text!
+        if "2.5-pro" in self.model_name.lower():
+            # Pro 모델용 강력한 파싱 템플릿
+            react_prompt = PromptTemplate.from_template(
+                f"""# 🚨 Parsing Rule: Start every response with a keyword
 
 {agent_system_prompt}
 
-Available tools:
+## Available Tools:
 {{tools}}
 
-Tool names: {{tool_names}}
+## Tool Names:
+{{tool_names}}
 
-EXAMPLE:
+## Process:
+1. **First**: `Thought:` → `Action:` → `Action Input:`
+2. **After Observation**: `Thought:` → `Final Answer:`
+
+---
+**Question:** {{input}}
+{{agent_scratchpad}}"""
+            )
+        else:
+            # Flash 및 기타 모델용 기존 템플릿 (가독성 개선)
+            react_prompt = PromptTemplate.from_template(
+                f"""# Google Gemini ReAct Agent
+
+{agent_system_prompt}
+
+## Available Tools:
+{{tools}}
+
+## Tool Names:
+{{tool_names}}
+
+## Example Process:
+**Step 1:**
+```
 Thought: I need to use a tool
 Action: [exact_tool_name_from_list]
 Action Input: {{{{"param": "value"}}}}
+```
 
-Question: {{input}}
-{{agent_scratchpad}}
-            """
-        )
+**Step 2 (After Observation):**
+```
+Thought: [analyze the observation result]
+Final Answer: [Korean response based on observation]
+```
+
+⚠️ **Important:** Never output content directly! Always use Final Answer format!
+
+---
+**Question:** {{input}}
+{{agent_scratchpad}}"""
+            )
 
         agent = create_react_agent(self.llm, tools, react_prompt)
+        # 모델별 에러 처리 메시지
+        if "2.5-pro" in self.model_name.lower():
+            error_msg = "🚨 PARSING ERROR! Start with: 'Thought:', 'Action:', 'Action Input:', or 'Final Answer:'"
+        else:
+            error_msg = "Follow ReAct format: Thought → Action → Action Input → Final Answer"
+        
         return AgentExecutor(
             agent=agent,
             tools=tools,
             verbose=True,
             max_iterations=5,
             max_execution_time=30,
-            handle_parsing_errors="Invalid format! You must follow the exact format: Thought -> Action -> Action Input. Do NOT include both Action and Final Answer in the same response.",
+            handle_parsing_errors=error_msg,
             early_stopping_method="force",
             return_intermediate_steps=True,
         )

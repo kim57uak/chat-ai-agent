@@ -6,6 +6,7 @@ from langchain.prompts import PromptTemplate
 from .base_model_strategy import BaseModelStrategy
 from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
+from core.parsers.custom_react_parser import CustomReActParser
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class GeminiStrategy(BaseModelStrategy):
             google_api_key=self.api_key,
             temperature=0.1,
             convert_system_message_to_human=True,
-            max_tokens=4096,
+            max_tokens=16384,
         )
     
     def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
@@ -190,7 +191,7 @@ class GeminiStrategy(BaseModelStrategy):
             return None
         
         # 모델별 프롬프트 선택
-        if "2.5-pro" in self.model_name.lower():
+        if "pro" in self.model_name.lower():
             # Pro 모델용 파싱 강제 프롬프트
             agent_system_prompt = (
                 "## 🚨 CRITICAL: Every response MUST start with a keyword\n\n"
@@ -201,16 +202,14 @@ class GeminiStrategy(BaseModelStrategy):
                 "- `Final Answer:` [complete response with tables/content]\n\n"
                 "### ✅ Correct Examples:\n"
                 "```\n"
-                "Final Answer: 검색 결과입니다.\n"
-                "| 상품명 | 가격 |\n"
-                "Thought: 도구를 사용해야 합니다.\n"
+                "Final Answer: Here are the search results.\n"
+                "| Product | Price |\n"
                 "```\n\n"
-                "### ❌ Wrong Examples (Cause Parsing Error):\n"
-                "```\n"
-                "검색 결과입니다. | 상품명 | 가격 |\n"
-                "2023년 1월 유럽 여행 상품을 조회했습니다.\n"
-                "```\n\n"
-                "**Rule: ANY response to user MUST start with 'Final Answer:'**"
+                "### 📏 Response Length Control:\n"
+                "- Keep Final Answer under 16384 tokens to prevent parsing errors\n"
+                "- If data is large, provide summary with key statistics\n"
+                "- Always prioritize essential information over details\n\n"
+                "**Rule: Follow ReAct format - Thought → Action → Action Input → Final Answer**"
             )
         else:
             # Flash 및 기타 모델용 기존 프롬프트 (가독성 개선)
@@ -222,16 +221,17 @@ class GeminiStrategy(BaseModelStrategy):
                 "`Action Input:` [json_params]\n\n"
                 "### Step 2 - After Observation:\n"
                 "`Thought:` [analyze the observation result]\n"
-                "`Final Answer:` [Korean response based on observation]\n\n"
+                "`Final Answer:` [response based on observation]\n\n"
                 "### 🚨 Critical Rules:\n"
                 "- Never skip Observation\n"
                 "- Never mix steps\n"
                 "- Use exact tool names from schema\n"
-                "- Wait for system Observation before Final Answer"
+                "- Wait for system Observation before Final Answer\n"
+                "- Keep Final Answer under 16384 tokens (summarize if needed)"
             )
         
         # Gemini는 ReAct 에이전트만 지원
-        if "2.5-pro" in self.model_name.lower():
+        if "pro" in self.model_name.lower():
             # Pro 모델용 강력한 파싱 템플릿
             react_prompt = PromptTemplate.from_template(
                 f"""# 🚨 Parsing Rule: Start every response with a keyword
@@ -246,7 +246,8 @@ class GeminiStrategy(BaseModelStrategy):
 
 ## Process:
 1. **First**: `Thought:` → `Action:` → `Action Input:`
-2. **After Observation**: `Thought:` → `Final Answer:`
+2. **Wait for Observation**
+3. **Then**: `Thought:` → `Final Answer:`
 
 ---
 **Question:** {{input}}
@@ -276,7 +277,7 @@ Action Input: {{{{"param": "value"}}}}
 **Step 2 (After Observation):**
 ```
 Thought: [analyze the observation result]
-Final Answer: [Korean response based on observation]
+Final Answer: [response based on observation]
 ```
 
 ⚠️ **Important:** Never output content directly! Always use Final Answer format!
@@ -286,12 +287,9 @@ Final Answer: [Korean response based on observation]
 {{agent_scratchpad}}"""
             )
 
-        agent = create_react_agent(self.llm, tools, react_prompt)
-        # 모델별 에러 처리 메시지
-        if "2.5-pro" in self.model_name.lower():
-            error_msg = "🚨 PARSING ERROR! Start with: 'Thought:', 'Action:', 'Action Input:', or 'Final Answer:'"
-        else:
-            error_msg = "Follow ReAct format: Thought → Action → Action Input → Final Answer"
+        # 커스텀 파서 사용
+        custom_parser = CustomReActParser()
+        agent = create_react_agent(self.llm, tools, react_prompt, output_parser=custom_parser)
         
         return AgentExecutor(
             agent=agent,
@@ -299,7 +297,7 @@ Final Answer: [Korean response based on observation]
             verbose=True,
             max_iterations=5,
             max_execution_time=30,
-            handle_parsing_errors=error_msg,
+            handle_parsing_errors=True,  # 커스텀 파서가 처리
             early_stopping_method="force",
             return_intermediate_steps=True,
         )

@@ -41,18 +41,33 @@ class PromptManager:
                 "ocr_prompt": "Extract all text from image accurately. Format: ## Text\n[content]\n## Structure\n[layout]",
                 
                 "tool_selection": (
-                    "**TOOL USAGE DECISION:**\n"
-                    "- If user mentions 'tool', 'use', 'search', 'find', 'get' = YES\n"
-                    "- If user requests data, files, external operations = YES\n"
-                    "- If user mentions specific tool names from available list = YES\n"
-                    "- For general knowledge, conversations, explanations = NO\n\n"
-                    "**SCHEMA COMPLIANCE MANDATORY:**\n"
-                    "- ALWAYS use EXACT parameter names from tool schema\n"
-                    "- Include ALL required parameters - check schema carefully\n"
-                    "- Follow parameter types and formats exactly\n"
-                    "- Verify JSON syntax: proper quotes, commas, brackets\n"
-                    "- If tool fails with parameter error, check schema and retry\n\n"
-                    "**When in doubt about tool usage, choose YES**"
+                    "**SMART TOOL USAGE DECISION:**\n\n"
+                    "**PRIMARY QUESTION:** Does this request need data or actions I cannot provide myself?\n\n"
+                    "**USE TOOLS when request involves:**\n"
+                    "- External systems (Jira, databases, APIs, files, websites)\n"
+                    "- Current/real-time information (news, weather, stock prices, today's data)\n"
+                    "- Specific data retrieval (search, find, get, check, look up)\n"
+                    "- User's personal/work data (my issues, assigned to me, my files)\n"
+                    "- Time-sensitive information (today, yesterday, recent, latest)\n"
+                    "- Actions on external services (create, update, send, download)\n\n"
+                    "**NO TOOLS when request is:**\n"
+                    "- General knowledge I already know\n"
+                    "- Explanations, concepts, how-to guides\n"
+                    "- Creative writing, brainstorming, analysis\n"
+                    "- Code examples, tutorials, best practices\n\n"
+                    "**EXAMPLES:**\n"
+                    "- \"Find my Jira issues\" → USE TOOL (external system + personal data)\n"
+                    "- \"Today's news\" → USE TOOL (current information)\n"
+                    "- \"How to code in Python\" → NO TOOL (general knowledge)\n"
+                    "- \"Search for travel packages\" → USE TOOL (external data retrieval)\n\n"
+                    "**CRITICAL: EXACT SCHEMA COMPLIANCE MANDATORY:**\n"
+                    "- NEVER modify parameter names (productAreaCode ≠ productAreaCd)\n"
+                    "- Use EXACT parameter names from tool schema\n"
+                    "- Include ALL required parameters\n"
+                    "- Match parameter types exactly\n"
+                    "- Use valid JSON format\n"
+                    "- If parameter error occurs, check schema and retry\n\n"
+                    "**DECISION RULE:** When in doubt, USE TOOLS to provide better user value."
                 ),
                 
                 "error_handling": (
@@ -91,19 +106,26 @@ class PromptManager:
             # Google: ReAct pattern optimized
             ModelType.GOOGLE.value: {
                 "system_enhancement": (
-                    "Gemini model with multimodal capabilities and strong reasoning. "
-                    "Use ReAct pattern for systematic tool usage. Be proactive in tool selection."
+                    "**GEMINI CORE MISSION:**\n"
+                    "Execute user requests with precision using multimodal reasoning and systematic tool usage.\n\n"
+                    "**EXECUTION PRINCIPLES:**\n"
+                    "1. ANALYZE request thoroughly before action\n"
+                    "2. USE tools only when external data/operations required\n"
+                    "3. FOLLOW schema specifications exactly\n"
+                    "4. PROVIDE complete, accurate responses in Korean\n"
+                    "5. MAINTAIN ReAct pattern discipline"
                 ),
                 
                 "agent_system": (
-                    "**STEP 1 - Tool Use:**\n"
+                    "**EXACT FORMAT REQUIRED:**\n"
                     "Thought: [reasoning]\n"
-                    "Action: [exact_tool_name]\n"
-                    "Action Input: [json_params]\n\n"
-                    "**STEP 2 - After Observation:**\n"
-                    "Thought: [analyze the observation result]\n"
-                    "Final Answer: [Korean response based on observation]\n\n"
-                    "**CRITICAL:** Never skip Observation. Never mix steps."
+                    "Action: exact_tool_name\n"
+                    "Action Input: {\"param\": \"value\"}\n\n"
+                    "**CRITICAL RULES:**\n"
+                    "- Action must be EXACT tool name without backticks or quotes\n"
+                    "- Action Input must be direct JSON without ```json blocks\n"
+                    "- Use absolute file paths only\n"
+                    "- Wait for Observation before Final Answer"
                 )
             },
             
@@ -147,9 +169,10 @@ class PromptManager:
                     "**FORMAT:**\n"
                     "Thought: [What information is needed]\n"
                     "Action: [exact_tool_name]\n"
-                    "Action Input: {{\"param\": \"value\"}}\n\n"
+                    "Action Input: {{\"exact_param_name\": \"value\"}}\n\n"
                     "Thought: [Analyze Observation data]\n"
                     "Final Answer: [Korean response based on Observation]\n\n"
+                    "**BEFORE USING ANY TOOL: Check the tool description for exact parameter names**\n\n"
                     "Tools: {tools}\n"
                     "Tool names: {tool_names}\n\n"
                     "Question: {input}\n"
@@ -253,15 +276,8 @@ class PromptManager:
                 self._prompts = json.load(f)
     
     def get_prompt(self, category: str, key: str) -> str:
-        """Query prompt by category and key"""
+        """Query prompt by category and key from internal prompts only"""
         try:
-            config_path = os.path.join(os.path.dirname(__file__), 'prompt_config.json')
-            if os.path.exists(config_path):
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    file_prompts = json.load(f)
-                    if category in file_prompts and key in file_prompts[category]:
-                        return file_prompts[category][key]
-            
             if category in self._prompts and key in self._prompts[category]:
                 return self._prompts[category][key]
             
@@ -314,44 +330,7 @@ class PromptManager:
         else:
             return ModelType.OPENAI.value  # Default value
     
-    def update_prompt(self, model_type: str, prompt_key: str, prompt_text: str):
-        """Update prompt (runtime)"""
-        if model_type not in self._prompts:
-            self._prompts[model_type] = {}
-        self._prompts[model_type][prompt_key] = prompt_text
-    
-    def save_prompts_to_file(self, file_path: str):
-        """Save prompts to file"""
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(self._prompts, f, ensure_ascii=False, indent=2)
-    
-    def load_prompts_from_file(self, file_path: str):
-        """Load prompts from file"""
-        if os.path.exists(file_path):
-            with open(file_path, 'r', encoding='utf-8') as f:
-                self._prompts = json.load(f)
-    
-    def get_prompt(self, category: str, key: str) -> str:
-        """Query prompt by category and key"""
-        try:
-            # First try to load from file
-            config_path = os.path.join(os.path.dirname(__file__), 'prompt_config.json')
-            if os.path.exists(config_path):
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    file_prompts = json.load(f)
-                    if category in file_prompts and key in file_prompts[category]:
-                        return file_prompts[category][key]
-            
-            # If not in file, query from memory
-            if category in self._prompts and key in self._prompts[category]:
-                return self._prompts[category][key]
-            
-            logger.warning(f"Prompt not found: {category}.{key}")
-            return ""
-            
-        except Exception as e:
-            logger.error(f"Prompt query error: {e}")
-            return ""
+
 
 
 # Global prompt manager instance

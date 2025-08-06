@@ -41,7 +41,7 @@ class AIClient:
         self.conversation_history = self._conversation_manager.conversation_history
         self.user_prompt = self._prompt_manager._prompts
 
-    def chat(self, messages):
+    def chat(self, messages, force_agent=False):
         """토큰 최적화된 대화 기록 사용 (할당량 초과 시 청크 분할) - 안정성 개선"""
         try:
             # 입력 검증
@@ -97,9 +97,9 @@ class AIClient:
             if not self.enable_history:
                 # 히스토리 없이 마지막 사용자 메시지만 처리
                 last_user_msg = [msg for msg in validated_messages if msg.get('role') == 'user'][-1:]
-                return self._process_with_quota_handling(user_message, last_user_msg)
+                return self._process_with_quota_handling(user_message, last_user_msg, force_agent=force_agent)
 
-            return self._process_with_quota_handling(user_message, validated_messages)
+            return self._process_with_quota_handling(user_message, validated_messages, force_agent=force_agent)
 
         except Exception as e:
             error_msg = str(e)

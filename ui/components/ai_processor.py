@@ -59,11 +59,12 @@ class AIProcessor(QObject):
                 else:
                     # 일반 텍스트 처리
                     if agent_mode:
-                        # 에이전트 모드: 대화 히스토리 포함
+                        # 에이전트 모드: 도구 사용 가능
                         if messages:
                             # 히스토리를 포함한 메시지 리스트 생성
                             full_messages = messages + [{'role': 'user', 'content': user_text}]
-                            result = client.chat(full_messages)
+                            # AIClient.chat() 메서드를 통해 force_agent=True 전달
+                            result = client.chat(full_messages, force_agent=True)
                             if isinstance(result, tuple):
                                 response, used_tools = result
                             else:
@@ -78,21 +79,15 @@ class AIProcessor(QObject):
                                 used_tools = []
                         sender = '에이전트'
                     else:
-                        # Ask 모드: 도구 사용 없이 단순 채팅만 (히스토리 포함)
+                        # Ask 모드: 도구 사용 없이 단순 채팅만
                         if messages:
-                            # Perplexity 모델의 경우 특별 처리
-                            if 'sonar' in model.lower() or 'perplexity' in model.lower():
-                                # Perplexity는 전체 메시지 리스트로 처리
-                                full_messages = messages + [{'role': 'user', 'content': user_text}]
-                                result = client.chat(full_messages)
-                                if isinstance(result, tuple):
-                                    response, used_tools = result
-                                else:
-                                    response = result
-                                    used_tools = []
+                            # Ask 모드: force_agent=False로 명시적 전달
+                            full_messages = messages + [{'role': 'user', 'content': user_text}]
+                            result = client.chat(full_messages, force_agent=False)
+                            if isinstance(result, tuple):
+                                response, used_tools = result
                             else:
-                                # 다른 모델은 기존 방식
-                                response = client.agent.simple_chat_with_history(user_text, messages)
+                                response = result
                                 used_tools = []
                         else:
                             response = client.simple_chat(user_text)

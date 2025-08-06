@@ -114,25 +114,24 @@ class PerplexityStrategy(BaseModelStrategy):
     def should_use_tools(self, user_input: str) -> bool:
         """도구 사용 여부 결정 - AI가 컨텍스트를 이해하여 판단"""
         try:
-            # 사용 가능한 도구 정보 수집
+            # 사용 가능한 도구 정보 수집 - 더 많은 도구 표시
             available_tools = []
             if hasattr(self, 'tools') and self.tools:
-                for tool in self.tools[:5]:  # 주요 도구 5개만
+                for tool in self.tools[:10]:  # 주요 도구 10개
                     tool_desc = getattr(tool, 'description', tool.name)
-                    available_tools.append(f"- {tool.name}: {tool_desc[:80]}")
+                    available_tools.append(f"- {tool.name}: {tool_desc[:100]}")
             
             tools_info = "\n".join(available_tools) if available_tools else "사용 가능한 도구 없음"
             
-            # 중앙관리 시스템에서 프롬프트 가져오기
-            analysis_framework = prompt_manager.get_prompt("tool_decision", "analysis_framework")
-            decision_prompt = f"""{analysis_framework}
-
-User request: "{user_input}"
+            # 올바른 프롬프트 경로 사용
+            tool_selection_prompt = prompt_manager.get_tool_prompt(ModelType.PERPLEXITY.value)
+            decision_prompt = f"""User request: "{user_input}"
 
 Available tools:
 {tools_info}
 
-Based on your analysis framework, should tools be used for this request?
+{tool_selection_prompt}
+
 Answer: YES or NO only."""
             
             # Perplexity LLM에 직접 요청
@@ -145,7 +144,7 @@ Answer: YES or NO only."""
             )
             
             result = "YES" in decision
-            logger.info(f"Perplexity AI 도구 사용 판단: '{user_input}' -> {decision} -> {result}")
+            logger.info(f"🤔 Perplexity 도구 사용 판단: '{user_input}' -> {decision} -> {result}")
             return result
             
         except Exception as e:

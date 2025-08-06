@@ -45,6 +45,11 @@ class BaseModelStrategy(ABC):
             self._llm = self.create_llm()
         return self._llm
     
+    @llm.setter
+    def llm(self, value):
+        """LLM 인스턴스 설정"""
+        self._llm = value
+    
     def supports_streaming(self) -> bool:
         """스트리밍 지원 여부"""
         return True

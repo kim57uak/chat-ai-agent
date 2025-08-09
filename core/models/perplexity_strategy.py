@@ -6,7 +6,8 @@ from .base_model_strategy import BaseModelStrategy
 from core.perplexity_llm import PerplexityLLM
 from core.perplexity_wrapper import PerplexityWrapper
 from core.perplexity_output_parser import PerplexityOutputParser
-from core.enhanced_system_prompts import SystemPrompts
+from ui.prompts import prompt_manager, ModelType
+from core.token_logger import TokenLogger
 import logging
 
 logger = logging.getLogger(__name__)
@@ -113,35 +114,23 @@ class PerplexityStrategy(BaseModelStrategy):
     def should_use_tools(self, user_input: str) -> bool:
         """도구 사용 여부 결정 - AI가 컨텍스트를 이해하여 판단"""
         try:
-            # 사용 가능한 도구 정보 수집
+            # 사용 가능한 도구 정보 수집 - 더 많은 도구 표시
             available_tools = []
             if hasattr(self, 'tools') and self.tools:
-                for tool in self.tools[:5]:  # 주요 도구 5개만
+                for tool in self.tools[:10]:  # 주요 도구 10개
                     tool_desc = getattr(tool, 'description', tool.name)
-                    available_tools.append(f"- {tool.name}: {tool_desc[:80]}")
+                    available_tools.append(f"- {tool.name}: {tool_desc[:100]}")
             
             tools_info = "\n".join(available_tools) if available_tools else "사용 가능한 도구 없음"
             
+            # 올바른 프롬프트 경로 사용
+            tool_selection_prompt = prompt_manager.get_tool_prompt(ModelType.PERPLEXITY.value)
             decision_prompt = f"""User request: "{user_input}"
 
 Available tools:
 {tools_info}
 
-Analyze if this request requires using external tools to provide accurate information.
-
-Use tools for:
-- Real-time data queries (databases, web searches, file systems)
-- Specific information lookups that I don't have in my knowledge
-- External API calls or system operations
-- Current/live information requests
-- Data processing or calculations requiring external resources
-
-Do NOT use tools for:
-- General knowledge questions I can answer
-- Simple conversations or greetings
-- Creative writing or brainstorming
-- Explanations of concepts I know
-- Opinion-based discussions
+{tool_selection_prompt}
 
 Answer: YES or NO only."""
             
@@ -149,8 +138,13 @@ Answer: YES or NO only."""
             response = self.llm._call(decision_prompt)
             decision = response.strip().upper()
             
+            # 토큰 사용량 로깅
+            TokenLogger.log_token_usage(
+                self.model_name, decision_prompt, decision, "tool_decision"
+            )
+            
             result = "YES" in decision
-            logger.info(f"Perplexity AI 도구 사용 판단: '{user_input}' -> {decision} -> {result}")
+            logger.info(f"🤔 Perplexity 도구 사용 판단: '{user_input}' -> {decision} -> {result}")
             return result
             
         except Exception as e:
@@ -164,24 +158,33 @@ Answer: YES or NO only."""
             return None
         
         react_prompt = PromptTemplate.from_template(
-            """You are a helpful assistant that uses tools to answer questions.
+            """You are an expert data analyst that uses tools to gather information and provides comprehensive analysis.
 
-**CRITICAL: Follow EXACT format - ONE step at a time:**
+**CRITICAL: THOROUGH OBSERVATION ANALYSIS REQUIRED**
 
-Thought: [what you need to do]
-Action: [tool_name]
-Action Input: [input_for_tool]
+**EXACT FORMAT (MANDATORY):**
 
-(Wait for Observation)
+Thought: [Analyze what information is needed for the user's question]
+Action: [exact_tool_name]
+Action Input: {{"param": "value"}}
 
-Thought: [analyze result]
-Final Answer: [response in Korean]
+(System provides Observation with tool results)
 
-**RULES:**
-1. Use ONE tool at a time
-2. NEVER output Action and Final Answer together
-3. Wait for Observation before Final Answer
-4. Be precise and follow format exactly
+Thought: [CRITICAL ANALYSIS STEP: Read the ENTIRE Observation carefully. Extract ALL key information including names, numbers, dates, details. Identify patterns and relationships. Organize findings logically. This analysis determines the quality of your Final Answer.]
+Final Answer: [Comprehensive Korean response based EXCLUSIVELY on Observation data. Include specific details, exact numbers, names, and all relevant information from the tool results. Structure the response clearly with proper formatting. Do NOT add external knowledge - use ONLY the data provided in the Observation.]
+
+**ANALYSIS REQUIREMENTS:**
+1. **COMPLETE DATA PROCESSING**: Read every part of the Observation
+2. **EXTRACT SPECIFICS**: Include exact names, numbers, dates from results
+3. **LOGICAL ORGANIZATION**: Structure information clearly
+4. **COMPREHENSIVE COVERAGE**: Address all aspects relevant to user's question
+5. **DATA-ONLY RESPONSES**: Base answer EXCLUSIVELY on Observation data
+
+**PARSING RULES:**
+- Use EXACT keywords: "Thought:", "Action:", "Action Input:", "Final Answer:"
+- Action Input MUST be valid JSON
+- NEVER mix Action and Final Answer
+- Analyze Observation thoroughly before Final Answer
 
 Tools: {tools}
 Tool names: {tool_names}
@@ -201,9 +204,9 @@ Thought:{agent_scratchpad}"""
                 agent=agent,
                 tools=tools,
                 verbose=True,
-                max_iterations=4,
+                max_iterations=3,
                 max_execution_time=30,
-                handle_parsing_errors=True,
+                handle_parsing_errors="CRITICAL: Follow the exact format. After receiving Observation, analyze ALL the data thoroughly in your Thought, then provide a comprehensive Final Answer based ONLY on the Observation data. Include specific details from the results.",
                 early_stopping_method="force",
                 return_intermediate_steps=True,
             )
@@ -215,37 +218,10 @@ Thought:{agent_scratchpad}"""
         """Perplexity 전용 시스템 프롬프트 - 대화 히스토리 강조"""
         # 도구가 있고 도구 사용 모드일 때만 MCP 프롬프트 사용
         if hasattr(self, 'tools') and self.tools and getattr(self, '_use_tools_mode', False):
-            return SystemPrompts.get_perplexity_mcp_prompt()
+            return prompt_manager.get_agent_system_prompt(ModelType.PERPLEXITY.value)
         else:
-            # Ask 모드일 때는 대화 히스토리 강조 프롬프트
-            return """You are a helpful AI assistant with real-time search capabilities.
-
-🔥 **ABSOLUTE PRIORITY: CONVERSATION MEMORY** 🔥
-- The conversation history above contains the MOST IMPORTANT context
-- NEVER ignore or forget information from previous messages in this conversation
-- If a user asks about something we discussed before, reference that conversation FIRST
-- Personal information, names, preferences from our chat are SACRED - always remember them
-- Say "Based on our conversation..." or "As we discussed..." when using conversation context
-
-**DECISION TREE FOR RESPONSES:**
-1. 🔍 **FIRST**: Check conversation history - does it contain the answer?
-   - YES → Use conversation context as primary source
-   - NO → Proceed to step 2
-
-2. 🌐 **SECOND**: Do I need current/real-time information?
-   - YES → Use search capabilities for latest data
-   - NO → Use my knowledge base
-
-3. 🔗 **COMBINE**: Merge conversation context + new information when relevant
-
-**Response Guidelines:**
-- Respond in Korean language
-- Use structured format with clear headings
-- **TABLE FORMAT**: |Header1|Header2|\n|---|---|\n|Data1|Data2|
-- Be conversational and maintain context continuity
-- Show that you remember our conversation
-
-**CRITICAL**: Conversation history is your MEMORY - treat it as the most reliable source for personal context and ongoing discussions."""
+            # Ask 모드일 때는 일반 시스템 프롬프트 사용
+            return prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value)
     
     def supports_streaming(self) -> bool:
         """Perplexity는 스트리밍 미지원"""

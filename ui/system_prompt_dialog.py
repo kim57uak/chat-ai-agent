@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QComboBox, QMessageBox
 from PyQt6.QtCore import Qt
+from ui.prompts import prompt_manager, ModelType
 
 class SystemPromptDialog(QDialog):
     def __init__(self, ai_client, parent=None):
@@ -102,5 +103,12 @@ class SystemPromptDialog(QDialog):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            default_prompt = '당신은 도움이 되는 AI 어시스턴트입니다. 한국어로 답변해주세요.'
+            # 중앙관리 시스템에서 기본 프롬프트 가져오기
+            model_type = self.model_combo.currentText().lower()
+            if model_type == 'gpt':
+                default_prompt = prompt_manager.get_system_prompt(ModelType.OPENAI.value)
+            elif model_type == 'gemini':
+                default_prompt = prompt_manager.get_system_prompt(ModelType.GOOGLE.value)
+            else:
+                default_prompt = prompt_manager.get_system_prompt(ModelType.COMMON.value)
             self.prompt_text.setPlainText(default_prompt)

@@ -2,6 +2,8 @@ from typing import List, Dict, Any, Callable, Optional
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema.output import LLMResult
+from ui.prompts import prompt_manager, ModelType
+from core.token_logger import TokenLogger
 import logging
 import threading
 import time
@@ -85,6 +87,12 @@ class StreamingChatProcessor:
                     
                     logger.info(f"스트리밍 응답 완료 - 길이: {len(full_response)}자")
                     
+                    # 토큰 사용량 로깅
+                    model_name = getattr(llm, 'model_name', getattr(llm, 'model', 'unknown'))
+                    TokenLogger.log_messages_token_usage(
+                        model_name, messages, full_response, "streaming_chat"
+                    )
+                    
                     if on_complete:
                         on_complete(full_response)
                 
@@ -104,14 +112,15 @@ class StreamingChatProcessor:
         """메시지 구성"""
         messages = []
         
-        # 시스템 메시지 추가
-        system_prompt = """You are a helpful AI assistant. Provide comprehensive and detailed responses.
-When generating long responses, ensure all content is delivered completely without truncation."""
+        # 시스템 메시지 추가 (공통 프롬프트 사용)
+        system_prompt = prompt_manager.get_system_prompt(ModelType.COMMON.value)
         messages.append(SystemMessage(content=system_prompt))
         
-        # 대화 히스토리 추가
+        # 대화 히스토리 추가 (여행 검색 시 더 많은 컨텍스트 유지)
         if conversation_history:
-            for msg in conversation_history[-10:]:  # 최근 10개만
+            # 여행 관련 요청인 경우 더 많은 히스토리 유지
+            history_limit = 15 if any(keyword in user_input.lower() for keyword in ['여행', '상품', '검색', '페이지']) else 10
+            for msg in conversation_history[-history_limit:]:
                 role = msg.get('role', '')
                 content = msg.get('content', '')
                 
@@ -129,7 +138,7 @@ When generating long responses, ensure all content is delivered completely witho
 class ChunkedResponseProcessor:
     """대용량 응답을 청크 단위로 처리하는 프로세서"""
     
-    def __init__(self, chunk_size: int = 100):
+    def __init__(self, chunk_size: int = 500):
         self.chunk_size = chunk_size
         self._cancelled = False
     

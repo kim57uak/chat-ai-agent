@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Tuple
 from langchain.schema import BaseMessage
 from core.response_formatter import SystemPromptEnhancer
+from ui.prompts import prompt_manager, ModelType
 
 
 class BaseModelStrategy(ABC):
@@ -44,22 +45,18 @@ class BaseModelStrategy(ABC):
             self._llm = self.create_llm()
         return self._llm
     
+    @llm.setter
+    def llm(self, value):
+        """LLM 인스턴스 설정"""
+        self._llm = value
+    
     def supports_streaming(self) -> bool:
         """스트리밍 지원 여부"""
         return True
     
     def get_default_system_prompt(self) -> str:
-        """기본 시스템 프롬프트 - 일관된 형식 지침 포함"""
-        base_prompt = """You are a helpful AI assistant that provides accurate and well-structured responses in Korean.
-
-**Core Guidelines:**
-- Always respond naturally in Korean language
-- Be helpful, accurate, and user-friendly
-- Provide clear and structured information
-- Use appropriate technical explanations when needed
-
-**TABLE FORMAT RULES**: When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row. Format: |Header1|Header2|Header3|\\n|---|---|---|\\n|Data1|Data2|Data3|. Never use tabs or spaces for table alignment."""
-        
+        """기본 시스템 프롬프트 - 공통 프롬프트 사용"""
+        base_prompt = prompt_manager.get_system_prompt(ModelType.COMMON.value)
         return SystemPromptEnhancer.enhance_prompt(base_prompt)
     
     def enhance_prompt_with_format(self, prompt: str) -> str:

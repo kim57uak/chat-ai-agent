@@ -38,9 +38,13 @@ class PerplexityOutputParser(BaseOutputParser):
                 action_match = action_matches[-1]
                 action = action_match.group(1).strip()
                 
-                # Action Input 찾기
+                # Action Input 찾기 - 다중 라인 JSON 지원
                 remaining_text = cleaned_text[action_match.end():]
-                action_input_match = re.search(r'Action Input:\s*([^\n]+)', remaining_text, re.IGNORECASE)
+                action_input_match = re.search(r'Action Input:\s*({.*?})(?=\n(?:Thought|Action|Final Answer)|$)', remaining_text, re.DOTALL | re.IGNORECASE)
+                
+                if not action_input_match:
+                    # 단일 라인 시도
+                    action_input_match = re.search(r'Action Input:\s*([^\n]+)', remaining_text, re.IGNORECASE)
                 
                 if action_input_match:
                     action_input_str = action_input_match.group(1).strip()

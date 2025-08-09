@@ -193,6 +193,10 @@ class MCPTool(BaseTool):
             if key.lower() == input_lower:
                 return key
         
+        # 스키마에 단일 필수 파라미터가 있는 경우 자동 매핑
+        if len(schema_keys) == 1:
+            return schema_keys[0]
+        
         # 축약형 매치 - 더 엄격한 기준
         for key in schema_keys:
             key_lower = key.lower()
@@ -201,11 +205,6 @@ class MCPTool(BaseTool):
                 input_base = input_lower[:-2]  # 'cd' 제거
                 key_base = key_lower[:-4]      # 'code' 제거
                 if input_base == key_base:
-                    return key
-            
-            # 일반적인 접두사 매치
-            if len(input_lower) >= 5 and len(key_lower) >= 5:
-                if key_lower.startswith(input_lower) or input_lower.startswith(key_lower):
                     return key
         
         return None

@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_perplexity import ChatPerplexity
 from core.perplexity_wrapper import PerplexityWrapper
+from core.llm.claude.claude_wrapper import ClaudeWrapper
 from core.file_utils import load_config
 import logging
 
@@ -81,13 +82,48 @@ class PerplexityLLMFactory(LLMFactory):
         )
 
 
+class ClaudeLLMFactory(LLMFactory):
+    """Claude LLM 팩토리"""
+    
+    def create_llm(self, api_key: str, model_name: str, streaming: bool = False) -> ClaudeWrapper:
+        config = load_config()
+        response_settings = config.get("response_settings", {})
+        max_tokens = response_settings.get("max_tokens", 4000)
+        
+        logger.info(f"Claude LLM 생성 - model: {model_name}, max_tokens: {max_tokens}")
+        
+        # Claude 모델명을 Bedrock API 형식으로 변환
+        bedrock_model_map = {
+            "claude-2": "us.anthropic.claude-v2:1",
+            "claude-3-haiku": "us.anthropic.claude-3-haiku-20240307-v1:0",
+            "claude-3-sonnet": "us.anthropic.claude-3-sonnet-20240229-v1:0",
+            "claude-3-opus": "us.anthropic.claude-3-opus-20240229-v1:0",
+            "claude-3.5-sonnet": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+            "claude-3.5-haiku": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            "claude-4": "us.anthropic.claude-3-5-sonnet-20241022-v2:0"  # fallback
+        }
+        
+        bedrock_model = bedrock_model_map.get(model_name, "us.anthropic.claude-3-haiku-20240307-v1:0")
+        
+        return ClaudeWrapper(
+            model=bedrock_model,
+            aws_access_key_id=api_key,
+            temperature=0.1,
+            max_tokens=max_tokens,
+            streaming=streaming,
+            request_timeout=120
+        )
+
+
 class LLMFactoryProvider:
     """LLM 팩토리 제공자"""
     
     _factories = {
         'gemini': GeminiLLMFactory(),
         'openai': OpenAILLMFactory(),
-        'perplexity': PerplexityLLMFactory()
+        'perplexity': PerplexityLLMFactory(),
+        'anthropic': ClaudeLLMFactory(),
+        'claude': ClaudeLLMFactory()
     }
     
     @classmethod
@@ -97,6 +133,8 @@ class LLMFactoryProvider:
             return cls._factories['gemini']
         elif "sonar" in model_name or "r1-" in model_name or "perplexity" in model_name:
             return cls._factories['perplexity']
+        elif "claude" in model_name:
+            return cls._factories['claude']
         return cls._factories['openai']
     
     @classmethod

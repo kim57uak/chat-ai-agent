@@ -365,7 +365,7 @@ class ChatWidget(QWidget):
             
             self.ai_processor.process_request(
                 api_key, model, validated_history, user_text,
-                use_agent, file_prompt
+                agent_mode=use_agent, file_prompt=file_prompt
             )
         except Exception as e:
             print(f"AI 요청 준비 오류: {e}")

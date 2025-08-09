@@ -42,9 +42,11 @@ class AIBasedToolDecisionStrategy(ToolDecisionStrategy):
             if force_agent:
                 agent_context = "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
 
-            # Use enhanced AI-driven decision prompt
-            base_prompt = SystemPrompts.get_tool_decision_prompt()
-            decision_prompt = f"""{base_prompt}
+            from ui.prompts import prompt_manager
+            
+            # Use centralized prompts
+            analysis_framework = prompt_manager.get_prompt("tool_decision", "analysis_framework")
+            decision_prompt = f"""{analysis_framework}
 
 User request: "{user_input}"
 
@@ -54,10 +56,9 @@ Available tools:
 Based on your analysis framework, should tools be used for this request?
 Answer: YES or NO only."""
 
+            system_prompt = prompt_manager.get_prompt("tool_decision", "decision_analyst")
             messages = [
-                SystemMessage(
-                    content="You are an intelligent decision-making system that analyzes user requests with sophisticated reasoning."
-                ),
+                SystemMessage(content=system_prompt),
                 HumanMessage(content=decision_prompt),
             ]
 

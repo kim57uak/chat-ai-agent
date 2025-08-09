@@ -3,6 +3,7 @@ from .base_model_strategy import BaseModelStrategy
 from .openai_strategy import OpenAIStrategy
 from .gemini_strategy import GeminiStrategy
 from .perplexity_strategy import PerplexityStrategy
+from .claude_strategy import ClaudeStrategy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,8 @@ class ModelStrategyFactory:
         'openai': OpenAIStrategy,
         'gemini': GeminiStrategy,
         'perplexity': PerplexityStrategy,
+        'claude': ClaudeStrategy,
+        'anthropic': ClaudeStrategy,
     }
     
     @classmethod
@@ -38,6 +41,8 @@ class ModelStrategyFactory:
             return 'gemini'
         elif any(keyword in model_lower for keyword in ["sonar", "r1-", "perplexity"]):
             return 'perplexity'
+        elif "claude" in model_lower:
+            return 'claude'
         else:
             return 'openai'  # 기본값
     
@@ -53,30 +58,4 @@ class ModelStrategyFactory:
         return cls._strategies.copy()
 
 
-# 새로운 모델 추가 예시
-class ClaudeStrategy(BaseModelStrategy):
-    """Claude 모델 전략 (예시)"""
-    
-    def create_llm(self):
-        # Claude LLM 구현
-        pass
-    
-    def create_messages(self, user_input: str, system_prompt: str = None):
-        # Claude 메시지 형식 구현
-        pass
-    
-    def process_image_input(self, user_input: str):
-        # Claude 이미지 처리 구현
-        pass
-    
-    def should_use_tools(self, user_input: str) -> bool:
-        # Claude 도구 사용 결정 로직
-        return False
-    
-    def create_agent_executor(self, tools):
-        # Claude 에이전트 구현
-        return None
-
-
-# 새로운 전략 등록 (필요시)
-# ModelStrategyFactory.register_strategy('claude', ClaudeStrategy)
+# 새로운 모델 추가 시 이 팩토리에 등록하여 사용

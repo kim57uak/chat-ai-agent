@@ -4,6 +4,9 @@ from langchain.schema import BaseMessage, HumanMessage, SystemMessage, AIMessage
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import PromptTemplate
 from .base_model_strategy import BaseModelStrategy
+from ui.prompts import prompt_manager, ModelType
+from core.token_logger import TokenLogger
+from core.parsers.custom_react_parser import CustomReActParser
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,7 +22,7 @@ class GeminiStrategy(BaseModelStrategy):
             google_api_key=self.api_key,
             temperature=0.1,
             convert_system_message_to_human=True,
-            max_tokens=4096,
+            max_tokens=16384,
         )
     
     def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
@@ -32,10 +35,14 @@ class GeminiStrategy(BaseModelStrategy):
         else:
             enhanced_prompt = self.get_default_system_prompt()
         
-        # 대화 히스토리가 있으면 시스템 프롬프트에 컨텍스트 추가
+        # 대화 히스토리 컨텍스트 추가
         if conversation_history:
             history_context = self._format_conversation_history(conversation_history)
-            enhanced_prompt += f"\n\n**Previous Conversation Context:**\n{history_context}\n\nPlease consider this conversation history when responding."
+            enhanced_prompt += (
+                f"\n\n## 💬 Previous Conversation:\n"
+                f"{history_context}\n\n"
+                f"ℹ️ Please consider this conversation history when responding."
+            )
         
         messages.append(HumanMessage(content=enhanced_prompt))
         
@@ -55,18 +62,18 @@ class GeminiStrategy(BaseModelStrategy):
         return messages
     
     def _format_conversation_history(self, conversation_history: List[Dict]) -> str:
-        """대화 히스토리를 텍스트로 포맷팅"""
+        """대화 히스토리를 가독성 좋게 포맷팅"""
         formatted_history = []
-        for msg in conversation_history:
+        for i, msg in enumerate(conversation_history, 1):
             role = msg.get("role", "")
             content = msg.get("content", "")
             
             if role == "user":
-                formatted_history.append(f"User: {content}")
+                formatted_history.append(f"**[{i}] 👤 User:** {content}")
             elif role in ["assistant", "agent"]:
-                formatted_history.append(f"Assistant: {content}")
+                formatted_history.append(f"**[{i}] 🤖 Assistant:** {content}")
         
-        return "\n".join(formatted_history)
+        return "\n\n".join(formatted_history)
     
     def process_image_input(self, user_input: str) -> BaseMessage:
         """Gemini 이미지 입력 처리"""
@@ -129,32 +136,29 @@ class GeminiStrategy(BaseModelStrategy):
             if force_agent:
                 agent_context = "\n\nIMPORTANT: The user has specifically selected Agent mode, indicating they want to use available tools when possible. Be more inclined to use tools for information gathering, searches, or data processing tasks."
             
-            decision_prompt = f"""User request: "{user_input}"
-
-Available tools:
-{tools_info}
-
-Analyze if this request requires using external tools to provide accurate information.
-
-Use tools for:
-- Real-time data queries (databases, web searches, file systems)
-- Specific information lookups that I don't have in my knowledge
-- External API calls or system operations
-- Current/live information requests
-- Data processing or calculations requiring external resources
-
-Do NOT use tools for:
-- General knowledge questions I can answer
-- Simple conversations or greetings
-- Creative writing or brainstorming
-- Explanations of concepts I know
-- Opinion-based discussions{agent_context}
-
-Answer: YES or NO only."""
+            # 중앙관리 시스템에서 프롬프트 가져오기
+            available_tools = getattr(self, 'tools', [])
+            decision_prompt = prompt_manager.get_tool_decision_prompt(
+                ModelType.GOOGLE.value, user_input, available_tools
+            )
             
-            # Gemini는 시스템 메시지를 인간 메시지로 변환
+            # Agent 모드 컨텍스트 추가
+            if force_agent:
+                decision_prompt += (
+                    "\n\n## 🔧 Agent Mode Active\n"
+                    "User selected Agent mode - be more inclined to use tools for:\n"
+                    "- Information gathering\n"
+                    "- Searches and data processing\n"
+                    "- External API calls"
+                )
+            
+            # Gemini 메시지 구성 (가독성 개선)
             messages = [
-                HumanMessage(content="You are an expert at analyzing user requests to determine if tools are needed. When creating tables, ALWAYS use proper markdown table format with pipe separators and header separator row."),
+                HumanMessage(content=(
+                    "# Tool Decision Expert\n\n"
+                    "You analyze user requests to determine if tools are needed.\n\n"
+                    "ℹ️ **Important:** When creating tables, use proper markdown format with pipe separators."
+                )),
                 HumanMessage(content=decision_prompt),
             ]
             
@@ -162,6 +166,11 @@ Answer: YES or NO only."""
             response = self.llm.invoke(messages)
             llm_elapsed = time.time() - llm_start
             decision = response.content.strip().upper()
+            
+            # 토큰 사용량 로깅
+            TokenLogger.log_messages_token_usage(
+                self.model_name, messages, decision, "tool_decision"
+            )
             
             result = "YES" in decision
             mode_info = " (Agent 모드)" if force_agent else " (Ask 모드)"
@@ -177,78 +186,122 @@ Answer: YES or NO only."""
             return False
     
     def create_agent_executor(self, tools: List) -> Optional[AgentExecutor]:
-        """Gemini ReAct 에이전트 생성 (도구 호환성 개선)"""
+        """Gemini ReAct 에이전트 생성 (모델별 프롬프트 분기)"""
         if not tools:
             return None
         
+        # 모델별 프롬프트 선택
+        if "pro" in self.model_name.lower():
+            # Pro 모델용 파싱 강제 프롬프트
+            agent_system_prompt = (
+                "## 🚨 CRITICAL: Every response MUST start with a keyword\n\n"
+                "### Required Keywords:\n"
+                "- `Thought:` [your reasoning]\n"
+                "- `Action:` [exact_tool_name]\n"
+                "- `Action Input:` [json_parameters]\n"
+                "- `Final Answer:` [complete response with tables/content]\n\n"
+                "### ✅ Correct Examples:\n"
+                "```\n"
+                "Final Answer: Here are the search results.\n"
+                "| Product | Price |\n"
+                "```\n\n"
+                "### 📏 Response Length Control:\n"
+                "- Keep Final Answer under 16384 tokens to prevent parsing errors\n"
+                "- If data is large, provide summary with key statistics\n"
+                "- Always prioritize essential information over details\n\n"
+                "**Rule: Follow ReAct format - Thought → Action → Action Input → Final Answer**"
+            )
+        else:
+            # Flash 및 기타 모델용 기존 프롬프트 (가독성 개선)
+            agent_system_prompt = (
+                "## Google Gemini ReAct Format\n\n"
+                "### Step 1 - Tool Use:\n"
+                "`Thought:` [your reasoning]\n"
+                "`Action:` [exact_tool_name]\n"
+                "`Action Input:` [json_params]\n\n"
+                "### Step 2 - After Observation:\n"
+                "`Thought:` [analyze the observation result]\n"
+                "`Final Answer:` [response based on observation]\n\n"
+                "### 🚨 Critical Rules:\n"
+                "- Never skip Observation\n"
+                "- Never mix steps\n"
+                "- Use exact tool names from schema\n"
+                "- Wait for system Observation before Final Answer\n"
+                "- Keep Final Answer under 16384 tokens (summarize if needed)"
+            )
+        
         # Gemini는 ReAct 에이전트만 지원
-        react_prompt = PromptTemplate.from_template(
-            """You are a helpful AI assistant that can use various tools to provide accurate information.
+        if "pro" in self.model_name.lower():
+            # Pro 모델용 강력한 파싱 템플릿
+            react_prompt = PromptTemplate.from_template(
+                f"""# 🚨 Parsing Rule: Start every response with a keyword
 
-**CRITICAL PARSING RULES:**
-1. NEVER output both Action and Final Answer in the same response
-2. Follow EXACT format: Thought -> Action -> Action Input -> (wait for Observation) -> Thought -> Final Answer
-3. Each step must be on a separate line
-4. Use EXACT keywords: "Thought:", "Action:", "Action Input:", "Final Answer:"
-5. Do NOT include "Observation:" - it will be added automatically
+{agent_system_prompt}
 
-Available tools:
-{tools}
+## Available Tools:
+{{tools}}
 
-Tool names: {tool_names}
+## Tool Names:
+{{tool_names}}
 
-**STRICT FORMAT:**
-Thought: [your reasoning]
-Action: [exact_tool_name]
-Action Input: [input_for_tool]
+## Process:
+1. **First**: `Thought:` → `Action:` → `Action Input:`
+2. **Wait for Observation**
+3. **Then**: `Thought:` → `Final Answer:`
 
-(System will add Observation automatically)
+---
+**Question:** {{input}}
+{{agent_scratchpad}}"""
+            )
+        else:
+            # Flash 및 기타 모델용 기존 템플릿 (가독성 개선)
+            react_prompt = PromptTemplate.from_template(
+                f"""# Google Gemini ReAct Agent
 
-Thought: [analyze the observation]
-Final Answer: [your response in Korean]
+{agent_system_prompt}
 
-**EXAMPLE:**
-Question: Show me files in /home
-Thought: I need to list directory contents to show the user what files are in /home.
-Action: filesystem_list_directory
-Action Input: /home
+## Available Tools:
+{{tools}}
 
-(After receiving observation:)
-Thought: Now I have the directory listing and can provide a formatted response to the user.
-Final Answer: /home 디렉토리에는 다음 파일들이 있습니다: [formatted list]
+## Tool Names:
+{{tool_names}}
 
-Question: {input}
-{agent_scratchpad}
-            """
-        )
+## Example Process:
+**Step 1:**
+```
+Thought: I need to use a tool
+Action: [exact_tool_name_from_list]
+Action Input: {{{{"param": "value"}}}}
+```
 
-        agent = create_react_agent(self.llm, tools, react_prompt)
+**Step 2 (After Observation):**
+```
+Thought: [analyze the observation result]
+Final Answer: [response based on observation]
+```
+
+⚠️ **Important:** Never output content directly! Always use Final Answer format!
+
+---
+**Question:** {{input}}
+{{agent_scratchpad}}"""
+            )
+
+        # 커스텀 파서 사용
+        custom_parser = CustomReActParser()
+        agent = create_react_agent(self.llm, tools, react_prompt, output_parser=custom_parser)
+        
         return AgentExecutor(
             agent=agent,
             tools=tools,
             verbose=True,
             max_iterations=5,
             max_execution_time=30,
-            handle_parsing_errors="Invalid format! You must follow the exact format: Thought -> Action -> Action Input. Do NOT include both Action and Final Answer in the same response.",
+            handle_parsing_errors=True,  # 커스텀 파서가 처리
             early_stopping_method="force",
             return_intermediate_steps=True,
         )
     
     def _get_ocr_prompt(self) -> str:
         """OCR 전용 프롬프트"""
-        return """이 이미지에서 **모든 텍스트를 정확히 추출(OCR)**해주세요.
-
-**필수 작업:**
-1. **완전한 텍스트 추출**: 이미지 내 모든 한글, 영어, 숫자, 기호를 빠짐없이 추출
-2. **구조 분석**: 표, 목록, 제목, 단락 등의 문서 구조 파악
-3. **레이아웃 정보**: 텍스트의 위치, 크기, 배치 관계 설명
-4. **정확한 전사**: 오타 없이 정확하게 모든 문자 기록
-
-**응답 형식:**
-## 📄 추출된 텍스트
-[모든 텍스트를 정확히 나열]
-
-## 📋 문서 구조
-[표, 목록, 제목 등의 구조 설명]
-
-**중요**: 이미지에서 읽을 수 있는 모든 텍스트를 절대 누락하지 말고 완전히 추출해주세요."""
+        return prompt_manager.get_ocr_prompt()

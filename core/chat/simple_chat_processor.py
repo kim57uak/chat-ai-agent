@@ -1,5 +1,6 @@
 from typing import List, Dict, Tuple
 from .base_chat_processor import BaseChatProcessor
+from core.token_logger import TokenLogger
 import logging
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,11 @@ class SimpleChatProcessor(BaseChatProcessor):
                 response_content = response
             else:
                 response_content = getattr(response, 'content', str(response))
+            
+            # 토큰 사용량 로깅
+            TokenLogger.log_messages_token_usage(
+                self.model_strategy.model_name, messages, response_content, "simple_chat"
+            )
             
             return self.format_response(response_content), []
             

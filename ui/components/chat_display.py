@@ -274,7 +274,7 @@ class ChatDisplay:
         """
         self.web_view.setHtml(html_template)
     
-    def append_message(self, sender, text):
+    def append_message(self, sender, text, original_sender=None):
         """메시지 추가"""
         # 발신자별 스타일
         if sender == '사용자':
@@ -293,10 +293,22 @@ class ChatDisplay:
             icon = '⚙️'
             sender_color = 'rgb(215,163,135)'
         
-        # 마크다운 처리
-        from ui.intelligent_formatter import IntelligentContentFormatter
-        formatter = IntelligentContentFormatter()
-        formatted_text = formatter.format_content(text)
+        # 마크다운 처리 - 모든 텍스트에 마크다운 포매팅 적용
+        from ui.markdown_formatter import MarkdownFormatter
+        from ui.table_formatter import TableFormatter
+        
+        markdown_formatter = MarkdownFormatter()
+        table_formatter = TableFormatter()
+        
+        # 테이블이 있는 경우에만 테이블 포매터 사용
+        if '|' in text and (table_formatter.is_markdown_table(text) or table_formatter.has_mixed_content(text)):
+            from ui.intelligent_formatter import IntelligentContentFormatter
+            formatter = IntelligentContentFormatter()
+            format_sender = original_sender if original_sender else sender
+            formatted_text = formatter.format_content(text, format_sender)
+        else:
+            # 모든 일반 텍스트에 마크다운 포매팅 적용
+            formatted_text = markdown_formatter.format_basic_markdown(text)
         
         message_id = f"msg_{uuid.uuid4().hex[:8]}"
         
@@ -332,6 +344,7 @@ class ChatDisplay:
             try {{
                 var contentDiv = document.getElementById('{message_id}_content');
                 if (contentDiv) {{
+                    // console.log('Setting content:', {safe_content});
                     contentDiv.innerHTML = {safe_content};
                     window.scrollTo(0, document.body.scrollHeight);
                 }}

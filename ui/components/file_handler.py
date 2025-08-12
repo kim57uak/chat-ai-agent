@@ -1,7 +1,13 @@
 import os
 import base64
-from PyPDF2 import PdfReader
-from docx import Document
+try:
+    from PyPDF2 import PdfReader
+except ImportError:
+    PdfReader = None
+try:
+    from docx import Document
+except ImportError:
+    Document = None
 
 
 class FileHandler:
@@ -52,12 +58,16 @@ class FileHandler:
     @staticmethod
     def _read_pdf_file(file_path):
         """PDF 파일 읽기"""
+        if PdfReader is None:
+            return f"PDF 파일: {os.path.basename(file_path)}\n(PyPDF2 라이브러리가 필요합니다. pip install PyPDF2)"
         reader = PdfReader(file_path)
         return "\n".join(page.extract_text() or '' for page in reader.pages)
     
     @staticmethod
     def _read_word_file(file_path):
         """Word 파일 읽기"""
+        if Document is None:
+            return f"Word 파일: {os.path.basename(file_path)}\n(python-docx 라이브러리가 필요합니다. pip install python-docx)"
         doc = Document(file_path)
         return "\n".join([p.text for p in doc.paragraphs])
     

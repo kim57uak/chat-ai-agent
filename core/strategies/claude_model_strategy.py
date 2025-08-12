@@ -24,8 +24,9 @@ class ClaudeModelStrategy(ModelStrategy):
         if not agent_executor:
             return "사용 가능한 도구가 없습니다.", []
         
-        # Claude 모델의 특별한 처리가 필요한 경우 여기에 구현
-        result = agent_executor.invoke({"input": user_input})
+        # Claude 전용 프롬프트 추가
+        enhanced_input = self._add_claude_table_prompt(user_input)
+        result = agent_executor.invoke({"input": enhanced_input})
         output = result.get("output", "")
         
         used_tools = []
@@ -41,6 +42,29 @@ class ClaudeModelStrategy(ModelStrategy):
         
         logger.info(f"✅ Claude 도구 채팅 성공: {len(used_tools)}개 도구 사용")
         return output, used_tools
+    
+    def _add_claude_table_prompt(self, user_input: str) -> str:
+        """Claude 전용 테이블 형식 프롬프트 추가"""
+        table_instruction = """
+
+**CRITICAL TABLE FORMATTING RULES - MUST FOLLOW EXACTLY:**
+
+1. **MANDATORY**: Each table row MUST be on a separate line
+2. **FORBIDDEN**: Never put table data and description text in the same line
+3. **REQUIRED FORMAT**:
+   |Header1|Header2|Header3|
+   |---|---|---|
+   |Data1|Data2|Data3|
+   |Data4|Data5|Data6|
+   
+   Description text goes here (separate from table)
+
+4. **NEVER DO THIS**: |Data1|Data2|Data3| Description text here
+5. **ALWAYS DO THIS**: Put each table row on its own line, then add description after the table
+
+This is MANDATORY for proper table rendering. Failure to follow will break the display.
+"""
+        return user_input + table_instruction
 
 
 # 새로운 모델 전략을 자동으로 등록

@@ -88,47 +88,51 @@ class ClaudeStrategy(BaseModelStrategy):
         )
     
     def should_use_tools(self, user_input: str) -> bool:
-        """Claude 모델의 도구 사용 여부 결정"""
+        """Claude 모델의 도구 사용 여부 결정 - AI 컴텍스트 기반"""
         try:
-            decision_prompt = f"""User request: "{user_input}". You must end with "Action" or "Final Answer."
+            available_tools = getattr(self, 'tools', [])
+            if not available_tools:
+                return False
+            
+            # AI가 컴텍스트를 파악하여 도구 사용 결정
+            decision_prompt = f"""Analyze this user request and determine if external tools are needed.
 
-Determine if this request requires using tools to provide accurate information.
+User request: "{user_input}"
 
-Requires tools:
-- Real-time information search
-- Database queries
-- External API calls
-- File processing
-- Current information lookups
-- Location-based queries
+Available tools: {len(available_tools)} tools including data retrieval, search, file operations, etc.
 
-Does not require tools:
-- General conversation
-- Explanations or opinions
-- Creative writing
-- General knowledge
+Does this request require:
+- External data that I don't have access to?
+- Real-time or current information?
+- Specific system operations (database queries, file operations, API calls)?
+- User's personal/work data?
+- Actions on external services?
 
-Answer: YES or NO only."""
+If YES to any above, respond with "USE_TOOLS".
+If this is general knowledge, explanation, or creative task I can handle myself, respond with "NO_TOOLS".
+
+Be AGGRESSIVE in tool usage - when in doubt, use tools to provide better value.
+
+Response (USE_TOOLS or NO_TOOLS):"""
 
             messages = [
-                SystemMessage(content="You are an expert at analyzing user requests to determine if tools are needed."),
-                HumanMessage(content=decision_prompt),
+                SystemMessage(content="You are an expert at analyzing user requests to determine optimal tool usage. Be proactive with tool usage."),
+                HumanMessage(content=decision_prompt)
             ]
 
             if self.llm:
                 response = self.llm.invoke(messages)
                 decision = response.content.strip().upper()
                 
-                result = "YES" in decision
-                logger.info(f"Claude tool usage decision: {decision} -> {result}")
+                result = "USE_TOOLS" in decision
+                logger.info(f"Claude AI tool decision: {decision} -> {result}")
                 return result
             else:
-                # LLM이 없으면 기본적으로 도구 사용 안함
-                return False
+                return True  # LLM 없으면 기본적으로 도구 사용
 
         except Exception as e:
             logger.error(f"Claude tool usage decision error: {e}")
-            return False
+            return True  # 오류 시 도구 사용 선택
     
     def create_agent_executor(self, tools: List) -> Optional:
         """Claude 에이전트 생성"""
@@ -138,45 +142,78 @@ Answer: YES or NO only."""
         try:
             from langchain.agents import create_react_agent, AgentExecutor
             from langchain.prompts import PromptTemplate
+            from core.parsers.claude_react_parser import ClaudeReActParser
             
-            # Claude용 ReAct 프롬프트 사용
-            react_template = """
-You are a helpful assistant that uses tools to answer questions.
+            # 공통 프롬프트 시스템 사용
+            system_prompt = prompt_manager.get_agent_system_prompt(ModelType.CLAUDE.value)
+            response_format = prompt_manager.get_response_format_prompt()
+            
+            react_template = f"""You are a helpful assistant that provides well-formatted responses in Korean.
 
-**TOOL CALLING APPROACH**:
-- Follow tool schemas exactly with all required parameters
-- Use EXACT parameter names from schema (verify spelling)
-- Include ALL required parameters in tool calls
-- Use clear structured thinking and standard agent format
-- Be proactive: prefer autonomous tool use when solution is evident
-- Maintain helpful approach while considering safety implications
-- Format responses clearly using markdown for maximum readability
+{system_prompt}
 
-**FORMAT**:
+{response_format}
+
+## 🚨 CRITICAL: NEVER OUTPUT ACTION AND FINAL ANSWER TOGETHER!
+
+**STEP 1 - Tool Use (if needed):**
+```
 Thought: [your reasoning]
-Action: [exact_tool_name]
-Action Input: {{"param": "value"}}
+Action: [exact_tool_name_from_list]
+Action Input: {{{{"param": "value"}}}}
+```
+**STOP HERE! Wait for Observation!**
 
-Observation: [tool result will appear here]
-
+**STEP 2 - After receiving Observation:**
+```
 Thought: [analyze the observation]
-Final Answer: [Korean response based on observation]
+Final Answer: [Korean response with markdown]
+```
 
-Tools: {tools}
-Tool names: {tool_names}
+## 📊 DATA ANALYSIS RULES:
+- ALWAYS analyze ALL data in API responses
+- If API returns products, ALWAYS show them in table format
+- Don't ignore data just because it doesn't match search keywords
+- Present actual results, then explain any mismatches
+- Use markdown tables for structured data
 
-Question: {input}
-Thought:{agent_scratchpad}"""
+## 🛑 FORBIDDEN:
+- Never output Action and Final Answer in same response
+- Never skip waiting for Observation
+- Never make up data without tool results
+- Never ignore API response data
+
+## Available Tools:
+{{tools}}
+
+## Tool Names:
+{{tool_names}}
+
+---
+**Question:** {{input}}
+{{agent_scratchpad}}"""
             
-            prompt = PromptTemplate.from_template(react_template)
+            prompt = PromptTemplate(
+                input_variables=["input", "agent_scratchpad", "tools", "tool_names"],
+                template=react_template
+            )
             
-            agent = create_react_agent(self.llm, tools, prompt)
+            # 도구 목록 디버깅
+            logger.info(f"Claude 에이전트에 전달되는 도구 목록:")
+            for tool in tools:
+                logger.info(f"  - {tool.name}: {getattr(tool, 'description', 'No description')[:100]}")
+            
+            custom_parser = ClaudeReActParser()
+            agent = create_react_agent(self.llm, tools, prompt, output_parser=custom_parser)
             return AgentExecutor(
                 agent=agent,
                 tools=tools,
                 verbose=True,
+                max_iterations=5,
+                max_execution_time=30,
                 handle_parsing_errors=True,
-                max_iterations=5
+                early_stopping_method="force",
+                return_intermediate_steps=True
             )
         except Exception as e:
             logger.error(f"Claude 에이전트 생성 실패: {e}")

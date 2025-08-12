@@ -21,8 +21,8 @@ class ConversationHistory:
         self.ai_response_token_limit = self.settings.get("ai_response_token_limit", 15000)
         self.max_history_length = 100  # 전체 세션 최대 길이
 
-    def add_message(self, role: str, content: str):
-        """Add message with duplicate prevention"""
+    def add_message(self, role: str, content: str, model_name: str = None):
+        """Add message with duplicate prevention and model info"""
         if not content or not content.strip():
             return
             
@@ -41,6 +41,10 @@ class ConversationHistory:
             "timestamp": datetime.now().isoformat(),
             "token_count": self._estimate_tokens(content)
         }
+        
+        # AI 응답인 경우 모델 정보 추가
+        if role in ["assistant", "agent"] and model_name:
+            message["model"] = model_name
         
         self.current_session.append(message)
         
@@ -165,6 +169,10 @@ class ConversationHistory:
                     if "token_count" not in msg:
                         msg["token_count"] = self._estimate_tokens(msg["content"])
                     
+                    # 모델 정보가 없는 AI 메시지에 기본값 추가
+                    if msg["role"] in ["assistant", "agent"] and "model" not in msg:
+                        msg["model"] = "unknown"
+                    
                     valid_messages.append(msg)
             
             self.current_session = valid_messages[-self.max_history_length:]
@@ -207,10 +215,21 @@ class ConversationHistory:
         ai_count = len([m for m in self.current_session if m["role"] in ["assistant", "agent"]])
         total_tokens = sum(m.get("token_count", 0) for m in self.current_session)
         
+        # 모델별 통계
+        model_stats = {}
+        for msg in self.current_session:
+            if msg["role"] in ["assistant", "agent"] and "model" in msg:
+                model = msg["model"]
+                if model not in model_stats:
+                    model_stats[model] = {"count": 0, "tokens": 0}
+                model_stats[model]["count"] += 1
+                model_stats[model]["tokens"] += msg.get("token_count", 0)
+        
         return {
             "total_messages": len(self.current_session),
             "user_messages": user_count,
             "ai_messages": ai_count,
             "total_tokens": total_tokens,
-            "hybrid_mode": self.hybrid_mode
+            "hybrid_mode": self.hybrid_mode,
+            "model_stats": model_stats
         }

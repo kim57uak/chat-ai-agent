@@ -1,5 +1,6 @@
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import QTimer
+from ui.components.progressive_display import ProgressiveDisplay
 import json
 import uuid
 
@@ -9,7 +10,26 @@ class ChatDisplay:
     
     def __init__(self, web_view: QWebEngineView):
         self.web_view = web_view
+        self.progressive_display = ProgressiveDisplay(web_view)
+        self._load_ui_settings()
         self.init_web_view()
+    
+    def _load_ui_settings(self):
+        """UI 설정 로드"""
+        try:
+            from core.file_utils import load_config
+            config = load_config()
+            ui_settings = config.get('ui_settings', {})
+            progressive_settings = ui_settings.get('progressive_display', {})
+            
+            self.progressive_enabled = progressive_settings.get('enabled', True)
+            self.delay_per_line = progressive_settings.get('delay_per_line', 30)
+            self.initial_delay = progressive_settings.get('initial_delay', 100)
+        except Exception as e:
+            # 설정 로드 실패 시 기본값 사용
+            self.progressive_enabled = True
+            self.delay_per_line = 30
+            self.initial_delay = 100
     
     def init_web_view(self):
         """웹 브라우저 초기화"""
@@ -274,8 +294,8 @@ class ChatDisplay:
         """
         self.web_view.setHtml(html_template)
     
-    def append_message(self, sender, text, original_sender=None):
-        """메시지 추가"""
+    def append_message(self, sender, text, original_sender=None, progressive=False):
+        """메시지 추가 - progressive=True시 점진적 출력"""
         # 발신자별 스타일
         if sender == '사용자':
             bg_color = 'rgba(163,135,215,0.15)'
@@ -355,8 +375,21 @@ class ChatDisplay:
             self.web_view.page().runJavaScript(content_js)
         
         self.web_view.page().runJavaScript(create_js)
-        QTimer.singleShot(50, set_content)
+        
+        if progressive and self.progressive_enabled:
+            # 점진적 출력 요청 시 - config 설정 사용
+            QTimer.singleShot(self.initial_delay, lambda: self.progressive_display.display_text_progressively(
+                message_id, formatted_text, delay_per_line=self.delay_per_line
+            ))
+        else:
+            # 일반 출력
+            QTimer.singleShot(50, set_content)
     
     def clear_messages(self):
         """메시지 초기화"""
+        self.progressive_display.cancel_current_display()
         self.init_web_view()
+    
+    def cancel_progressive_display(self):
+        """점진적 출력 취소"""
+        self.progressive_display.cancel_current_display()

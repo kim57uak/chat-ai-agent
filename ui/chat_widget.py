@@ -420,6 +420,9 @@ class ChatWidget(QWidget):
         if hasattr(self, 'ai_processor'):
             self.ai_processor.cancel()
         
+        # 점진적 출력도 취소
+        self.chat_display.cancel_progressive_display()
+        
         self.chat_display.append_message('시스템', '요청을 취소했습니다.')
         print("취소 요청 완료")
     
@@ -447,7 +450,7 @@ class ChatWidget(QWidget):
         # 표시용 sender 결정
         display_sender = '에이전트' if '에이전트' in sender else 'AI'
         
-        self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender)
+        self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True)
         
         # AI 응답을 히스토리에 추가 (사용자 메시지는 이미 추가됨)
         self.conversation_history.add_message('assistant', text, current_model)

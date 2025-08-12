@@ -8,6 +8,7 @@ from enum import Enum
 import json
 import os
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -231,11 +232,22 @@ class PromptManager:
         }
     
     def get_system_prompt(self, model_type: str) -> str:
-        """Generate concise system prompt"""
+        """Generate concise system prompt with current date and tone guidelines"""
+        current_date = datetime.now().strftime("%Y년 %m월 %d일")
+        date_info = f"오늘 날짜: {current_date}"
+        
+        tone_guidelines = (
+            "**Communication Style Guidelines:**\n"
+            "- Use a warm, friendly, and helpful tone in all responses\n"
+            "- Incorporate relevant emojis to enhance readability and visual appeal\n"
+            "- Structure responses clearly with proper formatting for better accessibility\n"
+            "- Be encouraging and supportive while maintaining professionalism"
+        )
+        
         common = self._prompts[ModelType.COMMON.value]["system_base"]
         model_specific = self._prompts.get(model_type, {}).get("system_enhancement", "")
         
-        return f"{common}\n\n{model_specific}".strip()
+        return f"{common}\n\n{date_info}\n\n{tone_guidelines}\n\n{model_specific}".strip()
     
     def get_tool_prompt(self, model_type: str) -> str:
         """Generate tool usage prompt"""

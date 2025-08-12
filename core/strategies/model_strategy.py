@@ -135,13 +135,72 @@ class PerplexityModelStrategy(ModelStrategy):
         return gpt_strategy.process_tool_chat(user_input, llm, tools, agent_executor_factory, agent_executor)
 
 
+class ClaudeModelStrategy(ModelStrategy):
+    """Claude 모델 전략 - 마크다운 테이블 최적화"""
+    
+    def get_model_type(self) -> str:
+        return "claude"
+    
+    def supports_model(self, model_name: str) -> bool:
+        return 'claude' in model_name.lower()
+    
+    def process_tool_chat(self, user_input: str, llm: Any, tools: List, agent_executor_factory, agent_executor=None) -> Tuple[str, List]:
+        """Claude 모델용 도구 채팅 처리 - 마크다운 테이블 보존"""
+        try:
+            if not agent_executor:
+                agent_executor = agent_executor_factory.create_agent_executor(llm, tools)
+            
+            if not agent_executor:
+                return "사용 가능한 도구가 없습니다.", []
+            
+            logger.info(f"Claude 에이전트 실행: {user_input[:50]}...")
+            result = agent_executor.invoke({"input": user_input})
+            output = result.get("output", "")
+            
+            used_tools = []
+            if "intermediate_steps" in result:
+                for step in result["intermediate_steps"]:
+                    if len(step) >= 2 and hasattr(step[0], "tool"):
+                        used_tools.append(step[0].tool)
+            
+            # Claude 특화: 마크다운 테이블 보존 처리
+            if self._has_markdown_table(output):
+                logger.info("Claude 에이전트 응답에서 마크다운 테이블 감지")
+                return output, used_tools
+            
+            # 에이전트 중단 처리
+            if (not output.strip() or 
+                "Agent stopped" in output or 
+                "iteration limit" in output or
+                "time limit" in output):
+                logger.warning("Claude 에이전트 중단 감지, 단순 채팅으로 대체")
+                from core.processors.simple_chat_processor import SimpleChatProcessor
+                simple_processor = SimpleChatProcessor()
+                return simple_processor.process_chat(user_input, llm), []
+            
+            return output, used_tools
+            
+        except Exception as e:
+            logger.error(f"Claude 도구 채팅 오류: {e}")
+            from core.processors.simple_chat_processor import SimpleChatProcessor
+            simple_processor = SimpleChatProcessor()
+            return simple_processor.process_chat(user_input, llm), []
+    
+    def _has_markdown_table(self, text: str) -> bool:
+        """마크다운 테이블 존재 여부 확인"""
+        return ('|' in text and 
+                (text.count('|') > 3 or '---' in text or 
+                 '코드' in text or 'Header' in text))
+
+
 class ModelStrategyFactory:
     """모델 전략 팩토리"""
     
     _strategies = [
         GPTModelStrategy(),
         GeminiModelStrategy(),
-        PerplexityModelStrategy()
+        PerplexityModelStrategy(),
+        ClaudeModelStrategy()
     ]
     
     @classmethod

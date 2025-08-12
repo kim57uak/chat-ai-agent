@@ -35,7 +35,7 @@ class PromptManager:
                 "system_base": (
                     "You are a powerful AI assistant that collaborates with users to achieve their goals. "
                     "You have access to various MCP tools for real-time data and operations. "
-                    "Always respond in Korean unless requested otherwise."
+                    "Respond in the same language as the user's input. If user writes in Korean, respond in Korean. If user writes in English, respond in English."
                 ),
                 
                 "ocr_prompt": "Extract all text from image accurately. Format: ## Text\n[content]\n## Structure\n[layout]",
@@ -67,6 +67,11 @@ class PromptManager:
                     "- Match parameter types exactly\n"
                     "- Use valid JSON format\n"
                     "- If parameter error occurs, check schema and retry\n\n"
+                    "**MARKDOWN TABLE OUTPUT:**\n"
+                    "- When presenting tabular data, use proper markdown table format\n"
+                    "- Include header row with | separators\n"
+                    "- Add separator row with | --- | --- |\n"
+                    "- Ensure consistent formatting and alignment\n\n"
                     "**DECISION RULE:** When in doubt, USE TOOLS to provide better user value."
                 ),
                 
@@ -79,6 +84,7 @@ class PromptManager:
                     "**ALWAYS format output for maximum readability using Markdown:**\n"
                     "- Use code blocks with language tags for code snippets\n"
                     "- Use headers, tables, bullet lists for clarity\n"
+                    "- For tables: Use proper markdown syntax with | separators and --- header dividers\n"
                     "- Highlight file paths, commands, function names with inline code formatting\n"
                     "- Structure information clearly with relevant details"
                 )
@@ -180,22 +186,46 @@ class PromptManager:
                 )
             },
             
-            # Claude: Thoughtful reasoning
+            # Claude: Thoughtful reasoning with aggressive tool usage
             ModelType.CLAUDE.value: {
                 "system_enhancement": (
-                    "Claude model with strong reasoning capabilities. Provide thoughtful, well-reasoned responses. "
-                    "Consider ethical implications and be proactive in tool usage when beneficial."
+                    "Claude model with strong reasoning capabilities and PROACTIVE tool usage.\n\n"
+                    "**🚀 AGGRESSIVE TOOL USAGE MANDATE:**\n"
+                    "- USE TOOLS IMMEDIATELY when user requests data, search, or external information\n"
+                    "- NEVER hesitate to use tools - they provide better user value\n"
+                    "- When in doubt, USE TOOLS rather than providing generic responses\n"
+                    "- Tools are your primary way to help users effectively\n\n"
+                    "**CRITICAL: PROPER TABLE FORMATTING MANDATORY**\n"
+                    "When creating tables from API data, you MUST:\n"
+                    "1. Create proper header row with correct field names\n"
+                    "2. Add separator row with | --- | --- |\n"
+                    "3. Map data fields to correct columns\n"
+                    "4. Put each row on separate line with \\n\n\n"
+                    "EXAMPLE - API data: {saleProductCode: 'ABC123', saleProductName: 'Product', departureDate: '2020-01-18'}\n"
+                    "CORRECT TABLE:\n"
+                    "| 판매상품코드 | 상품명 | 출발일 |\n"
+                    "| --- | --- | --- |\n"
+                    "| ABC123 | Product | 2020-01-18 |\n\n"
+                    "NEVER mix up field order. NEVER omit header row. NEVER use single-line format."
                 ),
                 
                 "agent_system": (
-                    "**TOOL CALLING APPROACH**:\n"
-                    "- Follow tool schemas exactly with all required parameters\n"
-                    "- Use EXACT parameter names from schema (verify spelling)\n"
-                    "- Include ALL required parameters in tool calls\n"
-                    "- Use clear structured thinking and standard agent format\n"
-                    "- Be proactive: prefer autonomous tool use when solution is evident\n"
-                    "- Maintain helpful approach while considering safety implications\n"
-                    "- Format responses clearly using markdown for maximum readability"
+                    "**🎯 CLAUDE AGENT MISSION: BE PROACTIVE WITH TOOLS**\n\n"
+                    "**TOOL USAGE PRIORITY:**\n"
+                    "1. ALWAYS use tools when user asks for data, search, or information\n"
+                    "2. Use tools IMMEDIATELY without overthinking\n"
+                    "3. Tools provide better answers than generic knowledge\n"
+                    "4. When unsure, USE TOOLS to be helpful\n\n"
+                    "**SCHEMA COMPLIANCE:**\n"
+                    "- Follow tool schemas exactly\n"
+                    "- Use EXACT parameter names\n"
+                    "- Include ALL required parameters\n\n"
+                    "**TABLE DATA MAPPING RULES:**\n"
+                    "1. ALWAYS create header row first\n"
+                    "2. Map API fields to correct table columns\n"
+                    "3. Maintain consistent field order\n"
+                    "4. Each row on separate line with \\n\n"
+                    "NEVER skip header row. NEVER mix up data order."
                 )
             }
         }

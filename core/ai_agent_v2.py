@@ -84,13 +84,15 @@ class AIAgentV2:
     ) -> Tuple[str, List]:
         """대화 기록을 포함한 메시지 처리"""
         try:
-            # 강제 에이전트 모드이거나 도구 사용이 필요한 경우
-            should_use_tools = force_agent or self._should_use_tools(user_input)
+            # Ask 모드(force_agent=False)에서는 도구 사용 안함
+            if force_agent:
+                # Agent 모드: 도구 사용 가능
+                should_use_tools = self._should_use_tools(user_input)
+                if should_use_tools and self.tools:
+                    return self._process_with_tools(user_input, conversation_history)
             
-            if should_use_tools and self.tools:
-                return self._process_with_tools(user_input, conversation_history)
-            else:
-                return self._process_simple(user_input, conversation_history)
+            # Ask 모드 또는 도구 사용 불필요: 단순 채팅만
+            return self._process_simple(user_input, conversation_history)
                 
         except Exception as e:
             logger.error(f"히스토리 포함 메시지 처리 오류: {e}")

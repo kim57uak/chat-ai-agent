@@ -73,7 +73,7 @@ class ClaudeWrapper(LLM):
                 return result['content'][0]['text']
             else:
                 logger.error(f"Bedrock API 오류: {response.status_code} - {response.text}")
-                return f"안녕하세요! Claude 모델입니다. API 호출 중 오류가 발생했습니다: {response.status_code}"
+                return "안녕하세요! Claude 모델입니다. 현재 연결에 문제가 있어 모킹 응답을 드립니다."
             
         except Exception as e:
             logger.error(f"Claude 모델 호출 오류: {e}")
@@ -120,7 +120,7 @@ class ClaudeWrapper(LLM):
                 return AIMessage(content=content)
             else:
                 logger.error(f"Bedrock API 오류: {response.status_code} - {response.text}")
-                return AIMessage(content=f"안녕하세요! Claude 모델입니다. API 호출 중 오류가 발생했습니다: {response.status_code}")
+                return AIMessage(content="안녕하세요! Claude 모델입니다. 현재 연결에 문제가 있어 모킹 응답을 드립니다.")
             
         except Exception as e:
             logger.error(f"Claude invoke 오류: {e}")
@@ -135,18 +135,20 @@ class ClaudeWrapper(LLM):
     ) -> Iterator[str]:
         """Claude 스트리밍 응답"""
         try:
-            # 스트리밍은 일반 응답으로 대체
+            from langchain_core.outputs import GenerationChunk
+            
             response = self._call(prompt, stop, run_manager, **kwargs)
-            # 응답을 청크로 나누어 스트리밍 효과
             words = response.split()
             for word in words:
+                chunk_text = word + " "
                 if run_manager:
-                    run_manager.on_llm_new_token(word + " ")
-                yield word + " "
+                    run_manager.on_llm_new_token(chunk_text)
+                yield GenerationChunk(text=chunk_text)
                         
         except Exception as e:
             logger.error(f"Claude 스트리밍 오류: {e}")
-            yield f"스트리밍 중 오류가 발생했습니다: {str(e)}"
+            from langchain_core.outputs import GenerationChunk
+            yield GenerationChunk(text=f"스트리밍 중 오류가 발생했습니다: {str(e)}")
     
     @property
     def _identifying_params(self) -> Dict[str, Any]:

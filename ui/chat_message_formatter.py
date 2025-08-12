@@ -11,10 +11,10 @@ class ChatMessageFormatter:
     def __init__(self, llm=None):
         self.intelligent_formatter = IntelligentContentFormatter(llm)
     
-    def format_text(self, text: str) -> str:
+    def format_text(self, text: str, sender: str = "AI") -> str:
         """Simplified text formatting - delegate to intelligent formatter"""
-        # Use intelligent formatter for all content
-        return self.intelligent_formatter.format_content(text)
+        # Use intelligent formatter for all content with sender info
+        return self.intelligent_formatter.format_content(text, sender)
     
 
     
@@ -42,7 +42,7 @@ class ChatMessageFormatter:
             icon = '⚙️'
             sender_color = 'rgb(215,163,135)'
         
-        formatted_text = self.format_text(text)
+        formatted_text = self.format_text(text, sender)
         
         return f"""
         <div style="

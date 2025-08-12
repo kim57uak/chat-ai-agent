@@ -106,6 +106,10 @@ class SyntaxHighlighter:
     
     def _apply_default_highlighting(self, code: str) -> str:
         """Apply basic highlighting for unsupported languages"""
+        # 이미 HTML 태그가 있는지 확인
+        if '<span' in code or '<div' in code:
+            return code
+        
         # 문자열 하이라이팅 (다양한 인용부호 지원)
         code = re.sub(r'"[^"]*"', r'<span style="color: #ce9178;">\g<0></span>', code)
         code = re.sub(r"'[^']*'", r'<span style="color: #ce9178;">\g<0></span>', code)

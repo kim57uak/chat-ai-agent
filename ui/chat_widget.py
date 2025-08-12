@@ -437,17 +437,20 @@ class ChatWidget(QWidget):
         
         # 사용된 도구 정보
         tools_info = ""
-        if sender == '에이전트' and used_tools:
+        if '에이전트' in sender and used_tools:
             tool_emojis = self._get_tool_emoji_list(used_tools)
             tools_text = ", ".join([f"{emoji} {tool}" for emoji, tool in tool_emojis])
             tools_info = f"\n\n*사용된 도구: {tools_text}*"
         
         enhanced_text = f"{text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}*"
         
-        self.chat_display.append_message(sender, enhanced_text)
+        # 표시용 sender 결정
+        display_sender = '에이전트' if '에이전트' in sender else 'AI'
+        
+        self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender)
         
         # AI 응답을 히스토리에 추가 (사용자 메시지는 이미 추가됨)
-        self.conversation_history.add_message('assistant', text)
+        self.conversation_history.add_message('assistant', text, current_model)
         self.conversation_history.save_to_file()
         self.messages.append({'role': 'assistant', 'content': text})
         
@@ -541,11 +544,18 @@ class ChatWidget(QWidget):
                     for msg in unique_messages:
                         role = msg.get('role', '')
                         content = msg.get('content', '')
+                        model = msg.get('model', '')
                         
                         if role == 'user':
                             self.chat_display.append_message('사용자', content)
                         elif role == 'assistant':
-                            self.chat_display.append_message('AI', content)
+                            # 모델 정보가 있으면 표시하고 센더 정보로 모델명 전달
+                            if model and model != 'unknown':
+                                enhanced_content = f"{content}\n\n---\n*🤖 {model}*"
+                                # 모델명을 original_sender로 전달하여 포맷팅에 활용
+                                self.chat_display.append_message('AI', enhanced_content, original_sender=model)
+                            else:
+                                self.chat_display.append_message('AI', content)
                 else:
                     self.chat_display.append_message('시스템', '새로운 대화를 시작합니다.')
             else:

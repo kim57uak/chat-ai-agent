@@ -31,6 +31,7 @@ class AIProcessor(QObject):
                 from core.ai_client import AIClient
                 client = AIClient(api_key, model)
                 self._current_client = client
+                self._current_model = model
                 
                 # 대화 히스토리 설정
                 if messages:
@@ -95,7 +96,9 @@ class AIProcessor(QObject):
                         sender = 'AI'
                 
                 if not self._cancelled and response:
-                    self.finished.emit(sender, response, used_tools)
+                    # sender에 모델 정보 포함
+                    model_sender = f"{sender}_{model}"
+                    self.finished.emit(model_sender, response, used_tools)
                 elif not self._cancelled:
                     self.error.emit("응답을 생성할 수 없습니다.")
                     

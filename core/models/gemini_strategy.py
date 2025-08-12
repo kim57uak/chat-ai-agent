@@ -23,6 +23,8 @@ class GeminiStrategy(BaseModelStrategy):
             temperature=0.1,
             convert_system_message_to_human=True,
             max_tokens=16384,
+            max_retries=3,
+            request_timeout=30,
         )
     
     def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
@@ -152,7 +154,7 @@ class GeminiStrategy(BaseModelStrategy):
                     "- External API calls"
                 )
             
-            # Gemini 메시지 구성 (가독성 개선)
+            # Gemini 메시지 구성
             messages = [
                 HumanMessage(content=(
                     "# Tool Decision Expert\n\n"

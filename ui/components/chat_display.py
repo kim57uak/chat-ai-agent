@@ -35,6 +35,10 @@ class ChatDisplay:
     
     def init_web_view(self):
         """웹 브라우저 초기화"""
+        from ui.styles.theme_manager import theme_manager
+        
+        theme_css = theme_manager.generate_theme_css()
+        
         html_template = """
         <!DOCTYPE html>
         <html>
@@ -51,13 +55,10 @@ class ChatDisplay:
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
                     font-size: 14px;
                     line-height: 1.6;
-                    margin: 16px;
+                    margin: 8px;
                     padding: 0;
                     word-wrap: break-word;
                     overflow-wrap: break-word;
-                    overflow-y: auto;
-                    height: auto;
-                    min-height: 100vh;
                 }
                 
                 pre {
@@ -73,6 +74,7 @@ class ChatDisplay:
                     tab-size: 4;
                     border: 1px solid #444;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    position: relative;
                 }
                 
                 code {
@@ -217,6 +219,30 @@ class ChatDisplay:
                 ::-webkit-scrollbar-thumb:hover {
                     background: #666;
                 }
+                
+                .copy-btn {
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    background: #444;
+                    color: #fff;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 11px;
+                    font-weight: 500;
+                    z-index: 9999;
+                    transition: all 0.2s ease;
+                }
+                
+                .copy-btn:hover {
+                    background: #555;
+                }
+                
+                .copy-btn:active {
+                    background: #666;
+                }
             </style>
             <script>
                 var pyqt_bridge = null;
@@ -299,6 +325,68 @@ class ChatDisplay:
                         }, 2000);
                     }
                 }
+                
+                function copyMessage(messageId) {
+                    try {
+                        const contentDiv = document.getElementById(messageId + '_content');
+                        if (!contentDiv) return;
+                        
+                        const textContent = contentDiv.innerText || contentDiv.textContent;
+                        
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(textContent).then(() => {
+                                showMessageCopyFeedback(messageId);
+                            }).catch(() => {
+                                fallbackCopyMessage(textContent, messageId);
+                            });
+                        } else {
+                            fallbackCopyMessage(textContent, messageId);
+                        }
+                    } catch (error) {
+                        console.error('Message copy failed:', error);
+                    }
+                }
+                
+                function fallbackCopyMessage(text, messageId) {
+                    try {
+                        const textArea = document.createElement('textarea');
+                        textArea.value = text;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        
+                        const successful = document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        
+                        if (successful) {
+                            showMessageCopyFeedback(messageId);
+                        }
+                    } catch (err) {
+                        console.error('Fallback message copy error:', err);
+                    }
+                }
+                
+                function showMessageCopyFeedback(messageId) {
+                    const messageDiv = document.getElementById(messageId);
+                    if (messageDiv) {
+                        const copyBtn = messageDiv.querySelector('button');
+                        if (copyBtn) {
+                            const originalText = copyBtn.textContent;
+                            copyBtn.textContent = '✓ 복사됨!';
+                            copyBtn.style.background = '#28a745';
+                            copyBtn.style.borderColor = '#28a745';
+                            copyBtn.style.transform = 'scale(1.05)';
+                            
+                            setTimeout(() => {
+                                copyBtn.textContent = originalText;
+                                copyBtn.style.background = 'rgba(0,0,0,0.7)';
+                                copyBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+                                copyBtn.style.transform = 'scale(1)';
+                            }, 2000);
+                        }
+                    }
+                }
             </script>
         </head>
         <body>
@@ -362,17 +450,40 @@ class ChatDisplay:
             var messagesDiv = document.getElementById('messages');
             var messageDiv = document.createElement('div');
             messageDiv.id = '{message_id}';
-            messageDiv.style.cssText = 'margin:12px 0;padding:16px;background:{bg_color};border-radius:12px;border-left:4px solid {border_color};';
+            messageDiv.style.cssText = 'margin:8px 0;padding:12px;background:{bg_color};border-radius:8px;border-left:3px solid {border_color};position:relative;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);transform:translateY(0);box-shadow:none;';
+            messageDiv.onmouseenter = function() {{ this.style.transform = 'translateY(-1px)'; this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; }};
+            messageDiv.onmouseleave = function() {{ this.style.transform = 'translateY(0)'; this.style.boxShadow = 'none'; }};
             
             var headerDiv = document.createElement('div');
-            headerDiv.style.cssText = 'margin:0 0 12px 0;font-weight:700;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;';
+            headerDiv.style.cssText = 'margin:0 0 8px 0;font-weight:600;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;opacity:0.8;';
             headerDiv.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
+            
+            var copyBtn = document.createElement('button');
+            copyBtn.innerHTML = '📋 복사';
+            copyBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:white;border:1px solid rgba(255,255,255,0.2);padding:6px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;opacity:1;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);transform:scale(1);backdrop-filter:blur(4px);z-index:9999;';
+            copyBtn.onclick = function() {{ copyMessage('{message_id}'); }};
+            copyBtn.onmouseenter = function() {{ this.style.background = 'rgba(0,0,0,0.8)'; this.style.borderColor = 'rgba(255,255,255,0.3)'; }};
+            copyBtn.onmouseleave = function() {{ this.style.background = 'rgba(0,0,0,0.7)'; this.style.borderColor = 'rgba(255,255,255,0.2)'; }};
+            
+            messageDiv.onmouseenter = function() {{ 
+                this.style.transform = 'translateY(-2px) scale(1.01)'; 
+                this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)'; 
+                copyBtn.style.opacity = '1';
+                copyBtn.style.transform = 'scale(1.05)';
+            }};
+            messageDiv.onmouseleave = function() {{ 
+                this.style.transform = 'translateY(0) scale(1)'; 
+                this.style.boxShadow = 'none'; 
+                copyBtn.style.opacity = '0.7';
+                copyBtn.style.transform = 'scale(1)';
+            }};
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{message_id}_content';
-            contentDiv.style.cssText = 'margin:0;padding-left:24px;line-height:1.6;color:#ffffff;font-size:13px;word-wrap:break-word;';
+            contentDiv.style.cssText = 'margin:0;padding-left:4px;line-height:1.6;color:#ffffff;font-size:13px;word-wrap:break-word;';
             
             messageDiv.appendChild(headerDiv);
+            messageDiv.appendChild(copyBtn);
             messageDiv.appendChild(contentDiv);
             messagesDiv.appendChild(messageDiv);
             window.scrollTo(0, document.body.scrollHeight);

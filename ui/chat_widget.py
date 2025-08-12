@@ -15,6 +15,7 @@ from ui.components.file_handler import FileHandler
 from ui.components.chat_display import ChatDisplay
 from ui.components.ui_manager import UIManager
 from ui.components.model_manager import ModelManager
+from ui.components.status_display import status_display
 
 from datetime import datetime
 import os
@@ -51,8 +52,20 @@ class ChatWidget(QWidget):
         
         self.model_label = QLabel(self)
         self.tools_label = QLabel(self)
+        self.status_label = QLabel(self)
+        self.status_label.setStyleSheet("""
+            QLabel {
+                color: #87CEEB;
+                font-size: 11px;
+                padding: 4px 8px;
+                background: rgba(135,206,235,0.1);
+                border-radius: 4px;
+                border: 1px solid rgba(135,206,235,0.3);
+            }
+        """)
         
         info_layout.addWidget(self.model_label, 1)
+        info_layout.addWidget(self.status_label, 0)
         info_layout.addWidget(self.tools_label, 0)
         self.layout.addLayout(info_layout)
         
@@ -245,6 +258,9 @@ class ChatWidget(QWidget):
         self.ai_processor.error.connect(self.on_ai_error)
         self.ai_processor.streaming.connect(self.on_ai_streaming)
         self.ai_processor.streaming_complete.connect(self.on_streaming_complete)
+        
+        # 상태 표시 연결
+        status_display.status_updated.connect(self.update_status_display)
         
         # 모델/도구 라벨 클릭 연결
         self.model_label.mousePressEvent = self.model_manager.show_model_popup
@@ -517,6 +533,14 @@ class ChatWidget(QWidget):
         if ok:
             QTimer.singleShot(500, self._load_previous_conversations)
     
+    def update_status_display(self, status_data):
+        """상태 표시 업데이트"""
+        try:
+            html_status = status_display.get_status_html()
+            self.status_label.setText(html_status)
+        except Exception as e:
+            print(f"상태 표시 업데이트 오류: {e}")
+    
     def _load_previous_conversations(self):
         """이전 대화 로드"""
         try:
@@ -542,7 +566,7 @@ class ChatWidget(QWidget):
                         unique_messages.append(msg)
                 
                 if unique_messages:
-                    self.chat_display.append_message('시스템', f'이전 대화 {len(unique_messages)}개를 불러왔습니다.')
+                    self.chat_display.append_message('시스템', f'이전 대화 {len(unique_messages)}개를 불러왔습니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
                     
                     for msg in unique_messages:
                         role = msg.get('role', '')
@@ -560,19 +584,23 @@ class ChatWidget(QWidget):
                             else:
                                 self.chat_display.append_message('AI', content)
                 else:
-                    self.chat_display.append_message('시스템', '새로운 대화를 시작합니다.')
+                    self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
             else:
-                self.chat_display.append_message('시스템', '새로운 대화를 시작합니다.')
+                self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
                 
         except Exception as e:
             print(f"대화 기록 로드 오류: {e}")
-            self.chat_display.append_message('시스템', '새로운 대화를 시작합니다.')
+            self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""
         self.conversation_history.clear_session()
         self.conversation_history.save_to_file()
         self.messages = []
+        
+        # 세션 통계도 초기화
+        status_display.reset_session_stats()
+        
         print("대화 히스토리가 초기화되었습니다.")
         
         self.chat_display.clear_messages()

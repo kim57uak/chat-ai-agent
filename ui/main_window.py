@@ -6,6 +6,7 @@ from ui.settings_dialog import SettingsDialog
 from ui.mcp_dialog import MCPDialog
 from ui.mcp_manager_simple import MCPManagerDialog
 from mcp.servers.mcp import start_mcp_servers, stop_mcp_servers
+from ui.components.status_display import status_display
 import os
 import json
 import threading
@@ -36,6 +37,9 @@ class MainWindow(QMainWindow):
         self.chat_widget = ChatWidget(self)
         layout.addWidget(self.chat_widget)
         self.setCentralWidget(central_widget)
+        
+        # 상태 표시 초기화
+        status_display.status_updated.emit(status_display.current_status.copy())
         
         # Menu
         self._create_menu_bar()

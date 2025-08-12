@@ -12,6 +12,12 @@ class SimpleChatProcessor(BaseChatProcessor):
     def process_message(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
         """단순 채팅 처리 - 대화 히스토리 포함"""
         try:
+            # user_input 타입 검증 및 변환
+            if isinstance(user_input, list):
+                user_input = str(user_input)
+            elif not isinstance(user_input, str):
+                user_input = str(user_input) if user_input else ""
+            
             if not self.validate_input(user_input):
                 return "유효하지 않은 입력입니다.", []
             
@@ -72,5 +78,7 @@ class SimpleChatProcessor(BaseChatProcessor):
     
     def _has_image_data(self, user_input: str) -> bool:
         """이미지 데이터 포함 여부 확인"""
+        if not isinstance(user_input, str):
+            return False
         cleaned_input = user_input.replace("\n", "")
         return "[IMAGE_BASE64]" in cleaned_input and "[/IMAGE_BASE64]" in cleaned_input

@@ -54,9 +54,9 @@ class GeminiStrategy(BaseModelStrategy):
                 role = msg.get("role", "")
                 content = msg.get("content", "")
                 
-                if role == "user" and content.strip():
+                if role == "user" and isinstance(content, str) and content.strip():
                     messages.append(HumanMessage(content=content))
-                elif role in ["assistant", "agent"] and content.strip():
+                elif role in ["assistant", "agent"] and isinstance(content, str) and content.strip():
                     messages.append(AIMessage(content=content))
         
         # 현재 사용자 입력 추가

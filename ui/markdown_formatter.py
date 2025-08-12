@@ -43,24 +43,7 @@ class MarkdownFormatter:
             highlighted_content = self.syntax_highlighter.highlight(code_content, lang)
             code_id = f'code_{uuid.uuid4().hex[:8]}'
             
-            code_html = f'''<div style="position: relative; margin: 12px 0;">
-<button onclick="copyCode('{code_id}')" style="
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: #444;
-    color: #fff;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    z-index: 10;
-    transition: all 0.2s ease;
-" onmouseover="this.style.background='#555'" onmouseout="this.style.background='#444'">복사</button>
-<pre style="background: #1e1e1e; color: #f8f8f2; padding: 20px; border-radius: 8px; font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace; font-size: 13px; line-height: 1.5; overflow-x: auto; white-space: pre; tab-size: 4; border: 1px solid #444; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"><code id="{code_id}">{highlighted_content}</code></pre>
-</div>'''
+            code_html = f'<div style="position: relative; margin: 12px 0;"><button onclick="copyCode(\'{code_id}\')" class="copy-btn">복사</button><pre><code id="{code_id}">{highlighted_content}</code></pre></div>'
             
             code_blocks.append(code_html)
             return f'__CODEBLOCK_{len(code_blocks)-1}__'
@@ -116,12 +99,12 @@ class MarkdownFormatter:
     def _format_headers(self, text: str) -> str:
         """헤더 포맷팅"""
         # 헤더 변환 (긴 패턴부터 우선 처리 - 6단계부터 1단계까지)
-        text = re.sub(r'^#{6}(?!#)\s+(.*?)\s*$', r'<h6 style="color: #aaaaaa; margin: 10px 0 5px 0; font-size: 13px; font-weight: 600;">\1</h6>', text, flags=re.MULTILINE)
-        text = re.sub(r'^#{5}(?!#)\s+(.*?)\s*$', r'<h5 style="color: #bbbbbb; margin: 12px 0 6px 0; font-size: 14px; font-weight: 600;">\1</h5>', text, flags=re.MULTILINE)
-        text = re.sub(r'^#{4}(?!#)\s+(.*?)\s*$', r'<h4 style="color: #cccccc; margin: 12px 0 6px 0; font-size: 15px; font-weight: 600;">\1</h4>', text, flags=re.MULTILINE)
-        text = re.sub(r'^#{3}(?!#)\s+(.*?)\s*$', r'<h3 style="color: #dddddd; margin: 14px 0 7px 0; font-size: 16px; font-weight: 600;">\1</h3>', text, flags=re.MULTILINE)
-        text = re.sub(r'^#{2}(?!#)\s+(.*?)\s*$', r'<h2 style="color: #eeeeee; margin: 16px 0 8px 0; font-size: 18px; font-weight: 600;">\1</h2>', text, flags=re.MULTILINE)
-        text = re.sub(r'^#{1}(?!#)\s+(.*?)\s*$', r'<h1 style="color: #ffffff; margin: 20px 0 10px 0; font-size: 20px; font-weight: 600;">\1</h1>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{6}\s+(.+)', r'<h6 style="color: #aaaaaa; margin: 10px 0 5px 0; font-size: 13px; font-weight: 600;">\1</h6>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{5}\s+(.+)', r'<h5 style="color: #bbbbbb; margin: 12px 0 6px 0; font-size: 14px; font-weight: 600;">\1</h5>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{4}\s+(.+)', r'<h4 style="color: #cccccc; margin: 12px 0 6px 0; font-size: 15px; font-weight: 600;">\1</h4>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{3}\s+(.+)', r'<h3 style="color: #dddddd; margin: 14px 0 7px 0; font-size: 16px; font-weight: 600;">\1</h3>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{2}\s+(.+)', r'<h2 style="color: #eeeeee; margin: 16px 0 8px 0; font-size: 18px; font-weight: 600;">\1</h2>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{1}\s+(.+)', r'<h1 style="color: #ffffff; margin: 20px 0 10px 0; font-size: 20px; font-weight: 600;">\1</h1>', text, flags=re.MULTILINE)
         
         return text
     
@@ -226,13 +209,13 @@ class MarkdownFormatter:
     def _format_lists(self, text: str) -> str:
         """리스트 포맷팅"""
         # 순서 있는 리스트 (1. 2. 3. 등)
-        text = re.sub(r'^(\d+)\. (.+)$', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #87CEEB; margin-right: 8px; font-weight: 600;">\1.</span>\2</div>', text, flags=re.MULTILINE)
+        text = re.sub(r'^(\d+)\. (.+)', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #87CEEB; margin-right: 8px; font-weight: 600;">\1.</span>\2</div>', text, flags=re.MULTILINE)
         
         # 비순서 리스트 (-, *, • 등)
-        text = re.sub(r'^[\-\*\u2022]\s+(.+)$', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #87CEEB; margin-right: 8px; font-weight: 600;">•</span>\1</div>', text, flags=re.MULTILINE)
+        text = re.sub(r'^[-*•]\s+(.+)', r'<div style="margin: 4px 0; margin-left: 16px; color: #cccccc;"><span style="color: #87CEEB; margin-right: 8px; font-weight: 600;">•</span>\1</div>', text, flags=re.MULTILINE)
         
         # 들여쓰기된 리스트 (2단계)
-        text = re.sub(r'^  [\-\*\u2022]\s+(.+)$', r'<div style="margin: 4px 0; margin-left: 32px; color: #cccccc;"><span style="color: #87CEEB; margin-right: 8px; font-weight: 600;">◦</span>\1</div>', text, flags=re.MULTILINE)
+        text = re.sub(r'^  [-*•]\s+(.+)', r'<div style="margin: 4px 0; margin-left: 32px; color: #cccccc;"><span style="color: #87CEEB; margin-right: 8px; font-weight: 600;">◦</span>\1</div>', text, flags=re.MULTILINE)
         
         return text
     

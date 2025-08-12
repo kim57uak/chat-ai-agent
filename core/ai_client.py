@@ -52,9 +52,11 @@ class AIClient:
             user_message = ""
             for msg in reversed(messages):
                 if isinstance(msg, dict) and msg.get("role") == "user":
-                    user_message = msg.get("content", "").strip()
-                    if user_message:
-                        break
+                    content = msg.get("content", "")
+                    if isinstance(content, str):
+                        user_message = content.strip()
+                        if user_message:
+                            break
 
             # 이미지 데이터 감지 (줄바꿈 무시)
             cleaned_message = user_message.replace("\n", "")

@@ -5,6 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_perplexity import ChatPerplexity
 from core.perplexity_wrapper import PerplexityWrapper
 from core.llm.claude.claude_wrapper import ClaudeWrapper
+from core.llm.claude.claude_api_wrapper import ClaudeAPIWrapper
 from core.file_utils import load_config
 import logging
 

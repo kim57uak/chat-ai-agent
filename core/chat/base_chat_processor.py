@@ -21,7 +21,14 @@ class BaseChatProcessor(ABC):
     
     def validate_input(self, user_input: str) -> bool:
         """입력 검증"""
-        return bool(user_input and user_input.strip())
+        if not user_input:
+            return False
+        
+        # user_input이 문자열이 아닌 경우 처리
+        if not isinstance(user_input, str):
+            return False
+            
+        return bool(user_input.strip())
     
     def format_response(self, response: str) -> str:
         """응답 포맷팅 - 모든 AI 모델에 일관된 형식 적용"""

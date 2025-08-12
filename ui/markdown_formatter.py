@@ -26,6 +26,7 @@ class MarkdownFormatter:
         text = self._format_lists(text)
         text = self._format_text_styles(text)
         text = self._format_links(text)
+        text = self._format_images(text)
         text = self._format_regular_text(text)
         
         # 코드블록 복원
@@ -175,6 +176,53 @@ class MarkdownFormatter:
         """링크 포맷팅"""
         return re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" style="color: #87CEEB; text-decoration: none; border-bottom: 1px dotted #87CEEB;" target="_blank">\1</a>', text)
     
+    def _format_images(self, text: str) -> str:
+        """이미지 포맷팅 - 마크다운 이미지와 Base64 이미지 처리"""
+        # 1. 마크다운 이미지 형식: ![alt](url)
+        text = re.sub(
+            r'!\[([^\]]*)\]\(([^\)]+)\)',
+            r'<div style="margin: 16px 0; text-align: center;"><img src="\2" alt="\1" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"><div style="margin-top: 8px; font-size: 12px; color: #888; font-style: italic;">\1</div></div>',
+            text
+        )
+        
+        # 2. Base64 이미지 태그: [IMAGE_BASE64]data[/IMAGE_BASE64]
+        def format_base64_image(match):
+            base64_data = match.group(1).strip()
+            image_id = f'img_{uuid.uuid4().hex[:8]}'
+            
+            # Base64 데이터 검증
+            if not base64_data:
+                return '<div style="color: #ff6b6b; font-style: italic;">이미지 데이터가 비어있습니다.</div>'
+            
+            # MIME 타입 감지 (기본값: jpeg)
+            mime_type = 'image/jpeg'
+            if base64_data.startswith('/9j/'):
+                mime_type = 'image/jpeg'
+            elif base64_data.startswith('iVBORw0KGgo'):
+                mime_type = 'image/png'
+            elif base64_data.startswith('R0lGOD'):
+                mime_type = 'image/gif'
+            elif base64_data.startswith('UklGR'):
+                mime_type = 'image/webp'
+            
+            return f'''<div style="margin: 16px 0; text-align: center; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 12px;">
+<img id="{image_id}" src="data:{mime_type};base64,{base64_data}" alt="AI 생성 이미지" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer;" onclick="this.style.transform = this.style.transform ? '' : 'scale(1.5)'; this.style.transition = 'transform 0.3s ease';">
+<div style="margin-top: 12px; font-size: 12px; color: #87CEEB; font-style: italic;">🖼️ AI 생성 이미지 (클릭하여 확대)</div>
+<button onclick="downloadImage('{image_id}')" style="margin-top: 8px; background: #444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;" onmouseover="this.style.background='#555'" onmouseout="this.style.background='#444'">이미지 저장</button>
+</div>'''
+        
+        text = re.sub(r'\[IMAGE_BASE64\]([^\[]+)\[/IMAGE_BASE64\]', format_base64_image, text, flags=re.DOTALL)
+        
+        # 3. 직접 URL 이미지 (http/https로 시작하고 이미지 확장자로 끝나는 경우)
+        text = re.sub(
+            r'(https?://[^\s]+\.(jpg|jpeg|png|gif|webp|bmp|svg)(?:\?[^\s]*)?)',
+            r'<div style="margin: 16px 0; text-align: center;"><img src="\1" alt="이미지" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"></div>',
+            text,
+            flags=re.IGNORECASE
+        )
+        
+        return text
+    
     def _format_lists(self, text: str) -> str:
         """리스트 포맷팅"""
         # 순서 있는 리스트 (1. 2. 3. 등)
@@ -198,6 +246,44 @@ class MarkdownFormatter:
         
         return text
     
+    def _extract_images(self, text: str, image_blocks: list) -> str:
+        """이미지를 추출하고 플레이스홀더로 치환"""
+        def store_image(match, img_type):
+            if img_type == 'markdown':
+                alt_text = match.group(1)
+                img_url = match.group(2)
+                img_html = f'<div style="margin: 16px 0; text-align: center;"><img src="{img_url}" alt="{alt_text}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"><div style="margin-top: 8px; font-size: 12px; color: #888; font-style: italic;">{alt_text}</div></div>'
+            elif img_type == 'base64':
+                base64_data = match.group(1).strip()
+                if not base64_data.startswith('data:image'):
+                    base64_data = f'data:image/png;base64,{base64_data}'
+                img_html = f'<div style="margin: 16px 0; text-align: center;"><img src="{base64_data}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"><div style="margin-top: 8px; font-size: 12px; color: #888; font-style: italic;">AI 생성 이미지</div></div>'
+            elif img_type == 'url':
+                img_url = match.group(1)
+                img_html = f'<div style="margin: 16px 0; text-align: center;"><img src="{img_url}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"></div>'
+            
+            image_blocks.append(img_html)
+            return f'__IMAGE_{len(image_blocks)-1}__'
+        
+        # 마크다운 이미지
+        text = re.sub(r'!\[([^\]]*)\]\(([^\)]+)\)', lambda m: store_image(m, 'markdown'), text)
+        
+        # Base64 이미지
+        text = re.sub(r'\[IMAGE_BASE64\]([^\[]+)\[/IMAGE_BASE64\]', lambda m: store_image(m, 'base64'), text, flags=re.DOTALL)
+        
+        # URL 이미지
+        text = re.sub(r'(https?://[^\s]+\.(jpg|jpeg|png|gif|webp|svg)(?:\?[^\s]*)?)', lambda m: store_image(m, 'url'), text, flags=re.IGNORECASE)
+        
+        return text
+    
+    def _restore_images(self, text: str, image_blocks: list) -> str:
+        """이미지 플레이스홀더를 실제 HTML로 복원"""
+        for i, image_block in enumerate(image_blocks):
+            placeholder = f'__IMAGE_{i}__'
+            if placeholder in text:
+                text = text.replace(placeholder, image_block)
+        return text
+    
     def _format_regular_text(self, text: str) -> str:
         """일반 텍스트 포맷팅 - 줄바꿈과 단락 처리"""
         # 빈 줄을 단락 구분으로 처리
@@ -211,7 +297,7 @@ class MarkdownFormatter:
                 result_lines.append('<br>')
             else:
                 # 일반 텍스트는 div로 감싸서 줄바꿈 처리
-                if not any(tag in line for tag in ['<h1', '<h2', '<h3', '<h4', '<h5', '<h6', '<hr', '<blockquote', '<div', '<pre', '<code']):
+                if not any(tag in line for tag in ['<h1', '<h2', '<h3', '<h4', '<h5', '<h6', '<hr', '<blockquote', '<div', '<pre', '<code', '<img']):
                     result_lines.append(f'<div style="margin: 4px 0; line-height: 1.6; color: #cccccc;">{line}</div>')
                 else:
                     result_lines.append(line)

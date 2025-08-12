@@ -1,5 +1,6 @@
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, QUrl, QObject, pyqtSlot
+from PyQt6.QtGui import QDesktopServices
 from ui.components.progressive_display import ProgressiveDisplay
 import json
 import uuid
@@ -12,6 +13,7 @@ class ChatDisplay:
         self.web_view = web_view
         self.progressive_display = ProgressiveDisplay(web_view)
         self._load_ui_settings()
+        self._setup_link_handler()
         self.init_web_view()
     
     def _load_ui_settings(self):
@@ -39,6 +41,7 @@ class ChatDisplay:
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
             <style>
                 * { box-sizing: border-box; }
                 
@@ -216,10 +219,21 @@ class ChatDisplay:
                 }
             </style>
             <script>
+                var pyqt_bridge = null;
+                
+                new QWebChannel(qt.webChannelTransport, function(channel) {
+                    pyqt_bridge = channel.objects.pyqt_bridge;
+                });
+                
                 document.addEventListener('click', function(e) {
                     if (e.target.tagName === 'A' && e.target.href) {
                         e.preventDefault();
-                        window.open(e.target.href, '_blank');
+                        if (pyqt_bridge) {
+                            pyqt_bridge.openUrl(e.target.href);
+                        } else {
+                            console.log('Bridge not ready, opening in same window');
+                            window.location.href = e.target.href;
+                        }
                     }
                 });
                 
@@ -293,6 +307,16 @@ class ChatDisplay:
         </html>
         """
         self.web_view.setHtml(html_template)
+    
+    def _setup_link_handler(self):
+        """링크 클릭 핸들러 설정"""
+        from PyQt6.QtWebChannel import QWebChannel
+        
+        # 웹 채널 설정
+        self.channel = QWebChannel()
+        self.link_handler = LinkHandler()
+        self.channel.registerObject('pyqt_bridge', self.link_handler)
+        self.web_view.page().setWebChannel(self.channel)
     
     def append_message(self, sender, text, original_sender=None, progressive=False):
         """메시지 추가 - progressive=True시 점진적 출력"""
@@ -393,3 +417,18 @@ class ChatDisplay:
     def cancel_progressive_display(self):
         """점진적 출력 취소"""
         self.progressive_display.cancel_current_display()
+
+
+class LinkHandler(QObject):
+    """링크 클릭 처리를 위한 핸들러"""
+    
+    def __init__(self):
+        super().__init__()
+    
+    @pyqtSlot(str)
+    def openUrl(self, url):
+        """URL을 기본 브라우저에서 열기"""
+        try:
+            QDesktopServices.openUrl(QUrl(url))
+        except Exception as e:
+            print(f"URL 열기 오류: {e}")

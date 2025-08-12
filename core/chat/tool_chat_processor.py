@@ -226,8 +226,12 @@ class ToolChatProcessor(BaseChatProcessor):
                 except:
                     pass
                 
-                # JSON 파싱 실패 시 원본 결과 반환
-                return f"검색 결과:\n\n{final_result[:1000]}...", used_tools
+                # JSON 파싱 실패 시 원본 결과 반환 - Perplexity 전용 처리
+                if 'perplexity' in self.model_strategy.model_name.lower() or 'sonar' in self.model_strategy.model_name.lower():
+                    # Perplexity 모델의 경우 더 자연스러운 응답 생성
+                    return f"요청하신 정보를 찾았습니다:\n\n{final_result[:800]}", used_tools
+                else:
+                    return f"검색 결과:\n\n{final_result[:1000]}...", used_tools
         
         return "요청이 복잡하여 처리 시간이 초과되었습니다. 더 구체적이고 간단한 질문으로 다시 시도해주세요.", []
     

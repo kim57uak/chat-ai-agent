@@ -23,8 +23,10 @@ class PerplexityOutputParser(BaseOutputParser):
             final_answer_matches = list(re.finditer(r'Final Answer:\s*(.*?)(?=\n(?:Thought|Action)|$)', cleaned_text, re.DOTALL | re.IGNORECASE))
             if final_answer_matches:
                 final_answer = final_answer_matches[-1].group(1).strip()
-                # 불필요한 내용 제거
-                final_answer = re.sub(r'For troubleshooting.*$', '', final_answer, flags=re.DOTALL).strip()
+                
+                # Perplexity 전용: 사고 과정 제거
+                final_answer = self._clean_perplexity_output(final_answer)
+                
                 if final_answer and len(final_answer) > 5:
                     logger.info(f"Final Answer 발견: {final_answer[:100]}...")
                     return AgentFinish(
@@ -128,3 +130,30 @@ class PerplexityOutputParser(BaseOutputParser):
             return {"path": action_input}
         
         return {"query": action_input}
+    
+    def _clean_perplexity_output(self, text: str) -> str:
+        """Perplexity 모델 전용 출력 정리"""
+        # 사고 과정 제거 패턴
+        patterns_to_remove = [
+            r'Thought:.*?(?=\n\n|$)',  # Thought 제거
+            r'Action:.*?(?=\n\n|$)',   # Action 제거
+            r'Action Input:.*?(?=\n\n|$)',  # Action Input 제거
+            r'다음 순서로.*?진행하겠습니다\..*?(?=\n\n|$)',  # 순서 설명 제거
+            r'액션:.*?입력:.*?(?=\n\n|$)',  # 한글 액션 제거
+            r'Observation.*?받아.*?(?=\n\n|$)',  # Observation 설명 제거
+            r'For troubleshooting.*$',  # 트러블슈팅 제거
+            r'죄송합니다\..*?제공되지 않았습니다\.',  # 사과 메시지 제거
+        ]
+        
+        cleaned = text
+        for pattern in patterns_to_remove:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+        
+        # 여러 줄바꿈을 두 줄바꿈으로 정리
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+        
+        # 앞뒤 공백 제거
+        cleaned = cleaned.strip()
+        
+        # 빈 문자열이면 원본 반환
+        return cleaned if cleaned else text

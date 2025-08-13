@@ -17,14 +17,24 @@ class GeminiStrategy(BaseModelStrategy):
     
     def create_llm(self):
         """Gemini LLM 생성"""
+        # Pro 모델의 경우 더 긴 타임아웃과 더 많은 재시도
+        if "pro" in self.model_name.lower():
+            max_tokens = 32768
+            max_retries = 5
+            request_timeout = 60
+        else:
+            max_tokens = 16384
+            max_retries = 3
+            request_timeout = 30
+        
         return ChatGoogleGenerativeAI(
             model=self.model_name,
             google_api_key=self.api_key,
             temperature=0.1,
             convert_system_message_to_human=True,
-            max_tokens=16384,
-            max_retries=3,
-            request_timeout=30,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+            request_timeout=request_timeout,
         )
     
     def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
@@ -293,12 +303,20 @@ Final Answer: [response based on observation]
         custom_parser = CustomReActParser()
         agent = create_react_agent(self.llm, tools, react_prompt, output_parser=custom_parser)
         
+        # Pro 모델의 경우 더 긴 시간과 더 많은 반복 허용
+        if "pro" in self.model_name.lower():
+            max_iterations = 8
+            max_execution_time = 60
+        else:
+            max_iterations = 5
+            max_execution_time = 30
+        
         return AgentExecutor(
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=5,
-            max_execution_time=30,
+            max_iterations=max_iterations,
+            max_execution_time=max_execution_time,
             handle_parsing_errors=True,  # 커스텀 파서가 처리
             early_stopping_method="force",
             return_intermediate_steps=True,

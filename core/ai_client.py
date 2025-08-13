@@ -29,6 +29,9 @@ class AIClient:
         self.chunked_processor = ChunkedResponseProcessor()
         self.streaming_llm = None
         
+        # 토큰 사용량 추적을 위한 마지막 응답 저장
+        self._last_response = None
+        
         # 설정 로드
         conv_settings = self._config_manager.get("conversation_settings", {})
         self.max_history_pairs = conv_settings.get("max_history_pairs", 5)
@@ -125,6 +128,10 @@ class AIClient:
             response, used_tools = self.agent.process_message_with_history(
                 user_message, history, force_agent
             )
+            
+            # 마지막 응답 저장 (토큰 사용량 추출용)
+            if hasattr(self.agent, '_last_response'):
+                self._last_response = self.agent._last_response
 
             elapsed_time = time.time() - start_time
 

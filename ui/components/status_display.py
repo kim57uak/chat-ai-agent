@@ -145,9 +145,10 @@ class StatusDisplay(QObject):
         output_tokens = status.get('output_tokens', 0)
         
         if total_tokens > 0:
-            token_str = f"📊 {total_tokens:,}토큰"
             if input_tokens > 0 and output_tokens > 0:
-                token_str += f" (입력:{input_tokens:,} 출력:{output_tokens:,})"
+                token_str = f"📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
+            else:
+                token_str = f"📊 {total_tokens:,}토큰"
         else:
             token_str = ""
         

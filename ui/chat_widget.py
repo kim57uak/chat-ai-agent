@@ -461,7 +461,19 @@ class ChatWidget(QWidget):
             tools_text = ", ".join([f"{emoji} {tool}" for emoji, tool in tool_emojis])
             tools_info = f"\n\n*사용된 도구: {tools_text}*"
         
-        enhanced_text = f"{text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}*"
+        # 토큰 사용량 정보 추가
+        token_info = ""
+        current_status = status_display.current_status
+        if current_status.get('total_tokens', 0) > 0:
+            total_tokens = current_status['total_tokens']
+            input_tokens = current_status.get('input_tokens', 0)
+            output_tokens = current_status.get('output_tokens', 0)
+            if input_tokens > 0 and output_tokens > 0:
+                token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
+            else:
+                token_info = f" | 📊 {total_tokens:,}토큰"
+        
+        enhanced_text = f"{text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}{token_info}*"
         
         # 표시용 sender 결정
         display_sender = '에이전트' if '에이전트' in sender else 'AI'

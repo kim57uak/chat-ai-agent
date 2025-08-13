@@ -72,3 +72,77 @@ class TokenLogger:
                             input_text += item.get('text', '') + "\n"
         
         TokenLogger.log_token_usage(model_name, input_text, output_text, operation)
+    
+    @staticmethod
+    def extract_actual_tokens(response_obj) -> tuple[int, int]:
+        """API 응답에서 실제 토큰 사용량 추출"""
+        try:
+            if not response_obj:
+                return 0, 0
+            
+            # OpenAI 직접 응답 형식
+            if hasattr(response_obj, 'usage'):
+                usage = response_obj.usage
+                return getattr(usage, 'prompt_tokens', 0), getattr(usage, 'completion_tokens', 0)
+            
+            # Langchain 응답 형식
+            if hasattr(response_obj, 'response_metadata'):
+                metadata = response_obj.response_metadata
+                if 'token_usage' in metadata:
+                    token_usage = metadata['token_usage']
+                    return token_usage.get('prompt_tokens', 0), token_usage.get('completion_tokens', 0)
+                if 'usage_metadata' in metadata:
+                    usage_metadata = metadata['usage_metadata']
+                    return usage_metadata.get('input_tokens', 0), usage_metadata.get('output_tokens', 0)
+            
+            # Google Gemini 응답 형식
+            if hasattr(response_obj, 'usage_metadata'):
+                usage = response_obj.usage_metadata
+                return getattr(usage, 'prompt_token_count', 0), getattr(usage, 'candidates_token_count', 0)
+            
+            # 리스트 형태의 응답 (에이전트 응답 등)
+            if isinstance(response_obj, list) and response_obj:
+                for item in response_obj:
+                    input_tokens, output_tokens = TokenLogger.extract_actual_tokens(item)
+                    if input_tokens > 0 or output_tokens > 0:
+                        return input_tokens, output_tokens
+            
+            # 딕셔너리 형태의 응답
+            if isinstance(response_obj, dict):
+                # 직접 토큰 정보가 있는 경우
+                if 'usage' in response_obj:
+                    usage = response_obj['usage']
+                    return usage.get('prompt_tokens', 0), usage.get('completion_tokens', 0)
+                
+                # 중첩된 구조에서 토큰 정보 찾기
+                for key, value in response_obj.items():
+                    if isinstance(value, dict) and ('tokens' in str(key).lower() or 'usage' in str(key).lower()):
+                        input_tokens, output_tokens = TokenLogger.extract_actual_tokens(value)
+                        if input_tokens > 0 or output_tokens > 0:
+                            return input_tokens, output_tokens
+            
+            return 0, 0
+        except Exception as e:
+            logger.debug(f"토큰 추출 실패: {e}")
+            return 0, 0
+    
+    @staticmethod
+    def log_actual_token_usage(
+        model_name: str,
+        response_obj,
+        operation: str = "chat"
+    ):
+        """실제 API 응답에서 토큰 사용량 로깅"""
+        input_tokens, output_tokens = TokenLogger.extract_actual_tokens(response_obj)
+        
+        if input_tokens > 0 or output_tokens > 0:
+            total_tokens = input_tokens + output_tokens
+            logger.info(
+                f"🔢 Actual Token Usage [{model_name}] {operation}: "
+                f"Input: {input_tokens} tokens, "
+                f"Output: {output_tokens} tokens, "
+                f"Total: {total_tokens} tokens"
+            )
+            return input_tokens, output_tokens
+        
+        return 0, 0

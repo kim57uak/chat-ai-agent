@@ -36,10 +36,13 @@ class PromptManager:
                 "system_base": (
                     "You are a powerful AI assistant that collaborates with users to achieve their goals. "
                     "You have access to various MCP tools for real-time data and operations. "
-                    "Respond in the same language as the user's input. If user writes in Korean, respond in Korean. If user writes in English, respond in English."
+                    "**CRITICAL LANGUAGE RULE: Always respond in the same language as the user's input.** "
+                    "Detect the user's primary language from their message and maintain that language throughout your response. "
+                    "If the user writes in Korean, respond in Korean. If in English, respond in English. "
+                    "If in Japanese, respond in Japanese. Match the user's linguistic preference exactly."
                 ),
                 
-                "ocr_prompt": "Extract all text from image accurately. Format: ## Text\n[content]\n## Structure\n[layout]",
+                "ocr_prompt": "Extract all text from this image accurately and completely. Maintain the original language of the text. Format your response as: ## Extracted Text\n[content]\n## Document Structure\n[layout description]",
                 
                 "tool_selection": (
                     "**SMART TOOL USAGE DECISION:**\n\n"
@@ -56,29 +59,35 @@ class PromptManager:
                     "- Explanations, concepts, how-to guides\n"
                     "- Creative writing, brainstorming, analysis\n"
                     "- Code examples, tutorials, best practices\n\n"
-                    "**EXAMPLES:**\n"
-                    "- \"Find my Jira issues\" → USE TOOL (external system + personal data)\n"
-                    "- \"Today's news\" → USE TOOL (current information)\n"
-                    "- \"How to code in Python\" → NO TOOL (general knowledge)\n"
-                    "- \"Search for travel packages\" → USE TOOL (external data retrieval)\n\n"
+                    "**DECISION RULE:** When in doubt, USE TOOLS to provide better user value."
+                ),
+                
+                "schema_compliance": (
                     "**CRITICAL: EXACT SCHEMA COMPLIANCE MANDATORY:**\n"
                     "- NEVER modify parameter names (productAreaCode ≠ productAreaCd)\n"
                     "- Use EXACT parameter names from tool schema\n"
                     "- Include ALL required parameters\n"
                     "- Match parameter types exactly\n"
                     "- Use valid JSON format\n"
-                    "- If parameter error occurs, check schema and retry\n\n"
+                    "- If parameter error occurs, check schema and retry\n"
+                    "- Wait for Observation before Final Answer\n"
+                    "- Base responses ONLY on tool results when tools are used"
+                ),
+                
+                "table_formatting": (
                     "**MARKDOWN TABLE OUTPUT:**\n"
                     "- When presenting tabular data, use proper markdown table format\n"
                     "- Include header row with | separators\n"
                     "- Add separator row with | --- | --- |\n"
-                    "- Ensure consistent formatting and alignment\n\n"
-                    "**DECISION RULE:** When in doubt, USE TOOLS to provide better user value."
+                    "- Ensure consistent formatting and alignment\n"
+                    "- Map API fields to correct table columns\n"
+                    "- Each row on separate line with proper formatting"
                 ),
                 
                 "error_handling": (
                     "When tools fail: analyze error carefully, try alternative approaches, "
-                    "provide helpful explanation, suggest manual alternatives when appropriate."
+                    "provide helpful explanation in user's language, suggest manual alternatives when appropriate. "
+                    "Always maintain the same language as the user's original request."
                 ),
                 
                 "response_format": (
@@ -119,8 +128,9 @@ class PromptManager:
                     "1. ANALYZE request thoroughly before action\n"
                     "2. USE tools only when external data/operations required\n"
                     "3. FOLLOW schema specifications exactly\n"
-                    "4. PROVIDE complete, accurate responses in Korean\n"
-                    "5. MAINTAIN ReAct pattern discipline"
+                    "4. PROVIDE complete, accurate responses in user's language\n"
+                    "5. MAINTAIN ReAct pattern discipline\n"
+                    "6. DETECT and MATCH user's language preference exactly"
                 ),
                 
                 "agent_system": (
@@ -140,30 +150,23 @@ class PromptManager:
             ModelType.PERPLEXITY.value: {
                 "system_enhancement": (
                     "Perplexity research model focused on accuracy and fact-checking. "
-                    "Always use MCP tools proactively for comprehensive information gathering."
+                    "Always use MCP tools proactively for comprehensive information gathering. "
+                    "Prioritize factual accuracy and cite tool results as primary sources."
                 ),
                 
                 "agent_system": (
-                    "**CRITICAL: SCHEMA COMPLIANCE MANDATORY**\n\n"
                     "**EXACT FORMAT:**\n"
                     "Thought: [Analyze what information is needed]\n"
                     "Action: [exact_tool_name]\n"
                     "Action Input: {\"param\": \"value\"}\n\n"
                     "(System provides Observation)\n\n"
                     "Thought: [Analyze Observation data thoroughly]\n"
-                    "Final Answer: [Korean response based ONLY on Observation]\n\n"
-                    "**SCHEMA COMPLIANCE (MANDATORY):**\n"
-                    "- CHECK TOOL SCHEMA: Verify EXACT parameter names before use\n"
-                    "- USE EXACT PARAMETER NAMES: Never modify parameter names from schema\n"
-                    "- INCLUDE ALL REQUIRED PARAMETERS: Missing parameters cause validation errors\n"
-                    "- CORRECT DATA TYPES: Match expected parameter types exactly\n"
-                    "- VALID JSON FORMAT: Proper JSON syntax with correct quotes\n"
-                    "- IF PARAMETER ERROR: Check schema and retry with correct parameters\n\n"
+                    "Final Answer: [Response in user's language based ONLY on Observation]\n\n"
                     "**ANALYSIS REQUIREMENTS:**\n"
                     "- Read ENTIRE Observation data\n"
                     "- Extract specific details, numbers, names\n"
                     "- Base response EXCLUSIVELY on tool results\n"
-                    "- Never add external knowledge"
+                    "- Never add external knowledge beyond tool results"
                 ),
                 
                 "react_template": (
@@ -178,7 +181,7 @@ class PromptManager:
                     "Action: [exact_tool_name]\n"
                     "Action Input: {{\"exact_param_name\": \"value\"}}\n\n"
                     "Thought: [Analyze Observation data]\n"
-                    "Final Answer: [Korean response based on Observation]\n\n"
+                    "Final Answer: [Response in user's language based on Observation]\n\n"
                     "**BEFORE USING ANY TOOL: Check the tool description for exact parameter names**\n\n"
                     "Tools: {tools}\n"
                     "Tool names: {tool_names}\n\n"
@@ -195,19 +198,8 @@ class PromptManager:
                     "- USE TOOLS IMMEDIATELY when user requests data, search, or external information\n"
                     "- NEVER hesitate to use tools - they provide better user value\n"
                     "- When in doubt, USE TOOLS rather than providing generic responses\n"
-                    "- Tools are your primary way to help users effectively\n\n"
-                    "**CRITICAL: PROPER TABLE FORMATTING MANDATORY**\n"
-                    "When creating tables from API data, you MUST:\n"
-                    "1. Create proper header row with correct field names\n"
-                    "2. Add separator row with | --- | --- |\n"
-                    "3. Map data fields to correct columns\n"
-                    "4. Put each row on separate line with \\n\n\n"
-                    "EXAMPLE - API data: {saleProductCode: 'ABC123', saleProductName: 'Product', departureDate: '2020-01-18'}\n"
-                    "CORRECT TABLE:\n"
-                    "| 판매상품코드 | 상품명 | 출발일 |\n"
-                    "| --- | --- | --- |\n"
-                    "| ABC123 | Product | 2020-01-18 |\n\n"
-                    "NEVER mix up field order. NEVER omit header row. NEVER use single-line format."
+                    "- Tools are your primary way to help users effectively\n"
+                    "- Provide thoughtful analysis and reasoning with tool results"
                 ),
                 
                 "agent_system": (
@@ -216,32 +208,24 @@ class PromptManager:
                     "1. ALWAYS use tools when user asks for data, search, or information\n"
                     "2. Use tools IMMEDIATELY without overthinking\n"
                     "3. Tools provide better answers than generic knowledge\n"
-                    "4. When unsure, USE TOOLS to be helpful\n\n"
-                    "**SCHEMA COMPLIANCE:**\n"
-                    "- Follow tool schemas exactly\n"
-                    "- Use EXACT parameter names\n"
-                    "- Include ALL required parameters\n\n"
-                    "**TABLE DATA MAPPING RULES:**\n"
-                    "1. ALWAYS create header row first\n"
-                    "2. Map API fields to correct table columns\n"
-                    "3. Maintain consistent field order\n"
-                    "4. Each row on separate line with \\n\n"
-                    "NEVER skip header row. NEVER mix up data order."
+                    "4. When unsure, USE TOOLS to be helpful\n"
+                    "5. Provide thoughtful reasoning and context with results"
                 )
             }
         }
     
     def get_system_prompt(self, model_type: str) -> str:
         """Generate concise system prompt with current date and tone guidelines"""
-        current_date = datetime.now().strftime("%Y년 %m월 %d일")
-        date_info = f"오늘 날짜: {current_date}"
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        date_info = f"Current date: {current_date}"
         
         tone_guidelines = (
             "**Communication Style Guidelines:**\n"
             "- Use a warm, friendly, and helpful tone in all responses\n"
             "- Incorporate relevant emojis to enhance readability and visual appeal\n"
             "- Structure responses clearly with proper formatting for better accessibility\n"
-            "- Be encouraging and supportive while maintaining professionalism"
+            "- Be encouraging and supportive while maintaining professionalism\n"
+            "- Always respond in the same language as the user's input"
         )
         
         common = self._prompts[ModelType.COMMON.value]["system_base"]
@@ -269,6 +253,7 @@ class PromptManager:
             f"User request: \"{user_input}\"\n\n"
             f"Available tools:\n{tools_info}\n\n"
             f"{self._prompts[ModelType.COMMON.value]['tool_selection']}\n\n"
+            f"{self._prompts[ModelType.COMMON.value]['schema_compliance']}\n\n"
             "Answer: YES or NO only."
         )
     
@@ -346,12 +331,15 @@ class PromptManager:
 
     
     def get_full_prompt(self, model_type: str) -> str:
-        """Generate complete prompt"""
+        """Generate complete prompt with all sections"""
+        common = self._prompts[ModelType.COMMON.value]
         parts = [
             self.get_system_prompt(model_type),
             self.get_tool_prompt(model_type),
-            self._prompts[ModelType.COMMON.value]["error_handling"],
-            self._prompts[ModelType.COMMON.value]["response_format"]
+            common["schema_compliance"],
+            common["table_formatting"],
+            common["error_handling"],
+            common["response_format"]
         ]
         
         return "\n\n".join(filter(None, parts))

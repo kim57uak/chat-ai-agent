@@ -38,8 +38,11 @@ class ToolChatProcessor(BaseChatProcessor):
             if not self._agent_executor:
                 return "에이전트 실행기를 생성할 수 없습니다.", []
             
-            # 시간 제한 설정 (30초)
-            timeout = 30
+            # Gemini Pro 모델의 경우 더 긴 시간 제한 설정
+            if 'gemini' in self.model_strategy.model_name.lower():
+                timeout = 60  # Gemini는 60초
+            else:
+                timeout = 30  # 다른 모델은 30초
             
             # 에이전트 실행 - 대화 히스토리 포함
             try:
@@ -75,9 +78,18 @@ class ToolChatProcessor(BaseChatProcessor):
                     simple_processor = SimpleChatProcessor(self.model_strategy)
                     return simple_processor.process_message(user_input, conversation_history)
                 
-                # 시간 초과 및 Agent stopped 오류 처리
+                # 시간 초과 및 Agent stopped 오류 처리 - Gemini 특별 처리
                 if (self._is_agent_stopped_error(error_msg)):
                     logger.warning(f"에이전트 실행 시간/반복 제한 도달: {error_msg[:100]}")
+                    # Gemini의 경우 부분 결과라도 활용 시도
+                    if 'gemini' in self.model_strategy.model_name.lower():
+                        try:
+                            # 에이전트 실행기에서 부분 결과 추출 시도
+                            partial_result = getattr(self._agent_executor, '_last_result', None)
+                            if partial_result and isinstance(partial_result, dict):
+                                return self._handle_agent_stopped(partial_result, user_input)
+                        except:
+                            pass
                     return "요청이 복잡하여 처리 시간이 초과되었습니다. 더 구체적이고 간단한 질문으로 다시 시도해주세요.", []
                 
                 # 파싱 오류 또는 형식 오류 처리

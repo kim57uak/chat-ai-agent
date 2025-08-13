@@ -107,7 +107,7 @@ class AIProcessor(QObject):
                     for tool in used_tools:
                         status_display.add_tool_used(str(tool))
                     
-                    # 토큰 사용량 계산 및 업데이트
+                    # 입력 텍스트 구성
                     input_text = ""
                     if messages:
                         for msg in messages:
@@ -118,11 +118,24 @@ class AIProcessor(QObject):
                     if file_prompt:
                         input_text += file_prompt
                     
-                    input_tokens = TokenLogger.estimate_tokens(input_text, model)
-                    output_tokens = TokenLogger.estimate_tokens(response, model)
+                    # 실제 토큰 사용량 추출 시도
+                    actual_input_tokens, actual_output_tokens = 0, 0
+                    if hasattr(client, '_last_response'):
+                        actual_input_tokens, actual_output_tokens = TokenLogger.extract_actual_tokens(client._last_response)
                     
-                    # 상태 표시에 토큰 정보 업데이트
-                    status_display.update_tokens(input_tokens, output_tokens)
+                    # 실제 토큰이 없으면 추정치 사용
+                    if actual_input_tokens == 0 and actual_output_tokens == 0:
+                        actual_input_tokens = TokenLogger.estimate_tokens(input_text, model)
+                        actual_output_tokens = TokenLogger.estimate_tokens(response, model)
+                    
+                    # 상태 표시에 실제 토큰 정보 업데이트
+                    status_display.update_tokens(actual_input_tokens, actual_output_tokens)
+                    
+                    # 로그에 실제 토큰 사용량 기록
+                    if hasattr(client, '_last_response') and client._last_response:
+                        TokenLogger.log_actual_token_usage(model, client._last_response, "agent_chat" if agent_mode else "simple_chat")
+                    else:
+                        TokenLogger.log_token_usage(model, input_text, response, "agent_chat" if agent_mode else "simple_chat")
                     
                     # 상태 표시 완료
                     status_display.finish_processing(True)

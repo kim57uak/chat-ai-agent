@@ -480,8 +480,17 @@ class ChatWidget(QWidget):
         
         self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True)
         
-        # AI 응답을 히스토리에 추가 (사용자 메시지는 이미 추가됨)
-        self.conversation_history.add_message('assistant', text, current_model)
+        # AI 응답을 히스토리에 추가 - 토큰 정보 포함
+        input_tokens = current_status.get('input_tokens', 0)
+        output_tokens = current_status.get('output_tokens', 0)
+        total_tokens = current_status.get('total_tokens', 0)
+        
+        self.conversation_history.add_message(
+            'assistant', text, current_model, 
+            input_tokens=input_tokens if input_tokens > 0 else None,
+            output_tokens=output_tokens if output_tokens > 0 else None,
+            total_tokens=total_tokens if total_tokens > 0 else None
+        )
         self.conversation_history.save_to_file()
         self.messages.append({'role': 'assistant', 'content': text})
         
@@ -578,7 +587,22 @@ class ChatWidget(QWidget):
                         unique_messages.append(msg)
                 
                 if unique_messages:
-                    self.chat_display.append_message('시스템', f'이전 대화 {len(unique_messages)}개를 불러왔습니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                    # 전체 토큰 통계 계산
+                    stats = self.conversation_history.get_stats()
+                    total_tokens = stats.get('total_tokens', 0)
+                    model_stats = stats.get('model_stats', {})
+                    
+                    # 토큰 통계 메시지 생성
+                    token_summary = f"📊 전체 토큰: {total_tokens:,}개"
+                    if model_stats:
+                        model_breakdown = []
+                        for model, data in model_stats.items():
+                            if model != 'unknown':
+                                model_breakdown.append(f"{model}: {data['tokens']:,}")
+                        if model_breakdown:
+                            token_summary += f" ({', '.join(model_breakdown)})"
+                    
+                    self.chat_display.append_message('시스템', f'이전 대화 {len(unique_messages)}개를 불러왔습니다. {token_summary}\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
                     
                     for msg in unique_messages:
                         role = msg.get('role', '')
@@ -588,21 +612,57 @@ class ChatWidget(QWidget):
                         if role == 'user':
                             self.chat_display.append_message('사용자', content)
                         elif role == 'assistant':
+                            # 토큰 정보 추출 - 실시간과 동일한 형식
+                            token_info = ""
+                            input_tokens = msg.get('input_tokens', 0)
+                            output_tokens = msg.get('output_tokens', 0)
+                            total_tokens = msg.get('total_tokens', 0)
+                            
+                            # 실시간과 동일한 형식: 전체(인/아웃)
+                            if input_tokens > 0 and output_tokens > 0 and total_tokens > 0:
+                                token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
+                            elif total_tokens > 0:
+                                token_info = f" | 📊 {total_tokens:,}토큰"
+                            elif msg.get('token_count', 0) > 0:
+                                token_info = f" | 📊 {msg['token_count']:,}토큰"
+                            
                             # 모델 정보가 있으면 표시하고 센더 정보로 모델명 전달
                             if model and model != 'unknown':
-                                enhanced_content = f"{content}\n\n---\n*🤖 {model}*"
+                                enhanced_content = f"{content}\n\n---\n*🤖 {model}{token_info}*"
                                 # 모델명을 original_sender로 전달하여 포맷팅에 활용
                                 self.chat_display.append_message('AI', enhanced_content, original_sender=model)
                             else:
-                                self.chat_display.append_message('AI', content)
+                                enhanced_content = f"{content}\n\n---\n*🤖 AI{token_info}*" if token_info else content
+                                self.chat_display.append_message('AI', enhanced_content)
+                else:
+                    # 빈 히스토리일 때도 토큰 통계 표시
+                    stats = self.conversation_history.get_stats()
+                    total_tokens = stats.get('total_tokens', 0)
+                    if total_tokens > 0:
+                        self.chat_display.append_message('시스템', f'새로운 대화를 시작합니다. 📊 전체 토큰: {total_tokens:,}개\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                    else:
+                        self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+            else:
+                # 빈 히스토리일 때도 토큰 통계 표시
+                stats = self.conversation_history.get_stats()
+                total_tokens = stats.get('total_tokens', 0)
+                if total_tokens > 0:
+                    self.chat_display.append_message('시스템', f'새로운 대화를 시작합니다. 📊 전체 토큰: {total_tokens:,}개\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
                 else:
                     self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
-            else:
-                self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
                 
         except Exception as e:
             print(f"대화 기록 로드 오류: {e}")
-            self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+            # 오류 시에도 토큰 통계 표시 시도
+            try:
+                stats = self.conversation_history.get_stats()
+                total_tokens = stats.get('total_tokens', 0)
+                if total_tokens > 0:
+                    self.chat_display.append_message('시스템', f'새로운 대화를 시작합니다. 📊 전체 토큰: {total_tokens:,}개\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                else:
+                    self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+            except:
+                self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""

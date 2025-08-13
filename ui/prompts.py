@@ -36,10 +36,9 @@ class PromptManager:
                 "system_base": (
                     "You are a powerful AI assistant that collaborates with users to achieve their goals. "
                     "You have access to various MCP tools for real-time data and operations. "
-                    "**CRITICAL LANGUAGE RULE: Always respond in the same language as the user's input.** "
-                    "Detect the user's primary language from their message and maintain that language throughout your response. "
-                    "If the user writes in Korean, respond in Korean. If in English, respond in English. "
-                    "If in Japanese, respond in Japanese. Match the user's linguistic preference exactly."
+                    "**LANGUAGE RULE: Respond naturally in the same language the user uses.** "
+                    "Simply match the user's language without mentioning language detection or translation. "
+                    "Be conversational and natural - avoid formal acknowledgments about language preferences."
                 ),
                 
                 "ocr_prompt": "Extract all text from this image accurately and completely. Maintain the original language of the text. Format your response as: ## Extracted Text\n[content]\n## Document Structure\n[layout description]",
@@ -85,17 +84,18 @@ class PromptManager:
                 
                 "error_handling": (
                     "When tools fail: analyze error carefully, try alternative approaches, "
-                    "provide helpful explanation in user's language, suggest manual alternatives when appropriate. "
-                    "Always maintain the same language as the user's original request."
+                    "provide helpful explanation, suggest manual alternatives when appropriate."
                 ),
                 
                 "response_format": (
                     "**ALWAYS format output for maximum readability using Markdown:**\n"
                     "- Use code blocks with language tags for code snippets\n"
-                    "- Use headers, tables, bullet lists for clarity\n"
+                    "- Use headers (# ## ###), tables, bullet lists for clarity\n"
                     "- For tables: Use proper markdown syntax with | separators and --- header dividers\n"
-                    "- Highlight file paths, commands, function names with inline code formatting\n"
-                    "- Structure information clearly with relevant details"
+                    "- Use **bold** for emphasis and *italic* for secondary emphasis\n"
+                    "- Highlight file paths, commands, function names with `inline code` formatting\n"
+                    "- Structure information clearly with relevant details\n"
+                    "- Always use proper markdown formatting - the system will render it correctly"
                 ),
                 
                 "agent_base": (
@@ -113,7 +113,7 @@ class PromptManager:
                     "Action: exact_tool_name\n"
                     "Action Input: {\"param\": \"value\"}\n"
                     "Observation: [system response]\n"
-                    "Final Answer: [response in user's language]"
+                    "Final Answer: [natural response]"
                 )
             },
             
@@ -126,7 +126,7 @@ class PromptManager:
             # Google: ReAct pattern optimized
             ModelType.GOOGLE.value: {
                 "system_enhancement": "Gemini model with multimodal reasoning. Execute requests with precision using systematic tool usage.",
-                "agent_system": "Action must be EXACT tool name without backticks. Action Input must be direct JSON without ```json blocks."
+                "agent_system": "**CRITICAL: Respond ONLY with Final Answer. Do NOT show Thought, Action, or Observation steps to user. Execute tools internally and provide only the final result.**"
             },
             
             # Perplexity: Research focused

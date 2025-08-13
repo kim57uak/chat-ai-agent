@@ -17,7 +17,7 @@ class CustomReActParser(ReActOutputParser):
             # 기본 ReAct 파서 시도
             return super().parse(text)
         except OutputParserException:
-            logger.warning(f"기본 파싱 실패, 관대한 파싱 시도: {text[:100]}...")
+            logger.debug(f"기본 파싱 실패, 관대한 파싱 시도: {text[:100]}...")
             return self._lenient_parse(text)
     
     def _lenient_parse(self, text: str) -> Union[AgentAction, AgentFinish]:
@@ -48,7 +48,7 @@ class CustomReActParser(ReActOutputParser):
             except:
                 parsed_input = action_input
             
-            logger.info(f"Action 추출 성공 (우선 처리): {action}")
+            logger.debug(f"Action 추출 성공 (우선 처리): {action}")
             return AgentAction(action, parsed_input, text)
         
         # Action이 없으면 Final Answer 찾기
@@ -60,5 +60,5 @@ class CustomReActParser(ReActOutputParser):
                 return AgentFinish({"output": answer}, text)
         
         # 모든 파싱 실패 시 전체 텍스트를 Final Answer로 처리
-        logger.warning("모든 파싱 실패, 전체 텍스트를 Final Answer로 처리")
+        logger.debug("모든 파싱 실패, 전체 텍스트를 Final Answer로 처리")
         return AgentFinish({"output": text.strip()}, text)

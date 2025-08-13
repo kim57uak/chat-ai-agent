@@ -139,7 +139,8 @@ class StatusDisplay(QObject):
             elapsed = status['elapsed_time']
             time_str = f"{elapsed:.1f}초" if elapsed < 60 else f"{elapsed//60:.0f}분 {elapsed%60:.1f}초"
         
-        # 토큰 정보 (상세)
+        # 토큰 정보 - TokenLogger와 동일한 계산식 사용
+        from core.token_logger import TokenLogger
         total_tokens = status.get('total_tokens', 0)
         input_tokens = status.get('input_tokens', 0)
         output_tokens = status.get('output_tokens', 0)

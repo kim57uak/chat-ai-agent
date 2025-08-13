@@ -61,12 +61,36 @@ class ToolChatProcessor(BaseChatProcessor):
                 
                 result = self._agent_executor.invoke(agent_input)
                 
-                # 에이전트 실행 결과 토큰 로깅
+                # 에이전트 실행 결과 토큰 로깅 및 히스토리 저장
                 output_text = result.get("output", "")
                 if output_text:
-                    TokenLogger.log_token_usage(
-                        self.model_strategy.model_name, input_text, output_text, "agent_execution"
-                    )
+                    # 실제 토큰 정보 추출 시도
+                    input_tokens, output_tokens = 0, 0
+                    if hasattr(self.model_strategy, '_last_response'):
+                        input_tokens, output_tokens = TokenLogger.extract_actual_tokens(self.model_strategy._last_response)
+                    
+                    # 실제 토큰이 없으면 추정치 사용
+                    if input_tokens == 0 and output_tokens == 0:
+                        input_tokens = TokenLogger.estimate_tokens(input_text, self.model_strategy.model_name)
+                        output_tokens = TokenLogger.estimate_tokens(output_text, self.model_strategy.model_name)
+                    
+                    # 토큰 로깅
+                    if input_tokens > 0 or output_tokens > 0:
+                        TokenLogger.log_actual_token_usage(self.model_strategy.model_name, self.model_strategy._last_response if hasattr(self.model_strategy, '_last_response') else None, "agent_execution")
+                    else:
+                        TokenLogger.log_token_usage(self.model_strategy.model_name, input_text, output_text, "agent_execution")
+                    
+                    # 대화 히스토리에 토큰 정보와 함께 저장
+                    if hasattr(self, 'conversation_history') and self.conversation_history:
+                        total_tokens = input_tokens + output_tokens if input_tokens > 0 or output_tokens > 0 else None
+                        self.conversation_history.add_message(
+                            "assistant", 
+                            output_text, 
+                            model_name=self.model_strategy.model_name,
+                            input_tokens=input_tokens if input_tokens > 0 else None,
+                            output_tokens=output_tokens if output_tokens > 0 else None,
+                            total_tokens=total_tokens
+                        )
                     
             except Exception as agent_error:
                 error_msg = str(agent_error)
@@ -124,7 +148,7 @@ class ToolChatProcessor(BaseChatProcessor):
                 return self._handle_agent_stopped(result, user_input)
             
             elapsed = time.time() - start_time
-            logger.info(f"도구 채팅 완료: {elapsed:.2f}초")
+            logger.debug(f"도구 채팅 완료: {elapsed:.2f}초")
             return self.format_response(output), used_tools
             
         except Exception as e:

@@ -48,9 +48,9 @@ class TokenLogger:
         
         logger.info(
             f"🔢 Token Usage [{model_name}] {operation}: "
-            f"Input: {input_tokens} tokens ({input_kb:.2f}KB), "
-            f"Output: {output_tokens} tokens ({output_kb:.2f}KB), "
-            f"Total: {total_tokens} tokens ({total_kb:.2f}KB)"
+            f"Input: {input_tokens:,} tokens ({input_kb:.2f}KB), "
+            f"Output: {output_tokens:,} tokens ({output_kb:.2f}KB), "
+            f"Total: {total_tokens:,} tokens ({total_kb:.2f}KB)"
         )
     
     @staticmethod
@@ -100,6 +100,16 @@ class TokenLogger:
                 usage = response_obj.usage_metadata
                 return getattr(usage, 'prompt_token_count', 0), getattr(usage, 'candidates_token_count', 0)
             
+            # Anthropic Claude 응답 형식
+            if hasattr(response_obj, 'usage'):
+                usage = response_obj.usage
+                return getattr(usage, 'input_tokens', 0), getattr(usage, 'output_tokens', 0)
+            
+            # Perplexity 응답 형식
+            if hasattr(response_obj, 'model_extra') and 'usage' in response_obj.model_extra:
+                usage = response_obj.model_extra['usage']
+                return usage.get('prompt_tokens', 0), usage.get('completion_tokens', 0)
+            
             # 리스트 형태의 응답 (에이전트 응답 등)
             if isinstance(response_obj, list) and response_obj:
                 for item in response_obj:
@@ -112,7 +122,7 @@ class TokenLogger:
                 # 직접 토큰 정보가 있는 경우
                 if 'usage' in response_obj:
                     usage = response_obj['usage']
-                    return usage.get('prompt_tokens', 0), usage.get('completion_tokens', 0)
+                    return usage.get('prompt_tokens', usage.get('input_tokens', 0)), usage.get('completion_tokens', usage.get('output_tokens', 0))
                 
                 # 중첩된 구조에서 토큰 정보 찾기
                 for key, value in response_obj.items():
@@ -139,9 +149,9 @@ class TokenLogger:
             total_tokens = input_tokens + output_tokens
             logger.info(
                 f"🔢 Actual Token Usage [{model_name}] {operation}: "
-                f"Input: {input_tokens} tokens, "
-                f"Output: {output_tokens} tokens, "
-                f"Total: {total_tokens} tokens"
+                f"Input: {input_tokens:,} tokens, "
+                f"Output: {output_tokens:,} tokens, "
+                f"Total: {total_tokens:,} tokens"
             )
             return input_tokens, output_tokens
         

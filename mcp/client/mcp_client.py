@@ -201,7 +201,8 @@ class MCPClient:
         if response and "result" in response:
             if "tools" in response["result"]:
                 self.tools = response["result"]["tools"]
-                logger.info(f"도구 {len(self.tools)}개 발견")
+                # 로그 제거: 도구 개수 정보는 디버그 레벨로 변경
+                logger.debug(f"도구 {len(self.tools)}개 발견")
                 return self.tools
             else:
                 logger.info("서버가 도구를 제공하지 않음")
@@ -327,7 +328,8 @@ class MCPManager:
                     if tools:
                         # 도구 목록도 복사본으로 저장
                         all_tools[name] = list(tools)
-                        logger.info(f"서버 '{name}'에서 {len(tools)}개 도구 조회됨")
+                        # 로그 제거: 서버별 도구 조회 정보는 디버그 레벨로 변경
+                        logger.debug(f"서버 '{name}'에서 {len(tools)}개 도구 조회됨")
                     else:
                         logger.warning(f"서버 '{name}'에서 도구를 찾을 수 없음")
                 except Exception as e:

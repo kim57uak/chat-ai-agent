@@ -71,6 +71,13 @@ class ToolChatProcessor(BaseChatProcessor):
             except Exception as agent_error:
                 error_msg = str(agent_error)
                 
+                # No generation chunks 오류 처리
+                if "No generation chunks were returned" in error_msg:
+                    logger.warning(f"Generation chunks 오류 발생, 단순 채팅으로 대체: {error_msg[:100]}")
+                    from .simple_chat_processor import SimpleChatProcessor
+                    simple_processor = SimpleChatProcessor(self.model_strategy)
+                    return simple_processor.process_message(user_input, conversation_history)
+                
                 # 토큰 제한 오류 처리 (에이전트 실행 중)
                 if "context_length_exceeded" in error_msg or "maximum context length" in error_msg:
                     logger.warning(f"에이전트 실행 중 토큰 제한 오류 발생, 단순 채팅으로 대체: {error_msg[:100]}")

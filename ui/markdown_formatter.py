@@ -279,8 +279,8 @@ class MarkdownFormatter:
                 # 빈 줄은 단락 구분으로 처리
                 result_lines.append('<br>')
             else:
-                # HTML 태그가 이미 있는 줄은 그대로 유지
-                if any(tag in line for tag in ['<h1', '<h2', '<h3', '<h4', '<h5', '<h6', '<hr', '<blockquote', '<div', '<pre', '<code', '<img', '<strong', '<em']):
+                # HTML 태그가 이미 있는 줄은 그대로 유지 (더 정확한 감지)
+                if re.search(r'</?(?:h[1-6]|hr|blockquote|div|pre|code|img|strong|em|del|a|br)(?:\s[^>]*)?>|<[^>]*style=', line, re.IGNORECASE):
                     result_lines.append(line)
                 else:
                     # 일반 텍스트는 div로 감싸서 줄바꿈 처리

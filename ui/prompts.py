@@ -88,14 +88,29 @@ class PromptManager:
                 ),
                 
                 "response_format": (
-                    "**ALWAYS format output for maximum readability using Markdown:**\n"
-                    "- Use code blocks with language tags for code snippets\n"
-                    "- Use headers (# ## ###), tables, bullet lists for clarity\n"
-                    "- For tables: Use proper markdown syntax with | separators and --- header dividers\n"
-                    "- Use **bold** for emphasis and *italic* for secondary emphasis\n"
-                    "- Highlight file paths, commands, function names with `inline code` formatting\n"
-                    "- Structure information clearly with relevant details\n"
-                    "- Always use proper markdown formatting - the system will render it correctly"
+                    "**CRITICAL: ALWAYS use proper Markdown formatting in ALL responses:**\n"
+                    "- Headers: Use # ## ### #### for clear hierarchy\n"
+                    "- Lists: Use - or * for bullets, 1. 2. 3. for numbered lists\n"
+                    "- Emphasis: Use **bold** for important terms, *italic* for emphasis\n"
+                    "- Code: Use `inline code` for terms, ```language blocks for code\n"
+                    "- Tables: Use | separators with --- header dividers\n"
+                    "- Links: Use [text](url) format\n"
+                    "- Quotes: Use > for blockquotes\n"
+                    "- Separators: Use --- for horizontal rules\n"
+                    "**MANDATORY: Every response must be properly formatted with Markdown syntax**"
+                ),
+                
+                "readability_enhancement": (
+                    "**ENHANCE USER UNDERSTANDING AND READABILITY:**\n"
+                    "- Structure information logically with clear sections\n"
+                    "- Use visual elements: emojis, bullet points, numbered steps\n"
+                    "- Break down complex information into digestible chunks\n"
+                    "- Provide examples and practical applications when relevant\n"
+                    "- Use consistent formatting patterns throughout responses\n"
+                    "- Highlight key points with **bold** or > blockquotes\n"
+                    "- Create visual hierarchy with headers and subheaders\n"
+                    "- Use tables for comparative or structured data\n"
+                    "- Add context and explanations for technical terms"
                 ),
                 
                 "agent_base": (
@@ -142,14 +157,25 @@ class PromptManager:
             # Claude: Proactive tool usage
             ModelType.CLAUDE.value: {
                 "system_enhancement": "Claude model with strong reasoning. USE TOOLS IMMEDIATELY when user requests data, search, or external information.",
-                "agent_system": "ALWAYS use tools when user asks for data, search, or information. Tools provide better answers than generic knowledge."
+                "agent_system": "ALWAYS use tools when user asks for data, search, or information. Tools provide better answers than generic knowledge.",
+                "markdown_emphasis": (
+                    "**CLAUDE MARKDOWN REQUIREMENT: You MUST format ALL responses with proper Markdown syntax.**\n"
+                    "- Use # headers for structure\n"
+                    "- Use **bold** and *italic* for emphasis\n"
+                    "- Use - for bullet lists\n"
+                    "- Use `code` for technical terms\n"
+                    "- Use --- for separators\n"
+                    "This is mandatory for proper display formatting."
+                )
             }
         }
     
     def get_system_prompt(self, model_type: str) -> str:
         """Generate concise system prompt with current date and tone guidelines"""
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        date_info = f"Current date: {current_date}"
+        from datetime import timezone, timedelta
+        kst = timezone(timedelta(hours=9))
+        current_date = datetime.now(kst).strftime("%Y-%m-%d")
+        date_info = f"Current date: {current_date} (UTC+9)"
         
         tone_guidelines = (
             "**Communication Style Guidelines:**\n"
@@ -265,13 +291,17 @@ class PromptManager:
     def get_full_prompt(self, model_type: str) -> str:
         """Generate complete prompt with all sections"""
         common = self._prompts[ModelType.COMMON.value]
+        model_specific = self._prompts.get(model_type, {})
+        
         parts = [
             self.get_system_prompt(model_type),
             self.get_tool_prompt(model_type),
             common["schema_compliance"],
             common["table_formatting"],
             common["error_handling"],
-            common["response_format"]
+            common["response_format"],
+            common["readability_enhancement"],
+            model_specific.get("markdown_emphasis", "")
         ]
         
         return "\n\n".join(filter(None, parts))

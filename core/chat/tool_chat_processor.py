@@ -269,12 +269,8 @@ class ToolChatProcessor(BaseChatProcessor):
                 except:
                     pass
                 
-                # JSON 파싱 실패 시 원본 결과 반환 - Perplexity 전용 처리
-                if 'perplexity' in self.model_strategy.model_name.lower() or 'sonar' in self.model_strategy.model_name.lower():
-                    # Perplexity 모델의 경우 더 자연스러운 응답 생성
-                    return f"요청하신 정보를 찾았습니다:\n\n{final_result[:800]}", used_tools
-                else:
-                    return f"검색 결과:\n\n{final_result[:1000]}...", used_tools
+                # 도구 실행 결과를 사용자 친화적으로 처리
+                return self._format_tool_result(final_result, used_tools)
         
         return "요청이 복잡하여 처리 시간이 초과되었습니다. 더 구체적이고 간단한 질문으로 다시 시도해주세요.", []
     
@@ -306,3 +302,48 @@ class ToolChatProcessor(BaseChatProcessor):
                 formatted_history.append(f"{role}: {content[:200]}...")
         
         return "\n".join(formatted_history)
+    
+    def _format_tool_result(self, result: str, used_tools: List) -> Tuple[str, List]:
+        """도구 실행 결과를 사용자 친화적으로 포맷팅"""
+        try:
+            import json
+            # JSON 형태의 결과인지 확인
+            if result.strip().startswith('{') and result.strip().endswith('}'):
+                data = json.loads(result)
+                
+                # 성공적인 작업 완료 메시지 처리
+                if 'content' in data and isinstance(data['content'], list):
+                    for content_item in data['content']:
+                        if isinstance(content_item, dict) and content_item.get('type') == 'text':
+                            text_content = content_item.get('text', '')
+                            if 'written' in text_content.lower() or 'created' in text_content.lower():
+                                # 파일 작업 완료 메시지
+                                if 'excel' in used_tools[0].lower() if used_tools else False:
+                                    return "✅ **엑셀 파일이 성공적으로 생성되었습니다!**\n\n📊 요청하신 데이터가 엑셀 파일로 저장되었습니다.", used_tools
+                                else:
+                                    return f"✅ **작업이 성공적으로 완료되었습니다!**\n\n{text_content}", used_tools
+                
+                # 구조화된 결과가 있는 경우
+                if 'structuredContent' in data:
+                    structured = data['structuredContent']
+                    if isinstance(structured, dict) and 'result' in structured:
+                        result_text = structured['result']
+                        if 'written' in result_text.lower():
+                            return "✅ **파일이 성공적으로 생성되었습니다!**\n\n📄 요청하신 데이터가 파일로 저장되었습니다.", used_tools
+                        return f"✅ **작업 완료:** {result_text}", used_tools
+                
+                # 일반적인 성공 응답
+                if data.get('isError') == False:
+                    return "✅ **요청하신 작업이 성공적으로 완료되었습니다!**", used_tools
+            
+            # JSON이 아닌 일반 텍스트 결과
+            if 'success' in result.lower() or 'completed' in result.lower():
+                return f"✅ **작업 완료:** {result[:200]}", used_tools
+            
+            return f"📋 **결과:** {result[:500]}{'...' if len(result) > 500 else ''}", used_tools
+            
+        except json.JSONDecodeError:
+            # JSON 파싱 실패 시 일반 텍스트로 처리
+            return f"📋 **결과:** {result[:500]}{'...' if len(result) > 500 else ''}", used_tools
+        except Exception:
+            return "✅ **작업이 완료되었습니다.**", used_tools

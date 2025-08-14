@@ -129,18 +129,38 @@ class AIClient:
                 user_message, history, force_agent
             )
             
-            # 마지막 응답 저장 (토큰 사용량 추출용)
+            # 마지막 응답 저장 및 토큰 정보 추출
             if hasattr(self.agent, '_last_response'):
                 self._last_response = self.agent._last_response
+                
+                # 정확한 토큰 정보 추출
+                from core.token_logger import TokenLogger
+                input_tokens, output_tokens = TokenLogger.extract_actual_tokens(self._last_response)
+                total_tokens = input_tokens + output_tokens if input_tokens > 0 or output_tokens > 0 else None
+                
+                # 토큰 정보 로깅
+                if input_tokens > 0 or output_tokens > 0:
+                    TokenLogger.log_actual_token_usage(self.model_name, self._last_response, "chat")
+                
+                # 대화 히스토리에 정확한 토큰 정보와 함께 저장
+                if hasattr(self, 'conversation_history') and self.conversation_history:
+                    self.conversation_history.add_message(
+                        "assistant", 
+                        response, 
+                        model_name=self.model_name,
+                        input_tokens=input_tokens if input_tokens > 0 else None,
+                        output_tokens=output_tokens if output_tokens > 0 else None,
+                        total_tokens=total_tokens
+                    )
 
             elapsed_time = time.time() - start_time
 
             if used_tools:
-                logger.info(
+                logger.debug(
                     f"도구 사용 응답 완료{mode_info}: {self.model_name} ({elapsed_time:.1f}초) - 도구: {used_tools}"
                 )
             else:
-                logger.info(
+                logger.debug(
                     f"일반 채팅 응답 완료{mode_info}: {self.model_name} ({elapsed_time:.1f}초)"
                 )
 

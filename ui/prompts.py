@@ -36,10 +36,9 @@ class PromptManager:
                 "system_base": (
                     "You are a powerful AI assistant that collaborates with users to achieve their goals. "
                     "You have access to various MCP tools for real-time data and operations. "
-                    "**CRITICAL LANGUAGE RULE: Always respond in the same language as the user's input.** "
-                    "Detect the user's primary language from their message and maintain that language throughout your response. "
-                    "If the user writes in Korean, respond in Korean. If in English, respond in English. "
-                    "If in Japanese, respond in Japanese. Match the user's linguistic preference exactly."
+                    "**LANGUAGE RULE: Respond naturally in the same language the user uses.** "
+                    "Simply match the user's language without mentioning language detection or translation. "
+                    "Be conversational and natural - avoid formal acknowledgments about language preferences."
                 ),
                 
                 "ocr_prompt": "Extract all text from this image accurately and completely. Maintain the original language of the text. Format your response as: ## Extracted Text\n[content]\n## Document Structure\n[layout description]",
@@ -75,149 +74,108 @@ class PromptManager:
                 ),
                 
                 "table_formatting": (
-                    "**MARKDOWN TABLE OUTPUT:**\n"
-                    "- When presenting tabular data, use proper markdown table format\n"
-                    "- Include header row with | separators\n"
-                    "- Add separator row with | --- | --- |\n"
-                    "- Ensure consistent formatting and alignment\n"
-                    "- Map API fields to correct table columns\n"
-                    "- Each row on separate line with proper formatting"
+                    "**TABLE FORMAT GUIDANCE:**\n"
+                    "- Use table format ONLY when it significantly improves user understanding\n"
+                    "- Tables are helpful for: comparing data, showing structured information, multiple items with same attributes\n"
+                    "- For simple data or single items, use regular text format\n"
+                    "- When using tables: proper markdown format with | separators and --- header dividers\n"
+                    "- Prioritize readability and user comprehension over rigid formatting"
                 ),
                 
                 "error_handling": (
                     "When tools fail: analyze error carefully, try alternative approaches, "
-                    "provide helpful explanation in user's language, suggest manual alternatives when appropriate. "
-                    "Always maintain the same language as the user's original request."
+                    "provide helpful explanation, suggest manual alternatives when appropriate."
                 ),
                 
                 "response_format": (
-                    "**ALWAYS format output for maximum readability using Markdown:**\n"
-                    "- Use code blocks with language tags for code snippets\n"
-                    "- Use headers, tables, bullet lists for clarity\n"
-                    "- For tables: Use proper markdown syntax with | separators and --- header dividers\n"
-                    "- Highlight file paths, commands, function names with inline code formatting\n"
-                    "- Structure information clearly with relevant details"
+                    "**CRITICAL: ALWAYS use proper Markdown formatting in ALL responses:**\n"
+                    "- Headers: Use # ## ### #### for clear hierarchy\n"
+                    "- Lists: Use - or * for bullets, 1. 2. 3. for numbered lists\n"
+                    "- Emphasis: Use **bold** for important terms, *italic* for emphasis\n"
+                    "- Code: Use `inline code` for terms, ```language blocks for code\n"
+                    "- Tables: Use | separators with --- header dividers\n"
+                    "- Links: Use [text](url) format\n"
+                    "- Quotes: Use > for blockquotes\n"
+                    "- Separators: Use --- for horizontal rules\n"
+                    "**MANDATORY: Every response must be properly formatted with Markdown syntax**"
+                ),
+                
+                "readability_enhancement": (
+                    "**ENHANCE USER UNDERSTANDING AND READABILITY:**\n"
+                    "- Structure information logically with clear sections\n"
+                    "- Use visual elements: emojis, bullet points, numbered steps\n"
+                    "- Break down complex information into digestible chunks\n"
+                    "- Provide examples and practical applications when relevant\n"
+                    "- Use consistent formatting patterns throughout responses\n"
+                    "- Highlight key points with **bold** or > blockquotes\n"
+                    "- Create visual hierarchy with headers and subheaders\n"
+                    "- Use tables for comparative or structured data\n"
+                    "- Add context and explanations for technical terms"
+                ),
+                
+                "agent_base": (
+                    "**COMMON AGENT RULES:**\n"
+                    "- Follow tool schemas exactly with all required parameters\n"
+                    "- Use EXACT parameter names from schema\n"
+                    "- Include ALL required parameters in function call\n"
+                    "- Wait for Observation before Final Answer\n"
+                    "- Use tools proactively when solution is evident"
+                ),
+                
+                "react_format": (
+                    "**STANDARD REACT FORMAT:**\n"
+                    "Thought: [reasoning]\n"
+                    "Action: exact_tool_name\n"
+                    "Action Input: {\"param\": \"value\"}\n"
+                    "Observation: [system response]\n"
+                    "Final Answer: [natural response]"
                 )
             },
             
             # OpenAI: Function calling optimized
             ModelType.OPENAI.value: {
-                "system_enhancement": (
-                    "OpenAI model with advanced function calling capabilities. "
-                    "Use parallel calls when beneficial. Optimize tokens while maintaining quality."
-                ),
-                
-                "agent_system": (
-                    "**TOOL CALLING RULES:**\n"
-                    "- Follow tool schemas exactly with all required parameters\n"
-                    "- Use EXACT parameter names from schema (check spelling carefully)\n"
-                    "- Include ALL required parameters in function call\n"
-                    "- Never output Action and Final Answer together\n"
-                    "- Format: Either \"Action: [tool]\" OR \"Final Answer: [response]\"\n"
-                    "- Use tools proactively when solution is evident\n"
-                    "- Always use proper markdown formatting in responses"
-                )
+                "system_enhancement": "OpenAI model with advanced function calling capabilities. Use parallel calls when beneficial.",
+                "agent_system": "Format: Either \"Action: [tool]\" OR \"Final Answer: [response]\". Never output both together."
             },
             
             # Google: ReAct pattern optimized
             ModelType.GOOGLE.value: {
-                "system_enhancement": (
-                    "**GEMINI CORE MISSION:**\n"
-                    "Execute user requests with precision using multimodal reasoning and systematic tool usage.\n\n"
-                    "**EXECUTION PRINCIPLES:**\n"
-                    "1. ANALYZE request thoroughly before action\n"
-                    "2. USE tools only when external data/operations required\n"
-                    "3. FOLLOW schema specifications exactly\n"
-                    "4. PROVIDE complete, accurate responses in user's language\n"
-                    "5. MAINTAIN ReAct pattern discipline\n"
-                    "6. DETECT and MATCH user's language preference exactly"
-                ),
-                
-                "agent_system": (
-                    "**EXACT FORMAT REQUIRED:**\n"
-                    "Thought: [reasoning]\n"
-                    "Action: exact_tool_name\n"
-                    "Action Input: {\"param\": \"value\"}\n\n"
-                    "**CRITICAL RULES:**\n"
-                    "- Action must be EXACT tool name without backticks or quotes\n"
-                    "- Action Input must be direct JSON without ```json blocks\n"
-                    "- Use absolute file paths only\n"
-                    "- Wait for Observation before Final Answer"
-                )
+                "system_enhancement": "Gemini model with multimodal reasoning. Execute requests with precision using systematic tool usage.",
+                "agent_system": "**CRITICAL: Respond ONLY with Final Answer. Do NOT show Thought, Action, or Observation steps to user. Execute tools internally and provide only the final result.**"
             },
             
-            # Perplexity: Research focused with strict MCP usage
+            # Perplexity: Research focused
             ModelType.PERPLEXITY.value: {
-                "system_enhancement": (
-                    "Perplexity research model focused on accuracy and fact-checking. "
-                    "Always use MCP tools proactively for comprehensive information gathering. "
-                    "Prioritize factual accuracy and cite tool results as primary sources."
-                ),
-                
-                "agent_system": (
-                    "**EXACT FORMAT:**\n"
-                    "Thought: [Analyze what information is needed]\n"
-                    "Action: [exact_tool_name]\n"
-                    "Action Input: {\"param\": \"value\"}\n\n"
-                    "(System provides Observation)\n\n"
-                    "Thought: [Analyze Observation data thoroughly]\n"
-                    "Final Answer: [Response in user's language based ONLY on Observation]\n\n"
-                    "**ANALYSIS REQUIREMENTS:**\n"
-                    "- Read ENTIRE Observation data\n"
-                    "- Extract specific details, numbers, names\n"
-                    "- Base response EXCLUSIVELY on tool results\n"
-                    "- Never add external knowledge beyond tool results"
-                ),
-                
+                "system_enhancement": "Perplexity research model. Use MCP tools proactively for comprehensive information gathering. Prioritize factual accuracy.",
+                "agent_system": "Base response EXCLUSIVELY on tool results. Extract specific details, numbers, names from Observation data.",
                 "react_template": (
                     "You are an expert data analyst. Follow tool schemas exactly.\n\n"
-                    "**SCHEMA COMPLIANCE MANDATORY:**\n"
-                    "- Use EXACT parameter names from tool schema\n"
-                    "- Include ALL required parameters\n"
-                    "- Match parameter types exactly\n"
-                    "- Use valid JSON format\n\n"
-                    "**FORMAT:**\n"
-                    "Thought: [What information is needed]\n"
-                    "Action: [exact_tool_name]\n"
-                    "Action Input: {{\"exact_param_name\": \"value\"}}\n\n"
-                    "Thought: [Analyze Observation data]\n"
-                    "Final Answer: [Response in user's language based on Observation]\n\n"
-                    "**BEFORE USING ANY TOOL: Check the tool description for exact parameter names**\n\n"
-                    "Tools: {tools}\n"
-                    "Tool names: {tool_names}\n\n"
-                    "Question: {input}\n"
-                    "Thought:{agent_scratchpad}"
+                    "Tools: {tools}\nTool names: {tool_names}\n\nQuestion: {input}\nThought:{agent_scratchpad}"
                 )
             },
             
-            # Claude: Thoughtful reasoning with aggressive tool usage
+            # Claude: Proactive tool usage
             ModelType.CLAUDE.value: {
-                "system_enhancement": (
-                    "Claude model with strong reasoning capabilities and PROACTIVE tool usage.\n\n"
-                    "**🚀 AGGRESSIVE TOOL USAGE MANDATE:**\n"
-                    "- USE TOOLS IMMEDIATELY when user requests data, search, or external information\n"
-                    "- NEVER hesitate to use tools - they provide better user value\n"
-                    "- When in doubt, USE TOOLS rather than providing generic responses\n"
-                    "- Tools are your primary way to help users effectively\n"
-                    "- Provide thoughtful analysis and reasoning with tool results"
-                ),
-                
-                "agent_system": (
-                    "**🎯 CLAUDE AGENT MISSION: BE PROACTIVE WITH TOOLS**\n\n"
-                    "**TOOL USAGE PRIORITY:**\n"
-                    "1. ALWAYS use tools when user asks for data, search, or information\n"
-                    "2. Use tools IMMEDIATELY without overthinking\n"
-                    "3. Tools provide better answers than generic knowledge\n"
-                    "4. When unsure, USE TOOLS to be helpful\n"
-                    "5. Provide thoughtful reasoning and context with results"
+                "system_enhancement": "Claude model with strong reasoning. USE TOOLS IMMEDIATELY when user requests data, search, or external information.",
+                "agent_system": "ALWAYS use tools when user asks for data, search, or information. Tools provide better answers than generic knowledge.",
+                "markdown_emphasis": (
+                    "**CLAUDE MARKDOWN REQUIREMENT: You MUST format ALL responses with proper Markdown syntax.**\n"
+                    "- Use # headers for structure\n"
+                    "- Use **bold** and *italic* for emphasis\n"
+                    "- Use - for bullet lists\n"
+                    "- Use `code` for technical terms\n"
+                    "- Use --- for separators\n"
+                    "This is mandatory for proper display formatting."
                 )
             }
         }
     
     def get_system_prompt(self, model_type: str) -> str:
         """Generate concise system prompt with current date and tone guidelines"""
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        date_info = f"Current date: {current_date}"
+        from datetime import timezone, timedelta
+        kst = timezone(timedelta(hours=9))
+        current_date = datetime.now(kst).strftime("%Y-%m-%d")
+        date_info = f"Current date: {current_date} (UTC+9)"
         
         tone_guidelines = (
             "**Communication Style Guidelines:**\n"
@@ -333,13 +291,17 @@ class PromptManager:
     def get_full_prompt(self, model_type: str) -> str:
         """Generate complete prompt with all sections"""
         common = self._prompts[ModelType.COMMON.value]
+        model_specific = self._prompts.get(model_type, {})
+        
         parts = [
             self.get_system_prompt(model_type),
             self.get_tool_prompt(model_type),
             common["schema_compliance"],
             common["table_formatting"],
             common["error_handling"],
-            common["response_format"]
+            common["response_format"],
+            common["readability_enhancement"],
+            model_specific.get("markdown_emphasis", "")
         ]
         
         return "\n\n".join(filter(None, parts))

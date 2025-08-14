@@ -145,6 +145,47 @@ Question: {{input}}
             return None
 
 
+class ClaudeAgentExecutorFactory(AgentExecutorFactory):
+    """Claude 에이전트 실행기 팩토리"""
+
+    def create_agent_executor(
+        self, llm: Any, tools: List[Any]
+    ) -> Optional[AgentExecutor]:
+        """Claude용 ReAct 에이전트 생성"""
+        if not tools:
+            return None
+
+        base_prompt = prompt_manager.get_system_prompt(ModelType.CLAUDE.value)
+        tool_prompt = prompt_manager.get_tool_prompt(ModelType.CLAUDE.value)
+        
+        react_prompt = PromptTemplate.from_template(
+            f"""{base_prompt}
+
+Available tools:
+{{tools}}
+
+Tool names: {{tool_names}}
+
+{tool_prompt}
+
+Question: {{input}}
+{{agent_scratchpad}}
+            """
+        )
+
+        agent = create_react_agent(llm, tools, react_prompt)
+        return AgentExecutor(
+            agent=agent,
+            tools=tools,
+            verbose=True,
+            max_iterations=15,  # Claude는 더 많은 반복 허용
+            max_execution_time=120,  # Claude는 더 긴 시간 허용
+            handle_parsing_errors=True,
+            early_stopping_method="force",
+            return_intermediate_steps=True,
+        )
+
+
 class AgentExecutorFactoryProvider:
     """에이전트 실행기 팩토리 제공자"""
 
@@ -152,6 +193,7 @@ class AgentExecutorFactoryProvider:
         "openai": OpenAIAgentExecutorFactory(),
         "gemini": GeminiAgentExecutorFactory(),
         "perplexity": PerplexityAgentExecutorFactory(),
+        "claude": ClaudeAgentExecutorFactory(),
     }
 
     @classmethod
@@ -160,6 +202,8 @@ class AgentExecutorFactoryProvider:
         model_name_lower = model_name.lower()
         if "gemini" in model_name_lower:
             return cls._factories["gemini"]
+        elif "claude" in model_name_lower:
+            return cls._factories["claude"]
         elif (
             "sonar" in model_name_lower
             or "r1-" in model_name_lower

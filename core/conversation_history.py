@@ -21,8 +21,8 @@ class ConversationHistory:
         self.ai_response_token_limit = self.settings.get("ai_response_token_limit", 15000)
         self.max_history_length = 100  # 전체 세션 최대 길이
 
-    def add_message(self, role: str, content: str, model_name: str = None):
-        """Add message with duplicate prevention and model info"""
+    def add_message(self, role: str, content: str, model_name: str = None, input_tokens: int = None, output_tokens: int = None, total_tokens: int = None):
+        """Add message with duplicate prevention, model info and accurate token data"""
         if not content or not content.strip():
             return
             
@@ -42,9 +42,19 @@ class ConversationHistory:
             "token_count": self._estimate_tokens(content)
         }
         
-        # AI 응답인 경우 모델 정보 추가
+        # AI 응답인 경우 모델 정보와 정확한 토큰 정보 추가
         if role in ["assistant", "agent"] and model_name:
             message["model"] = model_name
+            
+            # 정확한 토큰 정보가 제공된 경우 저장
+            if input_tokens is not None:
+                message["input_tokens"] = input_tokens
+            if output_tokens is not None:
+                message["output_tokens"] = output_tokens
+            if total_tokens is not None:
+                message["total_tokens"] = total_tokens
+                # 정확한 토큰 수가 있으면 추정값 대신 사용
+                message["token_count"] = output_tokens if output_tokens is not None else total_tokens
         
         self.current_session.append(message)
         
@@ -89,7 +99,8 @@ class ConversationHistory:
         
         # 최신 메시지부터 토큰 제한까지 추가
         for msg in reversed(ai_messages):
-            msg_tokens = msg.get("token_count", self._estimate_tokens(msg["content"]))
+            # 정확한 토큰 수가 있으면 사용, 없으면 추정
+            msg_tokens = msg.get("output_tokens") or msg.get("total_tokens") or msg.get("token_count", self._estimate_tokens(msg["content"]))
             if total_tokens + msg_tokens <= self.ai_response_token_limit:
                 filtered_messages.insert(0, msg)
                 total_tokens += msg_tokens
@@ -100,12 +111,8 @@ class ConversationHistory:
 
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count (rough approximation)"""
-        # 한국어와 영어 혼합 텍스트를 고려한 토큰 추정
-        # 한국어: 1글자 ≈ 1.5토큰, 영어: 1단어 ≈ 1.3토큰
-        korean_chars = len([c for c in text if ord(c) > 127])
-        english_words = len(text.replace('\n', ' ').split()) - korean_chars
-        
-        return int(korean_chars * 1.5 + english_words * 1.3)
+        from core.token_logger import TokenLogger
+        return TokenLogger.estimate_tokens(text)
 
     def _get_legacy_context(self) -> List[Dict]:
         """Legacy context method for backward compatibility"""
@@ -213,7 +220,16 @@ class ConversationHistory:
         """Get conversation statistics"""
         user_count = len([m for m in self.current_session if m["role"] == "user"])
         ai_count = len([m for m in self.current_session if m["role"] in ["assistant", "agent"]])
-        total_tokens = sum(m.get("token_count", 0) for m in self.current_session)
+        
+        # 정확한 토큰 수 사용
+        total_tokens = 0
+        for m in self.current_session:
+            if m["role"] in ["assistant", "agent"]:
+                # 정확한 토큰 수가 있으면 사용
+                tokens = m.get("total_tokens") or m.get("output_tokens") or m.get("token_count", 0)
+            else:
+                tokens = m.get("token_count", 0)
+            total_tokens += tokens
         
         # 모델별 통계
         model_stats = {}
@@ -223,7 +239,9 @@ class ConversationHistory:
                 if model not in model_stats:
                     model_stats[model] = {"count": 0, "tokens": 0}
                 model_stats[model]["count"] += 1
-                model_stats[model]["tokens"] += msg.get("token_count", 0)
+                # 정확한 토큰 수 사용
+                tokens = msg.get("total_tokens") or msg.get("output_tokens") or msg.get("token_count", 0)
+                model_stats[model]["tokens"] += tokens
         
         return {
             "total_messages": len(self.current_session),

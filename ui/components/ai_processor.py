@@ -140,8 +140,10 @@ class AIProcessor(QObject):
                     # 상태 표시 완료
                     status_display.finish_processing(True)
                     
-                    # sender에 모델 정보 포함
-                    model_sender = f"{sender}_{model}"
+                    # sender에 모델 정보와 토큰 정보 포함 - TokenLogger와 동일한 형식
+                    total_tokens = actual_input_tokens + actual_output_tokens
+                    token_info = f" | 📊 {total_tokens:,}토큰 (IN:{actual_input_tokens:,} OUT:{actual_output_tokens:,})"
+                    model_sender = f"{sender}_{model}{token_info}"
                     self.finished.emit(model_sender, response, used_tools)
                 elif not self._cancelled:
                     status_display.finish_processing(False)

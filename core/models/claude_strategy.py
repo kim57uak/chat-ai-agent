@@ -209,8 +209,8 @@ Final Answer: [Korean response with markdown]
                 agent=agent,
                 tools=tools,
                 verbose=True,
-                max_iterations=5,
-                max_execution_time=30,
+                max_iterations=15,
+                max_execution_time=120,
                 handle_parsing_errors=True,
                 early_stopping_method="force",
                 return_intermediate_steps=True

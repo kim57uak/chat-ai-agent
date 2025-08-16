@@ -46,6 +46,29 @@ class ChatDisplay:
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+            <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+            <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+            <script>
+                window.MathJax = {
+                    tex: {
+                        inlineMath: [['$', '$'], ['\\(', '\\)']],
+                        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                        processEscapes: true,
+                        processEnvironments: true
+                    },
+                    options: {
+                        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+                        ignoreHtmlClass: 'tex2jax_ignore',
+                        processHtmlClass: 'tex2jax_process'
+                    },
+                    startup: {
+                        ready: () => {
+                            MathJax.startup.defaultReady();
+                            console.log('MathJax is loaded and ready.');
+                        }
+                    }
+                };
+            </script>
             <style>
                 * { box-sizing: border-box; }
                 
@@ -387,6 +410,14 @@ class ChatDisplay:
                         }
                     }
                 }
+                
+                function renderMath() {
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        window.MathJax.typesetPromise().catch(function (err) {
+                            console.log('MathJax typeset failed: ' + err.message);
+                        });
+                    }
+                }
             </script>
         </head>
         <body>
@@ -502,8 +533,8 @@ class ChatDisplay:
             try {{
                 var contentDiv = document.getElementById('{message_id}_content');
                 if (contentDiv) {{
-                    // console.log('Setting content:', {safe_content});
                     contentDiv.innerHTML = {safe_content};
+                    renderMath();
                     window.scrollTo(0, document.body.scrollHeight);
                 }}
             }} catch(e) {{

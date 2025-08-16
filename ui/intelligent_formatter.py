@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from .markdown_formatter import MarkdownFormatter
+from core.formatters.enhanced_markdown_parser import EnhancedMarkdownParser
 from .table_formatter import TableFormatter
 
 try:
@@ -25,7 +25,7 @@ class IntelligentContentFormatter:
     def __init__(self, llm=None):
         self.llm = llm
         self._formatting_cache = {}
-        self.markdown_formatter = MarkdownFormatter()
+        self.markdown_parser = EnhancedMarkdownParser()
         self.table_formatter = TableFormatter()
     
     def format_content(self, text: str, sender: str = "AI") -> str:
@@ -47,10 +47,10 @@ class IntelligentContentFormatter:
                 return self.table_formatter.format_markdown_table(text, model_name)
             
             # 기본: 모든 텍스트에 마크다운 포맷팅 적용
-            return self.markdown_formatter.format_basic_markdown(text)
+            return self.markdown_parser.convert(text)
                 
         except Exception as e:
-            return self.markdown_formatter.format_basic_markdown(text)
+            return self.markdown_parser.convert(text)
     
     def _should_use_ai_formatting(self, text: str) -> bool:
         """Determine if AI formatting analysis is needed"""
@@ -132,7 +132,7 @@ Respond with a JSON object containing:
         if decision.get("format_type") == "structured":
             formatted_text = self._add_intelligent_structure(formatted_text)
         
-        return self.markdown_formatter.format_basic_markdown(formatted_text)
+        return self.markdown_parser.convert(formatted_text)
     
     def _detect_table_content(self, text: str) -> bool:
         """Intelligently detect if content should be formatted as a table"""
@@ -215,7 +215,7 @@ Respond with a JSON object containing:
         """테이블과 일반 텍스트가 혼재된 콘텐츠 처리"""
         # 코드블록이 있으면 바로 마크다운 포맷팅으로 처리
         if '```' in text:
-            return self.markdown_formatter.format_basic_markdown(text)
+            return self.markdown_parser.convert(text)
         
         lines = text.split('\n')
         result_lines = []
@@ -229,7 +229,7 @@ Respond with a JSON object containing:
                 # 이전에 누적된 일반 텍스트가 있으면 먼저 처리
                 if non_table_lines:
                     non_table_text = '\n'.join(non_table_lines)
-                    formatted_non_table = self.markdown_formatter.format_basic_markdown(non_table_text)
+                    formatted_non_table = self.markdown_parser.convert(non_table_text)
                     result_lines.append(formatted_non_table)
                     non_table_lines = []
                 
@@ -258,7 +258,7 @@ Respond with a JSON object containing:
         # 마지막에 남은 일반 텍스트 처리
         if non_table_lines:
             non_table_text = '\n'.join(non_table_lines)
-            formatted_non_table = self.markdown_formatter.format_basic_markdown(non_table_text)
+            formatted_non_table = self.markdown_parser.convert(non_table_text)
             result_lines.append(formatted_non_table)
         
         return '\n'.join(result_lines)
@@ -267,7 +267,7 @@ Respond with a JSON object containing:
         """Apply pattern-based formatting as fallback"""
         # 코드블록이 있으면 바로 마크다운 포맷팅
         if '```' in text:
-            return self.markdown_formatter.format_basic_markdown(text)
+            return self.markdown_parser.convert(text)
         
         # 테이블 처리
         if self.table_formatter.has_mixed_content(text):
@@ -276,7 +276,7 @@ Respond with a JSON object containing:
             return self.table_formatter.format_markdown_table(text)
         
         # 모든 텍스트에 마크다운 포맷팅 적용
-        return self.markdown_formatter.format_basic_markdown(text)
+        return self.markdown_parser.convert(text)
     
     def _apply_cached_formatting(self, text: str, cached_decision: Dict[str, Any]) -> str:
         """Apply previously cached formatting decision"""
@@ -364,6 +364,6 @@ Respond with a JSON object containing:
             return result
         
         # 기본 마크다운 포맷팅
-        result = self.markdown_formatter.format_basic_markdown(text)
+        result = self.markdown_parser.convert(text)
         print(f"[DEBUG] Basic markdown formatting result has HTML table: {'<table' in result}")
         return result

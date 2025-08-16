@@ -100,6 +100,18 @@ class PromptManager:
                     "**MANDATORY: Every response must be properly formatted with Markdown syntax**"
                 ),
                 
+                "markdown_standard": (
+                    "**MARKDOWN STANDARD COMPLIANCE:**\n"
+                    "- Use ONLY standard CommonMark/GitHub Flavored Markdown syntax\n"
+                    "- AVOID: Mermaid diagrams, PlantUML, complex LaTeX math formulas\n"
+                    "- AVOID: Custom components, shortcodes, platform-specific extensions\n"
+                    "- AVOID: Interactive elements, embedded videos, complex HTML\n"
+                    "- For diagrams: Use simple ASCII art or describe in text\n"
+                    "- For math: Use simple inline notation like x^2 or describe in words\n"
+                    "- Stick to: headers, lists, tables, code blocks, links, images, emphasis\n"
+                    "**GOAL: Ensure maximum compatibility across all markdown parsers**"
+                ),
+                
                 "readability_enhancement": (
                     "**ENHANCE USER UNDERSTANDING AND READABILITY:**\n"
                     "- Structure information logically with clear sections\n"
@@ -300,6 +312,7 @@ class PromptManager:
             common["table_formatting"],
             common["error_handling"],
             common["response_format"],
+            common["markdown_standard"],
             common["readability_enhancement"],
             model_specific.get("markdown_emphasis", "")
         ]

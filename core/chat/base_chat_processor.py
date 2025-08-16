@@ -8,6 +8,7 @@ class BaseChatProcessor(ABC):
     
     def __init__(self, model_strategy):
         self.model_strategy = model_strategy
+        self.response_formatter = ResponseFormatter()
     
     @abstractmethod
     def process_message(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
@@ -32,4 +33,4 @@ class BaseChatProcessor(ABC):
     
     def format_response(self, response: str) -> str:
         """응답 포맷팅 - 모든 AI 모델에 일관된 형식 적용"""
-        return ResponseFormatter.format_response(response)
+        return self.response_formatter.format_response(response)

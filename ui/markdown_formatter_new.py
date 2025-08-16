@@ -97,9 +97,6 @@ class MarkdownFormatter:
             return ""
         
         try:
-            # 한글 헤더 전처리
-            text = self._preprocess_korean_headers(text)
-            
             # 이미지 처리 (라이브러리 처리 전)
             text = self._preprocess_images(text)
             
@@ -150,35 +147,8 @@ class MarkdownFormatter:
         
         return text
     
-    def _preprocess_korean_headers(self, text: str) -> str:
-        """한글 헤더 전처리"""
-        lines = text.split('\n')
-        processed_lines = []
-        
-        for line in lines:
-            # 헤더 패턴 감지
-            header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
-            if header_match:
-                level = len(header_match.group(1))
-                title = header_match.group(2).strip()
-                
-                # 한글이 포함된 헤더인 경우
-                if any('\u3131' <= char <= '\u318e' or '\uac00' <= char <= '\ud7a3' for char in title):
-                    processed_lines.append('')
-                    processed_lines.append(f'{"".join(["#"] * level)} {title}')
-                    processed_lines.append('')
-                else:
-                    processed_lines.append(line)
-            else:
-                processed_lines.append(line)
-        
-        return '\n'.join(processed_lines)
-    
     def _apply_dark_theme_styles(self, html: str) -> str:
-        """다크 테마 스타일 적용 - 웹뷰 CSS와 충돌 방지"""
-        # 헤더는 웹뷰 CSS에서 처리하므로 인라인 스타일 제거
-        # 다른 요소들만 인라인 스타일 적용
-        
+        """다크 테마 스타일 적용"""
         # 테이블 스타일
         html = html.replace('<table>', 
             '<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: #2a2a2a; border-radius: 6px; overflow: hidden;">')
@@ -197,6 +167,12 @@ class MarkdownFormatter:
         html = html.replace('<blockquote>', 
             '<blockquote style="margin: 12px 0; padding: 12px 16px; border-left: 4px solid #87CEEB; background-color: rgba(135, 206, 235, 0.1); color: #dddddd; font-style: italic;">')
         
+        # 헤더 스타일
+        for i in range(1, 7):
+            size = 24 - (i * 2)
+            html = html.replace(f'<h{i}>', 
+                f'<h{i} style="color: #ffffff; margin: {20-i*2}px 0 {10-i}px 0; font-size: {size}px; font-weight: 600;">')
+        
         # 리스트 스타일
         html = html.replace('<ul>', 
             '<ul style="color: #cccccc; margin: 8px 0; padding-left: 20px;">')
@@ -206,9 +182,8 @@ class MarkdownFormatter:
             '<li style="margin: 4px 0; line-height: 1.6;">')
         
         # 링크 스타일
-        import re
-        html = re.sub(r'<a href="([^"]*)"([^>]*)', 
-            r'<a href="\1" style="color: #87CEEB; text-decoration: none; border-bottom: 1px dotted #87CEEB;" target="_blank"\2', html)
+        html = re.sub(r'<a href="([^"]*)"([^>]*)>', 
+            r'<a href="\1" style="color: #87CEEB; text-decoration: none; border-bottom: 1px dotted #87CEEB;" target="_blank"\2>', html)
         
         # 강조 스타일
         html = html.replace('<strong>', '<strong style="color: #ffffff; font-weight: 600;">')
@@ -252,26 +227,3 @@ class MarkdownFormatter:
                 formatted_lines.append('<br>')
         
         return '\n'.join(formatted_lines)
-    
-    def _preprocess_korean_headers(self, text: str) -> str:
-        """한글 헤더 전처리"""
-        lines = text.split('\n')
-        processed_lines = []
-        
-        for line in lines:
-            header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
-            if header_match:
-                level = len(header_match.group(1))
-                title = header_match.group(2).strip()
-                
-                # 한글이 포함된 헤더인 경우 공백 추가
-                if any('\u3131' <= char <= '\u318e' or '\uac00' <= char <= '\ud7a3' for char in title):
-                    processed_lines.append('')
-                    processed_lines.append(f'{"".join(["#"] * level)} {title}')
-                    processed_lines.append('')
-                else:
-                    processed_lines.append(line)
-            else:
-                processed_lines.append(line)
-        
-        return '\n'.join(processed_lines)

@@ -38,7 +38,9 @@ class PromptManager:
                     "You have access to various MCP tools for real-time data and operations. "
                     "**LANGUAGE RULE: Respond naturally in the same language the user uses.** "
                     "Simply match the user's language without mentioning language detection or translation. "
-                    "Be conversational and natural - avoid formal acknowledgments about language preferences."
+                    "Be conversational and natural - avoid formal acknowledgments about language preferences. "
+                    "**DIAGRAM RULE: When users ask for diagrams, flowcharts, sequences, or visual representations, "
+                    "ALWAYS include ```mermaid code blocks with proper mermaid syntax. Never use HTML or plain text for diagrams.**"
                 ),
                 
                 "ocr_prompt": "Extract all text from this image accurately and completely. Maintain the original language of the text. Format your response as: ## Extracted Text\n[content]\n## Document Structure\n[layout description]",
@@ -97,7 +99,22 @@ class PromptManager:
                     "- Links: Use [text](url) format\n"
                     "- Quotes: Use > for blockquotes\n"
                     "- Separators: Use --- for horizontal rules\n"
-                    "**MANDATORY: Every response must be properly formatted with Markdown syntax**"
+                    "- **DIAGRAMS: MANDATORY use ```mermaid code blocks ONLY. NO HTML tags, NO <div>, NO <pre>, NO <code> tags**\n"
+                    "- **Math: Use $ for inline math, $$ for block math formulas**\n"
+                    "**NEVER use HTML tags. ALWAYS use pure Markdown syntax only.**\n"
+                    "**For diagrams: Use ONLY ```mermaid\n[diagram code]\n``` format. NO other formatting.**"
+                ),
+                
+                "markdown_standard": (
+                    "**MARKDOWN STANDARD COMPLIANCE:**\n"
+                    "- Use ONLY standard CommonMark/GitHub Flavored Markdown syntax\n"
+                    "- AVOID: Mermaid diagrams, PlantUML, complex LaTeX math formulas\n"
+                    "- AVOID: Custom components, shortcodes, platform-specific extensions\n"
+                    "- AVOID: Interactive elements, embedded videos, complex HTML\n"
+                    "- For diagrams: Use simple ASCII art or describe in text\n"
+                    "- For math: Use simple inline notation like x^2 or describe in words\n"
+                    "- Stick to: headers, lists, tables, code blocks, links, images, emphasis\n"
+                    "**GOAL: Ensure maximum compatibility across all markdown parsers**"
                 ),
                 
                 "readability_enhancement": (
@@ -111,6 +128,19 @@ class PromptManager:
                     "- Create visual hierarchy with headers and subheaders\n"
                     "- Use tables for comparative or structured data\n"
                     "- Add context and explanations for technical terms"
+                ),
+                
+                "mermaid_diagram_rule": (
+                    "**MERMAID DIAGRAM STRICT RULES:**\n"
+                    "- When user requests diagrams, flowcharts, sequences, or any visual representation\n"
+                    "- ALWAYS respond with PURE mermaid code block format:\n"
+                    "```mermaid\n[diagram code here]\n```\n"
+                    "- NEVER wrap in HTML tags like <div>, <pre>, <code>\n"
+                    "- NEVER add syntax highlighting classes\n"
+                    "- NEVER use plain text descriptions instead of mermaid code\n"
+                    "- Use proper mermaid syntax: sequenceDiagram, flowchart, graph, etc.\n"
+                    "- Example correct format:\n"
+                    "```mermaid\nsequenceDiagram\n    A->>B: Message\n```"
                 ),
                 
                 "agent_base": (
@@ -135,7 +165,20 @@ class PromptManager:
             # OpenAI: Function calling optimized
             ModelType.OPENAI.value: {
                 "system_enhancement": "OpenAI model with advanced function calling capabilities. Use parallel calls when beneficial.",
-                "agent_system": "Format: Either \"Action: [tool]\" OR \"Final Answer: [response]\". Never output both together."
+                "agent_system": (
+                    "**CRITICAL AGENT INSTRUCTIONS:**\n"
+                    "- ALWAYS provide Final Answer after using tools\n"
+                    "- NEVER end with just Action: [tool] - this leaves user hanging\n"
+                    "- After tool Observation, IMMEDIATELY provide Final Answer\n"
+                    "- Format tool results in user-friendly Korean with proper formatting\n"
+                    "- Use markdown formatting in Final Answer\n"
+                    "- Include relevant details from tool results\n\n"
+                    "**REQUIRED FORMAT:**\n"
+                    "Action: [tool_name]\n"
+                    "Action Input: {{parameters}}\n"
+                    "Observation: [tool_result]\n"
+                    "Final Answer: [formatted_response_in_korean]"
+                )
             },
             
             # Google: ReAct pattern optimized
@@ -300,6 +343,8 @@ class PromptManager:
             common["table_formatting"],
             common["error_handling"],
             common["response_format"],
+            common["mermaid_diagram_rule"],
+            common["markdown_standard"],
             common["readability_enhancement"],
             model_specific.get("markdown_emphasis", "")
         ]

@@ -77,6 +77,23 @@ class ProgressiveDisplay(QObject):
             var contentDiv = document.getElementById('{message_id}_content');
             if (contentDiv) {{
                 contentDiv.innerHTML = {safe_content};
+                
+                // MathJax 렌더링
+                if (window.MathJax && MathJax.typesetPromise) {{
+                    MathJax.typesetPromise([contentDiv]).catch(err => console.error('MathJax error:', err));
+                }}
+                
+                // Mermaid 렌더링
+                setTimeout(() => {{
+                    if (typeof mermaid !== 'undefined') {{
+                        try {{
+                            mermaid.run();
+                        }} catch (e) {{
+                            console.error('Mermaid error:', e);
+                        }}
+                    }}
+                }}, 100);
+                
                 window.scrollTo(0, document.body.scrollHeight);
             }}
         }} catch(e) {{

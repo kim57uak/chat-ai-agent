@@ -77,11 +77,9 @@ class MarkdownFormatter:
                 extensions.append('mdx_math')
                 extension_configs['mdx_math'] = {
                     'enable_dollar_delimiter': True,
-                    'add_preview': False
+                    'add_preview': True
                 }
-                print("[Math] python-markdown-math 확장 로드됨")
             except ImportError:
-                print("[Math] python-markdown-math 확장 없음 - 기본 처리")
                 pass
             
             self.md = markdown.Markdown(
@@ -99,27 +97,12 @@ class MarkdownFormatter:
             return ""
         
         try:
-            # 수학 공식 보호 (먼저 처리)
-            text = self._protect_math_formulas(text)
-            
-            # Mermaid 다이어그램 보호 (먼저 처리)
-            text = self._protect_mermaid_diagrams(text)
-            
-            # 한글 헤더 전처리
-            text = self._preprocess_korean_headers(text)
-            
-            # 이미지 처리
+            # 이미지 처리 (라이브러리 처리 전)
             text = self._preprocess_images(text)
             
             # 마크다운 변환
             html = self.md.convert(text)
             self.md.reset()
-            
-            # 보호된 수학 공식 복원
-            html = self._restore_math_formulas(html)
-            
-            # 보호된 Mermaid 다이어그램 복원
-            html = self._restore_mermaid_diagrams(html)
             
             # 다크 테마 스타일 적용
             html = self._apply_dark_theme_styles(html)
@@ -130,7 +113,6 @@ class MarkdownFormatter:
             return html
             
         except Exception as e:
-            print(f"마크다운 포맷팅 오류: {e}")
             # 폴백: 기본 텍스트 처리
             return self._fallback_format(text)
     
@@ -165,87 +147,8 @@ class MarkdownFormatter:
         
         return text
     
-    def _protect_math_formulas(self, text: str) -> str:
-        """수학 공식 보호"""
-        self.math_placeholders = {}
-        
-        # 블록 수식 $$...$$ 보호
-        def protect_block_math(match):
-            placeholder = f"__MATH_BLOCK_{len(self.math_placeholders)}__"
-            self.math_placeholders[placeholder] = match.group(0)
-            return placeholder
-        
-        text = re.sub(r'\$\$([^$]+?)\$\$', protect_block_math, text, flags=re.DOTALL)
-        
-        # 인라인 수식 $...$ 보호
-        def protect_inline_math(match):
-            placeholder = f"__MATH_INLINE_{len(self.math_placeholders)}__"
-            self.math_placeholders[placeholder] = match.group(0)
-            return placeholder
-        
-        text = re.sub(r'\$([^$\n]+?)\$', protect_inline_math, text)
-        
-        return text
-    
-    def _restore_math_formulas(self, html: str) -> str:
-        """수학 공식 복원"""
-        if hasattr(self, 'math_placeholders'):
-            for placeholder, original in self.math_placeholders.items():
-                html = html.replace(placeholder, original)
-        return html
-    
-    def _protect_mermaid_diagrams(self, text: str) -> str:
-        """머메이드 다이어그램 보호"""
-        self.mermaid_placeholders = {}
-        
-        def protect_mermaid(match):
-            mermaid_code = match.group(1).strip()
-            placeholder = f"__MERMAID_{len(self.mermaid_placeholders)}__"
-            self.mermaid_placeholders[placeholder] = f'<div class="mermaid">{mermaid_code}</div>'
-            return placeholder
-        
-        # ```mermaid ... ``` 패턴 보호
-        pattern = r'```mermaid\s*\n([\s\S]*?)\n```'
-        text = re.sub(pattern, protect_mermaid, text, flags=re.MULTILINE)
-        
-        return text
-    
-    def _restore_mermaid_diagrams(self, html: str) -> str:
-        """머메이드 다이어그램 복원"""
-        if hasattr(self, 'mermaid_placeholders'):
-            for placeholder, mermaid_html in self.mermaid_placeholders.items():
-                html = html.replace(placeholder, mermaid_html)
-        return html
-    
-    def _preprocess_korean_headers(self, text: str) -> str:
-        """한글 헤더 전처리"""
-        lines = text.split('\n')
-        processed_lines = []
-        
-        for line in lines:
-            # 헤더 패턴 감지
-            header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
-            if header_match:
-                level = len(header_match.group(1))
-                title = header_match.group(2).strip()
-                
-                # 한글이 포함된 헤더인 경우
-                if any('\u3131' <= char <= '\u318e' or '\uac00' <= char <= '\ud7a3' for char in title):
-                    processed_lines.append('')
-                    processed_lines.append(f'{"".join(["#"] * level)} {title}')
-                    processed_lines.append('')
-                else:
-                    processed_lines.append(line)
-            else:
-                processed_lines.append(line)
-        
-        return '\n'.join(processed_lines)
-    
     def _apply_dark_theme_styles(self, html: str) -> str:
-        """다크 테마 스타일 적용 - 웹뷰 CSS와 충돌 방지"""
-        # 헤더는 웹뷰 CSS에서 처리하므로 인라인 스타일 제거
-        # 다른 요소들만 인라인 스타일 적용
-        
+        """다크 테마 스타일 적용"""
         # 테이블 스타일
         html = html.replace('<table>', 
             '<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: #2a2a2a; border-radius: 6px; overflow: hidden;">')
@@ -264,6 +167,12 @@ class MarkdownFormatter:
         html = html.replace('<blockquote>', 
             '<blockquote style="margin: 12px 0; padding: 12px 16px; border-left: 4px solid #87CEEB; background-color: rgba(135, 206, 235, 0.1); color: #dddddd; font-style: italic;">')
         
+        # 헤더 스타일
+        for i in range(1, 7):
+            size = 24 - (i * 2)
+            html = html.replace(f'<h{i}>', 
+                f'<h{i} style="color: #ffffff; margin: {20-i*2}px 0 {10-i}px 0; font-size: {size}px; font-weight: 600;">')
+        
         # 리스트 스타일
         html = html.replace('<ul>', 
             '<ul style="color: #cccccc; margin: 8px 0; padding-left: 20px;">')
@@ -273,9 +182,8 @@ class MarkdownFormatter:
             '<li style="margin: 4px 0; line-height: 1.6;">')
         
         # 링크 스타일
-        import re
-        html = re.sub(r'<a href="([^"]*)"([^>]*)', 
-            r'<a href="\1" style="color: #87CEEB; text-decoration: none; border-bottom: 1px dotted #87CEEB;" target="_blank"\2', html)
+        html = re.sub(r'<a href="([^"]*)"([^>]*)>', 
+            r'<a href="\1" style="color: #87CEEB; text-decoration: none; border-bottom: 1px dotted #87CEEB;" target="_blank"\2>', html)
         
         # 강조 스타일
         html = html.replace('<strong>', '<strong style="color: #ffffff; font-weight: 600;">')
@@ -319,26 +227,3 @@ class MarkdownFormatter:
                 formatted_lines.append('<br>')
         
         return '\n'.join(formatted_lines)
-    
-    def _preprocess_korean_headers(self, text: str) -> str:
-        """한글 헤더 전처리"""
-        lines = text.split('\n')
-        processed_lines = []
-        
-        for line in lines:
-            header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
-            if header_match:
-                level = len(header_match.group(1))
-                title = header_match.group(2).strip()
-                
-                # 한글이 포함된 헤더인 경우 공백 추가
-                if any('\u3131' <= char <= '\u318e' or '\uac00' <= char <= '\ud7a3' for char in title):
-                    processed_lines.append('')
-                    processed_lines.append(f'{"".join(["#"] * level)} {title}')
-                    processed_lines.append('')
-                else:
-                    processed_lines.append(line)
-            else:
-                processed_lines.append(line)
-        
-        return '\n'.join(processed_lines)

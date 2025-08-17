@@ -402,6 +402,17 @@ async def async_tool_execution(tool, input_data):
     return result
 ```
 
+## 📝 개발 히스토리
+
+### 마크다운 처리 시스템 개선
+자세한 내용은 [MARKDOWN_KOREAN_HEADER_FIX.md](./MARKDOWN_KOREAN_HEADER_FIX.md)를 참조하세요.
+
+**주요 개선사항**:
+- 수동 정규식 처리 → 라이브러리 기반 처리로 전환
+- 한글 헤더 파싱 문제 완전 해결
+- 웹뷰 CSS 충돌 방지
+- 다크 테마 스타일 자동 적용
+
 ## 📚 참고 자료
 
 - [MCP Protocol Specification](https://modelcontextprotocol.io/)

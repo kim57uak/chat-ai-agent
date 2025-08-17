@@ -37,15 +37,83 @@ class ChatDisplay:
         """웹 브라우저 초기화"""
         from ui.styles.theme_manager import theme_manager
         
+        # 웹 보안 설정 완화
+        settings = self.web_view.settings()
+        settings.setAttribute(settings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        settings.setAttribute(settings.WebAttribute.LocalContentCanAccessFileUrls, True)
+        settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
+        settings.setAttribute(settings.WebAttribute.AllowRunningInsecureContent, True)
+        
+        # 콘솔 메시지 캡처
+        self.web_view.page().javaScriptConsoleMessage = self.handle_console_message
+        
+        # HTML 템플릿 로드
+        self._load_html_template()
+    
+    def handle_console_message(self, level, message, line_number, source_id):
+        """자바스크립트 콘솔 메시지 처리"""
+        print(f"[JS Console] {message} (line: {line_number})")
+    
+    def _load_html_template(self):
+        """HTML 템플릿 로드"""
+        from ui.styles.theme_manager import theme_manager
         theme_css = theme_manager.generate_theme_css()
         
-        html_template = """
+        html_template = r"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+            <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+            <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+            <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+            <script>
+                console.log('HTML 로드 시작');
+                
+                window.MathJax = {
+                    tex: {
+                        inlineMath: [['$', '$'], ['\\(', '\\)']],
+                        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                        processEscapes: true,
+                        processEnvironments: true
+                    },
+                    options: {
+                        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+                        ignoreHtmlClass: 'tex2jax_ignore',
+                        processHtmlClass: 'tex2jax_process'
+                    },
+                    svg: {
+                        fontCache: 'global'
+                    },
+                    startup: {
+                        ready: () => {
+                            console.log('MathJax 준비 완료');
+                            MathJax.startup.defaultReady();
+                        }
+                    }
+                };
+                
+                document.addEventListener('DOMContentLoaded', function() {
+                    console.log('DOM 로드 완료');
+                    if (typeof mermaid !== 'undefined') {
+                        mermaid.initialize({
+                            startOnLoad: true,
+                            theme: 'dark',
+                            flowchart: { useMaxWidth: true },
+                            sequence: { useMaxWidth: true },
+                            gantt: { useMaxWidth: true },
+                            securityLevel: 'loose'
+                        });
+                        console.log('Mermaid 초기화 완료');
+                    }
+                });
+                
+                window.addEventListener('load', function() {
+                    console.log('페이지 로드 완료');
+                });
+            </script>
             <style>
                 * { box-sizing: border-box; }
                 
@@ -395,6 +463,7 @@ class ChatDisplay:
         </html>
         """
         self.web_view.setHtml(html_template)
+        print("HTML 템플릿 로드 완료")
     
     def _setup_link_handler(self):
         """링크 클릭 핸들러 설정"""
@@ -425,31 +494,20 @@ class ChatDisplay:
             icon = '⚙️'
             sender_color = 'rgb(215,163,135)'
         
-        # 마크다운 처리 - 모든 텍스트에 마크다운 포매팅 적용
-        from ui.markdown_formatter import MarkdownFormatter
-        from ui.table_formatter import TableFormatter
+        # 렌더링 확실히 보장하는 포맷터 사용
+        from ui.fixed_formatter import FixedFormatter
         
-        markdown_formatter = MarkdownFormatter()
-        table_formatter = TableFormatter()
-        
-        # 모든 텍스트에 마크다운 포매팅 적용
-        formatted_text = markdown_formatter.format_basic_markdown(text)
-        
-        # 테이블이 있는 경우 추가로 인텔리전트 포매터 적용
-        has_table = '|' in text and table_formatter.is_markdown_table(text)
-        has_mixed = table_formatter.has_mixed_content(text)
-        
-        if has_table or has_mixed:
-            from ui.intelligent_formatter import IntelligentContentFormatter
-            formatter = IntelligentContentFormatter()
-            format_sender = original_sender if original_sender else sender
-            formatted_text = formatter.format_content(text, format_sender)
+        formatter = FixedFormatter()
+        formatted_text = formatter.format_basic_markdown(text)
         
         message_id = f"msg_{uuid.uuid4().hex[:8]}"
         
-        # 메시지 컨테이너 생성
-        create_js = f'''
+        # 메시지 컨테이너 생성과 콘텐츠 설정을 한 번에 처리
+        safe_content = json.dumps(formatted_text, ensure_ascii=False)
+        combined_js = f'''
         try {{
+            console.log('메시지 생성 및 콘텐츠 설정 시작: {message_id}');
+            
             var messagesDiv = document.getElementById('messages');
             var messageDiv = document.createElement('div');
             messageDiv.id = '{message_id}';
@@ -489,39 +547,62 @@ class ChatDisplay:
             messageDiv.appendChild(copyBtn);
             messageDiv.appendChild(contentDiv);
             messagesDiv.appendChild(messageDiv);
+            
+            // 콘텐츠 즉시 설정
+            contentDiv.innerHTML = {safe_content};
+            console.log('콘텐츠 설정 완료: {message_id}');
+            
+            // 렌더링 처리
+            setTimeout(() => {{
+                console.log('렌더링 시작: {message_id}');
+                
+                // Mermaid 렌더링
+                if (typeof mermaid !== 'undefined') {{
+                    try {{
+                        console.log('Mermaid 렌더링 시도');
+                        mermaid.run();
+                        console.log('Mermaid 렌더링 완료');
+                    }} catch (e) {{
+                        console.error('Mermaid 렌더링 오류:', e);
+                    }}
+                }}
+                
+                // MathJax 강제 렌더링
+                setTimeout(() => {{
+                    if (window.MathJax && MathJax.typesetPromise) {{
+                        console.log('MathJax 강제 렌더링 시도');
+                        MathJax.typesetPromise([contentDiv])
+                            .then(() => {{
+                                console.log('MathJax 강제 렌더링 성공');
+                            }})
+                            .catch((err) => {{
+                                console.error('MathJax 강제 렌더링 오류:', err);
+                                // 실패 시 전체 렌더링 시도
+                                MathJax.typesetPromise().catch(e => console.error('MathJax 전체 렌더링 실패:', e));
+                            }});
+                    }} else {{
+                        console.log('MathJax 사용 불가');
+                    }}
+                }}, 200);
+            }}, 100);
+            
             window.scrollTo(0, document.body.scrollHeight);
+            console.log('메시지 생성 완료: {message_id}');
         }} catch(e) {{
-            console.log('Create message error:', e);
+            console.error('메시지 생성 오류:', e);
         }}
         '''
         
-        # 콘텐츠 설정
-        def set_content():
-            safe_content = json.dumps(formatted_text, ensure_ascii=False)
-            content_js = f'''
-            try {{
-                var contentDiv = document.getElementById('{message_id}_content');
-                if (contentDiv) {{
-                    // console.log('Setting content:', {safe_content});
-                    contentDiv.innerHTML = {safe_content};
-                    window.scrollTo(0, document.body.scrollHeight);
-                }}
-            }} catch(e) {{
-                console.log('Set content error:', e);
-            }}
-            '''
-            self.web_view.page().runJavaScript(content_js)
-        
-        self.web_view.page().runJavaScript(create_js)
-        
         if progressive and self.progressive_enabled:
-            # 점진적 출력 요청 시 - config 설정 사용
+            # 점진적 출력 요청 시 - 먼저 빈 컨테이너 생성
+            empty_js = combined_js.replace(f'contentDiv.innerHTML = {safe_content};', 'contentDiv.innerHTML = "";')
+            self.web_view.page().runJavaScript(empty_js)
             QTimer.singleShot(self.initial_delay, lambda: self.progressive_display.display_text_progressively(
                 message_id, formatted_text, delay_per_line=self.delay_per_line
             ))
         else:
-            # 일반 출력
-            QTimer.singleShot(50, set_content)
+            # 일반 출력 - 한 번에 처리
+            self.web_view.page().runJavaScript(combined_js)
     
     def clear_messages(self):
         """메시지 초기화"""

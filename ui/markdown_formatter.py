@@ -77,9 +77,11 @@ class MarkdownFormatter:
                 extensions.append('mdx_math')
                 extension_configs['mdx_math'] = {
                     'enable_dollar_delimiter': True,
-                    'add_preview': True
+                    'add_preview': False
                 }
+                print("[Math] python-markdown-math 확장 로드됨")
             except ImportError:
+                print("[Math] python-markdown-math 확장 없음 - 기본 처리")
                 pass
             
             self.md = markdown.Markdown(
@@ -97,15 +99,27 @@ class MarkdownFormatter:
             return ""
         
         try:
+            # 수학 공식 보호 (먼저 처리)
+            text = self._protect_math_formulas(text)
+            
+            # Mermaid 다이어그램 보호 (먼저 처리)
+            text = self._protect_mermaid_diagrams(text)
+            
             # 한글 헤더 전처리
             text = self._preprocess_korean_headers(text)
             
-            # 이미지 처리 (라이브러리 처리 전)
+            # 이미지 처리
             text = self._preprocess_images(text)
             
             # 마크다운 변환
             html = self.md.convert(text)
             self.md.reset()
+            
+            # 보호된 수학 공식 복원
+            html = self._restore_math_formulas(html)
+            
+            # 보호된 Mermaid 다이어그램 복원
+            html = self._restore_mermaid_diagrams(html)
             
             # 다크 테마 스타일 적용
             html = self._apply_dark_theme_styles(html)
@@ -116,6 +130,7 @@ class MarkdownFormatter:
             return html
             
         except Exception as e:
+            print(f"마크다운 포맷팅 오류: {e}")
             # 폴백: 기본 텍스트 처리
             return self._fallback_format(text)
     
@@ -149,6 +164,58 @@ class MarkdownFormatter:
         text = re.sub(r'\[IMAGE_BASE64\]([^\[]+)\[/IMAGE_BASE64\]', format_base64_image, text, flags=re.DOTALL)
         
         return text
+    
+    def _protect_math_formulas(self, text: str) -> str:
+        """수학 공식 보호"""
+        self.math_placeholders = {}
+        
+        # 블록 수식 $$...$$ 보호
+        def protect_block_math(match):
+            placeholder = f"__MATH_BLOCK_{len(self.math_placeholders)}__"
+            self.math_placeholders[placeholder] = match.group(0)
+            return placeholder
+        
+        text = re.sub(r'\$\$([^$]+?)\$\$', protect_block_math, text, flags=re.DOTALL)
+        
+        # 인라인 수식 $...$ 보호
+        def protect_inline_math(match):
+            placeholder = f"__MATH_INLINE_{len(self.math_placeholders)}__"
+            self.math_placeholders[placeholder] = match.group(0)
+            return placeholder
+        
+        text = re.sub(r'\$([^$\n]+?)\$', protect_inline_math, text)
+        
+        return text
+    
+    def _restore_math_formulas(self, html: str) -> str:
+        """수학 공식 복원"""
+        if hasattr(self, 'math_placeholders'):
+            for placeholder, original in self.math_placeholders.items():
+                html = html.replace(placeholder, original)
+        return html
+    
+    def _protect_mermaid_diagrams(self, text: str) -> str:
+        """머메이드 다이어그램 보호"""
+        self.mermaid_placeholders = {}
+        
+        def protect_mermaid(match):
+            mermaid_code = match.group(1).strip()
+            placeholder = f"__MERMAID_{len(self.mermaid_placeholders)}__"
+            self.mermaid_placeholders[placeholder] = f'<div class="mermaid">{mermaid_code}</div>'
+            return placeholder
+        
+        # ```mermaid ... ``` 패턴 보호
+        pattern = r'```mermaid\s*\n([\s\S]*?)\n```'
+        text = re.sub(pattern, protect_mermaid, text, flags=re.MULTILINE)
+        
+        return text
+    
+    def _restore_mermaid_diagrams(self, html: str) -> str:
+        """머메이드 다이어그램 복원"""
+        if hasattr(self, 'mermaid_placeholders'):
+            for placeholder, mermaid_html in self.mermaid_placeholders.items():
+                html = html.replace(placeholder, mermaid_html)
+        return html
     
     def _preprocess_korean_headers(self, text: str) -> str:
         """한글 헤더 전처리"""

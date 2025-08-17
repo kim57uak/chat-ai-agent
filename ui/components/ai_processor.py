@@ -1,5 +1,6 @@
 from PyQt6.QtCore import QObject, pyqtSignal
 import threading
+import logging
 from ui.components.status_display import status_display
 from core.token_logger import TokenLogger
 
@@ -103,6 +104,11 @@ class AIProcessor(QObject):
                         sender = 'AI'
                 
                 if not self._cancelled and response:
+                    # AI 응답 로깅
+                    logging.info(f"AI Response Type: {type(response)}")
+                    logging.info(f"AI Response: {str(response)}")
+                    logging.info(f"Used Tools: {used_tools}")
+                    
                     # 사용된 도구 업데이트
                     for tool in used_tools:
                         status_display.add_tool_used(str(tool))

@@ -40,7 +40,8 @@ class PromptManager:
                     "Simply match the user's language without mentioning language detection or translation. "
                     "Be conversational and natural - avoid formal acknowledgments about language preferences. "
                     "**DIAGRAM RULE: When users ask for diagrams, flowcharts, sequences, or visual representations, "
-                    "ALWAYS include ```mermaid code blocks with proper mermaid syntax. Never use HTML or plain text for diagrams.**"
+                    "ALWAYS include ```mermaid code blocks with proper mermaid syntax. Never use HTML or plain text for diagrams. "
+                    "CRITICAL: Use plain text arrows like --> NOT HTML entities like --&gt;**"
                 ),
                 
                 "ocr_prompt": "Extract all text from this image accurately and completely. Maintain the original language of the text. Format your response as: ## Extracted Text\n[content]\n## Document Structure\n[layout description]",
@@ -100,8 +101,9 @@ class PromptManager:
                     "- Quotes: Use > for blockquotes\n"
                     "- Separators: Use --- for horizontal rules\n"
                     "- **DIAGRAMS: MANDATORY use ```mermaid code blocks ONLY. NO HTML tags, NO <div>, NO <pre>, NO <code> tags**\n"
+                    "- **CRITICAL: In mermaid diagrams, use PLAIN TEXT arrows: --> NOT --&gt;**\n"
                     "- **Math: Use $ for inline math, $$ for block math formulas**\n"
-                    "**NEVER use HTML tags. ALWAYS use pure Markdown syntax only.**\n"
+                    "**NEVER use HTML tags or HTML entities. ALWAYS use pure Markdown syntax only.**\n"
                     "**For diagrams: Use ONLY ```mermaid\n[diagram code]\n``` format. NO other formatting.**"
                 ),
                 
@@ -131,16 +133,26 @@ class PromptManager:
                 ),
                 
                 "mermaid_diagram_rule": (
-                    "**MERMAID DIAGRAM STRICT RULES:**\n"
+                    "**MERMAID DIAGRAM STRICT RULES (Version 10+ Compatible):**\n"
                     "- When user requests diagrams, flowcharts, sequences, or any visual representation\n"
                     "- ALWAYS respond with PURE mermaid code block format:\n"
                     "```mermaid\n[diagram code here]\n```\n"
                     "- NEVER wrap in HTML tags like <div>, <pre>, <code>\n"
                     "- NEVER add syntax highlighting classes\n"
                     "- NEVER use plain text descriptions instead of mermaid code\n"
-                    "- Use proper mermaid syntax: sequenceDiagram, flowchart, graph, etc.\n"
-                    "- Example correct format:\n"
-                    "```mermaid\nsequenceDiagram\n    A->>B: Message\n```"
+                    "- **CRITICAL: Use PLAIN TEXT arrows, NOT HTML entities:**\n"
+                    "  * Use --> NOT --&gt;\n"
+                    "  * Use --- NOT &#45;&#45;&#45;\n"
+                    "  * Use ->> NOT -&gt;&gt;\n"
+                    "- **CRITICAL: Use Mermaid version 10+ compatible syntax:**\n"
+                    "  * Gantt charts: Use 'gantt' keyword, dateFormat YYYY-MM-DD\n"
+                    "  * ER diagrams: Use 'erDiagram' keyword with ||--o{ syntax\n"
+                    "  * Flowcharts: Use 'flowchart TD' or 'graph TD'\n"
+                    "  * Sequence: Use 'sequenceDiagram' keyword\n"
+                    "  * State: Use 'stateDiagram-v2' keyword\n"
+                    "- Example formats:\n"
+                    "```mermaid\nflowchart TD\n    A[Start] --> B[Process]\n    B --> C[End]\n```\n"
+                    "```mermaid\ngantt\n    dateFormat YYYY-MM-DD\n    title Project\n    section Phase\n    Task :2024-01-01, 30d\n```"
                 ),
                 
                 "agent_base": (

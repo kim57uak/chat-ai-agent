@@ -511,7 +511,7 @@ class ChatDisplay:
             var messagesDiv = document.getElementById('messages');
             var messageDiv = document.createElement('div');
             messageDiv.id = '{message_id}';
-            messageDiv.style.cssText = 'margin:8px 0;padding:12px;background:{bg_color};border-radius:8px;border-left:3px solid {border_color};position:relative;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);transform:translateY(0);box-shadow:none;';
+            messageDiv.style.cssText = 'margin:16px 0;padding:12px;background:{bg_color};border-radius:8px;border-left:3px solid {border_color};position:relative;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);transform:translateY(0);box-shadow:none;';
             messageDiv.onmouseenter = function() {{ this.style.transform = 'translateY(-1px)'; this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; }};
             messageDiv.onmouseleave = function() {{ this.style.transform = 'translateY(0)'; this.style.boxShadow = 'none'; }};
             

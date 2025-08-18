@@ -29,25 +29,46 @@ class FixedFormatter:
         
         # test_complex_mermaid.py 참고 - 지원되는 mermaid 키워드
         mermaid_keywords = [
-            'sequenceDiagram', 'gantt', 'classDiagram', 'stateDiagram-v2', 'erDiagram',
-            'flowchart', 'graph TD', 'graph LR', 'graph TB', 'graph RL','mindmap'
+            'sequenceDiagram', 'gantt', 'classDiagram', 'stateDiagram-v2', 'stateDiagram', 'erDiagram',
+            'flowchart', 'graph TD', 'graph LR', 'graph TB', 'graph RL', 'mindmap'
         ]
+        
+        def fix_mermaid_syntax(content):
+            """Mermaid 문법 수정 - HTML 엔티티를 올바른 문법으로 변환"""
+            # HTML 엔티티를 올바른 Mermaid 문법으로 변환
+            content = content.replace('--&gt;', '-->')
+            content = content.replace('-&gt;&gt;', '->>')
+            content = content.replace('&lt;--', '<--')
+            content = content.replace('&lt;&lt;-', '<<-')
+            content = content.replace('&#45;&#45;&#45;', '---')
+            content = content.replace('&amp;', '&')
+            content = content.replace('&lt;', '<')
+            content = content.replace('&gt;', '>')
+            content = content.replace('&quot;', '"')
+            return content
         
         def store_mermaid(content):
             mermaid_id = f"mermaid_{uuid.uuid4().hex[:8]}"
             placeholder = f'__MERMAID_PLACEHOLDER_{mermaid_id}__'
             
+            # Mermaid 문법 수정 적용
+            fixed_content = fix_mermaid_syntax(content)
+            
             # 고유 ID를 가진 Mermaid 블록 생성
             self.mermaid_blocks[placeholder] = f'''<div class="diagram" style="background: #2a2a2a; padding: 20px; border-radius: 8px; margin: 20px 0;">
     <div class="mermaid" id="{mermaid_id}" style="background: #333; padding: 15px; border-radius: 5px;">
-{content}
+{fixed_content}
     </div>
 </div>'''
             return placeholder
         
         def is_mermaid_content(content):
             content_lower = content.lower().strip()
-            return any(keyword.lower() in content_lower for keyword in mermaid_keywords)
+            # 키워드가 라인의 시작 부분에 있는지 확인 (더 정확한 감지)
+            lines = content_lower.split('\n')
+            first_line = lines[0].strip() if lines else ''
+            return any(first_line.startswith(keyword.lower()) for keyword in mermaid_keywords) or \
+                   any(keyword.lower() in content_lower for keyword in mermaid_keywords)
         
         # 1. 표준 ```mermaid 블록
         def process_mermaid_block(match):

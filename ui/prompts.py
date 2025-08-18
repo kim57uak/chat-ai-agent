@@ -96,6 +96,8 @@ class PromptManager:
                     "- Lists: Use - or * for bullets, 1. 2. 3. for numbered lists\n"
                     "- Emphasis: Use **bold** for important terms, *italic* for emphasis\n"
                     "- Code: Use `inline code` for terms, ```language blocks for code\n"
+                    "- **CRITICAL: Code blocks must be PLAIN TEXT only - NO HTML tags, NO <span>, NO syntax highlighting**\n"
+                    "- **Example: ```java\nSystem.out.println(\"Hello\");\n``` NOT <div><pre><span>...</span></pre></div>**\n"
                     "- Tables: Use | separators with --- header dividers\n"
                     "- Links: Use [text](url) format\n"
                     "- Quotes: Use > for blockquotes\n"
@@ -103,7 +105,7 @@ class PromptManager:
                     "- **DIAGRAMS: MANDATORY use ```mermaid code blocks ONLY. NO HTML tags, NO <div>, NO <pre>, NO <code> tags**\n"
                     "- **CRITICAL: In mermaid diagrams, use PLAIN TEXT arrows: --> NOT --&gt;**\n"
                     "- **Math: Use $ for inline math, $$ for block math formulas**\n"
-                    "**NEVER use HTML tags or HTML entities. ALWAYS use pure Markdown syntax only.**\n"
+                    "**NEVER use HTML tags, HTML entities, or syntax highlighting. ALWAYS use pure Markdown syntax only.**\n"
                     "**For diagrams: Use ONLY ```mermaid\n[diagram code]\n``` format. NO other formatting.**"
                 ),
                 

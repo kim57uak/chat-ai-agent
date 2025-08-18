@@ -101,17 +101,47 @@ class ChatDisplay:
                         mermaid.initialize({
                             startOnLoad: true,
                             theme: 'dark',
-                            flowchart: { useMaxWidth: true },
-                            sequence: { useMaxWidth: true },
-                            gantt: { useMaxWidth: true },
-                            securityLevel: 'loose'
+                            securityLevel: 'loose',
+                            // 모든 다이어그램 유형 설정
+                            flowchart: { useMaxWidth: true, htmlLabels: true },
+                            sequence: { useMaxWidth: true, wrap: true },
+                            gantt: { useMaxWidth: true, gridLineStartPadding: 350 },
+                            journey: { useMaxWidth: true },
+                            class: { useMaxWidth: true },
+                            state: { useMaxWidth: true },
+                            er: { useMaxWidth: true },
+                            pie: { useMaxWidth: true },
+                            requirement: { useMaxWidth: true },
+                            gitgraph: { useMaxWidth: true },
+                            c4: { useMaxWidth: true },
+                            mindmap: { useMaxWidth: true },
+                            timeline: { useMaxWidth: true },
+                            sankey: { useMaxWidth: true },
+                            xyChart: { useMaxWidth: true },
+                            block: { useMaxWidth: true },
+                            packet: { useMaxWidth: true },
+                            architecture: { useMaxWidth: true }
                         });
-                        console.log('Mermaid 초기화 완료');
+                        console.log('Mermaid v10 모든 다이어그램 유형 초기화 완료');
                     }
                 });
                 
+                // Mermaid 다이어그램 재렌더링 함수
+                function rerenderMermaid() {
+                    if (typeof mermaid !== 'undefined') {
+                        try {
+                            mermaid.run();
+                            console.log('Mermaid 재렌더링 완료');
+                        } catch (error) {
+                            console.error('Mermaid 렌더링 오류:', error);
+                        }
+                    }
+                }
+                
                 window.addEventListener('load', function() {
                     console.log('페이지 로드 완료');
+                    // 로드 후 Mermaid 재렌더링
+                    setTimeout(rerenderMermaid, 100);
                 });
             </script>
             <style>
@@ -286,6 +316,75 @@ class ChatDisplay:
                 
                 ::-webkit-scrollbar-thumb:hover {
                     background: #666;
+                }
+                
+                /* Mermaid v10 다이어그램 전용 스타일 */
+                .mermaid {
+                    background: #2a2a2a;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin: 16px 0;
+                    text-align: center;
+                    overflow-x: auto;
+                    min-height: 100px;
+                }
+                
+                .mermaid .node rect,
+                .mermaid .node circle,
+                .mermaid .node ellipse,
+                .mermaid .node polygon {
+                    fill: #444 !important;
+                    stroke: #87CEEB !important;
+                    stroke-width: 2px !important;
+                }
+                
+                .mermaid .edgePath path {
+                    stroke: #87CEEB !important;
+                    stroke-width: 2px !important;
+                }
+                
+                .mermaid .edgeLabel {
+                    background-color: #2a2a2a !important;
+                    color: #e8e8e8 !important;
+                }
+                
+                .mermaid text {
+                    fill: #e8e8e8 !important;
+                    font-family: inherit !important;
+                }
+                
+                /* Timeline 전용 */
+                .mermaid .timeline-section {
+                    fill: #444 !important;
+                }
+                
+                /* Mindmap 전용 */
+                .mermaid .mindmap-node {
+                    fill: #444 !important;
+                    stroke: #87CEEB !important;
+                }
+                
+                /* Sankey 전용 */
+                .mermaid .sankey-link {
+                    fill: none !important;
+                    stroke-opacity: 0.6 !important;
+                }
+                
+                /* XY Chart 전용 */
+                .mermaid .xychart-plot-background {
+                    fill: #2a2a2a !important;
+                }
+                
+                /* Block Diagram 전용 */
+                .mermaid .block {
+                    fill: #444 !important;
+                    stroke: #87CEEB !important;
+                }
+                
+                /* Architecture Diagram 전용 */
+                .mermaid .architecture-group {
+                    fill: #333 !important;
+                    stroke: #87CEEB !important;
                 }
                 
                 .copy-btn {

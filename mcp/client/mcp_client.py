@@ -4,6 +4,7 @@ import threading
 import uuid
 from typing import Dict, Any, Optional, List
 import logging
+from utils.config_path import config_path_manager
 
 logger = logging.getLogger(__name__)
 
@@ -275,8 +276,12 @@ class MCPManager:
     def load_from_config(self, config_path: str) -> bool:
         """mcp.json에서 설정 로드 및 활성화된 서버만 시작"""
         try:
+            # MCP 설정 파일 경로 해결
+            resolved_path = config_path_manager.get_config_path(config_path)
+            logger.info(f"MCP 설정 파일 경로: {resolved_path}")
+            
             # MCP 설정 파일 로드
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(resolved_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 
             # 서버 상태 파일 로드
@@ -359,7 +364,8 @@ class MCPManager:
         
         # 설정 파일에서 서버 정보 로드
         try:
-            with open('mcp.json', 'r', encoding='utf-8') as f:
+            mcp_config_path = config_path_manager.get_config_path('mcp.json')
+            with open(mcp_config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             servers = config.get("mcpServers", {})
         except Exception as e:
@@ -403,7 +409,8 @@ class MCPManager:
                 return True
         
         try:
-            with open('mcp.json', 'r', encoding='utf-8') as f:
+            mcp_config_path = config_path_manager.get_config_path('mcp.json')
+            with open(mcp_config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             servers = config.get("mcpServers", {})
             

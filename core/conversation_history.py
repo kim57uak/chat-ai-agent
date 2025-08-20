@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from typing import List, Dict
 from core.file_utils import load_config
+from utils.config_path import config_path_manager
 
 
 class ConversationHistory:
@@ -10,6 +11,7 @@ class ConversationHistory:
 
     def __init__(self, history_file: str = "conversation_history.json"):
         self.history_file = history_file
+        self._resolved_path = None
         self.current_session = []
         self.config = load_config()
         self.settings = self.config.get("conversation_settings", {})
@@ -141,12 +143,15 @@ class ConversationHistory:
     def save_to_file(self):
         """Save to file"""
         try:
+            if self._resolved_path is None:
+                self._resolved_path = config_path_manager.get_config_path(self.history_file)
+            
             data = {
                 "messages": self.current_session,
                 "last_updated": datetime.now().isoformat()
             }
             
-            with open(self.history_file, "w", encoding="utf-8") as f:
+            with open(self._resolved_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
                 
         except Exception as e:
@@ -155,11 +160,14 @@ class ConversationHistory:
     def load_from_file(self):
         """Load from file with validation"""
         try:
-            if not os.path.exists(self.history_file):
+            if self._resolved_path is None:
+                self._resolved_path = config_path_manager.get_config_path(self.history_file)
+            
+            if not self._resolved_path.exists():
                 self.current_session = []
                 return
                 
-            with open(self.history_file, "r", encoding="utf-8") as f:
+            with open(self._resolved_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 
             messages = data.get("messages", [])

@@ -26,18 +26,18 @@ class ThemeManager:
             "dark": {
                 "name": "다크 테마",
                 "colors": {
-                    "background": "#1a1a1a",
-                    "text": "#e8e8e8",
-                    "user_bg": "rgba(163,135,215,0.15)",
-                    "user_border": "rgb(163,135,215)",
-                    "ai_bg": "rgba(135,163,215,0.15)",
-                    "ai_border": "rgb(135,163,215)",
-                    "system_bg": "rgba(215,163,135,0.15)",
-                    "system_border": "rgb(215,163,135)",
-                    "code_bg": "#1e1e1e",
-                    "code_border": "#444",
-                    "scrollbar": "#555",
-                    "scrollbar_track": "#2a2a2a"
+                    "background": "linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%)",
+                    "text": "#f3f4f6",
+                    "user_bg": "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
+                    "user_border": "#6366f1",
+                    "ai_bg": "linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.08) 100%)",
+                    "ai_border": "#10b981",
+                    "system_bg": "linear-gradient(135deg, rgba(107, 114, 128, 0.08) 0%, rgba(75, 85, 99, 0.08) 100%)",
+                    "system_border": "#6b7280",
+                    "code_bg": "linear-gradient(135deg, #1f2937 0%, #111827 100%)",
+                    "code_border": "#374151",
+                    "scrollbar": "linear-gradient(135deg, #4b5563 0%, #374151 100%)",
+                    "scrollbar_track": "rgba(0,0,0,0.1)"
                 },
                 "fonts": {
                     "family": "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif",

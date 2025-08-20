@@ -96,16 +96,20 @@ class PromptManager:
                     "- Lists: Use - or * for bullets, 1. 2. 3. for numbered lists\n"
                     "- Emphasis: Use **bold** for important terms, *italic* for emphasis\n"
                     "- Code: Use `inline code` for terms, ```language blocks for code\n"
-                    "- **CRITICAL: Code blocks must be PLAIN TEXT only - NO HTML tags, NO <span>, NO syntax highlighting**\n"
-                    "- **Example: ```java\nSystem.out.println(\"Hello\");\n``` NOT <div><pre><span>...</span></pre></div>**\n"
+                    "- **CRITICAL: Code blocks must be CLEAN PLAIN TEXT only:**\n"
+                    "  * NO HTML tags: <span>, <div>, <pre>, <code>\n"
+                    "  * NO syntax highlighting classes or attributes\n"
+                    "  * NO HTML entities: &gt; &lt; &amp; &quot;\n"
+                    "  * Example: ```java\nSystem.out.println(\"Hello\");\n```\n"
+                    "  * NOT: <div><pre><span class=\"kt\">System</span>...</pre></div>\n"
                     "- Tables: Use | separators with --- header dividers\n"
                     "- Links: Use [text](url) format\n"
                     "- Quotes: Use > for blockquotes\n"
                     "- Separators: Use --- for horizontal rules\n"
-                    "- **DIAGRAMS: MANDATORY use ```mermaid code blocks ONLY. NO HTML tags, NO <div>, NO <pre>, NO <code> tags**\n"
+                    "- **DIAGRAMS: MANDATORY use ```mermaid code blocks ONLY. NO HTML tags**\n"
                     "- **CRITICAL: In mermaid diagrams, use PLAIN TEXT arrows: --> NOT --&gt;**\n"
                     "- **Math: Use $ for inline math, $$ for block math formulas**\n"
-                    "**NEVER use HTML tags, HTML entities, or syntax highlighting. ALWAYS use pure Markdown syntax only.**\n"
+                    "**ABSOLUTE RULE: NEVER generate HTML syntax highlighting. Use ONLY clean plain text in code blocks.**\n"
                     "**For diagrams: Use ONLY ```mermaid\n[diagram code]\n``` format. NO other formatting.**"
                 ),
                 
@@ -132,6 +136,17 @@ class PromptManager:
                     "- Create visual hierarchy with headers and subheaders\n"
                     "- Use tables for comparative or structured data\n"
                     "- Add context and explanations for technical terms"
+                ),
+                
+                "code_block_strict": (
+                    "**STRICT CODE BLOCK FORMATTING RULES:**\n"
+                    "- Code blocks MUST be clean plain text only\n"
+                    "- FORBIDDEN: All HTML tags, classes, spans, divs\n"
+                    "- FORBIDDEN: Syntax highlighting markup\n"
+                    "- FORBIDDEN: HTML entities (&gt;, &lt;, &amp;, &quot;)\n"
+                    "- REQUIRED: Simple ```language\n[clean code]\n``` format\n"
+                    "- Line spacing should be normal, not expanded\n"
+                    "- Focus on code readability, not visual styling"
                 ),
                 
                 "mermaid_diagram_rule": (
@@ -357,6 +372,7 @@ class PromptManager:
             common["table_formatting"],
             common["error_handling"],
             common["response_format"],
+            common["code_block_strict"],
             common["mermaid_diagram_rule"],
             common["markdown_standard"],
             common["readability_enhancement"],

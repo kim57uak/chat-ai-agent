@@ -4,13 +4,14 @@ import json
 import os
 from typing import Dict, List, Optional
 from pathlib import Path
+from utils.config_path import config_path_manager
 
 
 class AIModelManager:
     """Manages AI model configurations."""
     
     def __init__(self, model_config_path: str = "ai_model.json"):
-        self.model_config_path = Path(model_config_path)
+        self.model_config_path = config_path_manager.get_config_path(model_config_path)
         self._models = self._load_models()
     
     def _load_models(self) -> Dict:

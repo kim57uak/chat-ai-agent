@@ -56,83 +56,7 @@ class MCPManagerDialog(QDialog):
         self.refresh_timer.setSingleShot(True)
         self.refresh_timer.timeout.connect(self._do_refresh)
 
-        self.setStyleSheet(
-            """
-            QDialog {
-                background-color: #1a1a1a;
-                color: #ffffff;
-            }
-            QListWidget {
-                background-color: #2a2a2a;
-                border: 1px solid #444444;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 13px;
-            }
-            QListWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #333333;
-                border-radius: 4px;
-                margin: 2px 0;
-            }
-            QListWidget::item:selected {
-                background-color: #4FC3F7;
-                color: #ffffff;
-            }
-            QListWidget::item:hover {
-                background-color: #3a3a3a;
-            }
-            QPushButton {
-                background-color: #4FC3F7;
-                color: #ffffff;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: bold;
-                font-size: 13px;
-                min-height: 30px;
-            }
-            QPushButton:hover {
-                background-color: #29B6F6;
-            }
-            QPushButton:pressed {
-                background-color: #0288D1;
-            }
-            QPushButton:disabled {
-                background-color: #555555;
-                color: #888888;
-            }
-            QTextEdit {
-                background-color: #2a2a2a;
-                border: 1px solid #444444;
-                border-radius: 6px;
-                padding: 8px;
-                font-family: 'SF Mono', 'Monaco', monospace;
-                font-size: 12px;
-                color: #e8e8e8;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 2px solid #444444;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-            QLabel {
-                color: #ffffff;
-                font-size: 13px;
-            }
-            QCheckBox {
-                color: #ffffff;
-                font-size: 13px;
-            }
-        """
-        )
+        self.setStyleSheet(self._get_dialog_style())
 
         self.setup_ui()
         # 초기 로딩
@@ -143,7 +67,17 @@ class MCPManagerDialog(QDialog):
 
         # 제목
         title_label = QLabel("MCP 서버 관리")
-        title_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 18px;
+                font-weight: 800;
+                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                padding: 15px 0;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+        """)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title_label)
 
@@ -164,17 +98,59 @@ class MCPManagerDialog(QDialog):
 
         self.start_button = QPushButton("시작")
         self.start_button.clicked.connect(self.start_server)
-        self.start_button.setStyleSheet("QPushButton { background-color: #66BB6A; }")
+        self.start_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(150, 255, 150, 0.8), 
+                    stop:1 rgba(100, 255, 200, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(150, 255, 150, 0.4);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(170, 255, 170, 0.9), 
+                    stop:1 rgba(120, 255, 220, 0.9));
+                border-color: rgba(150, 255, 150, 0.6);
+            }
+        """)
         button_layout.addWidget(self.start_button)
 
         self.stop_button = QPushButton("중지")
         self.stop_button.clicked.connect(self.stop_server)
-        self.stop_button.setStyleSheet("QPushButton { background-color: #F44336; }")
+        self.stop_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 100, 100, 0.8), 
+                    stop:1 rgba(255, 150, 100, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(255, 100, 100, 0.4);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 120, 120, 0.9), 
+                    stop:1 rgba(255, 170, 120, 0.9));
+                border-color: rgba(255, 100, 100, 0.6);
+            }
+        """)
         button_layout.addWidget(self.stop_button)
 
         self.restart_button = QPushButton("재시작")
         self.restart_button.clicked.connect(self.restart_server)
-        self.restart_button.setStyleSheet("QPushButton { background-color: #FF9800; }")
+        self.restart_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 200, 100, 0.8), 
+                    stop:1 rgba(255, 150, 200, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(255, 200, 100, 0.4);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 220, 120, 0.9), 
+                    stop:1 rgba(255, 170, 220, 0.9));
+                border-color: rgba(255, 200, 100, 0.6);
+            }
+        """)
         button_layout.addWidget(self.restart_button)
 
         left_layout.addLayout(button_layout)
@@ -192,11 +168,27 @@ class MCPManagerDialog(QDialog):
 
         # 서버 상태
         self.status_label = QLabel("서버를 선택하세요")
-        self.status_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.status_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 16px;
+                font-weight: 700;
+                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                padding: 8px 0;
+            }
+        """)
         right_layout.addWidget(self.status_label)
 
         # 도구 목록
         tools_label = QLabel("사용 가능한 도구:")
+        tools_label.setStyleSheet("""
+            QLabel {
+                color: #b0e0b0;
+                font-size: 15px;
+                font-weight: 700;
+                padding: 8px 0;
+            }
+        """)
         right_layout.addWidget(tools_label)
 
         self.tools_text = QTextEdit()
@@ -206,6 +198,14 @@ class MCPManagerDialog(QDialog):
 
         # 서버 설정 정보
         config_label = QLabel("서버 설정:")
+        config_label.setStyleSheet("""
+            QLabel {
+                color: #b0e0b0;
+                font-size: 15px;
+                font-weight: 700;
+                padding: 8px 0;
+            }
+        """)
         right_layout.addWidget(config_label)
 
         self.config_text = QTextEdit()
@@ -437,3 +437,118 @@ class MCPManagerDialog(QDialog):
 
         except Exception as e:
             QMessageBox.warning(self, "오류", f"서버 재시작 실패: {str(e)}")
+    
+    def _get_dialog_style(self):
+        return """
+            QDialog {
+                background: #5a5a5f;
+                color: #ffffff;
+                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+            }
+            QLabel {
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 600;
+                padding: 4px 0;
+            }
+            QListWidget {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 rgba(45, 45, 55, 0.95), 
+                    stop:1 rgba(35, 35, 45, 0.95));
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 10px;
+                padding: 12px;
+                font-size: 14px;
+                color: #ffffff;
+            }
+            QListWidget::item {
+                padding: 12px;
+                border-radius: 8px;
+                margin: 4px 0;
+                background: rgba(60, 60, 70, 0.5);
+            }
+            QListWidget::item:selected {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 rgba(100, 200, 255, 0.4), 
+                    stop:1 rgba(150, 100, 255, 0.4));
+                color: #ffffff;
+            }
+            QListWidget::item:hover {
+                background: rgba(70, 70, 80, 0.7);
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(100, 200, 255, 0.8), 
+                    stop:1 rgba(150, 100, 255, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(100, 200, 255, 0.4);
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 14px;
+                padding: 10px 20px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(120, 220, 255, 0.9), 
+                    stop:1 rgba(170, 120, 255, 0.9));
+                border-color: rgba(100, 200, 255, 0.6);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(80, 180, 235, 0.7), 
+                    stop:1 rgba(130, 80, 235, 0.7));
+            }
+            QPushButton:disabled {
+                background: rgba(55, 65, 81, 0.5);
+                color: #6b7280;
+                border-color: rgba(100, 100, 100, 0.2);
+            }
+            QTextEdit {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 rgba(45, 45, 55, 0.95), 
+                    stop:1 rgba(35, 35, 45, 0.95));
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 8px;
+                padding: 12px;
+                font-family: 'SF Mono', 'Monaco', monospace;
+                font-size: 13px;
+                color: #e8e8e8;
+            }
+            QGroupBox {
+                color: #ffffff;
+                font-size: 15px;
+                font-weight: 700;
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 10px;
+                margin-top: 10px;
+                padding-top: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px;
+                background: #5a5a5f;
+            }
+            QCheckBox {
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 500;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid rgba(100, 200, 255, 0.4);
+                border-radius: 4px;
+                background: rgba(45, 45, 55, 0.8);
+            }
+            QCheckBox::indicator:checked {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(100, 200, 255, 0.8), 
+                    stop:1 rgba(150, 100, 255, 0.8));
+                border-color: rgba(100, 200, 255, 0.6);
+            }
+        """

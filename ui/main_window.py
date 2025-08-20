@@ -7,6 +7,7 @@ from ui.mcp_dialog import MCPDialog
 from ui.mcp_manager_simple import MCPManagerDialog
 from mcp.servers.mcp import start_mcp_servers, stop_mcp_servers
 from ui.components.status_display import status_display
+from ui.styles.flat_theme import FlatTheme
 import os
 import json
 import threading
@@ -21,20 +22,21 @@ class MainWindow(QMainWindow):
     
     def _setup_window(self) -> None:
         """Setup main window properties."""
-        self.setWindowTitle('AI 데스크탑 채팅')
-        self.setGeometry(100, 100, 900, 700)
-        self.setStyleSheet(self._get_dark_theme())
+        self.setWindowTitle('Chat AI Agent')
+        self.setGeometry(100, 100, 1200, 800)
+        self.setStyleSheet(FlatTheme.get_main_window_style())
     
     def _setup_ui(self) -> None:
         """Setup UI components."""
         # Central widget
         central_widget = QWidget(self)
-        central_widget.setStyleSheet("background-color: #1a1a1a;")
+        central_widget.setStyleSheet("background-color: #0a0a0a !important; color: #f3f4f6 !important;")
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         
         # Chat widget
         self.chat_widget = ChatWidget(self)
+        self.chat_widget.setStyleSheet("background-color: #0a0a0a !important;")
         layout.addWidget(self.chat_widget)
         self.setCentralWidget(central_widget)
         
@@ -44,34 +46,7 @@ class MainWindow(QMainWindow):
         # Menu
         self._create_menu_bar()
     
-    def _get_dark_theme(self) -> str:
-        """Get dark theme stylesheet."""
-        return """
-            QMainWindow {
-                background-color: #1a1a1a;
-                color: #ffffff;
-            }
-            QMenuBar {
-                background-color: #2a2a2a;
-                color: #ffffff;
-                border-bottom: 1px solid #444444;
-            }
-            QMenuBar::item {
-                background-color: transparent;
-                padding: 4px 8px;
-            }
-            QMenuBar::item:selected {
-                background-color: #444444;
-            }
-            QMenu {
-                background-color: #2a2a2a;
-                color: #ffffff;
-                border: 1px solid #444444;
-            }
-            QMenu::item:selected {
-                background-color: #444444;
-            }
-        """
+
     
     def _create_menu_bar(self) -> None:
         """Create the main menu bar."""

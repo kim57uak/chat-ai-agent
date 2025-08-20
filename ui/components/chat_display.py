@@ -34,7 +34,7 @@ class ChatDisplay:
             self.initial_delay = 100
     
     def init_web_view(self):
-        """웹 브라우저 초기화"""
+        """웹 브라우저 초기화 - 고급 다크 테마"""
         from ui.styles.theme_manager import theme_manager
         
         # 웹 보안 설정 완화
@@ -43,6 +43,9 @@ class ChatDisplay:
         settings.setAttribute(settings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
         settings.setAttribute(settings.WebAttribute.AllowRunningInsecureContent, True)
+        
+        # 웹뷰 배경 투명 설정
+        self.web_view.page().setBackgroundColor(self.web_view.palette().color(self.web_view.palette().ColorRole.Window))
         
         # 콘솔 메시지 캡처
         self.web_view.page().javaScriptConsoleMessage = self.handle_console_message
@@ -56,8 +59,8 @@ class ChatDisplay:
     
     def _load_html_template(self):
         """HTML 템플릿 로드"""
-        from ui.styles.theme_manager import theme_manager
-        theme_css = theme_manager.generate_theme_css()
+        from ui.styles.flat_theme import FlatTheme
+        theme_css = FlatTheme.get_chat_display_css()
         
         html_template = r"""
         <!DOCTYPE html>
@@ -145,178 +148,8 @@ class ChatDisplay:
                 });
             </script>
             <style>
-                * { box-sizing: border-box; }
-                
-                body {
-                    background-color: #1a1a1a;
-                    color: #e8e8e8;
-                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-                    font-size: 14px;
-                    line-height: 1.6;
-                    margin: 8px;
-                    padding: 0;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                }
-                
-                pre {
-                    background: #1e1e1e;
-                    color: #f8f8f2;
-                    padding: 20px;
-                    border-radius: 8px;
-                    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', Menlo, Monaco, monospace;
-                    font-size: 13px;
-                    line-height: 1.5;
-                    overflow-x: auto;
-                    white-space: pre;
-                    tab-size: 4;
-                    border: 1px solid #444;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                    position: relative;
-                }
-                
-                code {
-                    background-color: #2d2d2d;
-                    color: #f8f8f2;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
-                    font-size: 12px;
-                    border: 1px solid #444;
-                }
-                
-                h1, h2, h3, h4, h5, h6 {
-                    margin-top: 24px;
-                    margin-bottom: 12px;
-                    font-weight: 600;
-                    line-height: 1.25;
-                }
-                
-                h1 { font-size: 24px; color: #ffffff; border-bottom: 2px solid #444; padding-bottom: 8px; }
-                h2 { font-size: 20px; color: #eeeeee; border-bottom: 1px solid #333; padding-bottom: 6px; }
-                h3 { font-size: 18px; color: #dddddd; }
-                h4 { font-size: 16px; color: #cccccc; }
-                h5 { font-size: 14px; color: #bbbbbb; }
-                h6 { font-size: 13px; color: #aaaaaa; }
-                
-                a {
-                    color: #87CEEB;
-                    text-decoration: none;
-                    border-bottom: 1px dotted #87CEEB;
-                    transition: all 0.2s ease;
-                }
-                
-                a:hover {
-                    color: #B0E0E6;
-                    border-bottom: 1px solid #B0E0E6;
-                }
-                
-                ul, ol {
-                    padding-left: 20px;
-                    margin: 12px 0;
-                }
-                
-                li {
-                    margin: 4px 0;
-                    color: #cccccc;
-                }
-                
-                blockquote {
-                    margin: 16px 0;
-                    padding: 12px 16px;
-                    border-left: 4px solid #87CEEB;
-                    background-color: rgba(135, 206, 235, 0.1);
-                    color: #dddddd;
-                    font-style: italic;
-                }
-                
-                table {
-                    border-collapse: collapse;
-                    width: auto;
-                    margin: 16px 0;
-                    background-color: #2a2a2a;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                }
-                
-                th, td {
-                    padding: 12px 16px;
-                    text-align: left;
-                    border: 1px solid #444;
-                    white-space: normal;
-                    word-wrap: break-word;
-                    vertical-align: top;
-                }
-                
-                th {
-                    background: linear-gradient(135deg, #3a3a3a, #4a4a4a);
-                    color: #ffffff;
-                    font-weight: 700;
-                    font-size: 13px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                
-                tr:nth-child(even) {
-                    background-color: #252525;
-                }
-                
-                tr:hover {
-                    background-color: #333333;
-                }
-                
-                hr {
-                    border: none;
-                    height: 2px;
-                    background: linear-gradient(to right, transparent, #444, transparent);
-                    margin: 20px 0;
-                }
-                
-                strong {
-                    color: #ffffff;
-                    font-weight: 600;
-                }
-                
-                em {
-                    color: #dddddd;
-                    font-style: italic;
-                }
-                
-                del {
-                    color: #888888;
-                    text-decoration: line-through;
-                }
-                
-                .message {
-                    margin: 16px 0;
-                    padding: 16px;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                }
-                
-                .user { background: rgba(163,135,215,0.15); border-left: 4px solid rgb(163,135,215); }
-                .ai { background: rgba(135,163,215,0.15); border-left: 4px solid rgb(135,163,215); }
-                .system { background: rgba(215,163,135,0.15); border-left: 4px solid rgb(215,163,135); }
-                
-                ::-webkit-scrollbar {
-                    width: 8px;
-                    height: 8px;
-                }
-                
-                ::-webkit-scrollbar-track {
-                    background: #2a2a2a;
-                    border-radius: 4px;
-                }
-                
-                ::-webkit-scrollbar-thumb {
-                    background: #555;
-                    border-radius: 4px;
-                }
-                
-                ::-webkit-scrollbar-thumb:hover {
-                    background: #666;
-                }
+                {theme_css}
+
                 
                 /* Mermaid v10 다이어그램 전용 스타일 */
                 .mermaid {
@@ -547,8 +380,8 @@ class ChatDisplay:
                             
                             setTimeout(() => {
                                 copyBtn.textContent = originalText;
-                                copyBtn.style.background = 'rgba(0,0,0,0.7)';
-                                copyBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+                                copyBtn.style.background = 'rgba(95,95,100,0.9)';
+                                copyBtn.style.borderColor = 'rgba(160,160,165,0.6)';
                                 copyBtn.style.transform = 'scale(1)';
                             }, 2000);
                         }
@@ -556,7 +389,7 @@ class ChatDisplay:
                 }
             </script>
         </head>
-        <body>
+        <body style="background: #0a0a0a !important; color: #f3f4f6 !important; margin: 0 !important; padding: 8px !important;">
             <div id="messages"></div>
         </body>
         </html>
@@ -576,22 +409,22 @@ class ChatDisplay:
     
     def append_message(self, sender, text, original_sender=None, progressive=False):
         """메시지 추가 - progressive=True시 점진적 출력"""
-        # 발신자별 스타일
+        # 발신자별 스타일 - 투명도 70% 싱크로
         if sender == '사용자':
-            bg_color = 'rgba(163,135,215,0.15)'
-            border_color = 'rgb(163,135,215)'
+            bg_color = 'rgba(26, 26, 26, 0.3)'
+            border_color = ''
             icon = '💬'
-            sender_color = 'rgb(163,135,215)'
+            sender_color = '#cccccc'
         elif sender in ['AI', '에이전트'] or '에이전트' in sender:
-            bg_color = 'rgba(135,163,215,0.15)'
-            border_color = 'rgb(135,163,215)'
+            bg_color = 'rgba(26, 26, 26, 0.3)'
+            border_color = ''
             icon = '🤖'
-            sender_color = 'rgb(135,163,215)'
+            sender_color = '#cccccc'
         else:
-            bg_color = 'rgba(215,163,135,0.15)'
-            border_color = 'rgb(215,163,135)'
+            bg_color = 'rgba(26, 26, 26, 0.3)'
+            border_color = ''
             icon = '⚙️'
-            sender_color = 'rgb(215,163,135)'
+            sender_color = '#999999'
         
         # 렌더링 확실히 보장하는 포맷터 사용
         from ui.fixed_formatter import FixedFormatter
@@ -610,37 +443,38 @@ class ChatDisplay:
             var messagesDiv = document.getElementById('messages');
             var messageDiv = document.createElement('div');
             messageDiv.id = '{message_id}';
-            messageDiv.style.cssText = 'margin:16px 0;padding:12px;background:{bg_color};border-radius:8px;border-left:3px solid {border_color};position:relative;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);transform:translateY(0);box-shadow:none;';
-            messageDiv.onmouseenter = function() {{ this.style.transform = 'translateY(-1px)'; this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; }};
-            messageDiv.onmouseleave = function() {{ this.style.transform = 'translateY(0)'; this.style.boxShadow = 'none'; }};
+            messageDiv.style.cssText = 'margin:12px 0;padding:16px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
+            messageDiv.onmouseenter = function() {{ }};
+            messageDiv.onmouseleave = function() {{ }};
             
             var headerDiv = document.createElement('div');
-            headerDiv.style.cssText = 'margin:0 0 8px 0;font-weight:600;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;opacity:0.8;';
+            headerDiv.style.cssText = 'margin:0 0 8px 0;font-weight:600;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;opacity:0.8;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             headerDiv.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
             
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋 복사';
-            copyBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:white;border:1px solid rgba(255,255,255,0.2);padding:6px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;opacity:1;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);transform:scale(1);backdrop-filter:blur(4px);z-index:9999;';
+            copyBtn.style.cssText = 'position:absolute;top:14px;right:18px;background:rgba(95,95,100,0.9);color:#d0d0d0;border:1px solid rgba(160,160,165,0.6);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:1;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.25);';
             copyBtn.onclick = function() {{ copyMessage('{message_id}'); }};
-            copyBtn.onmouseenter = function() {{ this.style.background = 'rgba(0,0,0,0.8)'; this.style.borderColor = 'rgba(255,255,255,0.3)'; }};
-            copyBtn.onmouseleave = function() {{ this.style.background = 'rgba(0,0,0,0.7)'; this.style.borderColor = 'rgba(255,255,255,0.2)'; }};
+            copyBtn.onmouseenter = function() {{ 
+                this.style.background = 'rgba(105,105,110,0.95)';
+                this.style.borderColor = 'rgba(180,180,185,0.8)';
+                this.style.color = '#f0f0f0';
+                this.style.transform = 'scale(1.05)';
+                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.35)';
+            }};
+            copyBtn.onmouseleave = function() {{ 
+                this.style.background = 'rgba(95,95,100,0.9)';
+                this.style.borderColor = 'rgba(160,160,165,0.6)';
+                this.style.color = '#d0d0d0';
+                this.style.transform = 'scale(1)';
+                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.25)';
+            }};
             
-            messageDiv.onmouseenter = function() {{ 
-                this.style.transform = 'translateY(-2px) scale(1.01)'; 
-                this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)'; 
-                copyBtn.style.opacity = '1';
-                copyBtn.style.transform = 'scale(1.05)';
-            }};
-            messageDiv.onmouseleave = function() {{ 
-                this.style.transform = 'translateY(0) scale(1)'; 
-                this.style.boxShadow = 'none'; 
-                copyBtn.style.opacity = '0.7';
-                copyBtn.style.transform = 'scale(1)';
-            }};
+
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{message_id}_content';
-            contentDiv.style.cssText = 'margin:0;padding-left:4px;line-height:1.6;color:#ffffff;font-size:13px;word-wrap:break-word;';
+            contentDiv.style.cssText = 'margin:0;padding-left:8px;line-height:1.6;color:#e8e8e8;font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(copyBtn);

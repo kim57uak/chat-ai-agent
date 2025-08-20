@@ -1,12 +1,14 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QLineEdit, QLabel, QPushButton, QSpinBox, QCheckBox, QGroupBox, QHBoxLayout
 from core.file_utils import save_model_api_key, load_model_api_key, load_last_model, load_config, save_config
 from core.config.ai_model_manager import AIModelManager
+from ui.styles.flat_theme import FlatTheme
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle('환경설정')
-        self.setMinimumWidth(350)
+        self.setMinimumWidth(450)
+        self.setStyleSheet(self._get_dialog_style())
         layout = QVBoxLayout(self)
         
         # AI 모델 매니저 초기화
@@ -192,4 +194,113 @@ class SettingsDialog(QDialog):
         config['conversation_settings']['ai_response_token_limit'] = self.ai_response_token_limit_spin.value()
         
         save_config(config)
-        self.accept() 
+        self.accept()
+    
+    def _get_dialog_style(self):
+        return """
+            QDialog {
+                background: #5a5a5f;
+                color: #ffffff;
+                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+            }
+            QLabel {
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 600;
+                padding: 4px 0;
+            }
+            QComboBox {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 rgba(45, 45, 55, 0.95), 
+                    stop:1 rgba(35, 35, 45, 0.95));
+                color: #ffffff;
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 14px;
+                font-weight: 500;
+                min-height: 20px;
+            }
+            QComboBox:hover {
+                border-color: rgba(100, 200, 255, 0.5);
+            }
+            QLineEdit {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 rgba(45, 45, 55, 0.95), 
+                    stop:1 rgba(35, 35, 45, 0.95));
+                color: #ffffff;
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 8px;
+                padding: 10px 12px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QLineEdit:focus {
+                border-color: rgba(100, 200, 255, 0.6);
+            }
+            QSpinBox {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 rgba(45, 45, 55, 0.95), 
+                    stop:1 rgba(35, 35, 45, 0.95));
+                color: #ffffff;
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 14px;
+                font-weight: 500;
+                min-height: 20px;
+            }
+            QCheckBox {
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 500;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid rgba(100, 200, 255, 0.4);
+                border-radius: 4px;
+                background: rgba(45, 45, 55, 0.8);
+            }
+            QCheckBox::indicator:checked {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(100, 200, 255, 0.8), 
+                    stop:1 rgba(150, 100, 255, 0.8));
+                border-color: rgba(100, 200, 255, 0.6);
+            }
+            QGroupBox {
+                color: #ffffff;
+                font-size: 15px;
+                font-weight: 700;
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 10px;
+                margin-top: 10px;
+                padding-top: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px;
+                background: #5a5a5f;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(100, 200, 255, 0.8), 
+                    stop:1 rgba(150, 100, 255, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(100, 200, 255, 0.4);
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 16px;
+                padding: 12px 24px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(120, 220, 255, 0.9), 
+                    stop:1 rgba(170, 120, 255, 0.9));
+                border-color: rgba(100, 200, 255, 0.6);
+            }
+        """ 

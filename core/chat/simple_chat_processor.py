@@ -21,6 +21,12 @@ class SimpleChatProcessor(BaseChatProcessor):
             if not self.validate_input(user_input):
                 return "유효하지 않은 입력입니다.", []
             
+            # Pollinations 모델인 경우 이미지 생성 처리
+            if hasattr(self.model_strategy, 'generate_image_response'):
+                if self.model_strategy.should_use_tools(user_input):
+                    response = self.model_strategy.generate_image_response(user_input)
+                    return self.format_response(response), []
+            
             # 모델 전략에 도구 사용 안함을 명시
             if hasattr(self.model_strategy, '_use_tools_mode'):
                 self.model_strategy._use_tools_mode = False
@@ -44,21 +50,31 @@ class SimpleChatProcessor(BaseChatProcessor):
             else:
                 logger.info("Simple chat에 대화 히스토리 없음")
             
-            # ASK 모드 전용 시스템 프롬프트 생성
+            # ASK 모드 전용 시스템 프롬프트 생성 (도구 사용 금지)
             from ui.prompts import prompt_manager
             provider = prompt_manager.get_provider_from_model(self.model_strategy.model_name)
             ask_mode_prompt = prompt_manager.get_system_prompt(provider, use_tools=False)
             
-            # 대화 히스토리를 포함한 메시지 생성
+            # ASK 모드에서 도구 사용 금지 명시
+            ask_mode_prompt += "\n\nIMPORTANT: You are in ASK mode. Do NOT use any tools or external functions. Provide answers based only on your knowledge."
+            
+            # 대화 히스토리를 포함한 메시지 생성 (도구 사용 금지)
             messages = self.model_strategy.create_messages(
                 user_input, 
                 system_prompt=ask_mode_prompt,
                 conversation_history=conversation_history
             )
             
-            logger.info(f"생성된 메시지 수: {len(messages)}")
+            # 도구 사용 방지를 위한 추가 처리
+            if hasattr(self.model_strategy.llm, 'bind'):
+                # LangChain 모델인 경우 도구 바인딩 제거
+                bound_llm = self.model_strategy.llm.bind(tools=[])
+                response = bound_llm.invoke(messages)
+            else:
+                response = self.model_strategy.llm.invoke(messages)
             
-            response = self.model_strategy.llm.invoke(messages)
+            logger.info(f"생성된 메시지 수: {len(messages)}")
+
             
             # Perplexity 응답 처리 (문자열 또는 객체)
             if isinstance(response, str):

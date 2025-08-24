@@ -53,37 +53,13 @@ class ConfigPathManager:
         Returns:
             Path to the configuration file
         """
-        # Always prefer project directory for mcp.json
-        if filename == 'mcp.json':
-            project_path = self._base_path / filename
-            if project_path.exists():
-                return project_path
+        # Always prefer project directory for all config files
+        project_path = self._base_path / filename
+        if project_path.exists():
+            return project_path
         
-        if user_writable:
-            # Check user directory first
-            user_path = self._user_config_dir / filename
-            if user_path.exists():
-                return user_path
-            
-            # Check if we can write to user directory
-            try:
-                test_file = self._user_config_dir / '.test'
-                test_file.touch()
-                test_file.unlink()
-                
-                # Copy from app bundle if exists
-                app_path = self._base_path / filename
-                if app_path.exists() and not user_path.exists():
-                    import shutil
-                    shutil.copy2(app_path, user_path)
-                    logger.info(f"Copied {filename} to user directory: {user_path}")
-                
-                return user_path
-            except (OSError, PermissionError):
-                logger.warning(f"Cannot write to user directory, using app directory")
-        
-        # Fall back to app directory
-        return self._base_path / filename
+        # If project file doesn't exist, return project path anyway for creation
+        return project_path
     
     def ensure_config_exists(self, filename: str, default_content: str = None) -> Path:
         """

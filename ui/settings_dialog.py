@@ -18,7 +18,7 @@ class SettingsDialog(QDialog):
         provider_layout = QHBoxLayout()
         provider_layout.addWidget(QLabel('AI 제공업체:'))
         self.provider_combo = QComboBox(self)
-        self.provider_combo.addItems(['OpenAI', 'Google', 'Claude', 'Perplexity'])
+        self.provider_combo.addItems(['OpenAI', 'Google', 'Claude', 'Perplexity', 'Image Generation'])
         provider_layout.addWidget(self.provider_combo)
         layout.addLayout(provider_layout)
         

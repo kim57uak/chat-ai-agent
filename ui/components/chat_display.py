@@ -1,5 +1,5 @@
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import QTimer, QUrl, QObject, pyqtSlot
+from PyQt6.QtCore import QTimer, QUrl, QObject, pyqtSlot, QThread, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from ui.components.progressive_display import ProgressiveDisplay
 import json
@@ -282,6 +282,15 @@ class ChatDisplay:
                             window.location.href = e.target.href;
                         }
                     }
+                    
+                    // 이미지 저장 버튼 클릭 처리
+                    if (e.target.classList.contains('save-image-btn')) {
+                        e.preventDefault();
+                        const imageUrl = e.target.getAttribute('data-image-url');
+                        if (pyqt_bridge && imageUrl) {
+                            pyqt_bridge.saveImage(imageUrl);
+                        }
+                    }
                 });
                 
                 function copyCode(codeId) {
@@ -408,6 +417,57 @@ class ChatDisplay:
                         }
                     }
                 }
+                
+                // 이미지 로드 완료 시 저장 버튼 표시
+                function addImageSaveButton(imgElement, imageUrl) {
+                    const container = imgElement.parentElement;
+                    if (container && !container.querySelector('.save-image-btn')) {
+                        const saveBtn = document.createElement('button');
+                        saveBtn.className = 'save-image-btn';
+                        saveBtn.setAttribute('data-image-url', imageUrl);
+                        saveBtn.innerHTML = '💾 저장';
+                        saveBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;z-index:10;';
+                        saveBtn.onmouseenter = function() { this.style.background = 'rgba(0,0,0,0.9)'; };
+                        saveBtn.onmouseleave = function() { this.style.background = 'rgba(0,0,0,0.7)'; };
+                        
+                        container.style.position = 'relative';
+                        container.appendChild(saveBtn);
+                    }
+                }
+                
+                // 이미지 로드 완료 처리
+                function showLoadedImage(imageId, imageUrl) {
+                    const loadingDiv = document.getElementById(imageId + '_loading');
+                    const imgElement = document.getElementById(imageId);
+                    const container = document.getElementById(imageId + '_container');
+                    
+                    if (loadingDiv && imgElement) {
+                        // 로딩 상태 숨기고 이미지 표시
+                        loadingDiv.style.display = 'none';
+                        imgElement.style.display = 'block';
+                        
+                        // 저장 버튼 추가
+                        addImageSaveButton(imgElement, imageUrl);
+                        
+                        console.log('이미지 로드 완료:', imageId);
+                    }
+                }
+                
+                // 이미지 로드 오류 처리
+                function showImageError(imageId) {
+                    const loadingDiv = document.getElementById(imageId + '_loading');
+                    
+                    if (loadingDiv) {
+                        loadingDiv.innerHTML = `
+                            <div style="text-align: center; color: #ff6b6b;">
+                                <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
+                                <div style="font-size: 14px;">이미지 로드 실패</div>
+                                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">다시 시도해주세요</div>
+                            </div>
+                        `;
+                        console.error('이미지 로드 오류:', imageId);
+                    }
+                }
             </script>
         </head>
         <body style="background: #0a0a0a !important; color: #f3f4f6 !important; margin: 0 !important; padding: 8px !important;">
@@ -452,6 +512,9 @@ class ChatDisplay:
         
         formatter = FixedFormatter()
         formatted_text = formatter.format_basic_markdown(text)
+        
+        # 이미지 URL 감지 및 렌더링 처리
+        formatted_text = self._process_image_urls(formatted_text)
         
         message_id = f"msg_{uuid.uuid4().hex[:8]}"
         
@@ -566,10 +629,74 @@ class ChatDisplay:
     def cancel_progressive_display(self):
         """점진적 출력 취소"""
         self.progressive_display.cancel_current_display()
+    
+    def _process_image_urls(self, text):
+        """이미지 URL 감지 및 렌더링 처리"""
+        import re
+        import uuid
+        
+        # Pollination 이미지 URL 패턴 감지
+        pollination_pattern = r'https://image\.pollinations\.ai/prompt/[^\s)]+'
+        
+        def replace_image_url(match):
+            url = match.group(0)
+            image_id = f"img_{uuid.uuid4().hex[:8]}"
+            
+            # CSS 애니메이션을 별도 문자열로 분리
+            css_animation = '''
+            <style>
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+            '''
+            
+            # HTML 콘텐츠
+            html_content = f'''
+            <div id="{image_id}_container" style="position: relative; display: inline-block; margin: 10px 0; min-height: 200px;">
+                <div id="{image_id}_loading" style="
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    min-height: 200px; 
+                    background: rgba(40,40,40,0.8); 
+                    border-radius: 8px; 
+                    border: 2px dashed #666;
+                ">
+                    <div style="text-align: center; color: #ccc;">
+                        <div style="font-size: 24px; margin-bottom: 10px;">🎨</div>
+                        <div style="font-size: 14px; margin-bottom: 5px;">이미지 생성 중...</div>
+                        <div style="font-size: 12px; opacity: 0.7;">잠시만 기다려주세요</div>
+                        <div class="loading-spinner" style="
+                            margin: 10px auto;
+                            width: 20px;
+                            height: 20px;
+                            border: 2px solid #666;
+                            border-top: 2px solid #87CEEB;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                        "></div>
+                    </div>
+                </div>
+                
+                <img id="{image_id}" src="{url}" alt="Generated Image" 
+                     style="display: none; max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);" 
+                     onload="showLoadedImage('{image_id}', '{url}')" 
+                     onerror="showImageError('{image_id}')" />
+            </div>
+            '''
+            
+            return css_animation + html_content
+        
+        # URL을 이미지 태그로 변환
+        processed_text = re.sub(pollination_pattern, replace_image_url, text)
+        
+        return processed_text
 
 
 class LinkHandler(QObject):
-    """링크 클릭 처리를 위한 핸들러"""
+    """링크 클릭 및 이미지 저장 처리를 위한 핸들러"""
     
     def __init__(self):
         super().__init__()
@@ -581,3 +708,63 @@ class LinkHandler(QObject):
             QDesktopServices.openUrl(QUrl(url))
         except Exception as e:
             print(f"URL 열기 오류: {e}")
+    
+    @pyqtSlot(str)
+    def saveImage(self, image_url):
+        """이미지 저장"""
+        try:
+            from PyQt6.QtWidgets import QFileDialog, QApplication
+            from PyQt6.QtCore import QThread, pyqtSignal
+            import requests
+            import os
+            
+            # 파일 저장 대화상자
+            filename, _ = QFileDialog.getSaveFileName(
+                None,
+                "이미지 저장",
+                "pollination_image.png",
+                "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)"
+            )
+            
+            if filename:
+                # 백그라운드에서 이미지 다운로드
+                self.download_thread = ImageDownloadThread(image_url, filename)
+                self.download_thread.finished.connect(self.on_download_finished)
+                self.download_thread.error.connect(self.on_download_error)
+                self.download_thread.start()
+                
+        except Exception as e:
+            print(f"이미지 저장 오류: {e}")
+    
+    def on_download_finished(self, filename):
+        """다운로드 완료 처리"""
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(None, "저장 완료", f"이미지가 저장되었습니다:\n{filename}")
+    
+    def on_download_error(self, error_msg):
+        """다운로드 오류 처리"""
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.warning(None, "저장 실패", f"이미지 저장 중 오류가 발생했습니다:\n{error_msg}")
+
+
+class ImageDownloadThread(QThread):
+    """이미지 다운로드 스레드"""
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
+    
+    def __init__(self, url, filename):
+        super().__init__()
+        self.url = url
+        self.filename = filename
+    
+    def run(self):
+        try:
+            response = requests.get(self.url, timeout=30)
+            response.raise_for_status()
+            
+            with open(self.filename, 'wb') as f:
+                f.write(response.content)
+            
+            self.finished.emit(self.filename)
+        except Exception as e:
+            self.error.emit(str(e))

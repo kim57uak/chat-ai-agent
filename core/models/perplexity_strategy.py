@@ -112,27 +112,77 @@ class PerplexityStrategy(BaseModelStrategy):
         return HumanMessage(content=cleaned_input.strip() or "이미지 처리는 지원되지 않습니다.")
     
     def should_use_tools(self, user_input: str) -> bool:
-        """도구 사용 여부 결정 - AI가 컨텍스트를 이해하여 판단"""
+        """도구 사용 여부 결정 - 강화된 컨텍스트 이해"""
         try:
-            # 사용 가능한 도구 정보 수집 - 더 많은 도구 표시
+            # 키워드 기반 1차 필터링
+            tool_keywords = [
+                '검색', 'search', '찾아', '조회', '확인', 'check', '가져와', 'get',
+                '데이터베이스', 'database', 'mysql', 'sql', '쿼리', 'query',
+                '이메일', 'email', 'gmail', '메일', 'mail',
+                '파일', 'file', '엑셀', 'excel', '문서', 'document',
+                '지라', 'jira', '이슈', 'issue', '티켓', 'ticket',
+                '컨플루언스', 'confluence', '위키', 'wiki',
+                '여행', 'travel', '하나투어', 'hanatour', '상품', 'product',
+                '지도', 'map', '위치', 'location', '주소', 'address',
+                '날씨', 'weather', '뉴스', 'news', '최신', 'latest', '현재', 'current',
+                '오늘', 'today', '어제', 'yesterday', '최근', 'recent',
+                '생성', 'create', '만들어', 'make', '작성', 'write',
+                '업데이트', 'update', '수정', 'modify', '변경', 'change',
+                '삭제', 'delete', '제거', 'remove',
+                '다운로드', 'download', '업로드', 'upload',
+                '실행', 'execute', '실시간', 'realtime', 'real-time'
+            ]
+            
+            user_lower = user_input.lower()
+            has_tool_keywords = any(keyword in user_lower for keyword in tool_keywords)
+            
+            if not has_tool_keywords:
+                logger.info(f"🚫 키워드 기반 필터링: 도구 사용 불필요 - '{user_input}'")
+                return False
+            
+            # 사용 가능한 도구 정보 수집
             available_tools = []
             if hasattr(self, 'tools') and self.tools:
-                for tool in self.tools[:10]:  # 주요 도구 10개
+                for tool in self.tools[:15]:  # 더 많은 도구 표시
                     tool_desc = getattr(tool, 'description', tool.name)
-                    available_tools.append(f"- {tool.name}: {tool_desc[:100]}")
+                    available_tools.append(f"- {tool.name}: {tool_desc[:120]}")
             
-            tools_info = "\n".join(available_tools) if available_tools else "사용 가능한 도구 없음"
+            if not available_tools:
+                logger.info(f"🚫 사용 가능한 도구 없음")
+                return False
             
-            # 올바른 프롬프트 경로 사용
-            tool_selection_prompt = prompt_manager.get_tool_prompt(ModelType.PERPLEXITY.value)
-            decision_prompt = f"""User request: "{user_input}"
+            tools_info = "\n".join(available_tools)
+            
+            # 강화된 도구 판단 프롬프트
+            decision_prompt = f"""TASK: Determine if the user request requires external tools or data.
 
-Available tools:
+USER REQUEST: "{user_input}"
+
+AVAILABLE TOOLS:
 {tools_info}
 
-{tool_selection_prompt}
+**DECISION CRITERIA:**
 
-Answer: YES or NO only."""
+USE TOOLS (Answer YES) when request involves:
+✅ External data retrieval (search, database queries, file access)
+✅ Real-time information (current news, weather, stock prices)
+✅ Specific system operations (Jira issues, email management)
+✅ File operations (Excel, documents, downloads)
+✅ API calls to external services
+✅ Time-sensitive data (today's data, recent updates)
+✅ User's personal/work data (my files, assigned issues)
+
+NO TOOLS (Answer NO) when request is:
+❌ General knowledge questions I can answer directly
+❌ Explanations, concepts, tutorials
+❌ Creative writing, brainstorming
+❌ Code examples without external data
+❌ Mathematical calculations
+❌ Theoretical discussions
+
+**CRITICAL**: If the request mentions specific external systems, data sources, or requires current information, ALWAYS use tools.
+
+Answer with ONLY: YES or NO"""
             
             # Perplexity LLM에 직접 요청
             response = self.llm._call(decision_prompt)
@@ -149,8 +199,9 @@ Answer: YES or NO only."""
             
         except Exception as e:
             logger.error(f"Perplexity 도구 사용 판단 오류: {e}")
-            # 오류 시 기본적으로 도구 사용
-            return True
+            # 오류 시 키워드 기반으로 판단
+            tool_keywords = ['검색', 'search', '찾아', '조회', '확인', 'check', '가져와', 'get', '데이터베이스', 'mysql', 'jira', 'email']
+            return any(keyword in user_input.lower() for keyword in tool_keywords)
     
     def create_agent_executor(self, tools: List) -> Optional[AgentExecutor]:
         """Perplexity ReAct 에이전트 생성 - 단순화된 구현"""
@@ -215,13 +266,36 @@ Thought:{agent_scratchpad}"""
             return None
     
     def get_perplexity_system_prompt(self) -> str:
-        """Perplexity 전용 시스템 프롬프트 - 대화 히스토리 강조"""
-        # 도구가 있고 도구 사용 모드일 때만 MCP 프롬프트 사용
-        if hasattr(self, 'tools') and self.tools and getattr(self, '_use_tools_mode', False):
-            return prompt_manager.get_agent_system_prompt(ModelType.PERPLEXITY.value)
+        """Perplexity 전용 시스템 프롬프트 - 도구 인식 강화"""
+        base_prompt = prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value)
+        
+        # 도구가 있을 때 도구 인식 강화 프롬프트 추가
+        if hasattr(self, 'tools') and self.tools:
+            tool_awareness = prompt_manager.get_custom_prompt(ModelType.PERPLEXITY.value, "tool_awareness")
+            agent_system = prompt_manager.get_agent_system_prompt(ModelType.PERPLEXITY.value)
+            
+            # 사용 가능한 도구 목록 생성
+            tool_list = []
+            for tool in self.tools[:10]:
+                tool_desc = getattr(tool, 'description', tool.name)
+                tool_list.append(f"- {tool.name}: {tool_desc[:80]}")
+            
+            tools_summary = "\n".join(tool_list) if tool_list else "No tools available"
+            
+            enhanced_prompt = f"""{base_prompt}
+
+{tool_awareness}
+
+**AVAILABLE MCP TOOLS:**
+{tools_summary}
+
+{agent_system}
+
+**CRITICAL REMINDER**: When user asks for data, search, current information, or external resources, IMMEDIATELY use the appropriate MCP tool. These tools provide real-time, accurate data that surpasses your training knowledge."""
+            
+            return enhanced_prompt
         else:
-            # Ask 모드일 때는 일반 시스템 프롬프트 사용
-            return prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value)
+            return base_prompt
     
     def supports_streaming(self) -> bool:
         """Perplexity는 스트리밍 미지원"""

@@ -294,11 +294,6 @@ class MCPManager:
                 if server_config.get("disabled", False):
                     continue
                 
-                # 상태 파일에서 비활성화된 서버 건너뛰기
-                if not mcp_state.is_server_enabled(name):
-                    logger.info(f"MCP 서버 '{name}' 상태 파일에서 비활성화됨")
-                    continue
-                    
                 command = server_config.get("command")
                 args = server_config.get("args", [])
                 env = server_config.get("env", {})
@@ -307,11 +302,19 @@ class MCPManager:
                     continue
                     
                 client = MCPClient(command, args, env)
-                if client.start() and client.initialize():
-                    self.clients[name] = client
-                    logger.info(f"MCP 서버 '{name}' 시작 완료")
+                
+                # 상태 파일에서 활성화된 서버만 실제 시작
+                if mcp_state.is_server_enabled(name):
+                    if client.start() and client.initialize():
+                        self.clients[name] = client
+                        logger.info(f"MCP 서버 '{name}' 시작 완료")
+                    else:
+                        logger.error(f"MCP 서버 '{name}' 시작 실패")
+                        self.clients[name] = client  # 실패해도 등록
                 else:
-                    logger.error(f"MCP 서버 '{name}' 시작 실패")
+                    # 비활성화된 서버도 등록 (시작하지 않음)
+                    self.clients[name] = client
+                    logger.info(f"MCP 서버 '{name}' 등록됨 (비활성화 상태)")
                     
             return len(self.clients) > 0
             

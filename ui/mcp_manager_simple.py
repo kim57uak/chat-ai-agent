@@ -281,7 +281,7 @@ class MCPManagerDialog(QDialog):
                     Qt.ItemDataRole.UserRole,
                     {
                         "name": server_name,
-                        "config": config,
+                        "config": server_info,  # 전체 서버 정보 저장
                         "status": status_text,
                         "tools": tools,
                     },
@@ -346,7 +346,18 @@ class MCPManagerDialog(QDialog):
         self.tools_text.setPlainText(tools_text)
 
         # 설정 정보 표시
-        config_text = json.dumps(server_config, indent=2, ensure_ascii=False)
+        if server_config:
+            # 서버 설정을 보기 좋게 포맷팅
+            config_display = {
+                "명령어": server_config.get('command', 'N/A'),
+                "인수": server_config.get('args', []),
+                "환경변수": server_config.get('env', {}),
+                "상태": status,
+                "서버 타입": server_config.get('server_type', 'unknown')
+            }
+            config_text = json.dumps(config_display, indent=2, ensure_ascii=False)
+        else:
+            config_text = "설정 정보를 불러올 수 없습니다."
         self.config_text.setPlainText(config_text)
 
         # 버튼 상태 업데이트

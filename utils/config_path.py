@@ -53,6 +53,12 @@ class ConfigPathManager:
         Returns:
             Path to the configuration file
         """
+        # Always prefer project directory for mcp.json
+        if filename == 'mcp.json':
+            project_path = self._base_path / filename
+            if project_path.exists():
+                return project_path
+        
         if user_writable:
             # Check user directory first
             user_path = self._user_config_dir / filename

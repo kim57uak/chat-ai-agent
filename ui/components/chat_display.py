@@ -208,6 +208,27 @@ class ChatDisplay:
                     fill: #2a2a2a !important;
                 }
                 
+                .mermaid .xychart {
+                    background: #2a2a2a !important;
+                }
+                
+                .mermaid .xychart .tick text {
+                    fill: #e8e8e8 !important;
+                }
+                
+                .mermaid .xychart .axis-label {
+                    fill: #e8e8e8 !important;
+                }
+                
+                .mermaid .xychart .line {
+                    stroke-width: 2px !important;
+                }
+                
+                .mermaid .xychart .grid {
+                    stroke: #555 !important;
+                    stroke-opacity: 0.3 !important;
+                }
+                
                 /* Block Diagram 전용 */
                 .mermaid .block {
                     fill: #444 !important;

@@ -44,10 +44,15 @@ class SimpleChatProcessor(BaseChatProcessor):
             else:
                 logger.info("Simple chat에 대화 히스토리 없음")
             
+            # ASK 모드 전용 시스템 프롬프트 생성
+            from ui.prompts import prompt_manager
+            provider = prompt_manager.get_provider_from_model(self.model_strategy.model_name)
+            ask_mode_prompt = prompt_manager.get_system_prompt(provider, use_tools=False)
+            
             # 대화 히스토리를 포함한 메시지 생성
             messages = self.model_strategy.create_messages(
                 user_input, 
-                system_prompt=None,
+                system_prompt=ask_mode_prompt,
                 conversation_history=conversation_history
             )
             

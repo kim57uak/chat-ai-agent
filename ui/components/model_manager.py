@@ -113,8 +113,11 @@ class ModelManager:
             current_model = load_last_model()
             
             for model_name, model_config in models.items():
-                if model_config.get('api_key'):
-                    action = menu.addAction(f"🤖 {model_name}")
+                # Pollinations 모델은 API 키가 필요 없으므로 항상 표시
+                api_key = model_config.get('api_key', '')
+                if (api_key and api_key != 'none') or model_name == 'pollinations-image':
+                    emoji = "🎨" if model_name == 'pollinations-image' else "🤖"
+                    action = menu.addAction(f"{emoji} {model_name}")
                     if model_name == current_model:
                         action.setText(f"✅ {model_name} (현재)")
                     action.triggered.connect(lambda checked, m=model_name: self.change_model(m))

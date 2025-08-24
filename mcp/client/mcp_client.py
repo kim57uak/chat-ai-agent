@@ -4,6 +4,7 @@ import threading
 import uuid
 from typing import Dict, Any, Optional, List
 import logging
+from utils.config_path import config_path_manager
 
 logger = logging.getLogger(__name__)
 
@@ -275,8 +276,12 @@ class MCPManager:
     def load_from_config(self, config_path: str) -> bool:
         """mcp.json에서 설정 로드 및 활성화된 서버만 시작"""
         try:
+            # MCP 설정 파일 경로 해결
+            resolved_path = config_path_manager.get_config_path(config_path)
+            logger.info(f"MCP 설정 파일 경로: {resolved_path}")
+            
             # MCP 설정 파일 로드
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(resolved_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 
             # 서버 상태 파일 로드
@@ -289,11 +294,6 @@ class MCPManager:
                 if server_config.get("disabled", False):
                     continue
                 
-                # 상태 파일에서 비활성화된 서버 건너뛰기
-                if not mcp_state.is_server_enabled(name):
-                    logger.info(f"MCP 서버 '{name}' 상태 파일에서 비활성화됨")
-                    continue
-                    
                 command = server_config.get("command")
                 args = server_config.get("args", [])
                 env = server_config.get("env", {})
@@ -302,11 +302,19 @@ class MCPManager:
                     continue
                     
                 client = MCPClient(command, args, env)
-                if client.start() and client.initialize():
-                    self.clients[name] = client
-                    logger.info(f"MCP 서버 '{name}' 시작 완료")
+                
+                # 상태 파일에서 활성화된 서버만 실제 시작
+                if mcp_state.is_server_enabled(name):
+                    if client.start() and client.initialize():
+                        self.clients[name] = client
+                        logger.info(f"MCP 서버 '{name}' 시작 완료")
+                    else:
+                        logger.error(f"MCP 서버 '{name}' 시작 실패")
+                        self.clients[name] = client  # 실패해도 등록
                 else:
-                    logger.error(f"MCP 서버 '{name}' 시작 실패")
+                    # 비활성화된 서버도 등록 (시작하지 않음)
+                    self.clients[name] = client
+                    logger.info(f"MCP 서버 '{name}' 등록됨 (비활성화 상태)")
                     
             return len(self.clients) > 0
             
@@ -359,7 +367,8 @@ class MCPManager:
         
         # 설정 파일에서 서버 정보 로드
         try:
-            with open('mcp.json', 'r', encoding='utf-8') as f:
+            mcp_config_path = config_path_manager.get_config_path('mcp.json')
+            with open(mcp_config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             servers = config.get("mcpServers", {})
         except Exception as e:
@@ -403,7 +412,8 @@ class MCPManager:
                 return True
         
         try:
-            with open('mcp.json', 'r', encoding='utf-8') as f:
+            mcp_config_path = config_path_manager.get_config_path('mcp.json')
+            with open(mcp_config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             servers = config.get("mcpServers", {})
             

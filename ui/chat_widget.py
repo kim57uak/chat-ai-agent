@@ -16,6 +16,7 @@ from ui.components.chat_display import ChatDisplay
 from ui.components.ui_manager import UIManager
 from ui.components.model_manager import ModelManager
 from ui.components.status_display import status_display
+from ui.styles.flat_theme import FlatTheme
 
 from datetime import datetime
 import os
@@ -26,9 +27,10 @@ class ChatWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background-color: #1a1a1a;")
+        self.setStyleSheet(FlatTheme.get_chat_widget_style())
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setContentsMargins(20, 20, 20, 20)
+        self.layout.setSpacing(16)
         
         # 대화 히스토리 관리
         self.conversation_history = ConversationHistory()
@@ -53,16 +55,12 @@ class ChatWidget(QWidget):
         self.model_label = QLabel(self)
         self.tools_label = QLabel(self)
         self.status_label = QLabel(self)
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #87CEEB;
-                font-size: 11px;
-                padding: 4px 8px;
-                background: rgba(135,206,235,0.1);
-                border-radius: 4px;
-                border: 1px solid rgba(135,206,235,0.3);
-            }
-        """)
+        
+        # 새로운 플랫 스타일 적용
+        styles = FlatTheme.get_info_labels_style()
+        self.model_label.setStyleSheet(styles['model_label'])
+        self.tools_label.setStyleSheet(styles['tools_label'])
+        self.status_label.setStyleSheet(styles['status_label'])
         
         info_layout.addWidget(self.model_label, 1)
         info_layout.addWidget(self.status_label, 0)
@@ -77,9 +75,10 @@ class ChatWidget(QWidget):
         # 로딩 바
         self.loading_bar = QProgressBar(self)
         self.loading_bar.setRange(0, 0)
-        self.loading_bar.setFixedHeight(5)
+        self.loading_bar.setFixedHeight(3)
         self.loading_bar.hide()
         self.loading_bar.setTextVisible(False)
+        self.loading_bar.setStyleSheet(FlatTheme.get_loading_bar_style())
         self.layout.addWidget(self.loading_bar)
         
         # 입력 영역
@@ -99,55 +98,16 @@ class ChatWidget(QWidget):
         self.mode_toggle = QPushButton("💬 Ask", self)
         self.mode_toggle.setCheckable(True)
         self.mode_toggle.setChecked(False)
-        self.mode_toggle.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #888888;
-                border: none;
-                border-right: 1px solid #444444;
-                border-radius: 0px;
-                padding: 4px 8px;
-                font-size: 11px;
-                font-weight: 500;
-                min-width: 80px;
-                max-width: 80px;
-                outline: none;
-                text-align: center;
-            }
-            QPushButton:hover {
-                color: #ffffff;
-                background-color: rgba(255,255,255,0.05);
-            }
-            QPushButton:checked {
-                color: rgb(135,163,215);
-                font-weight: bold;
-                background-color: rgba(135,163,215,0.1);
-                border-bottom: 2px solid rgb(135,163,215);
-            }
-        """)
+        self.mode_toggle.setStyleSheet(FlatTheme.get_input_area_style()['mode_toggle'])
         
         # 입력창
         self.input_text = QTextEdit(self)
         self.input_text.setMaximumHeight(80)
-        self.input_text.setPlaceholderText("메시지를 입력하세요... (Ctrl+Enter로 전송)")
-        self.input_text.setStyleSheet("""
-            QTextEdit {
-                background-color: transparent;
-                color: #ffffff;
-                border: none;
-                font-size: 12px;
-                padding: 10px;
-            }
-        """)
+        self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
+        self.input_text.setStyleSheet(FlatTheme.get_input_area_style()['input_text'])
         
         # 컨테이너 스타일
-        input_container.setStyleSheet("""
-            QWidget {
-                background-color: #2a2a2a;
-                border: 1px solid #444444;
-                border-radius: 6px;
-            }
-        """)
+        input_container.setStyleSheet(FlatTheme.get_input_area_style()['container'])
         
         input_container_layout.addWidget(self.mode_toggle, 0)
         input_container_layout.addWidget(self.input_text, 1)
@@ -155,69 +115,16 @@ class ChatWidget(QWidget):
         # 버튼들
         self.send_button = QPushButton('전송', self)
         self.send_button.setMinimumHeight(80)
-        self.send_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgb(163,135,215);
-                color: #ffffff;
-                border: none;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: rgb(143,115,195);
-            }
-            QPushButton:pressed {
-                background-color: rgb(123,95,175);
-            }
-            QPushButton:disabled {
-                background-color: #555555;
-                color: #888888;
-            }
-        """)
+        self.send_button.setStyleSheet(FlatTheme.get_input_area_style()['send_button'])
         
         self.cancel_button = QPushButton('취소', self)
         self.cancel_button.setMinimumHeight(80)
         self.cancel_button.setVisible(False)
-        self.cancel_button.setStyleSheet("""
-            QPushButton {
-                background-color: #F44336;
-                color: #ffffff;
-                border: none;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #D32F2F;
-            }
-            QPushButton:pressed {
-                background-color: #B71C1C;
-            }
-        """)
+        self.cancel_button.setStyleSheet(FlatTheme.get_input_area_style()['cancel_button'])
         
         self.upload_button = QPushButton('파일\n업로드', self)
         self.upload_button.setMinimumHeight(80)
-        self.upload_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgb(135,163,215);
-                color: #ffffff;
-                border: none;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: rgb(115,143,195);
-            }
-            QPushButton:pressed {
-                background-color: rgb(95,123,175);
-            }
-            QPushButton:disabled {
-                background-color: #555555;
-                color: #888888;
-            }
-        """)
+        self.upload_button.setStyleSheet(FlatTheme.get_input_area_style()['upload_button'])
         
         input_layout.addWidget(input_container, 5)
         input_layout.addWidget(self.send_button, 1)
@@ -273,6 +180,9 @@ class ChatWidget(QWidget):
         
         # 웹뷰 로드 완료
         self.chat_display_view.loadFinished.connect(self._on_webview_loaded)
+        
+        # 웹뷰 로드 시간 초과 시 대비책
+        QTimer.singleShot(2000, self._ensure_welcome_message)
     
     def handle_input_key_press(self, event):
         """입력창 키 이벤트 처리"""
@@ -297,7 +207,7 @@ class ChatWidget(QWidget):
                 self.input_text.setPlaceholderText("도구를 사용한 메시지 입력... (Enter로 전송, Shift+Enter로 줄바꿈)")
             else:
                 self.mode_toggle.setText("💬 Ask")
-                self.input_text.setPlaceholderText("간단한 질문 입력... (Enter로 전송, Shift+Enter로 줄바꿈)")
+                self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
         except Exception as e:
             print(f"토글 UI 업데이트 오류: {e}")
     
@@ -553,6 +463,9 @@ class ChatWidget(QWidget):
         """웹뷰 로드 완료"""
         if ok:
             QTimer.singleShot(500, self._load_previous_conversations)
+        else:
+            # 웹뷰 로드 실패 시에도 웰컴 메시지 표시
+            QTimer.singleShot(1000, self._show_welcome_message)
     
     def update_status_display(self, status_data):
         """상태 표시 업데이트"""
@@ -565,6 +478,7 @@ class ChatWidget(QWidget):
     def _load_previous_conversations(self):
         """이전 대화 로드"""
         try:
+            self._welcome_shown = True  # 웰컴 메시지 표시됨 플래그
             self.conversation_history.load_from_file()
             all_messages = self.conversation_history.current_session
             
@@ -587,23 +501,6 @@ class ChatWidget(QWidget):
                         unique_messages.append(msg)
                 
                 if unique_messages:
-                    # 전체 토큰 통계 계산
-                    stats = self.conversation_history.get_stats()
-                    total_tokens = stats.get('total_tokens', 0)
-                    model_stats = stats.get('model_stats', {})
-                    
-                    # 토큰 통계 메시지 생성
-                    token_summary = f"📊 전체 토큰: {total_tokens:,}개"
-                    if model_stats:
-                        model_breakdown = []
-                        for model, data in model_stats.items():
-                            if model != 'unknown':
-                                model_breakdown.append(f"{model}: {data['tokens']:,}")
-                        if model_breakdown:
-                            token_summary += f" ({', '.join(model_breakdown)})"
-                    
-                    self.chat_display.append_message('시스템', f'이전 대화 {len(unique_messages)}개를 불러왔습니다. {token_summary}\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
-                    
                     for msg in unique_messages:
                         role = msg.get('role', '')
                         content = msg.get('content', '')
@@ -634,22 +531,39 @@ class ChatWidget(QWidget):
                             else:
                                 enhanced_content = f"{content}\n\n---\n*🤖 AI{token_info}*" if token_info else content
                                 self.chat_display.append_message('AI', enhanced_content)
+                    
+                    # 이전 대화 로드 후 웰컴 메시지 표시
+                    stats = self.conversation_history.get_stats()
+                    total_tokens = stats.get('total_tokens', 0)
+                    model_stats = stats.get('model_stats', {})
+                    
+                    token_summary = f"📊 전체 토큰: {total_tokens:,}개"
+                    if model_stats:
+                        model_breakdown = []
+                        for model, data in model_stats.items():
+                            if model != 'unknown':
+                                model_breakdown.append(f"{model}: {data['tokens']:,}")
+                        if model_breakdown:
+                            token_summary += f" ({', '.join(model_breakdown)})"
+                    
+                    welcome_msg = f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🔄 **이전 대화**: {len(unique_messages)}개 메시지 로드됨\n{token_summary}\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!'
+                    self.chat_display.append_message('시스템', welcome_msg)
                 else:
                     # 빈 히스토리일 때도 토큰 통계 표시
                     stats = self.conversation_history.get_stats()
                     total_tokens = stats.get('total_tokens', 0)
                     if total_tokens > 0:
-                        self.chat_display.append_message('시스템', f'새로운 대화를 시작합니다. 📊 전체 토큰: {total_tokens:,}개\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                        self.chat_display.append_message('시스템', f'🎉 안녕하세요! 새로운 대화를 시작합니다 😊\n\n📊 전체 토큰: {total_tokens:,}개\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다 📋')
                     else:
-                        self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                        self.chat_display.append_message('시스템', '🎉 안녕하세요! 새로운 대화를 시작합니다 😊\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다 📋')
             else:
                 # 빈 히스토리일 때도 토큰 통계 표시
                 stats = self.conversation_history.get_stats()
                 total_tokens = stats.get('total_tokens', 0)
                 if total_tokens > 0:
-                    self.chat_display.append_message('시스템', f'새로운 대화를 시작합니다. 📊 전체 토큰: {total_tokens:,}개\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                    self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
                 else:
-                    self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                    self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
                 
         except Exception as e:
             print(f"대화 기록 로드 오류: {e}")
@@ -663,6 +577,28 @@ class ChatWidget(QWidget):
                     self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
             except:
                 self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+    
+    def _show_welcome_message(self):
+        """웰컴 메시지 표시"""
+        try:
+            stats = self.conversation_history.get_stats()
+            total_tokens = stats.get('total_tokens', 0)
+            if total_tokens > 0:
+                self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+            else:
+                self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+        except Exception as e:
+            print(f"웰컴 메시지 표시 오류: {e}")
+            self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖')
+    
+    def _ensure_welcome_message(self):
+        """웰컴 메시지 보장 (웹뷰 로드 시간 초과 시 대비책)"""
+        try:
+            if not hasattr(self, '_welcome_shown'):
+                self._welcome_shown = True
+                self._show_welcome_message()
+        except Exception as e:
+            print(f"웰컴 메시지 보장 오류: {e}")
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""

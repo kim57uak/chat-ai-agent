@@ -39,6 +39,12 @@ class PromptManager:
                     "**LANGUAGE RULE: Respond naturally in the same language the user uses.** "
                     "Simply match the user's language without mentioning language detection or translation. "
                     "Be conversational and natural - avoid formal acknowledgments about language preferences. "
+                    "**CRITICAL COMPLETE RESPONSE RULE: NEVER provide incomplete or superficial answers. "
+                    "When using tools, you MUST provide detailed, comprehensive summaries of the results. "
+                    "Extract ALL relevant information from tool outputs and present it in a well-structured format. "
+                    "If you find search results, news articles, or data, SUMMARIZE THE ACTUAL CONTENT, not just generic statements. "
+                    "Include specific details, numbers, names, dates, and key points from the tool results. "
+                    "NEVER say 'I will summarize' and then give a vague response - ACTUALLY provide the detailed summary.** "
                     "**DIAGRAM RULE: When users ask for diagrams, flowcharts, sequences, or visual representations, "
                     "ALWAYS include ```mermaid code blocks with proper mermaid syntax. Never use HTML or plain text for diagrams. "
                     "CRITICAL: Use plain text arrows like --> NOT HTML entities like --&gt;**"
@@ -47,21 +53,23 @@ class PromptManager:
                 "ocr_prompt": "Extract all text from this image accurately and completely. Maintain the original language of the text. Format your response as: ## Extracted Text\n[content]\n## Document Structure\n[layout description]",
                 
                 "tool_selection": (
-                    "**SMART TOOL USAGE DECISION:**\n\n"
-                    "**PRIMARY QUESTION:** Does this request need data or actions I cannot provide myself?\n\n"
-                    "**USE TOOLS when request involves:**\n"
-                    "- External systems (Jira, databases, APIs, files, websites)\n"
-                    "- Current/real-time information (news, weather, stock prices, today's data)\n"
-                    "- Specific data retrieval (search, find, get, check, look up)\n"
-                    "- User's personal/work data (my issues, assigned to me, my files)\n"
-                    "- Time-sensitive information (today, yesterday, recent, latest)\n"
-                    "- Actions on external services (create, update, send, download)\n\n"
-                    "**NO TOOLS when request is:**\n"
-                    "- General knowledge I already know\n"
-                    "- Explanations, concepts, how-to guides\n"
-                    "- Creative writing, brainstorming, analysis\n"
-                    "- Code examples, tutorials, best practices\n\n"
-                    "**DECISION RULE:** When in doubt, USE TOOLS to provide better user value."
+                    "**INTELLIGENT TOOL USAGE DECISION:**\n\n"
+                    "**CORE PRINCIPLE:** Analyze the user's request and available tools to determine if external capabilities can enhance the response.\n\n"
+                    "**USE TOOLS when the request requires capabilities beyond text generation:**\n"
+                    "- Creating, generating, or producing content (images, audio, files, documents)\n"
+                    "- Accessing external data sources or real-time information\n"
+                    "- Performing actions on external systems or services\n"
+                    "- Processing, analyzing, or manipulating existing files or data\n"
+                    "- Retrieving specific, current, or personalized information\n\n"
+                    "**NO TOOLS when the request is:**\n"
+                    "- Purely conversational or explanatory\n"
+                    "- General knowledge that doesn't require external verification\n"
+                    "- Abstract discussions, theories, or conceptual explanations\n\n"
+                    "**DECISION PROCESS:**\n"
+                    "1. Identify what the user wants to accomplish\n"
+                    "2. Check if available tools can fulfill or enhance this request\n"
+                    "3. If tools can add value, use them; otherwise, respond directly\n\n"
+                    "**KEY INSIGHT:** Tools extend your capabilities - use them when they can provide what text alone cannot."
                 ),
                 
                 "schema_compliance": (
@@ -96,16 +104,20 @@ class PromptManager:
                     "- Lists: Use - or * for bullets, 1. 2. 3. for numbered lists\n"
                     "- Emphasis: Use **bold** for important terms, *italic* for emphasis\n"
                     "- Code: Use `inline code` for terms, ```language blocks for code\n"
-                    "- **CRITICAL: Code blocks must be PLAIN TEXT only - NO HTML tags, NO <span>, NO syntax highlighting**\n"
-                    "- **Example: ```java\nSystem.out.println(\"Hello\");\n``` NOT <div><pre><span>...</span></pre></div>**\n"
+                    "- **CRITICAL: Code blocks must be CLEAN PLAIN TEXT only:**\n"
+                    "  * NO HTML tags: <span>, <div>, <pre>, <code>\n"
+                    "  * NO syntax highlighting classes or attributes\n"
+                    "  * NO HTML entities: &gt; &lt; &amp; &quot;\n"
+                    "  * Example: ```java\nSystem.out.println(\"Hello\");\n```\n"
+                    "  * NOT: <div><pre><span class=\"kt\">System</span>...</pre></div>\n"
                     "- Tables: Use | separators with --- header dividers\n"
                     "- Links: Use [text](url) format\n"
                     "- Quotes: Use > for blockquotes\n"
                     "- Separators: Use --- for horizontal rules\n"
-                    "- **DIAGRAMS: MANDATORY use ```mermaid code blocks ONLY. NO HTML tags, NO <div>, NO <pre>, NO <code> tags**\n"
+                    "- **DIAGRAMS: MANDATORY use ```mermaid code blocks ONLY. NO HTML tags**\n"
                     "- **CRITICAL: In mermaid diagrams, use PLAIN TEXT arrows: --> NOT --&gt;**\n"
                     "- **Math: Use $ for inline math, $$ for block math formulas**\n"
-                    "**NEVER use HTML tags, HTML entities, or syntax highlighting. ALWAYS use pure Markdown syntax only.**\n"
+                    "**ABSOLUTE RULE: NEVER generate HTML syntax highlighting. Use ONLY clean plain text in code blocks.**\n"
                     "**For diagrams: Use ONLY ```mermaid\n[diagram code]\n``` format. NO other formatting.**"
                 ),
                 
@@ -132,6 +144,17 @@ class PromptManager:
                     "- Create visual hierarchy with headers and subheaders\n"
                     "- Use tables for comparative or structured data\n"
                     "- Add context and explanations for technical terms"
+                ),
+                
+                "code_block_strict": (
+                    "**STRICT CODE BLOCK FORMATTING RULES:**\n"
+                    "- Code blocks MUST be clean plain text only\n"
+                    "- FORBIDDEN: All HTML tags, classes, spans, divs\n"
+                    "- FORBIDDEN: Syntax highlighting markup\n"
+                    "- FORBIDDEN: HTML entities (&gt;, &lt;, &amp;, &quot;)\n"
+                    "- REQUIRED: Simple ```language\n[clean code]\n``` format\n"
+                    "- Line spacing should be normal, not expanded\n"
+                    "- Focus on code readability, not visual styling"
                 ),
                 
                 "mermaid_diagram_rule": (
@@ -166,6 +189,16 @@ class PromptManager:
                     "- Use tools proactively when solution is evident"
                 ),
                 
+                "ask_mode_enhancement": (
+                    "**ASK MODE SPECIFIC RULES:**\n"
+                    "- When tools are not available, provide comprehensive answers using your knowledge\n"
+                    "- Give detailed, complete explanations - never leave responses incomplete\n"
+                    "- If you mention you will explain something, provide the full explanation immediately\n"
+                    "- Structure long answers with clear headings and sections\n"
+                    "- Use examples and context to make explanations thorough and helpful\n"
+                    "- Aim for informative, educational responses that fully address the user's question"
+                ),
+                
                 "react_format": (
                     "**STANDARD REACT FORMAT:**\n"
                     "Thought: [reasoning]\n"
@@ -186,28 +219,55 @@ class PromptManager:
                     "- After tool Observation, IMMEDIATELY provide Final Answer\n"
                     "- Format tool results in user-friendly Korean with proper formatting\n"
                     "- Use markdown formatting in Final Answer\n"
-                    "- Include relevant details from tool results\n\n"
+                    "- Include ALL relevant details from tool results - be comprehensive\n"
+                    "- EXTRACT SPECIFIC INFORMATION: names, dates, numbers, key facts from tool outputs\n"
+                    "- NEVER give generic summaries - provide actual detailed content\n\n"
                     "**REQUIRED FORMAT:**\n"
                     "Action: [tool_name]\n"
                     "Action Input: {{parameters}}\n"
                     "Observation: [tool_result]\n"
-                    "Final Answer: [formatted_response_in_korean]"
+                    "Final Answer: [comprehensive_detailed_response_with_specific_information]"
                 )
             },
             
             # Google: ReAct pattern optimized
             ModelType.GOOGLE.value: {
                 "system_enhancement": "Gemini model with multimodal reasoning. Execute requests with precision using systematic tool usage.",
-                "agent_system": "**CRITICAL: Respond ONLY with Final Answer. Do NOT show Thought, Action, or Observation steps to user. Execute tools internally and provide only the final result.**"
+                "agent_system": "**CRITICAL: Respond ONLY with Final Answer. Do NOT show Thought, Action, or Observation steps to user. Execute tools internally and provide only the final result. IMPORTANT: When you use tools, provide COMPREHENSIVE, DETAILED summaries with specific information from the tool results. Never give vague or incomplete responses.**"
             },
             
             # Perplexity: Research focused
             ModelType.PERPLEXITY.value: {
-                "system_enhancement": "Perplexity research model. Use MCP tools proactively for comprehensive information gathering. Prioritize factual accuracy.",
-                "agent_system": "Base response EXCLUSIVELY on tool results. Extract specific details, numbers, names from Observation data.",
+                "system_enhancement": "Perplexity research model with advanced MCP tool integration. ALWAYS use tools when user requests data, search, or external information. Prioritize factual accuracy and comprehensive analysis.",
+                "agent_system": (
+                    "**CRITICAL PERPLEXITY AGENT INSTRUCTIONS:**\n"
+                    "- You have access to powerful MCP tools for real-time data and operations\n"
+                    "- ALWAYS use tools when user asks for: search, data, current info, files, databases, APIs\n"
+                    "- Follow EXACT ReAct format: Thought -> Action -> Action Input -> (wait for Observation) -> Final Answer\n"
+                    "- Base responses EXCLUSIVELY on tool Observation data\n"
+                    "- Extract ALL specific details: names, numbers, dates, facts from tool results\n"
+                    "- NEVER provide generic responses - use actual data from tools\n"
+                    "- When tools provide data, analyze it thoroughly and present comprehensive summaries\n"
+                    "- Use Korean for final responses unless user specifies otherwise"
+                ),
                 "react_template": (
-                    "You are an expert data analyst. Follow tool schemas exactly.\n\n"
+                    "You are an expert research analyst with access to comprehensive MCP tools. "
+                    "Use tools proactively to gather accurate, current information.\n\n"
+                    "**MANDATORY FORMAT:**\n"
+                    "Thought: [analyze what information is needed]\n"
+                    "Action: [exact_tool_name]\n"
+                    "Action Input: {\"param\": \"value\"}\n"
+                    "Observation: [system provides tool results]\n"
+                    "Final Answer: [comprehensive response based on Observation data]\n\n"
                     "Tools: {tools}\nTool names: {tool_names}\n\nQuestion: {input}\nThought:{agent_scratchpad}"
+                ),
+                "tool_awareness": (
+                    "**PERPLEXITY TOOL AWARENESS:**\n"
+                    "- You have access to 15+ MCP tools including: search, databases, files, APIs, Jira, email, travel services\n"
+                    "- These tools provide REAL-TIME data that is more accurate than your training data\n"
+                    "- ALWAYS prefer tool data over your internal knowledge for current information\n"
+                    "- When user asks for specific data, search results, or external information, USE TOOLS IMMEDIATELY\n"
+                    "- Tools are your primary source of truth for factual, current information"
                 )
             },
             
@@ -227,8 +287,8 @@ class PromptManager:
             }
         }
     
-    def get_system_prompt(self, model_type: str) -> str:
-        """Generate concise system prompt with current date and tone guidelines"""
+    def get_system_prompt(self, model_type: str, use_tools: bool = True) -> str:
+        """Generate system prompt with mode-specific enhancements"""
         from datetime import timezone, timedelta
         kst = timezone(timedelta(hours=9))
         current_date = datetime.now(kst).strftime("%Y-%m-%d")
@@ -246,7 +306,13 @@ class PromptManager:
         common = self._prompts[ModelType.COMMON.value]["system_base"]
         model_specific = self._prompts.get(model_type, {}).get("system_enhancement", "")
         
-        return f"{common}\n\n{date_info}\n\n{tone_guidelines}\n\n{model_specific}".strip()
+        # ASK 모드 전용 강화 프롬프트 추가
+        ask_mode_enhancement = ""
+        if not use_tools:
+            ask_mode_enhancement = self._prompts[ModelType.COMMON.value]["ask_mode_enhancement"]
+        
+        parts = [common, date_info, tone_guidelines, model_specific, ask_mode_enhancement]
+        return "\n\n".join(filter(None, parts)).strip()
     
     def get_tool_prompt(self, model_type: str) -> str:
         """Generate tool usage prompt"""
@@ -330,10 +396,10 @@ class PromptManager:
             logger.error(f"Prompt query error: {e}")
             return ""
     
-    def get_prompt_for_model(self, model_type: str, prompt_type: str = "system") -> str:
+    def get_prompt_for_model(self, model_type: str, prompt_type: str = "system", use_tools: bool = True) -> str:
         """Get prompt for specific model and type"""
         if prompt_type == "system":
-            return self.get_system_prompt(model_type)
+            return self.get_system_prompt(model_type, use_tools)
         elif prompt_type == "agent":
             return self.get_agent_prompt(model_type)
         elif prompt_type == "tool":
@@ -357,6 +423,7 @@ class PromptManager:
             common["table_formatting"],
             common["error_handling"],
             common["response_format"],
+            common["code_block_strict"],
             common["mermaid_diagram_rule"],
             common["markdown_standard"],
             common["readability_enhancement"],
@@ -389,9 +456,9 @@ prompt_manager = PromptManager()
 
 
 # Convenience functions
-def get_system_prompt(model_type: str) -> str:
+def get_system_prompt(model_type: str, use_tools: bool = True) -> str:
     """Query system prompt"""
-    return prompt_manager.get_system_prompt(model_type)
+    return prompt_manager.get_system_prompt(model_type, use_tools)
 
 
 def get_agent_prompt(model_type: str) -> str:

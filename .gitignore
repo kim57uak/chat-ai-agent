@@ -10,6 +10,7 @@ config_local.json
 *.zip
 *.pyz
 *.spec
-/build/
+*build_**/
 /dist/
 .idea/
+*.dmg

@@ -99,14 +99,29 @@ class EnhancedMarkdownFormatter:
         """Mermaid 다이어그램 보호"""
         def protect_mermaid(match):
             mermaid_content = match.group(1).strip()
+            # 문법 수정: 세미콜론 제거, 한글 텍스트 따옴표 처리
+            mermaid_content = self._fix_mermaid_syntax(mermaid_content)
             placeholder = f"__PROTECTED_MERMAID_{self.block_counter}__"
             self.protected_blocks[placeholder] = f'<div class="mermaid">\\n{mermaid_content}\\n</div>'
+            self.block_counter += 1
+            return placeholder
+        
+        def protect_graph_td(match):
+            graph_content = match.group(0).strip()
+            # graph TD 문법 수정
+            graph_content = self._fix_mermaid_syntax(graph_content)
+            placeholder = f"__PROTECTED_MERMAID_{self.block_counter}__"
+            self.protected_blocks[placeholder] = f'<div class="mermaid">\\n{graph_content}\\n</div>'
             self.block_counter += 1
             return placeholder
         
         # ```mermaid ... ``` 패턴
         pattern = r'```mermaid\\s*\\n([\\s\\S]*?)\\n```'
         text = re.sub(pattern, protect_mermaid, text)
+        
+        # graph TD 패턴 (코드 블록 없이)
+        pattern = r'graph\s+TD[\\s\\S]*?(?=\\n\\n|$)'
+        text = re.sub(pattern, protect_graph_td, text)
         
         return text
     
@@ -343,6 +358,23 @@ class EnhancedMarkdownFormatter:
         """코드 블록에 복사 버튼 추가 (이미 처리됨)"""
         # 코드 블록은 이미 _protect_code_blocks에서 복사 버튼이 추가됨
         return html
+    
+    def _fix_mermaid_syntax(self, code: str) -> str:
+        """Mermaid 문법 수정"""
+        # 세미콜론 제거
+        code = re.sub(r';$', '', code, flags=re.MULTILINE)
+        
+        # 한글 텍스트를 따옴표로 감싸기
+        def quote_korean(match):
+            text = match.group(1)
+            if re.search(r'[가-힣]', text) and not (text.startswith('"') and text.endswith('"')):
+                return f'["{text}"]'
+            return match.group(0)
+        
+        code = re.sub(r'\[([^\]]+)\]', quote_korean, code)
+        code = re.sub(r'\{([^\}]+)\}', lambda m: f'{{"{ m.group(1)}"}}' if re.search(r'[가-힣]', m.group(1)) else m.group(0), code)
+        
+        return code
     
     def _escape_html(self, text: str) -> str:
         """HTML 이스케이프"""

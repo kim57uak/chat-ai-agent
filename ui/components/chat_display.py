@@ -1,5 +1,5 @@
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import QTimer, QUrl, QObject, pyqtSlot
+from PyQt6.QtCore import QTimer, QUrl, QObject, pyqtSlot, QThread, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from ui.components.progressive_display import ProgressiveDisplay
 import json
@@ -34,7 +34,7 @@ class ChatDisplay:
             self.initial_delay = 100
     
     def init_web_view(self):
-        """웹 브라우저 초기화"""
+        """웹 브라우저 초기화 - 고급 다크 테마"""
         from ui.styles.theme_manager import theme_manager
         
         # 웹 보안 설정 완화
@@ -43,6 +43,9 @@ class ChatDisplay:
         settings.setAttribute(settings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
         settings.setAttribute(settings.WebAttribute.AllowRunningInsecureContent, True)
+        
+        # 웹뷰 배경 투명 설정
+        self.web_view.page().setBackgroundColor(self.web_view.palette().color(self.web_view.palette().ColorRole.Window))
         
         # 콘솔 메시지 캡처
         self.web_view.page().javaScriptConsoleMessage = self.handle_console_message
@@ -56,8 +59,8 @@ class ChatDisplay:
     
     def _load_html_template(self):
         """HTML 템플릿 로드"""
-        from ui.styles.theme_manager import theme_manager
-        theme_css = theme_manager.generate_theme_css()
+        from ui.styles.flat_theme import FlatTheme
+        theme_css = FlatTheme.get_chat_display_css()
         
         html_template = r"""
         <!DOCTYPE html>
@@ -145,178 +148,8 @@ class ChatDisplay:
                 });
             </script>
             <style>
-                * { box-sizing: border-box; }
-                
-                body {
-                    background-color: #1a1a1a;
-                    color: #e8e8e8;
-                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-                    font-size: 14px;
-                    line-height: 1.6;
-                    margin: 8px;
-                    padding: 0;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                }
-                
-                pre {
-                    background: #1e1e1e;
-                    color: #f8f8f2;
-                    padding: 20px;
-                    border-radius: 8px;
-                    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', Menlo, Monaco, monospace;
-                    font-size: 13px;
-                    line-height: 1.5;
-                    overflow-x: auto;
-                    white-space: pre;
-                    tab-size: 4;
-                    border: 1px solid #444;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                    position: relative;
-                }
-                
-                code {
-                    background-color: #2d2d2d;
-                    color: #f8f8f2;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
-                    font-size: 12px;
-                    border: 1px solid #444;
-                }
-                
-                h1, h2, h3, h4, h5, h6 {
-                    margin-top: 24px;
-                    margin-bottom: 12px;
-                    font-weight: 600;
-                    line-height: 1.25;
-                }
-                
-                h1 { font-size: 24px; color: #ffffff; border-bottom: 2px solid #444; padding-bottom: 8px; }
-                h2 { font-size: 20px; color: #eeeeee; border-bottom: 1px solid #333; padding-bottom: 6px; }
-                h3 { font-size: 18px; color: #dddddd; }
-                h4 { font-size: 16px; color: #cccccc; }
-                h5 { font-size: 14px; color: #bbbbbb; }
-                h6 { font-size: 13px; color: #aaaaaa; }
-                
-                a {
-                    color: #87CEEB;
-                    text-decoration: none;
-                    border-bottom: 1px dotted #87CEEB;
-                    transition: all 0.2s ease;
-                }
-                
-                a:hover {
-                    color: #B0E0E6;
-                    border-bottom: 1px solid #B0E0E6;
-                }
-                
-                ul, ol {
-                    padding-left: 20px;
-                    margin: 12px 0;
-                }
-                
-                li {
-                    margin: 4px 0;
-                    color: #cccccc;
-                }
-                
-                blockquote {
-                    margin: 16px 0;
-                    padding: 12px 16px;
-                    border-left: 4px solid #87CEEB;
-                    background-color: rgba(135, 206, 235, 0.1);
-                    color: #dddddd;
-                    font-style: italic;
-                }
-                
-                table {
-                    border-collapse: collapse;
-                    width: auto;
-                    margin: 16px 0;
-                    background-color: #2a2a2a;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                }
-                
-                th, td {
-                    padding: 12px 16px;
-                    text-align: left;
-                    border: 1px solid #444;
-                    white-space: normal;
-                    word-wrap: break-word;
-                    vertical-align: top;
-                }
-                
-                th {
-                    background: linear-gradient(135deg, #3a3a3a, #4a4a4a);
-                    color: #ffffff;
-                    font-weight: 700;
-                    font-size: 13px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                
-                tr:nth-child(even) {
-                    background-color: #252525;
-                }
-                
-                tr:hover {
-                    background-color: #333333;
-                }
-                
-                hr {
-                    border: none;
-                    height: 2px;
-                    background: linear-gradient(to right, transparent, #444, transparent);
-                    margin: 20px 0;
-                }
-                
-                strong {
-                    color: #ffffff;
-                    font-weight: 600;
-                }
-                
-                em {
-                    color: #dddddd;
-                    font-style: italic;
-                }
-                
-                del {
-                    color: #888888;
-                    text-decoration: line-through;
-                }
-                
-                .message {
-                    margin: 16px 0;
-                    padding: 16px;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                }
-                
-                .user { background: rgba(163,135,215,0.15); border-left: 4px solid rgb(163,135,215); }
-                .ai { background: rgba(135,163,215,0.15); border-left: 4px solid rgb(135,163,215); }
-                .system { background: rgba(215,163,135,0.15); border-left: 4px solid rgb(215,163,135); }
-                
-                ::-webkit-scrollbar {
-                    width: 8px;
-                    height: 8px;
-                }
-                
-                ::-webkit-scrollbar-track {
-                    background: #2a2a2a;
-                    border-radius: 4px;
-                }
-                
-                ::-webkit-scrollbar-thumb {
-                    background: #555;
-                    border-radius: 4px;
-                }
-                
-                ::-webkit-scrollbar-thumb:hover {
-                    background: #666;
-                }
+                {theme_css}
+
                 
                 /* Mermaid v10 다이어그램 전용 스타일 */
                 .mermaid {
@@ -375,6 +208,27 @@ class ChatDisplay:
                     fill: #2a2a2a !important;
                 }
                 
+                .mermaid .xychart {
+                    background: #2a2a2a !important;
+                }
+                
+                .mermaid .xychart .tick text {
+                    fill: #e8e8e8 !important;
+                }
+                
+                .mermaid .xychart .axis-label {
+                    fill: #e8e8e8 !important;
+                }
+                
+                .mermaid .xychart .line {
+                    stroke-width: 2px !important;
+                }
+                
+                .mermaid .xychart .grid {
+                    stroke: #555 !important;
+                    stroke-opacity: 0.3 !important;
+                }
+                
                 /* Block Diagram 전용 */
                 .mermaid .block {
                     fill: #444 !important;
@@ -426,6 +280,15 @@ class ChatDisplay:
                         } else {
                             console.log('Bridge not ready, opening in same window');
                             window.location.href = e.target.href;
+                        }
+                    }
+                    
+                    // 이미지 저장 버튼 클릭 처리
+                    if (e.target.classList.contains('save-image-btn')) {
+                        e.preventDefault();
+                        const imageUrl = e.target.getAttribute('data-image-url');
+                        if (pyqt_bridge && imageUrl) {
+                            pyqt_bridge.saveImage(imageUrl);
                         }
                     }
                 });
@@ -547,16 +410,67 @@ class ChatDisplay:
                             
                             setTimeout(() => {
                                 copyBtn.textContent = originalText;
-                                copyBtn.style.background = 'rgba(0,0,0,0.7)';
-                                copyBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+                                copyBtn.style.background = 'rgba(95,95,100,0.9)';
+                                copyBtn.style.borderColor = 'rgba(160,160,165,0.6)';
                                 copyBtn.style.transform = 'scale(1)';
                             }, 2000);
                         }
                     }
                 }
+                
+                // 이미지 로드 완료 시 저장 버튼 표시
+                function addImageSaveButton(imgElement, imageUrl) {
+                    const container = imgElement.parentElement;
+                    if (container && !container.querySelector('.save-image-btn')) {
+                        const saveBtn = document.createElement('button');
+                        saveBtn.className = 'save-image-btn';
+                        saveBtn.setAttribute('data-image-url', imageUrl);
+                        saveBtn.innerHTML = '💾 저장';
+                        saveBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;z-index:10;';
+                        saveBtn.onmouseenter = function() { this.style.background = 'rgba(0,0,0,0.9)'; };
+                        saveBtn.onmouseleave = function() { this.style.background = 'rgba(0,0,0,0.7)'; };
+                        
+                        container.style.position = 'relative';
+                        container.appendChild(saveBtn);
+                    }
+                }
+                
+                // 이미지 로드 완료 처리
+                function showLoadedImage(imageId, imageUrl) {
+                    const loadingDiv = document.getElementById(imageId + '_loading');
+                    const imgElement = document.getElementById(imageId);
+                    const container = document.getElementById(imageId + '_container');
+                    
+                    if (loadingDiv && imgElement) {
+                        // 로딩 상태 숨기고 이미지 표시
+                        loadingDiv.style.display = 'none';
+                        imgElement.style.display = 'block';
+                        
+                        // 저장 버튼 추가
+                        addImageSaveButton(imgElement, imageUrl);
+                        
+                        console.log('이미지 로드 완료:', imageId);
+                    }
+                }
+                
+                // 이미지 로드 오류 처리
+                function showImageError(imageId) {
+                    const loadingDiv = document.getElementById(imageId + '_loading');
+                    
+                    if (loadingDiv) {
+                        loadingDiv.innerHTML = `
+                            <div style="text-align: center; color: #ff6b6b;">
+                                <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
+                                <div style="font-size: 14px;">이미지 로드 실패</div>
+                                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">다시 시도해주세요</div>
+                            </div>
+                        `;
+                        console.error('이미지 로드 오류:', imageId);
+                    }
+                }
             </script>
         </head>
-        <body>
+        <body style="background: #0a0a0a !important; color: #f3f4f6 !important; margin: 0 !important; padding: 8px !important;">
             <div id="messages"></div>
         </body>
         </html>
@@ -576,28 +490,31 @@ class ChatDisplay:
     
     def append_message(self, sender, text, original_sender=None, progressive=False):
         """메시지 추가 - progressive=True시 점진적 출력"""
-        # 발신자별 스타일
+        # 발신자별 스타일 - 투명도 70% 싱크로
         if sender == '사용자':
-            bg_color = 'rgba(163,135,215,0.15)'
-            border_color = 'rgb(163,135,215)'
+            bg_color = 'rgba(26, 26, 26, 0.3)'
+            border_color = ''
             icon = '💬'
-            sender_color = 'rgb(163,135,215)'
+            sender_color = '#cccccc'
         elif sender in ['AI', '에이전트'] or '에이전트' in sender:
-            bg_color = 'rgba(135,163,215,0.15)'
-            border_color = 'rgb(135,163,215)'
+            bg_color = 'rgba(26, 26, 26, 0.3)'
+            border_color = ''
             icon = '🤖'
-            sender_color = 'rgb(135,163,215)'
+            sender_color = '#cccccc'
         else:
-            bg_color = 'rgba(215,163,135,0.15)'
-            border_color = 'rgb(215,163,135)'
+            bg_color = 'rgba(26, 26, 26, 0.3)'
+            border_color = ''
             icon = '⚙️'
-            sender_color = 'rgb(215,163,135)'
+            sender_color = '#999999'
         
         # 렌더링 확실히 보장하는 포맷터 사용
         from ui.fixed_formatter import FixedFormatter
         
         formatter = FixedFormatter()
         formatted_text = formatter.format_basic_markdown(text)
+        
+        # 이미지 URL 감지 및 렌더링 처리
+        formatted_text = self._process_image_urls(formatted_text)
         
         message_id = f"msg_{uuid.uuid4().hex[:8]}"
         
@@ -610,37 +527,38 @@ class ChatDisplay:
             var messagesDiv = document.getElementById('messages');
             var messageDiv = document.createElement('div');
             messageDiv.id = '{message_id}';
-            messageDiv.style.cssText = 'margin:16px 0;padding:12px;background:{bg_color};border-radius:8px;border-left:3px solid {border_color};position:relative;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);transform:translateY(0);box-shadow:none;';
-            messageDiv.onmouseenter = function() {{ this.style.transform = 'translateY(-1px)'; this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; }};
-            messageDiv.onmouseleave = function() {{ this.style.transform = 'translateY(0)'; this.style.boxShadow = 'none'; }};
+            messageDiv.style.cssText = 'margin:12px 0;padding:16px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
+            messageDiv.onmouseenter = function() {{ }};
+            messageDiv.onmouseleave = function() {{ }};
             
             var headerDiv = document.createElement('div');
-            headerDiv.style.cssText = 'margin:0 0 8px 0;font-weight:600;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;opacity:0.8;';
+            headerDiv.style.cssText = 'margin:0 0 8px 0;font-weight:600;color:{sender_color};font-size:12px;display:flex;align-items:center;gap:8px;opacity:0.8;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             headerDiv.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
             
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋 복사';
-            copyBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:white;border:1px solid rgba(255,255,255,0.2);padding:6px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;opacity:1;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);transform:scale(1);backdrop-filter:blur(4px);z-index:9999;';
+            copyBtn.style.cssText = 'position:absolute;top:14px;right:18px;background:rgba(95,95,100,0.9);color:#d0d0d0;border:1px solid rgba(160,160,165,0.6);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:1;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.25);';
             copyBtn.onclick = function() {{ copyMessage('{message_id}'); }};
-            copyBtn.onmouseenter = function() {{ this.style.background = 'rgba(0,0,0,0.8)'; this.style.borderColor = 'rgba(255,255,255,0.3)'; }};
-            copyBtn.onmouseleave = function() {{ this.style.background = 'rgba(0,0,0,0.7)'; this.style.borderColor = 'rgba(255,255,255,0.2)'; }};
+            copyBtn.onmouseenter = function() {{ 
+                this.style.background = 'rgba(105,105,110,0.95)';
+                this.style.borderColor = 'rgba(180,180,185,0.8)';
+                this.style.color = '#f0f0f0';
+                this.style.transform = 'scale(1.05)';
+                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.35)';
+            }};
+            copyBtn.onmouseleave = function() {{ 
+                this.style.background = 'rgba(95,95,100,0.9)';
+                this.style.borderColor = 'rgba(160,160,165,0.6)';
+                this.style.color = '#d0d0d0';
+                this.style.transform = 'scale(1)';
+                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.25)';
+            }};
             
-            messageDiv.onmouseenter = function() {{ 
-                this.style.transform = 'translateY(-2px) scale(1.01)'; 
-                this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)'; 
-                copyBtn.style.opacity = '1';
-                copyBtn.style.transform = 'scale(1.05)';
-            }};
-            messageDiv.onmouseleave = function() {{ 
-                this.style.transform = 'translateY(0) scale(1)'; 
-                this.style.boxShadow = 'none'; 
-                copyBtn.style.opacity = '0.7';
-                copyBtn.style.transform = 'scale(1)';
-            }};
+
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{message_id}_content';
-            contentDiv.style.cssText = 'margin:0;padding-left:4px;line-height:1.6;color:#ffffff;font-size:13px;word-wrap:break-word;';
+            contentDiv.style.cssText = 'margin:0;padding-left:8px;line-height:1.6;color:#e8e8e8;font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(copyBtn);
@@ -711,10 +629,74 @@ class ChatDisplay:
     def cancel_progressive_display(self):
         """점진적 출력 취소"""
         self.progressive_display.cancel_current_display()
+    
+    def _process_image_urls(self, text):
+        """이미지 URL 감지 및 렌더링 처리"""
+        import re
+        import uuid
+        
+        # Pollination 이미지 URL 패턴 감지
+        pollination_pattern = r'https://image\.pollinations\.ai/prompt/[^\s)]+'
+        
+        def replace_image_url(match):
+            url = match.group(0)
+            image_id = f"img_{uuid.uuid4().hex[:8]}"
+            
+            # CSS 애니메이션을 별도 문자열로 분리
+            css_animation = '''
+            <style>
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+            '''
+            
+            # HTML 콘텐츠
+            html_content = f'''
+            <div id="{image_id}_container" style="position: relative; display: inline-block; margin: 10px 0; min-height: 200px;">
+                <div id="{image_id}_loading" style="
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    min-height: 200px; 
+                    background: rgba(40,40,40,0.8); 
+                    border-radius: 8px; 
+                    border: 2px dashed #666;
+                ">
+                    <div style="text-align: center; color: #ccc;">
+                        <div style="font-size: 24px; margin-bottom: 10px;">🎨</div>
+                        <div style="font-size: 14px; margin-bottom: 5px;">이미지 생성 중...</div>
+                        <div style="font-size: 12px; opacity: 0.7;">잠시만 기다려주세요</div>
+                        <div class="loading-spinner" style="
+                            margin: 10px auto;
+                            width: 20px;
+                            height: 20px;
+                            border: 2px solid #666;
+                            border-top: 2px solid #87CEEB;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                        "></div>
+                    </div>
+                </div>
+                
+                <img id="{image_id}" src="{url}" alt="Generated Image" 
+                     style="display: none; max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);" 
+                     onload="showLoadedImage('{image_id}', '{url}')" 
+                     onerror="showImageError('{image_id}')" />
+            </div>
+            '''
+            
+            return css_animation + html_content
+        
+        # URL을 이미지 태그로 변환
+        processed_text = re.sub(pollination_pattern, replace_image_url, text)
+        
+        return processed_text
 
 
 class LinkHandler(QObject):
-    """링크 클릭 처리를 위한 핸들러"""
+    """링크 클릭 및 이미지 저장 처리를 위한 핸들러"""
     
     def __init__(self):
         super().__init__()
@@ -726,3 +708,63 @@ class LinkHandler(QObject):
             QDesktopServices.openUrl(QUrl(url))
         except Exception as e:
             print(f"URL 열기 오류: {e}")
+    
+    @pyqtSlot(str)
+    def saveImage(self, image_url):
+        """이미지 저장"""
+        try:
+            from PyQt6.QtWidgets import QFileDialog, QApplication
+            from PyQt6.QtCore import QThread, pyqtSignal
+            import requests
+            import os
+            
+            # 파일 저장 대화상자
+            filename, _ = QFileDialog.getSaveFileName(
+                None,
+                "이미지 저장",
+                "pollination_image.png",
+                "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)"
+            )
+            
+            if filename:
+                # 백그라운드에서 이미지 다운로드
+                self.download_thread = ImageDownloadThread(image_url, filename)
+                self.download_thread.finished.connect(self.on_download_finished)
+                self.download_thread.error.connect(self.on_download_error)
+                self.download_thread.start()
+                
+        except Exception as e:
+            print(f"이미지 저장 오류: {e}")
+    
+    def on_download_finished(self, filename):
+        """다운로드 완료 처리"""
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(None, "저장 완료", f"이미지가 저장되었습니다:\n{filename}")
+    
+    def on_download_error(self, error_msg):
+        """다운로드 오류 처리"""
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.warning(None, "저장 실패", f"이미지 저장 중 오류가 발생했습니다:\n{error_msg}")
+
+
+class ImageDownloadThread(QThread):
+    """이미지 다운로드 스레드"""
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
+    
+    def __init__(self, url, filename):
+        super().__init__()
+        self.url = url
+        self.filename = filename
+    
+    def run(self):
+        try:
+            response = requests.get(self.url, timeout=30)
+            response.raise_for_status()
+            
+            with open(self.filename, 'wb') as f:
+                f.write(response.content)
+            
+            self.finished.emit(self.filename)
+        except Exception as e:
+            self.error.emit(str(e))

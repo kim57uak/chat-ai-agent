@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QComboBox, QMessageBox
 from PyQt6.QtCore import Qt
 from ui.prompts import prompt_manager, ModelType
+from ui.styles.flat_theme import FlatTheme
 
 class UserPromptDialog(QDialog):
     def __init__(self, ai_client, parent=None):
@@ -8,7 +9,8 @@ class UserPromptDialog(QDialog):
         self.ai_client = ai_client
         self.setWindowTitle('유저 프롬프트 설정')
         self.setModal(True)
-        self.resize(600, 400)
+        self.resize(700, 500)
+        self.setStyleSheet(self._get_dialog_style())
         
         self.setup_ui()
         self.load_current_prompt()
@@ -42,9 +44,39 @@ class UserPromptDialog(QDialog):
         self.save_button.clicked.connect(self.save_prompt)
         
         self.cancel_button = QPushButton('취소')
+        self.cancel_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(120, 120, 120, 0.8), 
+                    stop:1 rgba(100, 100, 100, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(120, 120, 120, 0.4);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(140, 140, 140, 0.9), 
+                    stop:1 rgba(120, 120, 120, 0.9));
+                border-color: rgba(120, 120, 120, 0.6);
+            }
+        """)
         self.cancel_button.clicked.connect(self.reject)
         
         self.reset_button = QPushButton('기본값 복원')
+        self.reset_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 200, 100, 0.8), 
+                    stop:1 rgba(255, 150, 200, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(255, 200, 100, 0.4);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 220, 120, 0.9), 
+                    stop:1 rgba(255, 170, 220, 0.9));
+                border-color: rgba(255, 200, 100, 0.6);
+            }
+        """)
         self.reset_button.clicked.connect(self.reset_to_default)
         
         button_layout.addWidget(self.reset_button)
@@ -112,3 +144,73 @@ class UserPromptDialog(QDialog):
             else:
                 default_prompt = prompt_manager.get_system_prompt(ModelType.COMMON.value)
             self.prompt_text.setPlainText(default_prompt)
+    
+    def _get_dialog_style(self):
+        return """
+            QDialog {
+                background: #5a5a5f;
+                color: #ffffff;
+                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+            }
+            QLabel {
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 600;
+                padding: 4px 0;
+            }
+            QComboBox {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 rgba(45, 45, 55, 0.95), 
+                    stop:1 rgba(35, 35, 45, 0.95));
+                color: #ffffff;
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 14px;
+                font-weight: 500;
+                min-height: 20px;
+            }
+            QComboBox:hover {
+                border-color: rgba(100, 200, 255, 0.5);
+            }
+            QTextEdit {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 rgba(45, 45, 55, 0.95), 
+                    stop:1 rgba(35, 35, 45, 0.95));
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                border-radius: 8px;
+                padding: 12px;
+                font-size: 14px;
+                color: #ffffff;
+                font-weight: 400;
+                line-height: 1.5;
+            }
+            QTextEdit:focus {
+                border-color: rgba(100, 200, 255, 0.6);
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(100, 200, 255, 0.8), 
+                    stop:1 rgba(150, 100, 255, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(100, 200, 255, 0.4);
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 14px;
+                padding: 10px 20px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(120, 220, 255, 0.9), 
+                    stop:1 rgba(170, 120, 255, 0.9));
+                border-color: rgba(100, 200, 255, 0.6);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(80, 180, 235, 0.7), 
+                    stop:1 rgba(130, 80, 235, 0.7));
+            }
+        """

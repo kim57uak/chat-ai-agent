@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Dict
+from utils.config_path import config_path_manager
 
 class MCPServerState:
     """MCP 서버 상태 관리"""
@@ -13,7 +14,8 @@ class MCPServerState:
     def save_state(self):
         """서버 상태를 파일에 저장"""
         try:
-            with open(self.state_file, 'w', encoding='utf-8') as f:
+            state_path = config_path_manager.get_config_path(self.state_file)
+            with open(state_path, 'w', encoding='utf-8') as f:
                 json.dump(self.server_states, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"MCP 서버 상태 저장 실패: {e}")
@@ -21,8 +23,9 @@ class MCPServerState:
     def load_state(self):
         """파일에서 서버 상태 로드"""
         try:
-            if os.path.exists(self.state_file):
-                with open(self.state_file, 'r', encoding='utf-8') as f:
+            state_path = config_path_manager.get_config_path(self.state_file)
+            if state_path.exists():
+                with open(state_path, 'r', encoding='utf-8') as f:
                     self.server_states = json.load(f)
         except Exception as e:
             print(f"MCP 서버 상태 로드 실패: {e}")

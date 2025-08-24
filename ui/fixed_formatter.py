@@ -99,6 +99,123 @@ class FixedFormatter:
             if 'C4Context' in content or 'C4Container' in content:
                 content = 'flowchart TD\n    subgraph "Student Management System"\n        A[Web App] --> B[API Gateway]\n        C[Mobile App] --> B\n        B --> D[Core Service]\n        B --> E[Auth Service]\n        D --> F[Database]\n        D --> G[File Storage]\n        H[Notification Service] --> I[Email/SMS]\n    end'
             
+            # XY Chart 문법 수정
+            if 'xychart-beta' in content:
+                lines = content.split('\n')
+                fixed_lines = []
+                x_categories = []
+                y_min, y_max = None, None
+                current_line_name = None
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    if line == 'xychart-beta':
+                        fixed_lines.append('xychart-beta')
+                    elif line.startswith('title'):
+                        fixed_lines.append(line)
+                    elif 'x-axis' in line and '{' in line:
+                        x_label = re.search(r'x-axis "(.*?)"', line)
+                        if x_label:
+                            x_axis_label = x_label.group(1)
+                            # 나중에 데이터에서 날짜 추출하여 카테고리 생성
+                            x_axis_stored = x_axis_label
+                        continue
+                    elif 'categories [' in line:
+                        match = re.search(r'categories \[(.*?)\]', line)
+                        if match:
+                            categories_str = match.group(1)
+                            x_categories = [cat.strip().strip('"') for cat in categories_str.split(',')]
+                    elif 'y-axis' in line and '{' in line:
+                        y_label = re.search(r'y-axis "(.*?)"', line)
+                        if y_label:
+                            fixed_lines.append(f'y-axis "{y_label.group(1)}"')
+                    elif 'min ' in line:
+                        match = re.search(r'min (\d+)', line)
+                        if match:
+                            y_min = match.group(1)
+                    elif 'max ' in line:
+                        match = re.search(r'max (\d+)', line)
+                        if match:
+                            y_max = match.group(1)
+                    elif line.startswith('line') and '{' in line:
+                        line_name = re.search(r'line "(.*?)"', line)
+                        if line_name:
+                            current_line_name = line_name.group(1)
+                    elif 'data [' in line:
+                        # 2차원 배열 데이터 처리
+                        data_content = []
+                        collecting_data = True
+                        data_buffer = line
+                        
+                        # 다음 줄들도 확인하여 완전한 데이터 수집
+                        try:
+                            line_idx = lines.index(line)
+                            for i, next_line in enumerate(lines[line_idx+1:]):
+                                data_buffer += ' ' + next_line.strip()
+                                if ']' in next_line and next_line.count(']') >= next_line.count('['):
+                                    break
+                        except ValueError:
+                            pass
+                        
+                        # 2차원 배열에서 날짜와 y값 추출
+                        date_value_matches = re.findall(r'\["([^"]+)",\s*(\d+)\]', data_buffer)
+                        if date_value_matches:
+                            dates = [match[0] for match in date_value_matches]
+                            y_values = [match[1] for match in date_value_matches]
+                            
+                            # 날짜를 간단한 레이블로 변환
+                            simple_labels = []
+                            for date_str in dates:
+                                if '-' in date_str:
+                                    year, month = date_str.split('-')[:2]
+                                    if month in ['01', '02', '03']:
+                                        simple_labels.append(f'Q1 {year}')
+                                    elif month in ['04', '05', '06']:
+                                        simple_labels.append(f'Q2 {year}')
+                                    elif month in ['07', '08', '09']:
+                                        simple_labels.append(f'Q3 {year}')
+                                    else:
+                                        simple_labels.append(f'Q4 {year}')
+                                else:
+                                    simple_labels.append(date_str)
+                            
+                            # x-axis 추가 (아직 추가되지 않았다면)
+                            if not any('x-axis [' in line for line in fixed_lines):
+                                categories_formatted = '[' + ', '.join([f'"{label}"' for label in simple_labels]) + ']'
+                                title_index = next((i for i, line in enumerate(fixed_lines) if line.startswith('title')), 0)
+                                fixed_lines.insert(title_index + 1, f'x-axis {categories_formatted}')
+                            
+                            if current_line_name:
+                                y_values_str = ", ".join(y_values)
+                                fixed_lines.append(f'line "{current_line_name}" [{y_values_str}]')
+                        else:
+                            # 1차원 배열 처리
+                            match = re.search(r'data \[(.*?)\]', line)
+                            if match:
+                                data_str = match.group(1)
+                                data_values = '[' + data_str + ']'
+                                if current_line_name:
+                                    fixed_lines.append(f'line "{current_line_name}" {data_values}')
+                    elif line not in ['}', 'type category']:
+                        fixed_lines.append(line)
+                
+                # categories가 있고 아직 x-axis가 추가되지 않았다면
+                if x_categories and not any('x-axis [' in line for line in fixed_lines):
+                    categories_formatted = '[' + ', '.join([f'"{cat}"' for cat in x_categories]) + ']'
+                    title_index = next((i for i, line in enumerate(fixed_lines) if line.startswith('title')), 0)
+                    fixed_lines.insert(title_index + 1, f'x-axis {categories_formatted}')
+                
+                if y_min and y_max:
+                    y_axis_index = next((i for i, line in enumerate(fixed_lines) if line.startswith('y-axis')), -1)
+                    if y_axis_index >= 0:
+                        fixed_lines[y_axis_index] += f' {y_min} --> {y_max}'
+                
+                if len(fixed_lines) > 1:
+                    content = '\n    '.join(fixed_lines)
+            
             # Mindmap을 flowchart로 변환 (v10에서 지원 제한)
             if 'mindmap' in content:
                 lines = content.split('\n')

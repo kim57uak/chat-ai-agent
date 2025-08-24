@@ -4,6 +4,7 @@ from .openai_strategy import OpenAIStrategy
 from .gemini_strategy import GeminiStrategy
 from .perplexity_strategy import PerplexityStrategy
 from .claude_strategy import ClaudeStrategy
+from .pollinations_strategy import PollinationsStrategy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ class ModelStrategyFactory:
         'perplexity': PerplexityStrategy,
         'claude': ClaudeStrategy,
         'anthropic': ClaudeStrategy,
+        'pollinations': PollinationsStrategy,
     }
     
     @classmethod
@@ -43,6 +45,8 @@ class ModelStrategyFactory:
             return 'perplexity'
         elif "claude" in model_lower:
             return 'claude'
+        elif "pollinations" in model_lower:
+            return 'pollinations'
         else:
             return 'openai'  # 기본값
     

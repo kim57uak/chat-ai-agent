@@ -308,7 +308,7 @@ class MCPToolRegistry:
                     
                     self.tools.append(mcp_tool)
                     server_tools.append(mcp_tool)
-                    logger.info(f"도구 등록 성공: {server_name}.{tool_name}")
+                    # logger.info(f"도구 등록 성공: {server_name}.{tool_name}")
                     
                 except Exception as e:
                     logger.error(f"도구 등록 실패 {server_name}.{tool_name}: {e}")

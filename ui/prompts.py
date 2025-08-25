@@ -19,6 +19,7 @@ class ModelType(Enum):
     GOOGLE = "google"
     PERPLEXITY = "perplexity"
     CLAUDE = "claude"
+    POLLINATIONS = "pollinations"
     COMMON = "common"
 
 
@@ -284,6 +285,70 @@ class PromptManager:
                     "- Use --- for separators\n"
                     "This is mandatory for proper display formatting."
                 )
+            },
+            
+            # Pollinations: Free AI models with context-aware tool usage
+            ModelType.POLLINATIONS.value: {
+                "system_enhancement": "Pollinations free AI model with intelligent context analysis and comprehensive tool integration.",
+                "agent_system": (
+                    "**CRITICAL POLLINATIONS AGENT INSTRUCTIONS:**\n"
+                    "- You have access to comprehensive MCP tools for real-time data and operations\n"
+                    "- ALWAYS use tools when user requests: search, data retrieval, file operations, database queries, API calls\n"
+                    "- Follow EXACT ReAct format with proper tool names from available list\n"
+                    "- MANDATORY: Use EXACT tool names as shown in tool list - no variations or shortcuts\n"
+                    "- After tool Observation, IMMEDIATELY provide Final Answer with comprehensive details\n"
+                    "- Extract ALL specific information from tool results: names, numbers, dates, facts\n"
+                    "- NEVER provide generic responses - use actual data from tools\n\n"
+                    "**LANGUAGE RULE: CRITICAL - ALWAYS respond in the SAME language as the user's input.**\n"
+                    "- Korean input → Korean response (한글 입력 → 한글 응답)\n"
+                    "- English input → English response\n"
+                    "- Match user's language naturally without mentioning language detection\n"
+                    "- Use proper markdown formatting in the user's language\n\n"
+                    "**REQUIRED FORMAT:**\n"
+                    "Thought: [analyze what information is needed]\n"
+                    "Action: [EXACT_tool_name_from_list]\n"
+                    "Action Input: {\"param\": \"value\"}\n"
+                    "Observation: [system provides tool results]\n"
+                    "Final Answer: [comprehensive response based on Observation data in USER'S LANGUAGE]"
+                ),
+                "image_generation": (
+                    "**IMAGE GENERATION:**\n"
+                    "- Generate high-quality images from text descriptions\n"
+                    "- Focus on detailed, creative visual content"
+                ),
+                "react_template": (
+                    "**CRITICAL REACT FORMAT RULES:**\n\n"
+                    "**MANDATORY STRUCTURE:**\n"
+                    "- EVERY response MUST start with 'Thought:'\n"
+                    "- After 'Thought:' use either 'Action:' OR 'Final Answer:'\n"
+                    "- If using 'Action:', MUST follow with 'Action Input:' on next line\n"
+                    "- NEVER output bare JSON without proper labels\n"
+                    "- Use EXACT tool names from available tool list: [{tool_names}]\n"
+                    "- Follow exact parameter schemas from tool descriptions\n\n"
+                    "**LANGUAGE MATCHING:**\n"
+                    "- Korean input = Korean Final Answer (한글 입력 = 한글 응답)\n"
+                    "- English input = English Final Answer\n\n"
+                    "**CORRECT FORMAT PATTERN:**\n"
+                    "Thought: [analyze what information is needed]\n"
+                    "Action: [exact_tool_name_from_list]\n"
+                    "Action Input: {{\"parameter\": \"value\"}}\n\n"
+                    "**TOOL USAGE INTELLIGENCE:**\n"
+                    "- Analyze user intent and available tools\n"
+                    "- Select appropriate tools based on context\n"
+                    "- Use exact parameter names from tool schemas\n"
+                    "- Provide comprehensive responses based on tool results\n\n"
+                    "Question: the input question you must answer\n"
+                    "Thought: you should always think about what to do\n"
+                    "Action: the action to take, should be one of [{tool_names}]\n"
+                    "Action Input: the input to the action\n"
+                    "Observation: the result of the action\n"
+                    "... (this Thought/Action/Action Input/Observation can repeat N times)\n"
+                    "Thought: I now know the final answer\n"
+                    "Final Answer: the final answer to the original input question\n\n"
+                    "Available tools:\n{tools}\n\n"
+                    "Question: {input}\n"
+                    "Thought:{agent_scratchpad}"
+                )
             }
         }
     
@@ -445,6 +510,8 @@ class PromptManager:
             return ModelType.PERPLEXITY.value
         elif "claude" in model_name_lower:
             return ModelType.CLAUDE.value
+        elif model_name_lower.startswith("pollinations-") or "pollinations" in model_name_lower:
+            return ModelType.POLLINATIONS.value
         else:
             return ModelType.OPENAI.value  # Default value
     

@@ -45,7 +45,7 @@ class ModelStrategyFactory:
             return 'perplexity'
         elif "claude" in model_lower:
             return 'claude'
-        elif "pollinations" in model_lower:
+        elif model_lower.startswith("pollinations-") or "pollinations" in model_lower:
             return 'pollinations'
         else:
             return 'openai'  # 기본값

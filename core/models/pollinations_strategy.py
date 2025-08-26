@@ -6,6 +6,7 @@ from langchain.prompts import PromptTemplate
 from .base_model_strategy import BaseModelStrategy
 from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
+from core.parsers.custom_react_parser import CustomReActParser
 import requests
 import base64
 import logging
@@ -23,8 +24,9 @@ class PollinationsLLM(LLM):
     is_image_model: bool = False
     text_base_url: str = "https://text.pollinations.ai"
     image_base_url: str = "https://image.pollinations.ai/prompt"
+    timeout: int = 60
     
-    def __init__(self, api_key: str = None, model_name: str = "pollinations", **kwargs):
+    def __init__(self, api_key: str = None, model_name: str = "pollinations", timeout: int = 60, **kwargs):
         super().__init__(**kwargs)
         self.api_key = api_key
         self.model_name = model_name
@@ -32,6 +34,7 @@ class PollinationsLLM(LLM):
         self.is_image_model = self.model_id == "image"
         self.text_base_url = "https://text.pollinations.ai"
         self.image_base_url = "https://image.pollinations.ai/prompt"
+        self.timeout = timeout
     
     def _extract_model_id(self, model_name: str) -> str:
         """모델명에서 실제 모델 ID 추출"""
@@ -40,15 +43,18 @@ class PollinationsLLM(LLM):
         return model_name
     
     def generate_text(self, prompt: str, **kwargs) -> str:
-        """텍스트 생성"""
+        """텍스트 생성 - 대화 히스토리 지원"""
         try:
-            clean_prompt = self._extract_clean_prompt(prompt)
+            # 대화 히스토리가 포함된 프롬프트인지 확인
+            if "Previous conversation:" in prompt:
+                messages = self._parse_conversation_history(prompt)
+            else:
+                clean_prompt = self._extract_clean_prompt(prompt)
+                messages = [{"role": "user", "content": clean_prompt}]
             
-            # 기본 페이로드 (최소한의 파라미터만 사용)
+            # 기본 페이로드
             payload = {
-                "messages": [
-                    {"role": "user", "content": clean_prompt}
-                ],
+                "messages": messages,
                 "model": self.model_id
             }
             
@@ -60,7 +66,7 @@ class PollinationsLLM(LLM):
                 self.text_base_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=30
+                timeout=self.timeout
             )
             response.raise_for_status()
             
@@ -125,13 +131,41 @@ class PollinationsLLM(LLM):
         # 일반 텍스트면 그대로 반환 (길이 제한 제거)
         return prompt.strip()
     
+    def _parse_conversation_history(self, prompt: str) -> List[Dict[str, str]]:
+        """대화 히스토리를 포함한 프롬프트를 메시지 배열로 파싱"""
+        messages = []
+        
+        # 시스템 프롬프트 추출
+        if "LANGUAGE RULE:" in prompt:
+            system_part = prompt.split("Previous conversation:")[0].strip()
+            messages.append({"role": "system", "content": system_part})
+        
+        # 대화 히스토리 추출
+        if "Previous conversation:" in prompt and "Current request:" in prompt:
+            history_section = prompt.split("Previous conversation:")[1].split("Current request:")[0].strip()
+            
+            # 각 대화 라인 파싱
+            for line in history_section.split("\n"):
+                line = line.strip()
+                if line.startswith("User: "):
+                    messages.append({"role": "user", "content": line[6:]})
+                elif line.startswith("Assistant: "):
+                    messages.append({"role": "assistant", "content": line[11:]})
+        
+        # 현재 요청 추출
+        if "Current request:" in prompt:
+            current_part = prompt.split("Current request:")[1].split("Your response")[0].strip()
+            messages.append({"role": "user", "content": current_part})
+        
+        return messages if messages else [{"role": "user", "content": prompt.strip()}]
+    
     def generate_image_data(self, prompt: str, **kwargs) -> bytes:
         """이미지 생성 및 바이너리 데이터 반환"""
         try:
             image_url = self.generate_image(prompt, **kwargs)
             
             # 이미지 다운로드
-            response = requests.get(image_url, timeout=30)
+            response = requests.get(image_url, timeout=self.timeout)
             response.raise_for_status()
             
             return response.content
@@ -173,7 +207,23 @@ class PollinationsStrategy(BaseModelStrategy):
     
     def create_llm(self):
         """Pollinations LLM 생성"""
-        return PollinationsLLM(self.api_key, self.model_name)
+        # 모델별 timeout 설정
+        model_timeouts = {
+            "mistral": 120,      # 가장 느림
+            "llama": 90,         # 중간 속도
+            "openai": 60,        # 빠름
+            "bidara": 90,        # 중간 속도
+            "searchgpt": 75,     # 검색 모델
+            "roblox": 60,        # 빠름
+            "image": 45          # 이미지 생성
+        }
+        
+        timeout = 60  # 기본값
+        for model_key, model_timeout in model_timeouts.items():
+            if model_key in self.model_name.lower():
+                timeout = model_timeout
+                break
+        return PollinationsLLM(self.api_key, self.model_name, timeout=timeout)
     
     def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
         """메시지 형식 생성 - 다른 모델과 동일한 패턴"""
@@ -300,7 +350,9 @@ Analyze the intent and answer: YES or NO"""
         
         react_prompt = PromptTemplate.from_template(react_template)
         
-        agent = create_react_agent(self.llm, tools, react_prompt)
+        # CustomReActParser 사용으로 파싱 오류 방지
+        custom_parser = CustomReActParser()
+        agent = create_react_agent(self.llm, tools, react_prompt, output_parser=custom_parser)
         return AgentExecutor(
             agent=agent,
             tools=tools,
@@ -362,59 +414,69 @@ Analyze the intent and answer: YES or NO"""
 이미지를 클릭하면 원본 크기로 볼 수 있습니다."""
     
     def _generate_text_response(self, user_input: str, conversation_history: List[Dict] = None) -> str:
-        """텍스트 응답 생성 - ReAct 형식 강제"""
+        """텍스트 응답 생성 - 다른 모델과 동일한 방식"""
         logger.info(f"Pollinations 텍스트 생성: {self.llm.model_id}")
+        logger.info(f"Conversation history: {conversation_history}")
         
-        # 언어 감지 및 강화된 시스템 프롬프트
-        is_korean = self._contains_korean(user_input)
-        language_instruction = "한글로 응답하세요. 모든 답변은 반드시 한국어로 작성해야 합니다." if is_korean else "Respond in English."
+        # 중앙 프롬프트 시스템에서 ASK 모드 프롬프트 가져오기
+        ask_mode_prompt = prompt_manager.get_system_prompt(ModelType.POLLINATIONS.value, use_tools=False)
         
-        system_prompt = (
-            f"LANGUAGE RULE: {language_instruction}\n\n"
-            "You MUST follow this EXACT format for ALL responses:\n\n"
-            "If you need to use tools:\n"
-            "Thought: [your reasoning]\n"
-            "Action: [exact_tool_name]\n"
-            "Action Input: {{\"param\": \"value\"}}\n"
-            "\n"
-            "If you don't need tools or after getting tool results:\n"
-            "Thought: [your reasoning]\n"
-            "Final Answer: [your complete response]\n\n"
-            "CRITICAL: NEVER output text without starting with 'Thought:' first.\n"
-            "CRITICAL: After 'Thought:' you MUST use either 'Action:' or 'Final Answer:'.\n"
-            f"CRITICAL: ALL text including Thought and Final Answer MUST be in {'Korean (한국어)' if is_korean else 'English'}."
+        # 대화 히스토리를 포함한 메시지 생성 (Gemini와 동일한 방식)
+        messages = self.create_messages(
+            user_input,
+            system_prompt=ask_mode_prompt,
+            conversation_history=conversation_history
         )
         
-        # 대화 히스토리를 포함한 전체 프롬프트 구성
-        full_prompt = system_prompt
-        
-        # 대화 히스토리 추가
-        if conversation_history:
-            full_prompt += "\n\nPrevious conversation:\n"
-            for msg in conversation_history:
-                role = msg.get("role", "")
-                content = msg.get("content", "")
-                
-                if role == "user" and content.strip():
-                    full_prompt += f"User: {content}\n"
-                elif role in ["assistant", "agent"] and content.strip():
-                    full_prompt += f"Assistant: {content}\n"
-        
-        # 현재 사용자 입력 추가
-        language_reminder = "한국어로 답변" if is_korean else "in English"
-        full_prompt += f"\n\nCurrent request: {user_input}\n\nYour response (MUST start with 'Thought:' and be {language_reminder}):"
+        # 메시지를 텍스트 프롬프트로 변환 (Pollinations API용)
+        full_prompt = self._convert_messages_to_text(messages)
         
         response = self.llm.generate_text(full_prompt)
         
-        # 응답 형식 검증 및 수정
-        if not response.strip().startswith("Thought:"):
-            logger.warning(f"Pollinations 응답 형식 오류, 수정 중: {response[:100]}")
-            if is_korean:
-                response = f"Thought: 도움이 되는 응답을 제공해야 합니다.\nFinal Answer: {response}"
-            else:
-                response = f"Thought: I need to provide a helpful response.\nFinal Answer: {response}"
+        # Ask 모드에서는 ReAct 형식 제거하고 자연스러운 답변만 추출
+        clean_response = self._extract_natural_response(response)
         
-        return response
+        return clean_response
+    
+    def _extract_natural_response(self, response: str) -> str:
+        """응답에서 자연스러운 내용만 추출 (ReAct 형식 제거)"""
+        if not response:
+            return "죄송합니다. 다시 시도해 주세요."
+        
+        # Final Answer: 뒤의 내용 추출
+        if "Final Answer:" in response:
+            final_part = response.split("Final Answer:", 1)[1].strip()
+            return final_part if final_part else response.strip()
+        
+        # Thought:, Action: 등이 있으면 제거
+        if "Thought:" in response:
+            # ReAct 형식이 있으면 제거하고 자연스러운 내용만 반환
+            lines = response.split('\n')
+            clean_lines = []
+            for line in lines:
+                line = line.strip()
+                if not line.startswith(('Thought:', 'Action:', 'Action Input:', 'Observation:')):
+                    clean_lines.append(line)
+            
+            clean_text = '\n'.join(clean_lines).strip()
+            return clean_text if clean_text else response.strip()
+        
+        # 기본적으로 전체 응답 반환
+        return response.strip()
+    
+    def _convert_messages_to_text(self, messages: List[BaseMessage]) -> str:
+        """메시지 배열을 텍스트 프롬프트로 변환"""
+        text_parts = []
+        
+        for msg in messages:
+            if isinstance(msg, SystemMessage):
+                text_parts.append(f"System: {msg.content}")
+            elif isinstance(msg, HumanMessage):
+                text_parts.append(f"User: {msg.content}")
+            elif isinstance(msg, AIMessage):
+                text_parts.append(f"Assistant: {msg.content}")
+        
+        return "\n\n".join(text_parts)
     
     def _extract_image_prompt(self, user_input: str) -> str:
         """사용자 입력에서 이미지 프롬프트 추출 및 영어 번역"""
@@ -431,6 +493,8 @@ Analyze the intent and answer: YES or NO"""
         """텍스트에 한글이 포함되어 있는지 확인"""
         import re
         return bool(re.search(r'[가-힣]', text))
+    
+
     
     def _is_image_generation_request(self, user_input: str) -> bool:
         """이미지 생성 요청 감지 - 패턴 매칭 기반"""

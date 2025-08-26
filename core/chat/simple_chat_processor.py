@@ -58,34 +58,39 @@ class SimpleChatProcessor(BaseChatProcessor):
             # ASK 모드에서 도구 사용 금지 명시
             ask_mode_prompt += "\n\nIMPORTANT: You are in ASK mode. Do NOT use any tools or external functions. Provide answers based only on your knowledge."
             
-            # 대화 히스토리를 포함한 메시지 생성 (도구 사용 금지)
-            messages = self.model_strategy.create_messages(
-                user_input, 
-                system_prompt=ask_mode_prompt,
-                conversation_history=conversation_history
-            )
-            
-            # 도구 사용 방지를 위한 추가 처리
-            if hasattr(self.model_strategy.llm, 'bind'):
-                # LangChain 모델인 경우 도구 바인딩 제거
-                bound_llm = self.model_strategy.llm.bind(tools=[])
-                response = bound_llm.invoke(messages)
+            # Pollinations 전략인 경우 전용 메서드 사용
+            if 'pollinations' in self.model_strategy.model_name.lower():
+                response_content = self.model_strategy.generate_response(user_input, conversation_history)
+                logger.info(f"Pollinations 전용 응답 생성 완료")
             else:
-                response = self.model_strategy.llm.invoke(messages)
+                # 대화 히스토리를 포함한 메시지 생성 (도구 사용 금지)
+                messages = self.model_strategy.create_messages(
+                    user_input, 
+                    system_prompt=ask_mode_prompt,
+                    conversation_history=conversation_history
+                )
+                
+                # 도구 사용 방지를 위한 추가 처리
+                if hasattr(self.model_strategy.llm, 'bind'):
+                    # LangChain 모델인 경우 도구 바인딩 제거
+                    bound_llm = self.model_strategy.llm.bind(tools=[])
+                    response = bound_llm.invoke(messages)
+                else:
+                    response = self.model_strategy.llm.invoke(messages)
+                
+                logger.info(f"생성된 메시지 수: {len(messages)}")
+                
+                # Perplexity 응답 처리 (문자열 또는 객체)
+                if isinstance(response, str):
+                    response_content = response
+                else:
+                    response_content = getattr(response, 'content', str(response))
             
-            logger.info(f"생성된 메시지 수: {len(messages)}")
-
-            
-            # Perplexity 응답 처리 (문자열 또는 객체)
-            if isinstance(response, str):
-                response_content = response
-            else:
-                response_content = getattr(response, 'content', str(response))
-            
-            # 토큰 사용량 로깅
-            TokenLogger.log_messages_token_usage(
-                self.model_strategy.model_name, messages, response_content, "simple_chat"
-            )
+            # 토큰 사용량 로깅 (Pollinations가 아닌 경우만)
+            if 'pollinations' not in self.model_strategy.model_name.lower():
+                TokenLogger.log_messages_token_usage(
+                    self.model_strategy.model_name, messages, response_content, "simple_chat"
+                )
             
             return self.format_response(response_content), []
             

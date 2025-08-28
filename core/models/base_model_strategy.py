@@ -19,7 +19,7 @@ class BaseModelStrategy(ABC):
         pass
     
     @abstractmethod
-    def create_messages(self, user_input: str, system_prompt: str = None) -> List[BaseMessage]:
+    def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
         """메시지 형식 생성"""
         pass
     
@@ -62,3 +62,29 @@ class BaseModelStrategy(ABC):
     def enhance_prompt_with_format(self, prompt: str) -> str:
         """프롬프트에 형식 지침 추가"""
         return SystemPromptEnhancer.enhance_prompt(prompt)
+    
+    def detect_user_language(self, user_input: str) -> str:
+        """사용자 입력 텍스트에서 언어 감지 (원본 텍스트만 사용)"""
+        import re
+        from core.file_utils import load_config
+        
+        if not user_input or not isinstance(user_input, str):
+            return "en"
+        
+        # config.json에서 한글 비율 임계값 로드
+        try:
+            config = load_config()
+            korean_threshold = config.get("language_detection", {}).get("korean_threshold", 0.3)
+        except:
+            korean_threshold = 0.3  # 기본값
+        
+        # 한글 문자 감지
+        korean_chars = len(re.findall(r'[가-힣]', user_input))
+        total_chars = len(re.sub(r'\s+', '', user_input))  # 공백 제외
+        
+        if total_chars == 0:
+            return "en"
+        
+        # 한글 비율이 임계값 이상이면 한국어로 판단
+        korean_ratio = korean_chars / total_chars
+        return "ko" if korean_ratio >= korean_threshold else "en"

@@ -22,6 +22,8 @@ class CustomReActParser(ReActOutputParser):
     
     def _lenient_parse(self, text: str) -> Union[AgentAction, AgentFinish]:
         """관대한 파싱 로직 - Claude 파서 참고"""
+        print(f"\n=== LENIENT PARSING DEBUG ===\nFull AI Response:\n{text}\n=== END RESPONSE ===")
+        
         # Action과 Action Input이 모두 있는 경우만 Action으로 처리
         action_match = re.search(r'Action:\s*([^\n\s]+)', text, re.IGNORECASE)
         input_match = re.search(r'Action Input:\s*({.*?})', text, re.DOTALL | re.IGNORECASE)
@@ -70,6 +72,9 @@ class CustomReActParser(ReActOutputParser):
                 if len(thought_content) > 200:
                     thought_content = thought_content[:200] + "..."
                 logger.warning("Thought만 있는 불완전 응답 - 파싱 오류로 처리")
+                print(f"\n=== INCOMPLETE AI RESPONSE DEBUG ===\nFull AI Response:\n{text}\n=== END RESPONSE ===")
+                print(f"Thought Content: {thought_content}")
+                print(f"Response Length: {len(text)} chars")
                 raise OutputParserException(
                     f"Incomplete response - missing Action or Final Answer after Thought: {thought_content}",
                     observation="",

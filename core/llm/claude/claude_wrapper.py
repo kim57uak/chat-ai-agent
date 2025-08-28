@@ -79,8 +79,15 @@ class ClaudeWrapper(LLM):
             logger.error(f"Claude 모델 호출 오류: {e}")
             return "안녕하세요! Claude 모델입니다. 현재 연결에 문제가 있어 모킹 응답을 드립니다."
     
-    def invoke(self, messages: List[BaseMessage], **kwargs) -> AIMessage:
+    def invoke(self, input_data, config=None, **kwargs) -> AIMessage:
         """LangChain 호환 invoke 메서드"""
+        # input_data가 메시지 리스트인지 확인
+        if isinstance(input_data, list):
+            messages = input_data
+        elif isinstance(input_data, str):
+            messages = [HumanMessage(content=input_data)]
+        else:
+            messages = [HumanMessage(content=str(input_data))]
         try:
             if not self.api_key:
                 return AIMessage(content="안녕하세요! Claude 모델입니다. BEDROCK_API_KEY 설정이 필요합니다.")

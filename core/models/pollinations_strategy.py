@@ -418,8 +418,17 @@ Analyze the intent and answer: YES or NO"""
         logger.info(f"Pollinations 텍스트 생성: {self.llm.model_id}")
         logger.info(f"Conversation history: {conversation_history}")
         
+        # 사용자 입력에서 언어 감지 (원본 텍스트만 사용)
+        user_language = self.detect_user_language(user_input)
+        
         # 중앙 프롬프트 시스템에서 ASK 모드 프롬프트 가져오기
         ask_mode_prompt = prompt_manager.get_system_prompt(ModelType.POLLINATIONS.value, use_tools=False)
+        
+        # 언어별 응답 지침 추가
+        if user_language == "ko":
+            ask_mode_prompt += "\n\n**중요**: 사용자가 한국어로 질문했으므로 반드시 한국어로 응답하세요."
+        else:
+            ask_mode_prompt += "\n\n**Important**: The user asked in English, so please respond in English."
         
         # 대화 히스토리를 포함한 메시지 생성 (Gemini와 동일한 방식)
         messages = self.create_messages(

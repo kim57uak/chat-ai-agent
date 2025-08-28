@@ -85,6 +85,21 @@ class SettingsDialog(QDialog):
         history_layout.addWidget(self.ai_response_token_limit_spin)
         
         layout.addWidget(history_group)
+        
+        # 언어 감지 설정 그룹
+        language_group = QGroupBox('언어 감지 설정')
+        language_layout = QVBoxLayout(language_group)
+        
+        language_layout.addWidget(QLabel('한글 비율 임계값 (0.0-1.0):'))
+        self.korean_threshold_spin = QSpinBox()
+        self.korean_threshold_spin.setRange(0, 100)
+        self.korean_threshold_spin.setValue(30)
+        self.korean_threshold_spin.setSuffix('%')
+        language_layout.addWidget(self.korean_threshold_spin)
+        
+        language_layout.addWidget(QLabel('한글 비율이 이 값 이상이면 한국어로 인식'))
+        
+        layout.addWidget(language_group)
 
         self.save_button = QPushButton('저장', self)
         layout.addWidget(self.save_button)
@@ -156,6 +171,11 @@ class SettingsDialog(QDialog):
         self.user_message_limit_spin.setValue(conversation_settings.get('user_message_limit', 10))
         self.ai_response_limit_spin.setValue(conversation_settings.get('ai_response_limit', 10))
         self.ai_response_token_limit_spin.setValue(conversation_settings.get('ai_response_token_limit', 15000))
+        
+        # 언어 감지 설정 로드
+        language_settings = config.get('language_detection', {})
+        korean_threshold = language_settings.get('korean_threshold', 0.3)
+        self.korean_threshold_spin.setValue(int(korean_threshold * 100))
 
     def on_model_changed(self, model_name):
         """Handle model selection change."""
@@ -192,6 +212,13 @@ class SettingsDialog(QDialog):
         config['conversation_settings']['user_message_limit'] = self.user_message_limit_spin.value()
         config['conversation_settings']['ai_response_limit'] = self.ai_response_limit_spin.value()
         config['conversation_settings']['ai_response_token_limit'] = self.ai_response_token_limit_spin.value()
+        
+        # 언어 감지 설정 저장
+        if 'language_detection' not in config:
+            config['language_detection'] = {}
+        
+        config['language_detection']['korean_threshold'] = self.korean_threshold_spin.value() / 100.0
+        config['language_detection']['description'] = 'Korean character ratio threshold for language detection (0.0-1.0)'
         
         save_config(config)
         self.accept()

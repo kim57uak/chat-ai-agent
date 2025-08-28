@@ -85,6 +85,25 @@ class SimpleChatProcessor(BaseChatProcessor):
                     response_content = response
                 else:
                     response_content = getattr(response, 'content', str(response))
+                
+                # tool_calls가 있으면 도구 사용 시도로 간주하고 거부
+                if hasattr(response, 'tool_calls') and response.tool_calls:
+                    print(f"\n=== TOOL CALLS DETECTED IN ASK MODE ===\nTool calls: {response.tool_calls}")
+                    response_content = "죄송합니다. Ask 모드에서는 도구를 사용할 수 없습니다. 제가 알고 있는 지식으로 답변드리겠습니다.\n\n" + self._get_fallback_response(user_input)
+                
+                # 응답 디버깅
+                print(f"\n=== AI RESPONSE DEBUG ===\nResponse type: {type(response)}")
+                print(f"Has tool_calls: {hasattr(response, 'tool_calls') and bool(response.tool_calls)}")
+                print(f"Response content: '{response_content}'")
+                print(f"Content length: {len(response_content) if response_content else 0}")
+                print("=== END DEBUG ===")
+            
+            # 응답 내용 검증
+            if not response_content or response_content.strip() == "":
+                print(f"\n=== EMPTY RESPONSE DEBUG ===\nOriginal response: {response}")
+                print(f"Response type: {type(response)}")
+                print(f"Response attributes: {dir(response) if hasattr(response, '__dict__') else 'No attributes'}")
+                response_content = "응답을 생성할 수 없습니다."
             
             # 토큰 사용량 로깅 (Pollinations가 아닌 경우만)
             if 'pollinations' not in self.model_strategy.model_name.lower():
@@ -108,3 +127,38 @@ class SimpleChatProcessor(BaseChatProcessor):
             return False
         cleaned_input = user_input.replace("\n", "")
         return "[IMAGE_BASE64]" in cleaned_input and "[/IMAGE_BASE64]" in cleaned_input
+    
+    def _get_fallback_response(self, user_input: str) -> str:
+        """도구 없이 기본 지식으로 응답 생성"""
+        try:
+            # AI가 도구 없이 직접 응답 생성
+            from ui.prompts import prompt_manager
+            provider = prompt_manager.get_provider_from_model(self.model_strategy.model_name)
+            
+            fallback_prompt = (
+                "You are a helpful AI assistant. Answer the user's question using only your knowledge. "
+                "Do not use any tools or external functions. Provide a helpful and informative response."
+            )
+            
+            messages = self.model_strategy.create_messages(
+                user_input,
+                system_prompt=fallback_prompt
+            )
+            
+            # 도구 바인딩 제거하고 응답 생성
+            if hasattr(self.model_strategy.llm, 'bind'):
+                bound_llm = self.model_strategy.llm.bind(tools=[])
+                response = bound_llm.invoke(messages)
+            else:
+                response = self.model_strategy.llm.invoke(messages)
+            
+            # 응답 내용 추출
+            if isinstance(response, str):
+                return response
+            else:
+                content = getattr(response, 'content', str(response))
+                return content if content else "죄송합니다. 답변을 생성할 수 없습니다."
+                
+        except Exception as e:
+            logger.error(f"Fallback response generation error: {e}")
+            return "죄송합니다. 현재 답변을 제공할 수 없습니다. 잠시 후 다시 시도해 주세요."

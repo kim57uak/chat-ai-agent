@@ -443,18 +443,20 @@ class ChatDisplay:
                 function showMessageCopyFeedback(messageId) {
                     const messageDiv = document.getElementById(messageId);
                     if (messageDiv) {
-                        const copyBtn = messageDiv.querySelector('button');
+                        const copyBtn = messageDiv.querySelector('button[title="메시지 복사"]');
                         if (copyBtn) {
-                            const originalText = copyBtn.textContent;
-                            copyBtn.textContent = '✓ 복사됨!';
-                            copyBtn.style.background = '#28a745';
-                            copyBtn.style.borderColor = '#28a745';
+                            const originalText = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '✓';
+                            copyBtn.style.background = 'rgba(40,167,69,0.5)';
+                            copyBtn.style.borderColor = 'rgba(40,167,69,0.4)';
+                            copyBtn.style.opacity = '0.75';
                             copyBtn.style.transform = 'scale(1.05)';
                             
                             setTimeout(() => {
-                                copyBtn.textContent = originalText;
-                                copyBtn.style.background = 'rgba(95,95,100,0.9)';
-                                copyBtn.style.borderColor = 'rgba(160,160,165,0.6)';
+                                copyBtn.innerHTML = originalText;
+                                copyBtn.style.background = 'rgba(95,95,100,0.45)';
+                                copyBtn.style.borderColor = 'rgba(160,160,165,0.3)';
+                                copyBtn.style.opacity = '0.5';
                                 copyBtn.style.transform = 'scale(1)';
                             }, 2000);
                         }
@@ -511,6 +513,34 @@ class ChatDisplay:
                         console.error('이미지 로드 오류:', imageId);
                     }
                 }
+                
+                function deleteMessage(messageId) {
+                    try {
+                        if (pyqt_bridge && pyqt_bridge.deleteMessage) {
+                            pyqt_bridge.deleteMessage(messageId);
+                        } else {
+                            console.error('Delete message bridge not available');
+                        }
+                    } catch (error) {
+                        console.error('Message delete failed:', error);
+                    }
+                }
+                
+                function removeMessageFromDOM(messageId) {
+                    try {
+                        const messageElements = document.querySelectorAll(`[data-message-id="${messageId}"]`);
+                        messageElements.forEach(element => {
+                            element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                            element.style.opacity = '0';
+                            element.style.transform = 'translateX(-20px)';
+                            setTimeout(() => {
+                                element.remove();
+                            }, 300);
+                        });
+                    } catch (error) {
+                        console.error('DOM message removal failed:', error);
+                    }
+                }
             </script>
         </head>
         <body style="background: #0a0a0a !important; color: #f3f4f6 !important; margin: 0 !important; padding: 8px !important;">
@@ -531,7 +561,11 @@ class ChatDisplay:
         self.channel.registerObject('pyqt_bridge', self.link_handler)
         self.web_view.page().setWebChannel(self.channel)
     
-    def append_message(self, sender, text, original_sender=None, progressive=False):
+    def set_chat_widget(self, chat_widget):
+        """채팅 위젯 참조 설정"""
+        self.link_handler.chat_widget = chat_widget
+    
+    def append_message(self, sender, text, original_sender=None, progressive=False, message_id=None):
         """메시지 추가 - progressive=True시 점진적 출력"""
         # 발신자별 스타일 - 투명도 70% 싱크로
         if sender == '사용자':
@@ -559,17 +593,47 @@ class ChatDisplay:
         # 이미지 URL 감지 및 렌더링 처리
         formatted_text = self._process_image_urls(formatted_text)
         
-        message_id = f"msg_{uuid.uuid4().hex[:8]}"
+        display_message_id = message_id or f"msg_{uuid.uuid4().hex[:8]}"
         
         # 메시지 컨테이너 생성과 콘텐츠 설정을 한 번에 처리
         safe_content = json.dumps(formatted_text, ensure_ascii=False)
+        
+        # 시스템 메시지가 아닌 경우에만 삭제 버튼 추가
+        delete_button_html = ""
+        if sender != '시스템' and message_id:
+            delete_button_html = f'''
+            var deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.title = '메시지 삭제';
+            deleteBtn.style.cssText = 'position:absolute;top:14px;right:70px;background:rgba(220,53,69,0.4);color:rgba(255,255,255,0.7);border:1px solid rgba(220,53,69,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            deleteBtn.onclick = function() {{ deleteMessage('{message_id}'); }};
+            deleteBtn.onmouseenter = function() {{ 
+                this.style.background = 'rgba(220,53,69,0.475)';
+                this.style.borderColor = 'rgba(220,53,69,0.4)';
+                this.style.color = 'rgba(255,255,255,0.9)';
+                this.style.opacity = '0.75';
+                this.style.transform = 'scale(1.05)';
+                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';
+            }};
+            deleteBtn.onmouseleave = function() {{ 
+                this.style.background = 'rgba(220,53,69,0.4)';
+                this.style.borderColor = 'rgba(220,53,69,0.3)';
+                this.style.color = 'rgba(255,255,255,0.7)';
+                this.style.opacity = '0.5';
+                this.style.transform = 'scale(1)';
+                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';
+            }};
+            messageDiv.appendChild(deleteBtn);
+            '''
+        
         combined_js = f'''
         try {{
-            console.log('메시지 생성 및 콘텐츠 설정 시작: {message_id}');
+            console.log('메시지 생성 및 콘텐츠 설정 시작: {display_message_id}');
             
             var messagesDiv = document.getElementById('messages');
             var messageDiv = document.createElement('div');
-            messageDiv.id = '{message_id}';
+            messageDiv.id = '{display_message_id}';
+            messageDiv.setAttribute('data-message-id', '{message_id or ""}');
             messageDiv.style.cssText = 'margin:12px 0;padding:16px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
             messageDiv.onmouseenter = function() {{ }};
             messageDiv.onmouseleave = function() {{ }};
@@ -579,28 +643,31 @@ class ChatDisplay:
             headerDiv.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
             
             var copyBtn = document.createElement('button');
-            copyBtn.innerHTML = '📋 복사';
-            copyBtn.style.cssText = 'position:absolute;top:14px;right:18px;background:rgba(95,95,100,0.9);color:#d0d0d0;border:1px solid rgba(160,160,165,0.6);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:1;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.25);';
-            copyBtn.onclick = function() {{ copyMessage('{message_id}'); }};
+            copyBtn.innerHTML = '📋';
+            copyBtn.title = '메시지 복사';
+            copyBtn.style.cssText = 'position:absolute;top:14px;right:18px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            copyBtn.onclick = function() {{ copyMessage('{display_message_id}'); }};
             copyBtn.onmouseenter = function() {{ 
-                this.style.background = 'rgba(105,105,110,0.95)';
-                this.style.borderColor = 'rgba(180,180,185,0.8)';
-                this.style.color = '#f0f0f0';
+                this.style.background = 'rgba(105,105,110,0.475)';
+                this.style.borderColor = 'rgba(180,180,185,0.4)';
+                this.style.color = 'rgba(240,240,240,0.85)';
+                this.style.opacity = '0.75';
                 this.style.transform = 'scale(1.05)';
-                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.35)';
+                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';
             }};
             copyBtn.onmouseleave = function() {{ 
-                this.style.background = 'rgba(95,95,100,0.9)';
-                this.style.borderColor = 'rgba(160,160,165,0.6)';
-                this.style.color = '#d0d0d0';
+                this.style.background = 'rgba(95,95,100,0.45)';
+                this.style.borderColor = 'rgba(160,160,165,0.3)';
+                this.style.color = 'rgba(208,208,208,0.7)';
+                this.style.opacity = '0.5';
                 this.style.transform = 'scale(1)';
-                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.25)';
+                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';
             }};
             
-
+            {delete_button_html}
             
             var contentDiv = document.createElement('div');
-            contentDiv.id = '{message_id}_content';
+            contentDiv.id = '{display_message_id}_content';
             contentDiv.style.cssText = 'margin:0;padding-left:8px;line-height:1.6;color:#e8e8e8;font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             
             messageDiv.appendChild(headerDiv);
@@ -610,11 +677,11 @@ class ChatDisplay:
             
             // 콘텐츠 즉시 설정
             contentDiv.innerHTML = {safe_content};
-            console.log('콘텐츠 설정 완료: {message_id}');
+            console.log('콘텐츠 설정 완료: {display_message_id}');
             
             // 렌더링 처리
             setTimeout(() => {{
-                console.log('렌더링 시작: {message_id}');
+                console.log('렌더링 시작: {display_message_id}');
                 
                 // Mermaid 렌더링
                 if (typeof mermaid !== 'undefined') {{
@@ -647,7 +714,7 @@ class ChatDisplay:
             }}, 100);
             
             window.scrollTo(0, document.body.scrollHeight);
-            console.log('메시지 생성 완료: {message_id}');
+            console.log('메시지 생성 완료: {display_message_id}');
         }} catch(e) {{
             console.error('메시지 생성 오류:', e);
         }}
@@ -658,11 +725,13 @@ class ChatDisplay:
             empty_js = combined_js.replace(f'contentDiv.innerHTML = {safe_content};', 'contentDiv.innerHTML = "";')
             self.web_view.page().runJavaScript(empty_js)
             QTimer.singleShot(self.initial_delay, lambda: self.progressive_display.display_text_progressively(
-                message_id, formatted_text, delay_per_line=self.delay_per_line
+                display_message_id, formatted_text, delay_per_line=self.delay_per_line
             ))
         else:
             # 일반 출력 - 한 번에 처리
             self.web_view.page().runJavaScript(combined_js)
+        
+        return display_message_id
     
     def clear_messages(self):
         """메시지 초기화"""
@@ -741,8 +810,9 @@ class ChatDisplay:
 class LinkHandler(QObject):
     """링크 클릭 및 이미지 저장 처리를 위한 핸들러"""
     
-    def __init__(self):
+    def __init__(self, chat_widget=None):
         super().__init__()
+        self.chat_widget = chat_widget
     
     @pyqtSlot(str)
     def openUrl(self, url):
@@ -788,6 +858,24 @@ class LinkHandler(QObject):
         """다운로드 오류 처리"""
         from PyQt6.QtWidgets import QMessageBox
         QMessageBox.warning(None, "저장 실패", f"이미지 저장 중 오류가 발생했습니다:\n{error_msg}")
+    
+    @pyqtSlot(str)
+    def deleteMessage(self, message_id):
+        """메시지 삭제"""
+        try:
+            if self.chat_widget and hasattr(self.chat_widget, 'delete_message'):
+                success = self.chat_widget.delete_message(message_id)
+                if success:
+                    # DOM에서 메시지 제거
+                    self.chat_widget.chat_display.web_view.page().runJavaScript(
+                        f"removeMessageFromDOM('{message_id}')"
+                    )
+                else:
+                    print(f"메시지 삭제 실패: {message_id}")
+            else:
+                print("메시지 삭제 기능을 사용할 수 없습니다")
+        except Exception as e:
+            print(f"메시지 삭제 오류: {e}")
 
 
 class ImageDownloadThread(QThread):

@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from datetime import datetime
 from typing import List, Dict
 from core.file_utils import load_config
@@ -38,6 +39,7 @@ class ConversationHistory:
             return
             
         message = {
+            "id": str(uuid.uuid4()),
             "role": role,
             "content": content,
             "timestamp": datetime.now().isoformat(),
@@ -63,6 +65,8 @@ class ConversationHistory:
         # Keep only recent messages
         if len(self.current_session) > self.max_history_length:
             self.current_session = self.current_session[-self.max_history_length:]
+        
+        return message["id"]
 
     def get_context_messages(self) -> List[Dict]:
         """Get messages for AI context using hybrid approach"""
@@ -188,6 +192,10 @@ class ConversationHistory:
                     if msg["role"] in ["assistant", "agent"] and "model" not in msg:
                         msg["model"] = "unknown"
                     
+                    # ID가 없는 메시지에 ID 추가
+                    if "id" not in msg:
+                        msg["id"] = str(uuid.uuid4())
+                    
                     valid_messages.append(msg)
             
             self.current_session = valid_messages[-self.max_history_length:]
@@ -259,3 +267,17 @@ class ConversationHistory:
             "hybrid_mode": self.hybrid_mode,
             "model_stats": model_stats
         }
+    
+    def delete_message(self, message_id: str) -> bool:
+        """Delete message by ID"""
+        try:
+            original_length = len(self.current_session)
+            self.current_session = [msg for msg in self.current_session if msg.get("id") != message_id]
+            
+            if len(self.current_session) < original_length:
+                self.save_to_file()
+                return True
+            return False
+        except Exception as e:
+            print(f"Message deletion failed: {e}")
+            return False

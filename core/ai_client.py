@@ -51,15 +51,18 @@ class AIClient:
             if not messages or not isinstance(messages, list):
                 return "유효하지 않은 메시지 형식입니다."
 
-            # 마지막 사용자 메시지 추출
-            user_message = ""
+            # 마지막 사용자 메시지 추출 (원본 텍스트 - 언어 판단용)
+            original_user_message = ""
             for msg in reversed(messages):
                 if isinstance(msg, dict) and msg.get("role") == "user":
                     content = msg.get("content", "")
                     if isinstance(content, str):
-                        user_message = content.strip()
-                        if user_message:
+                        original_user_message = content.strip()
+                        if original_user_message:
                             break
+            
+            # 프롬프트 추가 전 원본 메시지 저장 (언어 판단용)
+            user_message = original_user_message
 
             # 이미지 데이터 감지 (줄바꿈 무시)
             cleaned_message = user_message.replace("\n", "")

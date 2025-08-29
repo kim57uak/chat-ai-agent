@@ -15,10 +15,11 @@ def start_mcp_servers(config_path: str = "mcp.json") -> bool:
         server_names = list(mcp_manager.clients.keys())
         for server_name in server_names:
             if not mcp_state.is_server_enabled(server_name):
-                logger.info(f"상태 파일에 따라 {server_name} 서버 중지")
+                # logger.info(f"상태 파일에 따라 {server_name} 서버 중지")  # 주석 처리
                 mcp_manager.stop_server(server_name)
             else:
-                logger.info(f"상태 파일에 따라 {server_name} 서버 활성화")
+                # logger.info(f"상태 파일에 따라 {server_name} 서버 활성화")  # 주석 처리
+                pass
 
     return success
 

@@ -27,6 +27,6 @@ class ChatClient:
         """Chat with conversation history."""
         return self.agent.simple_chat_with_history(user_input, history)
     
-    def agent_chat_with_history(self, user_input: str, history: List[Dict]) -> Tuple[str, List]:
+    def agent_chat_with_history(self, user_input: str, history: List[Dict], force_agent: bool = True) -> Tuple[str, List]:
         """Agent chat with conversation history."""
-        return self.agent.process_message_with_history(user_input, history)
+        return self.agent.process_message_with_history(user_input, history, force_agent)

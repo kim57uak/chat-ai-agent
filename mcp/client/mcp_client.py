@@ -181,10 +181,10 @@ class MCPClient:
             # MCP 표준에 따라 initialized 알림 전송
             self._send_notification("notifications/initialized")
             self.initialized = True
-            logger.info("MCP 서버 초기화 완료")
+            # logger.info("MCP 서버 초기화 완료")  # 주석 처리
             return True
             
-        logger.error("MCP 서버 초기화 실패")
+        # logger.error("MCP 서버 초기화 실패")  # 주석 처리
         return False
     
     def list_tools(self) -> List[Dict[str, Any]]:
@@ -307,14 +307,14 @@ class MCPManager:
                 if mcp_state.is_server_enabled(name):
                     if client.start() and client.initialize():
                         self.clients[name] = client
-                        logger.info(f"MCP 서버 '{name}' 시작 완료")
+                        # logger.info(f"MCP 서버 '{name}' 시작 완료")  # 주석 처리
                     else:
-                        logger.error(f"MCP 서버 '{name}' 시작 실패")
+                        # logger.error(f"MCP 서버 '{name}' 시작 실패")  # 주석 처리
                         self.clients[name] = client  # 실패해도 등록
                 else:
                     # 비활성화된 서버도 등록 (시작하지 않음)
                     self.clients[name] = client
-                    logger.info(f"MCP 서버 '{name}' 등록됨 (비활성화 상태)")
+                    # logger.info(f"MCP 서버 '{name}' 등록됨 (비활성화 상태)")  # 주석 처리
                     
             return len(self.clients) > 0
             
@@ -343,7 +343,8 @@ class MCPManager:
                 except Exception as e:
                     logger.error(f"서버 '{name}' 도구 목록 조회 오류: {e}")
             else:
-                logger.warning(f"서버 '{name}' 연결되지 않음 또는 초기화되지 않음")
+                # logger.warning(f"서버 '{name}' 연결되지 않음 또는 초기화되지 않음")  # 주석 처리
+                pass
         return all_tools
     
     def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
@@ -431,10 +432,10 @@ class MCPManager:
             client = MCPClient(command, args, env)
             if client.start() and client.initialize():
                 self.clients[server_name] = client
-                logger.info(f"MCP 서버 '{server_name}' 시작 완료")
+                # logger.info(f"MCP 서버 '{server_name}' 시작 완료")  # 주석 처리
                 return True
             else:
-                logger.error(f"MCP 서버 '{server_name}' 시작 실패")
+                # logger.error(f"MCP 서버 '{server_name}' 시작 실패")  # 주석 처리
                 return False
                 
         except Exception as e:
@@ -447,7 +448,7 @@ class MCPManager:
             try:
                 self.clients[server_name].close()
                 del self.clients[server_name]
-                logger.info(f"MCP 서버 '{server_name}' 중지 완료")
+                # logger.info(f"MCP 서버 '{server_name}' 중지 완료")  # 주석 처리
                 return True
             except Exception as e:
                 logger.error(f"MCP 서버 '{server_name}' 중지 오류: {e}")

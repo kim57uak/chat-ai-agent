@@ -197,6 +197,8 @@ class AIProcessor(QObject):
                             response = client.simple_chat(processed_user_text)
                             used_tools = []
                         sender = 'AI'
+                        
+                        # Ask 모드에서는 도구 사용 불가 메시지 제거 (AI가 컨텍스트 파악해서 판단)
                 
                 if not self._cancelled and response:
                     # 실제 토큰 사용량 추출 먼저 수행

@@ -80,9 +80,9 @@ class MCPTool(BaseTool):
             input_schema = self.tool_schema.get('inputSchema', {})
             properties = input_schema.get('properties', {})
             
-            # 전달된 파라미터 처리 (None이 아닌 값만)
+            # 전달된 파라미터 처리
             for key, value in clean_input.items():
-                if value is not None and value != "" and key in properties:
+                if key in properties and value is not None:
                     # 타입 변환 처리
                     property_schema = properties[key]
                     expected_type = property_schema.get('type')
@@ -136,7 +136,7 @@ class MCPTool(BaseTool):
             
             result = {}
             for i, arg in enumerate(args):
-                if i < len(field_order) and arg is not None and arg != "":
+                if i < len(field_order) and arg is not None:
                     field_name = field_order[i]
                     field_schema = properties.get(field_name, {})
                     

@@ -422,7 +422,22 @@ class ChatWidget(QWidget):
             elapsed = datetime.now() - self.request_start_time
             error_time = f" (오류발생시간: {elapsed.total_seconds():.1f}초)"
         
-        self.chat_display.append_message('시스템', msg + error_time)
+        # 토큰 사용량 정보 추가 (오류 시에도 표시)
+        token_info = ""
+        current_status = status_display.current_status
+        if current_status.get('total_tokens', 0) > 0:
+            total_tokens = current_status['total_tokens']
+            input_tokens = current_status.get('input_tokens', 0)
+            output_tokens = current_status.get('output_tokens', 0)
+            if input_tokens > 0 and output_tokens > 0:
+                token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
+            else:
+                token_info = f" | 📊 {total_tokens:,}토큰"
+        
+        current_model = load_last_model()
+        enhanced_msg = f"{msg}{error_time}\n\n---\n*🤖 {current_model}{token_info}*" if token_info else f"{msg}{error_time}"
+        
+        self.chat_display.append_message('시스템', enhanced_msg)
         self.ui_manager.set_ui_enabled(True)
         self.ui_manager.show_loading(False)
     

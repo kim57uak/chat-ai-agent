@@ -133,10 +133,53 @@ class ChatDisplay:
                 function rerenderMermaid() {
                     if (typeof mermaid !== 'undefined') {
                         try {
+                            // Mermaid 구문 오류 자동 수정
+                            const mermaidElements = document.querySelectorAll('.mermaid');
+                            mermaidElements.forEach(element => {
+                                let content = element.textContent || element.innerHTML;
+                                
+                                // ER 다이어그램에서 따옴표 제거
+                                if (content.includes('erDiagram')) {
+                                    content = content.replace(/: "([^"]+)"/g, ': $1');
+                                    content = content.replace(/: '([^']+)'/g, ': $1');
+                                    element.textContent = content;
+                                    console.log('ER 다이어그램 구문 수정 완료');
+                                }
+                                
+                                // 기타 일반적인 구문 오류 수정
+                                content = content.replace(/--&gt;/g, '-->');
+                                content = content.replace(/&#45;&#45;&#45;/g, '---');
+                                content = content.replace(/-&gt;&gt;/g, '->');
+                                
+                                if (element.textContent !== content) {
+                                    element.textContent = content;
+                                    console.log('Mermaid 구문 오류 자동 수정 완료');
+                                }
+                            });
+                            
                             mermaid.run();
                             console.log('Mermaid 재렌더링 완료');
                         } catch (error) {
                             console.error('Mermaid 렌더링 오류:', error);
+                            
+                            // 오류 발생 시 사용자에게 알림
+                            const mermaidElements = document.querySelectorAll('.mermaid');
+                            mermaidElements.forEach(element => {
+                                if (element.innerHTML.includes('Syntax error') || error.message.includes('Parse error')) {
+                                    const originalContent = element.textContent;
+                                    element.innerHTML = `
+                                        <div style="background: #2a2a2a; border: 2px solid #ff6b6b; border-radius: 8px; padding: 20px; text-align: center; color: #ff6b6b;">
+                                            <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
+                                            <div style="font-size: 16px; margin-bottom: 8px;">Mermaid 다이어그램 구문 오류</div>
+                                            <div style="font-size: 12px; opacity: 0.8;">다이어그램 코드를 확인해주세요</div>
+                                            <details style="margin-top: 15px; text-align: left;">
+                                                <summary style="cursor: pointer; color: #87CEEB;">원본 코드 보기</summary>
+                                                <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 11px; overflow-x: auto;">${originalContent}</pre>
+                                            </details>
+                                        </div>
+                                    `;
+                                }
+                            });
                         }
                     }
                 }

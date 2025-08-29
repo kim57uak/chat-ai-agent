@@ -14,3 +14,5 @@ config_local.json
 /dist/
 .idea/
 *.dmg
+build/*
+test*

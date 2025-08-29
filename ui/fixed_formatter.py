@@ -342,8 +342,43 @@ class FixedFormatter:
         # 단, 마크다운 처리에서 깨지지 않도록 보호
         return text
     
+    def _clean_html_code(self, text):
+        """코드 블록에서 HTML 태그 제거"""
+        # HTML 태그 제거
+        import re
+        text = re.sub(r'<[^>]+>', '', text)
+        # HTML 엔티티 디코딩
+        text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+        text = text.replace('&quot;', '"').replace('&#x27;', "'")
+        return text
+    
+    def _clean_html_in_code_blocks(self, text):
+        """전체 텍스트에서 HTML 코드 블록 정리"""
+        import re
+        
+        # HTML 코드 블록 패턴 감지 및 정리
+        def clean_html_code_block(match):
+            content = match.group(1)
+            # HTML 태그 제거
+            content = re.sub(r'<[^>]+>', '', content)
+            # HTML 엔티티 디코딩
+            content = content.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+            content = content.replace('&quot;', '"').replace('&#x27;', "'")
+            # 불필요한 공백 제거
+            lines = [line.rstrip() for line in content.split('\n')]
+            content = '\n'.join(lines)
+            return f'```\n{content}\n```'
+        
+        # HTML highlight 블록 처리
+        text = re.sub(r'<div class="highlight"><pre><span></span><code>(.*?)</code></pre></div>', clean_html_code_block, text, flags=re.DOTALL)
+        
+        return text
+    
     def _process_markdown(self, text):
         """기본 마크다운 처리"""
+        # HTML 코드 블록 정리
+        text = self._clean_html_in_code_blocks(text)
+        
         lines = text.split('\n')
         result = []
         in_code_block = False
@@ -360,14 +395,16 @@ class FixedFormatter:
                     in_code_block = True
                     lang = line[3:].strip() if len(line) > 3 else ''
                     code_id = f"code_{uuid.uuid4().hex[:8]}"
-                    result.append(f'<div style="position: relative;"><pre style="background: #1e1e1e; color: #f8f8f2; padding: 15px; border-radius: 8px; margin: 12px 0; overflow-x: auto;"><code id="{code_id}">')
+                    result.append(f'<div style="position: relative;"><pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; margin: 8px 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{code_id}">')
                 else:
                     in_code_block = False
-                    result.append(f'</code></pre><button onclick="copyCode(\'{code_id}\')" style="position: absolute; top: 8px; right: 8px; background: #444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; opacity: 0.8; transition: opacity 0.2s;">📋 복사</button></div>')
+                    result.append(f'</code></pre><button onclick="copyCode(\'{code_id}\')" style="position: absolute; top: 6px; right: 6px; background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; opacity: 0.7;">복사</button></div>')
                 continue
             
             if in_code_block:
-                result.append(line)
+                # 코드 블록 내에서 HTML 태그 제거
+                clean_line = self._clean_html_code(line)
+                result.append(clean_line)
                 continue
             
             # 헤더

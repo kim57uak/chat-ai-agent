@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTextEdit, QLineEdit, QPushButton, 
                              QHBoxLayout, QFileDialog, QCheckBox, QLabel, QProgressBar, 
                              QTextBrowser, QPlainTextEdit, QComboBox)
+from ui.components.modern_progress_bar import ModernProgressBar
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut
@@ -72,13 +73,9 @@ class ChatWidget(QWidget):
         self.chat_display_view.setMinimumHeight(400)
         self.layout.addWidget(self.chat_display_view, 1)
         
-        # 로딩 바
-        self.loading_bar = QProgressBar(self)
-        self.loading_bar.setRange(0, 0)
-        self.loading_bar.setFixedHeight(3)
+        # 현대적인 로딩 바
+        self.loading_bar = ModernProgressBar(self)
         self.loading_bar.hide()
-        self.loading_bar.setTextVisible(False)
-        self.loading_bar.setStyleSheet(FlatTheme.get_loading_bar_style())
         self.layout.addWidget(self.loading_bar)
         
         # 입력 영역

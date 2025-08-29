@@ -426,25 +426,41 @@ class FlatTheme:
         }
         
         pre {
-            background: #2d2d30 !important;
-            border: 1px solid #3e3e42 !important;
-            border-radius: 4px !important;
+            background: #1e1e1e !important;
+            border: none !important;
+            border-radius: 6px !important;
             padding: 16px !important;
             margin: 12px 0 !important;
             overflow-x: auto !important;
-            font-family: 'SF Mono', Consolas, monospace !important;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', Consolas, monospace !important;
             font-size: 13px !important;
             color: #d4d4d4 !important;
+            line-height: 1.4 !important;
+            box-shadow: none !important;
+            position: relative !important;
+        }
+        
+        pre::before,
+        pre::after {
+            display: none !important;
         }
         
         code {
-            background: #2d2d30 !important;
-            border: 1px solid #3e3e42 !important;
+            background: #2a2a2a !important;
+            border: none !important;
             border-radius: 3px !important;
             padding: 2px 6px !important;
-            font-family: 'SF Mono', Consolas, monospace !important;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', Consolas, monospace !important;
             font-size: 12px !important;
             color: #ce9178 !important;
+            box-shadow: none !important;
+        }
+        
+        pre code {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            color: #d4d4d4 !important;
         }
         
         h1, h2, h3, h4, h5, h6 {
@@ -576,22 +592,66 @@ class FlatTheme:
     
     @staticmethod
     def get_loading_bar_style():
-        """로딩 바 스타일 - 고급 다크 테마"""
+        """현대적이고 화려한 로딩 바 스타일 - 네온 그라데이션 애니메이션"""
         return """
             QProgressBar {
                 border: none;
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 rgba(31, 41, 55, 0.8), 
-                    stop:1 rgba(17, 24, 39, 0.8));
-                border-radius: 3px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
+                    stop:0 rgba(15, 15, 25, 0.9), 
+                    stop:0.5 rgba(25, 15, 35, 0.9),
+                    stop:1 rgba(15, 25, 35, 0.9));
+                border-radius: 8px;
+                border: 2px solid rgba(100, 200, 255, 0.3);
+                box-shadow: 0 0 20px rgba(100, 200, 255, 0.2);
+                height: 8px;
             }
             QProgressBar::chunk {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 #6366f1, 
-                    stop:0.5 #8b5cf6, 
-                    stop:1 #06b6d4);
-                border-radius: 3px;
+                    stop:0 rgba(255, 0, 150, 0.9),
+                    stop:0.2 rgba(255, 100, 0, 0.9),
+                    stop:0.4 rgba(255, 255, 0, 0.9),
+                    stop:0.6 rgba(0, 255, 150, 0.9),
+                    stop:0.8 rgba(0, 150, 255, 0.9),
+                    stop:1 rgba(150, 0, 255, 0.9));
+                border-radius: 6px;
                 border: none;
+                box-shadow: 
+                    0 0 15px rgba(255, 100, 200, 0.6),
+                    0 0 30px rgba(100, 200, 255, 0.4),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                animation: rainbow-pulse 2s ease-in-out infinite alternate;
+            }
+            
+            @keyframes rainbow-pulse {
+                0% {
+                    box-shadow: 
+                        0 0 15px rgba(255, 0, 150, 0.8),
+                        0 0 30px rgba(255, 0, 150, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                }
+                25% {
+                    box-shadow: 
+                        0 0 15px rgba(255, 255, 0, 0.8),
+                        0 0 30px rgba(255, 255, 0, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                }
+                50% {
+                    box-shadow: 
+                        0 0 15px rgba(0, 255, 150, 0.8),
+                        0 0 30px rgba(0, 255, 150, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                }
+                75% {
+                    box-shadow: 
+                        0 0 15px rgba(0, 150, 255, 0.8),
+                        0 0 30px rgba(0, 150, 255, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                }
+                100% {
+                    box-shadow: 
+                        0 0 15px rgba(150, 0, 255, 0.8),
+                        0 0 30px rgba(150, 0, 255, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                }
             }
         """

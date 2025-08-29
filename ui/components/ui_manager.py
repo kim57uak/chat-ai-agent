@@ -1,12 +1,13 @@
 from PyQt6.QtWidgets import QProgressBar
 from PyQt6.QtCore import QTimer
+from ui.components.modern_progress_bar import ModernProgressBar
 import math
 
 
 class UIManager:
     """UI 상태 관리를 담당하는 클래스 (SRP)"""
     
-    def __init__(self, send_button, cancel_button, upload_button, loading_bar: QProgressBar):
+    def __init__(self, send_button, cancel_button, upload_button, loading_bar):
         self.send_button = send_button
         self.cancel_button = cancel_button
         self.upload_button = upload_button
@@ -30,10 +31,20 @@ class UIManager:
     
     def show_loading(self, show):
         """로딩 상태 표시/숨김"""
-        if show:
-            self._start_loading_animation()
+        if isinstance(self.loading_bar, ModernProgressBar):
+            if show:
+                self.loading_bar.set_indeterminate(True)
+                self.loading_bar.start_animation()  # 명시적으로 애니메이션 시작
+                self.loading_bar.show()
+            else:
+                self.loading_bar.hide()
+                self.loading_bar.stop_animation()
         else:
-            self._stop_loading_animation()
+            # Fallback for standard QProgressBar
+            if show:
+                self._start_loading_animation()
+            else:
+                self._stop_loading_animation()
     
     def _start_loading_animation(self):
         """로딩 애니메이션 시작"""

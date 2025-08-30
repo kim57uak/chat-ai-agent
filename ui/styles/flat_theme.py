@@ -88,6 +88,7 @@ class FlatTheme:
                         stop:1 rgba(35, 35, 45, 0.95));
                     border: 2px solid rgba(100, 200, 255, 0.3);
                     border-radius: 16px;
+
                 }
             """,
             'mode_toggle': """
@@ -106,6 +107,8 @@ class FlatTheme:
                     max-width: 100px;
                     text-transform: uppercase;
                     letter-spacing: 1px;
+                    margin-right: 8px;
+                    margin-left: 12px;
                 }
                 QPushButton:hover {
                     color: #ffffff;

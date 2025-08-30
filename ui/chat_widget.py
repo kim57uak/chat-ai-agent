@@ -123,10 +123,12 @@ class ChatWidget(QWidget):
         self.upload_button.setMinimumHeight(80)
         self.upload_button.setStyleSheet(FlatTheme.get_input_area_style()['upload_button'])
         
+        input_layout.addSpacing(12)  # 왼쪽 간격
         input_layout.addWidget(input_container, 5)
         input_layout.addWidget(self.send_button, 1)
         input_layout.addWidget(self.cancel_button, 1)
         input_layout.addWidget(self.upload_button, 1)
+        input_layout.addSpacing(12)  # 오른쪽 간격
         
         self.layout.addLayout(input_layout, 0)
     

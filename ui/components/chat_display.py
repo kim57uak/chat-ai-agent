@@ -605,7 +605,7 @@ class ChatDisplay:
             var deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '🗑️';
             deleteBtn.title = '메시지 삭제';
-            deleteBtn.style.cssText = 'position:absolute;top:14px;right:70px;background:rgba(220,53,69,0.4);color:rgba(255,255,255,0.7);border:1px solid rgba(220,53,69,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            deleteBtn.style.cssText = 'position:absolute;top:18px;right:18px;background:rgba(220,53,69,0.4);color:rgba(255,255,255,0.7);border:1px solid rgba(220,53,69,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
             deleteBtn.onclick = function() {{ deleteMessage('{message_id}'); }};
             deleteBtn.onmouseenter = function() {{ 
                 this.style.background = 'rgba(220,53,69,0.475)';
@@ -634,7 +634,7 @@ class ChatDisplay:
             var messageDiv = document.createElement('div');
             messageDiv.id = '{display_message_id}';
             messageDiv.setAttribute('data-message-id', '{message_id or ""}');
-            messageDiv.style.cssText = 'margin:12px 0;padding:16px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
+            messageDiv.style.cssText = 'margin:20px 0;padding:20px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
             messageDiv.onmouseenter = function() {{ }};
             messageDiv.onmouseleave = function() {{ }};
             
@@ -645,7 +645,7 @@ class ChatDisplay:
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋';
             copyBtn.title = '메시지 복사';
-            copyBtn.style.cssText = 'position:absolute;top:14px;right:18px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            copyBtn.style.cssText = 'position:absolute;top:18px;right:70px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
             copyBtn.onclick = function() {{ copyMessage('{display_message_id}'); }};
             copyBtn.onmouseenter = function() {{ 
                 this.style.background = 'rgba(105,105,110,0.475)';
@@ -668,7 +668,7 @@ class ChatDisplay:
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{display_message_id}_content';
-            contentDiv.style.cssText = 'margin:0;padding-left:8px;line-height:1.6;color:#e8e8e8;font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
+            contentDiv.style.cssText = 'margin:0;padding-left:8px;padding-right:80px;line-height:1.6;color:#e8e8e8;font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(copyBtn);

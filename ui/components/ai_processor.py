@@ -250,9 +250,12 @@ class AIProcessor(QObject):
                         if hasattr(client, '_last_response') and client._last_response:
                             print(f"\n--- RAW AI RESPONSE ---\n{str(client._last_response)[:500]}...")
                     
-                    logging.info(f"AI Response Type: {type(response)}")
-                    logging.info(f"AI Response: {str(response)}")
-                    logging.info(f"Used Tools: {used_tools}")
+                    # 응답 타입과 내용 로깅 (디버깅용)
+                    print(f"\n=== RESPONSE DEBUG ===\nType: {type(response)}\nContent: {str(response)[:200]}...\nTools: {used_tools}")
+                    
+                    # 응답이 문자열이 아닌 경우 문자열로 변환
+                    if not isinstance(response, str):
+                        response = str(response)
                     
                     # 사용된 도구 업데이트
                     for tool in used_tools:

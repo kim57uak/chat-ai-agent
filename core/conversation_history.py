@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from datetime import datetime
 from typing import List, Dict
 from core.file_utils import load_config
@@ -38,6 +39,7 @@ class ConversationHistory:
             return
             
         message = {
+            "id": str(uuid.uuid4()),
             "role": role,
             "content": content,
             "timestamp": datetime.now().isoformat(),
@@ -63,6 +65,8 @@ class ConversationHistory:
         # Keep only recent messages
         if len(self.current_session) > self.max_history_length:
             self.current_session = self.current_session[-self.max_history_length:]
+        
+        return message["id"]
 
     def get_context_messages(self) -> List[Dict]:
         """Get messages for AI context using hybrid approach"""
@@ -89,7 +93,7 @@ class ConversationHistory:
         all_messages = user_messages + ai_messages
         all_messages.sort(key=lambda x: x["timestamp"])
         
-        return [{"role": msg["role"], "content": msg["content"]} for msg in all_messages]
+        return [{"role": msg["role"], "content": self._clean_content_for_ai(msg["content"])} for msg in all_messages]
 
     def _apply_token_limit(self, ai_messages: List[Dict]) -> List[Dict]:
         """Apply token limit to AI responses"""
@@ -127,7 +131,7 @@ class ConversationHistory:
             if len(messages) > 10:
                 messages = messages[-10:]
         
-        return [{"role": msg["role"], "content": msg["content"]} for msg in messages]
+        return [{"role": msg["role"], "content": self._clean_content_for_ai(msg["content"])} for msg in messages]
 
     def get_recent_messages(self, count: int = 5) -> List[Dict]:
         """Get recent messages for display"""
@@ -187,6 +191,10 @@ class ConversationHistory:
                     # 모델 정보가 없는 AI 메시지에 기본값 추가
                     if msg["role"] in ["assistant", "agent"] and "model" not in msg:
                         msg["model"] = "unknown"
+                    
+                    # ID가 없는 메시지에 ID 추가
+                    if "id" not in msg:
+                        msg["id"] = str(uuid.uuid4())
                     
                     valid_messages.append(msg)
             
@@ -259,3 +267,52 @@ class ConversationHistory:
             "hybrid_mode": self.hybrid_mode,
             "model_stats": model_stats
         }
+    
+    def delete_message(self, message_id: str) -> bool:
+        """Delete message by ID"""
+        try:
+            original_length = len(self.current_session)
+            self.current_session = [msg for msg in self.current_session if msg.get("id") != message_id]
+            
+            if len(self.current_session) < original_length:
+                self.save_to_file()
+                return True
+            return False
+        except Exception as e:
+            print(f"Message deletion failed: {e}")
+            return False
+    
+    def _clean_content_for_ai(self, content: str) -> str:
+        """Clean HTML tags and emojis from content for AI context"""
+        import re
+        
+        if not content:
+            return content
+        
+        # HTML 태그 제거
+        content = re.sub(r'<[^>]+>', '', content)
+        
+        # HTML 엔티티 디코딩
+        content = content.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+        content = content.replace('&quot;', '"').replace('&#39;', "'")
+        
+        # 이모지 제거 (유니코드 이모지 범위)
+        content = re.sub(r'[\U0001F600-\U0001F64F]', '', content)  # 얼굴 이모지
+        content = re.sub(r'[\U0001F300-\U0001F5FF]', '', content)  # 기호 및 그림 문자
+        content = re.sub(r'[\U0001F680-\U0001F6FF]', '', content)  # 교통 및 지도 기호
+        content = re.sub(r'[\U0001F1E0-\U0001F1FF]', '', content)  # 국기
+        content = re.sub(r'[\U00002600-\U000026FF]', '', content)  # 기타 기호
+        content = re.sub(r'[\U00002700-\U000027BF]', '', content)  # 딩배트
+        
+        # 모든 이스케이프 문자 제거
+        content = re.sub(r'\\[nrtbfav\\]', ' ', content)  # \n, \r, \t, \b, \f, \a, \v, \\
+        content = re.sub(r'[\n\r\t\f\v]', ' ', content)  # 실제 제어문자
+        content = content.replace('\\', '')  # 남은 백슬래시
+        
+        # 여러 공백을 하나로 정리
+        content = re.sub(r'\s+', ' ', content)
+        
+        # 앞뒤 공백 제거
+        content = content.strip()
+        
+        return content

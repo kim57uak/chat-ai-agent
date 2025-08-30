@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTextEdit, QLineEdit, QPushButton, 
                              QHBoxLayout, QFileDialog, QCheckBox, QLabel, QProgressBar, 
                              QTextBrowser, QPlainTextEdit, QComboBox)
+from ui.components.modern_progress_bar import ModernProgressBar
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut
@@ -72,13 +73,9 @@ class ChatWidget(QWidget):
         self.chat_display_view.setMinimumHeight(400)
         self.layout.addWidget(self.chat_display_view, 1)
         
-        # 로딩 바
-        self.loading_bar = QProgressBar(self)
-        self.loading_bar.setRange(0, 0)
-        self.loading_bar.setFixedHeight(3)
+        # 현대적인 로딩 바
+        self.loading_bar = ModernProgressBar(self)
         self.loading_bar.hide()
-        self.loading_bar.setTextVisible(False)
-        self.loading_bar.setStyleSheet(FlatTheme.get_loading_bar_style())
         self.layout.addWidget(self.loading_bar)
         
         # 입력 영역
@@ -126,10 +123,12 @@ class ChatWidget(QWidget):
         self.upload_button.setMinimumHeight(80)
         self.upload_button.setStyleSheet(FlatTheme.get_input_area_style()['upload_button'])
         
+        input_layout.addSpacing(12)  # 왼쪽 간격
         input_layout.addWidget(input_container, 5)
         input_layout.addWidget(self.send_button, 1)
         input_layout.addWidget(self.cancel_button, 1)
         input_layout.addWidget(self.upload_button, 1)
+        input_layout.addSpacing(12)  # 오른쪽 간격
         
         self.layout.addLayout(input_layout, 0)
     
@@ -140,6 +139,7 @@ class ChatWidget(QWidget):
         
         # 채팅 표시
         self.chat_display = ChatDisplay(self.chat_display_view)
+        self.chat_display.set_chat_widget(self)
         
         # UI 매니저
         self.ui_manager = UIManager(
@@ -230,12 +230,12 @@ class ChatWidget(QWidget):
         """새 메시지 처리"""
         self.request_start_time = datetime.now()
         
-        self.chat_display.append_message('사용자', user_text)
-        self.input_text.clear()
-        
         # 사용자 메시지를 히스토리에 즉시 추가 (하이브리드 방식에서는 즉시 추가)
-        self.conversation_history.add_message('user', user_text)
+        message_id = self.conversation_history.add_message('user', user_text)
         self.messages.append({'role': 'user', 'content': user_text})
+        
+        self.chat_display.append_message('사용자', user_text, message_id=message_id)
+        self.input_text.clear()
         
         model = load_last_model()
         api_key = load_model_api_key(model)
@@ -388,14 +388,12 @@ class ChatWidget(QWidget):
         # 표시용 sender 결정
         display_sender = '에이전트' if '에이전트' in sender else 'AI'
         
-        self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True)
-        
         # AI 응답을 히스토리에 추가 - 토큰 정보 포함
         input_tokens = current_status.get('input_tokens', 0)
         output_tokens = current_status.get('output_tokens', 0)
         total_tokens = current_status.get('total_tokens', 0)
         
-        self.conversation_history.add_message(
+        ai_message_id = self.conversation_history.add_message(
             'assistant', text, current_model, 
             input_tokens=input_tokens if input_tokens > 0 else None,
             output_tokens=output_tokens if output_tokens > 0 else None,
@@ -403,6 +401,8 @@ class ChatWidget(QWidget):
         )
         self.conversation_history.save_to_file()
         self.messages.append({'role': 'assistant', 'content': text})
+        
+        self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
         
         self.ui_manager.set_ui_enabled(True)
         self.ui_manager.show_loading(False)
@@ -522,7 +522,7 @@ class ChatWidget(QWidget):
                         model = msg.get('model', '')
                         
                         if role == 'user':
-                            self.chat_display.append_message('사용자', content)
+                            self.chat_display.append_message('사용자', content, message_id=msg.get('id'))
                         elif role == 'assistant':
                             # 토큰 정보 추출 - 실시간과 동일한 형식
                             token_info = ""
@@ -542,10 +542,10 @@ class ChatWidget(QWidget):
                             if model and model != 'unknown':
                                 enhanced_content = f"{content}\n\n---\n*🤖 {model}{token_info}*"
                                 # 모델명을 original_sender로 전달하여 포맷팅에 활용
-                                self.chat_display.append_message('AI', enhanced_content, original_sender=model)
+                                self.chat_display.append_message('AI', enhanced_content, original_sender=model, message_id=msg.get('id'))
                             else:
                                 enhanced_content = f"{content}\n\n---\n*🤖 AI{token_info}*" if token_info else content
-                                self.chat_display.append_message('AI', enhanced_content)
+                                self.chat_display.append_message('AI', enhanced_content, message_id=msg.get('id'))
                     
                     # 이전 대화 로드 후 웰컴 메시지 표시
                     stats = self.conversation_history.get_stats()
@@ -643,3 +643,14 @@ class ChatWidget(QWidget):
             
         except Exception as e:
             print(f"ChatWidget 종료 중 오류: {e}")
+    
+    def delete_message(self, message_id: str) -> bool:
+        """메시지 삭제"""
+        try:
+            success = self.conversation_history.delete_message(message_id)
+            if success:
+                print(f"메시지 삭제 성공: {message_id}")
+            return success
+        except Exception as e:
+            print(f"메시지 삭제 오류: {e}")
+            return False

@@ -120,15 +120,18 @@ class ModernProgressBar(QWidget):
     
     def _get_modern_color(self, phase: float, alpha: float = 1.0) -> QColor:
         """현대적이고 아름다운 색상 생성"""
-        # 현대적인 그라디언트 색상 팩레트
-        colors = [
-            (138, 43, 226),   # 블루바이올렛
-            (75, 0, 130),     # 인디고
-            (0, 191, 255),    # 딥스카이블루
-            (30, 144, 255),   # 독지블루
-            (0, 206, 209),    # 다크터콰이즈
-            (64, 224, 208),   # 터콰이즈
-        ]
+        # 테마에 따른 색상 가져오기
+        colors = self._get_theme_colors()
+        if not colors:
+            # 기본 색상
+            colors = [
+                (138, 43, 226),   # 블루바이올렛
+                (75, 0, 130),     # 인디고
+                (0, 191, 255),    # 딥스카이블루
+                (30, 144, 255),   # 독지블루
+                (0, 206, 209),    # 다크터콰이즈
+                (64, 224, 208),   # 터콰이즈
+            ]
         
         # 부드러운 전환을 위한 인덱스 계산
         normalized_phase = (phase % (2 * math.pi)) / (2 * math.pi)
@@ -148,6 +151,43 @@ class ModernProgressBar(QWidget):
         b = int(b1 + (b2 - b1) * t)
         
         return QColor(r, g, b, int(255 * alpha))
+    
+    def _get_theme_colors(self):
+        """테마에 따른 로딩바 색상 반환"""
+        try:
+            from ui.styles.theme_manager import theme_manager
+            
+            if theme_manager.use_material_theme:
+                loading_config = theme_manager.material_manager.get_loading_bar_config()
+                chunk_color = loading_config.get('chunk', '')
+                
+                # 그라디언트에서 색상 추출
+                if 'linear-gradient' in chunk_color:
+                    # 간단한 색상 추출 (예: #bb86fc, #03dac6)
+                    import re
+                    hex_colors = re.findall(r'#[0-9a-fA-F]{6}', chunk_color)
+                    if len(hex_colors) >= 2:
+                        colors = []
+                        for hex_color in hex_colors:
+                            r = int(hex_color[1:3], 16)
+                            g = int(hex_color[3:5], 16)
+                            b = int(hex_color[5:7], 16)
+                            colors.append((r, g, b))
+                        return colors
+            
+            return None
+        except Exception:
+            return None
+    
+    def update_theme(self):
+        """테마 업데이트"""
+        try:
+            # 색상 캐시 초기화
+            self.color_phase = 0.0
+            self.update()
+            print("로딩바 테마 업데이트 완료")
+        except Exception as e:
+            print(f"로딩바 테마 업데이트 오류: {e}")
     
     def paintEvent(self, event):
         """페인트 이벤트"""

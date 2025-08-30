@@ -7,6 +7,7 @@ from core.application import SignalHandler, AppInitializer, AppRunner
 def main() -> int:
     """Main application entry point."""
     # Setup logging
+    
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

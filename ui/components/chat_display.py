@@ -59,8 +59,7 @@ class ChatDisplay:
     
     def _load_html_template(self):
         """HTML 템플릿 로드"""
-        from ui.styles.flat_theme import FlatTheme
-        theme_css = FlatTheme.get_chat_display_css()
+        theme_css = self._get_current_theme_css()
         
         html_template = r"""
         <!DOCTYPE html>
@@ -103,7 +102,7 @@ class ChatDisplay:
                     if (typeof mermaid !== 'undefined') {
                         mermaid.initialize({
                             startOnLoad: true,
-                            theme: 'dark',
+                            theme: '{"default" if not self.is_dark_theme() else "dark"}',
                             securityLevel: 'loose',
                             // 모든 다이어그램 유형 설정
                             flowchart: { useMaxWidth: true, htmlLabels: true },
@@ -133,53 +132,29 @@ class ChatDisplay:
                 function rerenderMermaid() {
                     if (typeof mermaid !== 'undefined') {
                         try {
-                            // Mermaid 구문 오류 자동 수정
                             const mermaidElements = document.querySelectorAll('.mermaid');
                             mermaidElements.forEach(element => {
                                 let content = element.textContent || element.innerHTML;
                                 
-                                // ER 다이어그램에서 따옴표 제거
                                 if (content.includes('erDiagram')) {
                                     content = content.replace(/: "([^"]+)"/g, ': $1');
                                     content = content.replace(/: '([^']+)'/g, ': $1');
                                     element.textContent = content;
-                                    console.log('ER 다이어그램 구문 수정 완료');
                                 }
                                 
-                                // 기타 일반적인 구문 오류 수정
                                 content = content.replace(/--&gt;/g, '-->');
                                 content = content.replace(/&#45;&#45;&#45;/g, '---');
                                 content = content.replace(/-&gt;&gt;/g, '->');
                                 
                                 if (element.textContent !== content) {
                                     element.textContent = content;
-                                    console.log('Mermaid 구문 오류 자동 수정 완료');
                                 }
                             });
                             
                             mermaid.run();
-                            console.log('Mermaid 재렌더링 완료');
+                            console.log('Mermaid 재렌더링 완룉');
                         } catch (error) {
                             console.error('Mermaid 렌더링 오류:', error);
-                            
-                            // 오류 발생 시 사용자에게 알림
-                            const mermaidElements = document.querySelectorAll('.mermaid');
-                            mermaidElements.forEach(element => {
-                                if (element.innerHTML.includes('Syntax error') || error.message.includes('Parse error')) {
-                                    const originalContent = element.textContent;
-                                    element.innerHTML = `
-                                        <div style="background: #2a2a2a; border: 2px solid #ff6b6b; border-radius: 8px; padding: 20px; text-align: center; color: #ff6b6b;">
-                                            <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
-                                            <div style="font-size: 16px; margin-bottom: 8px;">Mermaid 다이어그램 구문 오류</div>
-                                            <div style="font-size: 12px; opacity: 0.8;">다이어그램 코드를 확인해주세요</div>
-                                            <details style="margin-top: 15px; text-align: left;">
-                                                <summary style="cursor: pointer; color: #87CEEB;">원본 코드 보기</summary>
-                                                <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 11px; overflow-x: auto;">${originalContent}</pre>
-                                            </details>
-                                        </div>
-                                    `;
-                                }
-                            });
                         }
                     }
                 }
@@ -543,13 +518,61 @@ class ChatDisplay:
                 }
             </script>
         </head>
-        <body style="background: #0a0a0a !important; color: #f3f4f6 !important; margin: 0 !important; padding: 8px !important;">
+        <body>
+            <div id="messages"></div>
+        </body>
             <div id="messages"></div>
         </body>
         </html>
         """
         self.web_view.setHtml(html_template)
         print("HTML 템플릿 로드 완료")
+    
+    def _get_current_theme_css(self) -> str:
+        """현재 테마 CSS 반환"""
+        from ui.styles.theme_manager import theme_manager
+        
+        if theme_manager.use_material_theme:
+            return theme_manager.material_manager.generate_web_css()
+        else:
+            from ui.styles.flat_theme import FlatTheme
+            return FlatTheme.get_chat_display_css()
+    
+    def update_theme(self):
+        """테마 업데이트"""
+        try:
+            # 새로운 CSS 생성
+            new_css = self._get_current_theme_css()
+            
+            # CSS에서 백틱 및 특수문자 이스케이프 처리
+            escaped_css = new_css.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
+            
+            # JavaScript로 CSS 업데이트
+            js_code = f"""
+            try {{
+                // 기존 스타일 제거
+                var existingStyle = document.getElementById('theme-style');
+                if (existingStyle) {{
+                    existingStyle.remove();
+                }}
+                
+                // 새로운 스타일 추가
+                var style = document.createElement('style');
+                style.id = 'theme-style';
+                style.textContent = `{escaped_css}`;
+                document.head.appendChild(style);
+                
+                console.log('테마 CSS 업데이트 완료');
+            }} catch(e) {{
+                console.error('테마 CSS 업데이트 오류:', e);
+            }}
+            """
+            
+            self.web_view.page().runJavaScript(js_code)
+            print("채팅 디스플레이 테마 업데이트 완료")
+            
+        except Exception as e:
+            print(f"채팅 디스플레이 테마 업데이트 오류: {e}")
     
     def _setup_link_handler(self):
         """링크 클릭 핸들러 설정"""
@@ -567,22 +590,26 @@ class ChatDisplay:
     
     def append_message(self, sender, text, original_sender=None, progressive=False, message_id=None):
         """메시지 추가 - progressive=True시 점진적 출력"""
-        # 발신자별 스타일 - 투명도 70% 싱크로
+        # 테마에 따른 색상 가져오기
+        from ui.styles.theme_manager import theme_manager
+        colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+        
+        # 발신자별 스타일
         if sender == '사용자':
-            bg_color = 'rgba(26, 26, 26, 0.3)'
-            border_color = ''
+            bg_color = colors.get('user_bg', 'rgba(26, 26, 26, 0.3)')
             icon = '💬'
-            sender_color = '#cccccc'
+            sender_color = colors.get('text_secondary', '#cccccc')
+            content_color = colors.get('text_primary', '#ffffff')
         elif sender in ['AI', '에이전트'] or '에이전트' in sender:
-            bg_color = 'rgba(26, 26, 26, 0.3)'
-            border_color = ''
+            bg_color = colors.get('ai_bg', 'rgba(26, 26, 26, 0.3)')
             icon = '🤖'
-            sender_color = '#cccccc'
+            sender_color = colors.get('text_secondary', '#cccccc')
+            content_color = colors.get('text_primary', '#ffffff')
         else:
-            bg_color = 'rgba(26, 26, 26, 0.3)'
-            border_color = ''
+            bg_color = colors.get('system_bg', 'rgba(26, 26, 26, 0.3)')
             icon = '⚙️'
-            sender_color = '#999999'
+            sender_color = colors.get('text_secondary', '#999999')
+            content_color = colors.get('text_secondary', '#b3b3b3')
         
         # 렌더링 확실히 보장하는 포맷터 사용
         from ui.fixed_formatter import FixedFormatter
@@ -668,7 +695,7 @@ class ChatDisplay:
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{display_message_id}_content';
-            contentDiv.style.cssText = 'margin:0;padding-left:8px;padding-right:80px;line-height:1.6;color:#e8e8e8;font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
+            contentDiv.style.cssText = 'margin:0;padding-left:8px;padding-right:80px;line-height:1.6;color:{content_color};font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(copyBtn);

@@ -24,7 +24,7 @@ class MainWindow(QMainWindow):
     
     def _setup_window(self) -> None:
         """Setup main window properties."""
-        self._update_window_title()
+        self.setWindowTitle('Chat AI Agent')
         self.setGeometry(100, 100, 1200, 800)
         self._apply_current_theme()
     
@@ -228,9 +228,6 @@ class MainWindow(QMainWindow):
             
             self._apply_current_theme()
             
-            # 창 제목 업데이트
-            self._update_window_title()
-            
             # 채팅 위젯의 웹뷰 CSS 업데이트
             if hasattr(self, 'chat_widget'):
                 self.chat_widget.update_theme()
@@ -247,25 +244,6 @@ class MainWindow(QMainWindow):
         theme_manager.material_manager._load_themes()
         stylesheet = theme_manager.get_material_stylesheet()
         self.setStyleSheet(stylesheet)
-    
-    def _apply_saved_theme(self):
-        """저장된 테마 적용"""
-        try:
-            # theme.json에서 현재 테마 읽기
-            current_theme_key = theme_manager.material_manager.current_theme_key
-            
-            # 창 제목 업데이트
-            self._update_window_title()
-            
-            # 메뉴 체크 상태 업데이트
-            self._update_theme_menu_checks(current_theme_key)
-            
-            # 채팅 위젯에 테마 적용
-            if hasattr(self, 'chat_widget'):
-                self.chat_widget.update_theme()
-                
-        except Exception as e:
-            print(f"저장된 테마 적용 오류: {e}")
     
     def _update_theme_menu_checks(self, selected_theme_key: str):
         """테마 메뉴 체크 상태 업데이트"""
@@ -286,15 +264,4 @@ class MainWindow(QMainWindow):
             for action in theme_menu.actions():
                 if action.text() == selected_theme_name:
                     action.setChecked(True)
-                    break
-    
-    def _update_window_title(self):
-        """창 제목을 현재 테마명과 함께 업데이트"""
-        try:
-            current_theme_key = theme_manager.material_manager.current_theme_key
-            available_themes = theme_manager.get_available_material_themes()
-            theme_name = available_themes.get(current_theme_key, "Unknown")
-            self.setWindowTitle(f'AIAgent - {theme_name}')
-        except Exception as e:
-            print(f"창 제목 업데이트 오류: {e}")
-            self.setWindowTitle('AIAgent')
+                    break 

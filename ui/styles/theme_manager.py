@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Dict, Any
 import json
 import os
+from .material_theme_manager import material_theme_manager, MaterialThemeType
 
 
 class ThemeType(Enum):
@@ -19,6 +20,8 @@ class ThemeManager:
         self.current_theme = ThemeType.DARK
         self.themes = self._load_default_themes()
         self.custom_themes = self._load_custom_themes()
+        self.material_manager = material_theme_manager
+        self.use_material_theme = True
     
     def _load_default_themes(self) -> Dict[str, Dict[str, Any]]:
         """기본 테마 로드"""
@@ -92,6 +95,9 @@ class ThemeManager:
     
     def get_current_theme(self) -> Dict[str, Any]:
         """현재 테마 반환"""
+        if self.use_material_theme:
+            return self.material_manager.get_current_theme()
+        
         theme_key = self.current_theme.value
         if theme_key in self.themes:
             return self.themes[theme_key]
@@ -100,6 +106,27 @@ class ThemeManager:
     def set_theme(self, theme_type: ThemeType):
         """테마 설정"""
         self.current_theme = theme_type
+    
+    def set_material_theme(self, theme_type: MaterialThemeType):
+        """Material 테마 설정"""
+        self.material_manager.set_theme(theme_type)
+        self.use_material_theme = True
+    
+    def get_material_stylesheet(self) -> str:
+        """Material 테마 Qt 스타일시트 반환"""
+        return self.material_manager.generate_qt_stylesheet()
+    
+    def get_material_web_css(self) -> str:
+        """Material 테마 웹 CSS 반환"""
+        return self.material_manager.generate_web_css()
+    
+    def get_available_material_themes(self) -> Dict[str, str]:
+        """사용 가능한 Material 테마 목록 반환"""
+        return self.material_manager.get_available_themes()
+    
+    def is_material_dark_theme(self) -> bool:
+        """현재 Material 테마가 다크 테마인지 확인"""
+        return self.material_manager.is_dark_theme()
     
     def get_css_variables(self) -> str:
         """CSS 변수 생성"""

@@ -1,0 +1,20 @@
+{
+  "osm-mcp-server": false,
+  "hanatourApi": false,
+  "mysql": false,
+  "bitbucket": false,
+  "mcp-atlassian": false,
+  "notionApi": false,
+  "ppt": false,
+  "excel-stdio": true,
+  "gmail": true,
+  "json-mcp-server": false,
+  "search-mcp-server": false,
+  "github": false,
+  "filesystem": false,
+  "youtube_transcript": false,
+  "wikipedia-mcp": false,
+  "duckduckgo": false,
+  "sale-product-search": true,
+  "pollinations": false
+}

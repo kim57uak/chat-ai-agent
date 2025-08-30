@@ -18,6 +18,7 @@ from ui.components.ui_manager import UIManager
 from ui.components.model_manager import ModelManager
 from ui.components.status_display import status_display
 from ui.styles.flat_theme import FlatTheme
+from ui.styles.theme_manager import theme_manager
 
 from datetime import datetime
 import os
@@ -654,3 +655,227 @@ class ChatWidget(QWidget):
         except Exception as e:
             print(f"메시지 삭제 오류: {e}")
             return False
+    
+    def update_theme(self):
+        """테마 업데이트"""
+        try:
+            # Qt 스타일시트 업데이트
+            if theme_manager.use_material_theme:
+                # Material 테마 사용 시 Qt 스타일시트 업데이트
+                self._apply_material_theme_styles()
+            else:
+                # 기본 테마 사용
+                self.setStyleSheet(FlatTheme.get_chat_widget_style())
+            
+            # 웹뷰 CSS 업데이트
+            if hasattr(self, 'chat_display'):
+                self.chat_display.update_theme()
+            
+            # 로딩바 테마 업데이트
+            if hasattr(self, 'loading_bar') and hasattr(self.loading_bar, 'update_theme'):
+                self.loading_bar.update_theme()
+            
+            print("테마 업데이트 완료")
+            
+        except Exception as e:
+            print(f"테마 업데이트 오류: {e}")
+    
+    def _apply_material_theme_styles(self):
+        """재료 테마 스타일 적용"""
+        colors = theme_manager.material_manager.get_theme_colors()
+        loading_config = theme_manager.material_manager.get_loading_bar_config()
+        
+        # 채팅 위젯 전체 스타일
+        widget_style = f"""
+        QWidget {{
+            background-color: {colors.get('background', '#121212')};
+            color: {colors.get('text_primary', '#ffffff')};
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        }}
+        QWebEngineView {{
+            background-color: {colors.get('background', '#121212')};
+        }}
+        """
+        self.setStyleSheet(widget_style)
+        
+        # 정보 라벨 스타일 업데이트
+        model_label_style = f"""
+        QLabel {{
+            color: {colors.get('on_primary', '#000000')};
+            font-size: 16px;
+            font-weight: 700;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            padding: 14px 18px;
+            background-color: {colors.get('primary', '#bb86fc')};
+            border: 2px solid {colors.get('primary_variant', '#3700b3')};
+            border-radius: 12px;
+        }}
+        """
+        
+        tools_label_style = f"""
+        QLabel {{
+            color: {colors.get('on_secondary', '#000000')};
+            font-size: 16px;
+            font-weight: 700;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            padding: 14px 18px;
+            background-color: {colors.get('secondary', '#03dac6')};
+            border: 2px solid {colors.get('secondary_variant', '#018786')};
+            border-radius: 12px;
+        }}
+        """
+        
+        status_label_style = f"""
+        QLabel {{
+            color: {colors.get('text_secondary', '#b3b3b3')};
+            font-size: 12px;
+            font-weight: 600;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            padding: 8px 16px;
+            background-color: {colors.get('surface', '#1e1e1e')};
+            border: 2px solid {colors.get('divider', '#333333')};
+            border-radius: 10px;
+        }}
+        """
+        
+        self.model_label.setStyleSheet(model_label_style)
+        self.tools_label.setStyleSheet(tools_label_style)
+        self.status_label.setStyleSheet(status_label_style)
+        
+        # 입력 영역 스타일 업데이트
+        self._apply_material_input_styles(colors)
+        
+        # 로딩바 스타일 업데이트
+        if hasattr(self, 'loading_bar'):
+            loading_style = f"""
+            QProgressBar {{
+                border: none;
+                background-color: {loading_config.get('background', 'rgba(187, 134, 252, 0.1)')};
+                border-radius: 8px;
+                height: 8px;
+            }}
+            QProgressBar::chunk {{
+                background: {loading_config.get('chunk', 'linear-gradient(90deg, #bb86fc 0%, #03dac6 100%)')};
+                border-radius: 6px;
+            }}
+            """
+            self.loading_bar.setStyleSheet(loading_style)
+    
+    def _apply_material_input_styles(self, colors):
+        """재료 테마 입력 영역 스타일 적용"""
+        # 입력 컸테이너 스타일
+        container_style = f"""
+        QWidget {{
+            background-color: {colors.get('surface', '#1e1e1e')};
+            border: 2px solid {colors.get('primary', '#bb86fc')};
+            border-radius: 16px;
+        }}
+        """
+        
+        # 모드 토글 버튼 스타일
+        mode_toggle_style = f"""
+        QPushButton {{
+            background-color: {colors.get('primary', '#bb86fc')};
+            color: {colors.get('on_primary', '#000000')};
+            border: 1px solid {colors.get('primary_variant', '#3700b3')};
+            border-radius: 12px;
+            padding: 14px 18px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            min-width: 100px;
+            max-width: 100px;
+            margin-right: 8px;
+            margin-left: 12px;
+        }}
+        QPushButton:hover {{
+            background-color: {colors.get('primary_variant', '#3700b3')};
+            color: {colors.get('on_primary', '#000000')};
+        }}
+        QPushButton:checked {{
+            background-color: {colors.get('secondary', '#03dac6')};
+            color: {colors.get('on_secondary', '#000000')};
+            border-color: {colors.get('secondary_variant', '#018786')};
+        }}
+        """
+        
+        # 입력창 스타일
+        input_text_style = f"""
+        QTextEdit {{
+            background-color: {colors.get('background', '#121212')};
+            color: {colors.get('text_primary', '#ffffff')};
+            border: 1px solid {colors.get('divider', '#333333')};
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            padding: 18px;
+            selection-background-color: {colors.get('primary', '#bb86fc')};
+        }}
+        QTextEdit:focus {{
+            border-color: {colors.get('primary', '#bb86fc')};
+        }}
+        """
+        
+        # 버튼 스타일
+        send_button_style = f"""
+        QPushButton {{
+            background-color: {colors.get('primary', '#bb86fc')};
+            color: {colors.get('on_primary', '#000000')};
+            border: 2px solid {colors.get('primary_variant', '#3700b3')};
+            border-radius: 14px;
+            font-weight: 800;
+            font-size: 18px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        }}
+        QPushButton:hover {{
+            background-color: {colors.get('primary_variant', '#3700b3')};
+        }}
+        QPushButton:disabled {{
+            background-color: {colors.get('surface', '#1e1e1e')};
+            color: {colors.get('text_secondary', '#b3b3b3')};
+            border-color: {colors.get('divider', '#333333')};
+        }}
+        """
+        
+        cancel_button_style = f"""
+        QPushButton {{
+            background-color: {colors.get('error', '#cf6679')};
+            color: {colors.get('on_error', '#000000')};
+            border: 2px solid {colors.get('error', '#cf6679')};
+            border-radius: 14px;
+            font-weight: 800;
+            font-size: 18px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        }}
+        QPushButton:hover {{
+            background-color: {colors.get('error', '#cf6679')};
+            filter: brightness(1.1);
+        }}
+        """
+        
+        upload_button_style = f"""
+        QPushButton {{
+            background-color: {colors.get('secondary', '#03dac6')};
+            color: {colors.get('on_secondary', '#000000')};
+            border: 2px solid {colors.get('secondary_variant', '#018786')};
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        }}
+        QPushButton:hover {{
+            background-color: {colors.get('secondary_variant', '#018786')};
+        }}
+        QPushButton:disabled {{
+            background-color: {colors.get('surface', '#1e1e1e')};
+            color: {colors.get('text_secondary', '#b3b3b3')};
+            border-color: {colors.get('divider', '#333333')};
+        }}
+        """
+        
+        # 스타일 적용
+        self.mode_toggle.setStyleSheet(mode_toggle_style)
+        self.input_text.setStyleSheet(input_text_style)
+        self.send_button.setStyleSheet(send_button_style)
+        self.cancel_button.setStyleSheet(cancel_button_style)
+        self.upload_button.setStyleSheet(upload_button_style)

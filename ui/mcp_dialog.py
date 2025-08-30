@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QTextEdit, QGroupBox, QPushButton
 from mcp.servers.mcp import start_mcp_servers, get_all_mcp_tools
+from ui.styles.material_theme_manager import material_theme_manager
 import json
 import os
 
@@ -10,6 +11,7 @@ class MCPDialog(QDialog):
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
         self.mcp_path = mcp_path
+        self.setStyleSheet(self._get_themed_dialog_style())
         
         layout = QVBoxLayout(self)
         
@@ -76,4 +78,65 @@ class MCPDialog(QDialog):
             else:
                 self.tools_box.setText('로드된 도구가 없습니다. 서버를 먼저 시작하세요.')
         except Exception as e:
-            self.tools_box.setText(f'도구 정보 로드 실패: {e}') 
+            self.tools_box.setText(f'도구 정보 로드 실패: {e}')
+    
+    def _get_themed_dialog_style(self):
+        theme = material_theme_manager.get_current_theme()
+        colors = theme.get('colors', {})
+        
+        return f"""
+            QDialog {{
+                background: {colors.get('background', '#121212')};
+                color: {colors.get('text_primary', '#ffffff')};
+                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+            }}
+            QLabel {{
+                color: {colors.get('text_primary', '#ffffff')};
+                font-size: 14px;
+                font-weight: 600;
+                padding: 4px 0;
+            }}
+            QTextEdit {{
+                background: {colors.get('surface', '#1e1e1e')};
+                color: {colors.get('text_primary', '#ffffff')};
+                border: 2px solid {colors.get('divider', '#333333')};
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 13px;
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+            }}
+            QGroupBox {{
+                color: {colors.get('text_primary', '#ffffff')};
+                font-size: 15px;
+                font-weight: 700;
+                border: 2px solid {colors.get('divider', '#333333')};
+                border-radius: 10px;
+                margin-top: 10px;
+                padding-top: 15px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px;
+                background: {colors.get('background', '#121212')};
+            }}
+            QPushButton {{
+                background: {colors.get('primary', '#bb86fc')};
+                color: {colors.get('on_primary', '#000000')};
+                border: 2px solid {colors.get('primary_variant', '#3700b3')};
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 16px;
+                padding: 12px 24px;
+            }}
+            QPushButton:hover {{
+                background: {colors.get('secondary', '#03dac6')};
+                color: {colors.get('on_secondary', '#000000')};
+                border-color: {colors.get('secondary_variant', '#018786')};
+            }}
+            QPushButton:disabled {{
+                background: {colors.get('text_secondary', '#b3b3b3')};
+                color: {colors.get('divider', '#333333')};
+                border-color: {colors.get('divider', '#333333')};
+            }}
+        """ 

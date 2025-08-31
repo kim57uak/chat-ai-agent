@@ -60,230 +60,103 @@ class ChatDisplay:
     def _load_html_template(self):
         """HTML 템플릿 로드"""
         theme_css = self._get_current_theme_css()
+        mermaid_theme = "dark" if self.is_dark_theme() else "default"
         
-        html_template = r"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-            <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-            <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-            <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
-            <script>
+        # JavaScript 코드를 별도로 생성
+        javascript_code = f"""
                 console.log('HTML 로드 시작');
                 
-                window.MathJax = {
-                    tex: {
+                window.MathJax = {{
+                    tex: {{
                         inlineMath: [['$', '$'], ['\\(', '\\)']],
                         displayMath: [['$$', '$$'], ['\\[', '\\]']],
                         processEscapes: true,
                         processEnvironments: true
-                    },
-                    options: {
+                    }},
+                    options: {{
                         skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
                         ignoreHtmlClass: 'tex2jax_ignore',
                         processHtmlClass: 'tex2jax_process'
-                    },
-                    svg: {
+                    }},
+                    svg: {{
                         fontCache: 'global'
-                    },
-                    startup: {
-                        ready: () => {
+                    }},
+                    startup: {{
+                        ready: () => {{
                             console.log('MathJax 준비 완료');
                             MathJax.startup.defaultReady();
-                        }
-                    }
-                };
+                        }}
+                    }}
+                }};
                 
-                document.addEventListener('DOMContentLoaded', function() {
+                document.addEventListener('DOMContentLoaded', function() {{
                     console.log('DOM 로드 완료');
-                    if (typeof mermaid !== 'undefined') {
-                        mermaid.initialize({
+                    if (typeof mermaid !== 'undefined') {{
+                        mermaid.initialize({{
                             startOnLoad: true,
-                            theme: '{"default" if not self.is_dark_theme() else "dark"}',
+                            theme: '{mermaid_theme}',
                             securityLevel: 'loose',
-                            // 모든 다이어그램 유형 설정
-                            flowchart: { useMaxWidth: true, htmlLabels: true },
-                            sequence: { useMaxWidth: true, wrap: true },
-                            gantt: { useMaxWidth: true, gridLineStartPadding: 350 },
-                            journey: { useMaxWidth: true },
-                            class: { useMaxWidth: true },
-                            state: { useMaxWidth: true },
-                            er: { useMaxWidth: true },
-                            pie: { useMaxWidth: true },
-                            requirement: { useMaxWidth: true },
-                            gitgraph: { useMaxWidth: true },
-                            c4: { useMaxWidth: true },
-                            mindmap: { useMaxWidth: true },
-                            timeline: { useMaxWidth: true },
-                            sankey: { useMaxWidth: true },
-                            xyChart: { useMaxWidth: true },
-                            block: { useMaxWidth: true },
-                            packet: { useMaxWidth: true },
-                            architecture: { useMaxWidth: true }
-                        });
+                            flowchart: {{ useMaxWidth: true, htmlLabels: true }},
+                            sequence: {{ useMaxWidth: true, wrap: true }},
+                            gantt: {{ useMaxWidth: true, gridLineStartPadding: 350 }},
+                            journey: {{ useMaxWidth: true }},
+                            class: {{ useMaxWidth: true }},
+                            state: {{ useMaxWidth: true }},
+                            er: {{ useMaxWidth: true }},
+                            pie: {{ useMaxWidth: true }},
+                            requirement: {{ useMaxWidth: true }},
+                            gitgraph: {{ useMaxWidth: true }},
+                            c4: {{ useMaxWidth: true }},
+                            mindmap: {{ useMaxWidth: true }},
+                            timeline: {{ useMaxWidth: true }},
+                            sankey: {{ useMaxWidth: true }},
+                            xyChart: {{ useMaxWidth: true }},
+                            block: {{ useMaxWidth: true }},
+                            packet: {{ useMaxWidth: true }},
+                            architecture: {{ useMaxWidth: true }}
+                        }});
                         console.log('Mermaid v10 모든 다이어그램 유형 초기화 완료');
-                    }
-                });
+                    }}
+                }});
                 
-                // Mermaid 다이어그램 재렌더링 함수
-                function rerenderMermaid() {
-                    if (typeof mermaid !== 'undefined') {
-                        try {
+                function rerenderMermaid() {{
+                    if (typeof mermaid !== 'undefined') {{
+                        try {{
                             const mermaidElements = document.querySelectorAll('.mermaid');
-                            mermaidElements.forEach(element => {
+                            mermaidElements.forEach(element => {{
                                 let content = element.textContent || element.innerHTML;
                                 
-                                if (content.includes('erDiagram')) {
+                                if (content.includes('erDiagram')) {{
                                     content = content.replace(/: "([^"]+)"/g, ': $1');
                                     content = content.replace(/: '([^']+)'/g, ': $1');
                                     element.textContent = content;
-                                }
+                                }}
                                 
                                 content = content.replace(/--&gt;/g, '-->');
                                 content = content.replace(/&#45;&#45;&#45;/g, '---');
                                 content = content.replace(/-&gt;&gt;/g, '->');
                                 
-                                if (element.textContent !== content) {
+                                if (element.textContent !== content) {{
                                     element.textContent = content;
-                                }
-                            });
+                                }}
+                            }});
                             
                             mermaid.run();
-                            console.log('Mermaid 재렌더링 완룉');
-                        } catch (error) {
+                            console.log('Mermaid 재렌더링 완료');
+                        }} catch (error) {{
                             console.error('Mermaid 렌더링 오류:', error);
-                        }
-                    }
-                }
+                        }}
+                    }}
+                }}
                 
-                window.addEventListener('load', function() {
+                window.addEventListener('load', function() {{
                     console.log('페이지 로드 완료');
-                    // 로드 후 Mermaid 재렌더링
                     setTimeout(rerenderMermaid, 100);
-                });
-            </script>
-            <style>
-                {theme_css}
-
-                
-                /* Mermaid v10 다이어그램 전용 스타일 */
-                .mermaid {
-                    background: #2a2a2a;
-                    border-radius: 8px;
-                    padding: 20px;
-                    margin: 16px 0;
-                    text-align: center;
-                    overflow-x: auto;
-                    min-height: 100px;
-                }
-                
-                .mermaid .node rect,
-                .mermaid .node circle,
-                .mermaid .node ellipse,
-                .mermaid .node polygon {
-                    fill: #444 !important;
-                    stroke: #87CEEB !important;
-                    stroke-width: 2px !important;
-                }
-                
-                .mermaid .edgePath path {
-                    stroke: #87CEEB !important;
-                    stroke-width: 2px !important;
-                }
-                
-                .mermaid .edgeLabel {
-                    background-color: #2a2a2a !important;
-                    color: #e8e8e8 !important;
-                }
-                
-                .mermaid text {
-                    fill: #e8e8e8 !important;
-                    font-family: inherit !important;
-                }
-                
-                /* Timeline 전용 */
-                .mermaid .timeline-section {
-                    fill: #444 !important;
-                }
-                
-                /* Mindmap 전용 */
-                .mermaid .mindmap-node {
-                    fill: #444 !important;
-                    stroke: #87CEEB !important;
-                }
-                
-                /* Sankey 전용 */
-                .mermaid .sankey-link {
-                    fill: none !important;
-                    stroke-opacity: 0.6 !important;
-                }
-                
-                /* XY Chart 전용 */
-                .mermaid .xychart-plot-background {
-                    fill: #2a2a2a !important;
-                }
-                
-                .mermaid .xychart {
-                    background: #2a2a2a !important;
-                }
-                
-                .mermaid .xychart .tick text {
-                    fill: #e8e8e8 !important;
-                }
-                
-                .mermaid .xychart .axis-label {
-                    fill: #e8e8e8 !important;
-                }
-                
-                .mermaid .xychart .line {
-                    stroke-width: 2px !important;
-                }
-                
-                .mermaid .xychart .grid {
-                    stroke: #555 !important;
-                    stroke-opacity: 0.3 !important;
-                }
-                
-                /* Block Diagram 전용 */
-                .mermaid .block {
-                    fill: #444 !important;
-                    stroke: #87CEEB !important;
-                }
-                
-                /* Architecture Diagram 전용 */
-                .mermaid .architecture-group {
-                    fill: #333 !important;
-                    stroke: #87CEEB !important;
-                }
-                
-                .copy-btn {
-                    position: absolute;
-                    top: 8px;
-                    right: 8px;
-                    background: #444;
-                    color: #fff;
-                    border: none;
-                    padding: 6px 12px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 11px;
-                    font-weight: 500;
-                    z-index: 9999;
-                    transition: all 0.2s ease;
-                }
-                
-                .copy-btn:hover {
-                    background: #555;
-                }
-                
-                .copy-btn:active {
-                    background: #666;
-                }
-            </style>
-            <script>
+                }});
+        """
+        
+        # 웹채널 JavaScript 코드 (중괄호 이스케이프 없이)
+        webchannel_js = """
                 var pyqt_bridge = null;
                 
                 new QWebChannel(qt.webChannelTransport, function(channel) {
@@ -310,69 +183,6 @@ class ChatDisplay:
                         }
                     }
                 });
-                
-                function copyCode(codeId) {
-                    try {
-                        const codeElement = document.getElementById(codeId);
-                        if (!codeElement) {
-                            console.error('Code element not found:', codeId);
-                            return;
-                        }
-                        
-                        const textContent = codeElement.textContent || codeElement.innerText;
-                        
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(textContent).then(() => {
-                                showCopyFeedback(codeId);
-                            }).catch(err => {
-                                console.error('Clipboard API failed:', err);
-                                fallbackCopyText(textContent, codeId);
-                            });
-                        } else {
-                            fallbackCopyText(textContent, codeId);
-                        }
-                    } catch (error) {
-                        console.error('Copy failed:', error);
-                    }
-                }
-                
-                function fallbackCopyText(text, codeId) {
-                    try {
-                        const textArea = document.createElement('textarea');
-                        textArea.value = text;
-                        textArea.style.position = 'fixed';
-                        textArea.style.left = '-999999px';
-                        textArea.style.top = '-999999px';
-                        document.body.appendChild(textArea);
-                        textArea.focus();
-                        textArea.select();
-                        
-                        const successful = document.execCommand('copy');
-                        document.body.removeChild(textArea);
-                        
-                        if (successful) {
-                            showCopyFeedback(codeId);
-                        } else {
-                            console.error('Fallback copy failed');
-                        }
-                    } catch (err) {
-                        console.error('Fallback copy error:', err);
-                    }
-                }
-                
-                function showCopyFeedback(codeId) {
-                    const button = document.querySelector(`button[onclick="copyCode('${codeId}')"]`);
-                    if (button) {
-                        const originalText = button.textContent;
-                        button.textContent = '복사됨!';
-                        button.style.background = '#28a745';
-                        
-                        setTimeout(() => {
-                            button.textContent = originalText;
-                            button.style.background = '#444';
-                        }, 2000);
-                    }
-                }
                 
                 function copyMessage(messageId) {
                     try {
@@ -438,57 +248,6 @@ class ChatDisplay:
                     }
                 }
                 
-                // 이미지 로드 완료 시 저장 버튼 표시
-                function addImageSaveButton(imgElement, imageUrl) {
-                    const container = imgElement.parentElement;
-                    if (container && !container.querySelector('.save-image-btn')) {
-                        const saveBtn = document.createElement('button');
-                        saveBtn.className = 'save-image-btn';
-                        saveBtn.setAttribute('data-image-url', imageUrl);
-                        saveBtn.innerHTML = '💾 저장';
-                        saveBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;z-index:10;';
-                        saveBtn.onmouseenter = function() { this.style.background = 'rgba(0,0,0,0.9)'; };
-                        saveBtn.onmouseleave = function() { this.style.background = 'rgba(0,0,0,0.7)'; };
-                        
-                        container.style.position = 'relative';
-                        container.appendChild(saveBtn);
-                    }
-                }
-                
-                // 이미지 로드 완료 처리
-                function showLoadedImage(imageId, imageUrl) {
-                    const loadingDiv = document.getElementById(imageId + '_loading');
-                    const imgElement = document.getElementById(imageId);
-                    const container = document.getElementById(imageId + '_container');
-                    
-                    if (loadingDiv && imgElement) {
-                        // 로딩 상태 숨기고 이미지 표시
-                        loadingDiv.style.display = 'none';
-                        imgElement.style.display = 'block';
-                        
-                        // 저장 버튼 추가
-                        addImageSaveButton(imgElement, imageUrl);
-                        
-                        console.log('이미지 로드 완료:', imageId);
-                    }
-                }
-                
-                // 이미지 로드 오류 처리
-                function showImageError(imageId) {
-                    const loadingDiv = document.getElementById(imageId + '_loading');
-                    
-                    if (loadingDiv) {
-                        loadingDiv.innerHTML = `
-                            <div style="text-align: center; color: #ff6b6b;">
-                                <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
-                                <div style="font-size: 14px;">이미지 로드 실패</div>
-                                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">다시 시도해주세요</div>
-                            </div>
-                        `;
-                        console.error('이미지 로드 오류:', imageId);
-                    }
-                }
-                
                 function deleteMessage(messageId) {
                     try {
                         if (pyqt_bridge && pyqt_bridge.deleteMessage) {
@@ -503,7 +262,7 @@ class ChatDisplay:
                 
                 function removeMessageFromDOM(messageId) {
                     try {
-                        const messageElements = document.querySelectorAll(`[data-message-id="${messageId}"]`);
+                        const messageElements = document.querySelectorAll('[data-message-id="' + messageId + '"]');
                         messageElements.forEach(element => {
                             element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                             element.style.opacity = '0';
@@ -516,15 +275,60 @@ class ChatDisplay:
                         console.error('DOM message removal failed:', error);
                     }
                 }
+        """
+        
+        html_template = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+            <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+            <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+            <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+            <script>
+            {javascript_code}
+            </script>
+            <style id="theme-style">
+                {theme_css}
+                
+                /* Mermaid v10 다이어그램 전용 스타일 */
+                .mermaid {{
+                    background: #2a2a2a;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin: 16px 0;
+                    text-align: center;
+                    overflow-x: auto;
+                    min-height: 100px;
+                }}
+                
+                .copy-btn {{
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    background: #444;
+                    color: #fff;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 11px;
+                    font-weight: 500;
+                    z-index: 9999;
+                    transition: all 0.2s ease;
+                }}
+            </style>
+            <script>
+            {webchannel_js}
             </script>
         </head>
         <body>
             <div id="messages"></div>
         </body>
-            <div id="messages"></div>
-        </body>
         </html>
-        """
+        """.replace('{webchannel_js}', webchannel_js)
         self.web_view.setHtml(html_template)
         print("HTML 템플릿 로드 완료")
     
@@ -538,39 +342,22 @@ class ChatDisplay:
             from ui.styles.flat_theme import FlatTheme
             return FlatTheme.get_chat_display_css()
     
+    def is_dark_theme(self) -> bool:
+        """현재 테마가 다크 테마인지 확인"""
+        from ui.styles.theme_manager import theme_manager
+        
+        if theme_manager.use_material_theme:
+            return theme_manager.material_manager.is_dark_theme()
+        else:
+            return True  # 기본 테마는 다크 테마로 간주
+    
     def update_theme(self):
-        """테마 업데이트"""
+        """테마 업데이트 - 웹뷰 완전 다시 로드"""
         try:
-            # 새로운 CSS 생성
-            new_css = self._get_current_theme_css()
-            
-            # CSS에서 백틱 및 특수문자 이스케이프 처리
-            escaped_css = new_css.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
-            
-            # JavaScript로 CSS 업데이트
-            js_code = f"""
-            try {{
-                // 기존 스타일 제거
-                var existingStyle = document.getElementById('theme-style');
-                if (existingStyle) {{
-                    existingStyle.remove();
-                }}
-                
-                // 새로운 스타일 추가
-                var style = document.createElement('style');
-                style.id = 'theme-style';
-                style.textContent = `{escaped_css}`;
-                document.head.appendChild(style);
-                
-                console.log('테마 CSS 업데이트 완료');
-            }} catch(e) {{
-                console.error('테마 CSS 업데이트 오류:', e);
-            }}
-            """
-            
-            self.web_view.page().runJavaScript(js_code)
+            from ui.styles.theme_manager import theme_manager
+            print(f"테마 업데이트 시작: {theme_manager.material_manager.current_theme_key}")
+            self.init_web_view()
             print("채팅 디스플레이 테마 업데이트 완료")
-            
         except Exception as e:
             print(f"채팅 디스플레이 테마 업데이트 오류: {e}")
     

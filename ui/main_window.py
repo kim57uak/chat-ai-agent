@@ -241,26 +241,20 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"테마 변경 오류: {e}")
     
+
+    
     def _apply_current_theme(self):
         """현재 테마 적용"""
-        # theme.json에서 저장된 현재 테마 로드
-        theme_manager.material_manager._load_themes()
         stylesheet = theme_manager.get_material_stylesheet()
         self.setStyleSheet(stylesheet)
     
     def _apply_saved_theme(self):
         """저장된 테마 적용"""
         try:
-            # theme.json에서 현재 테마 읽기
             current_theme_key = theme_manager.material_manager.current_theme_key
-            
-            # 창 제목 업데이트
             self._update_window_title()
-            
-            # 메뉴 체크 상태 업데이트
             self._update_theme_menu_checks(current_theme_key)
             
-            # 채팅 위젯에 테마 적용
             if hasattr(self, 'chat_widget'):
                 self.chat_widget.update_theme()
                 

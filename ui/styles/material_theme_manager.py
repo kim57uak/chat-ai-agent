@@ -53,7 +53,12 @@ class MaterialThemeManager:
                 with open(self.theme_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.themes = data.get("themes", {})
-                    self.current_theme_key = data.get("current_theme", "material_dark")
+                    # 현재 테마가 이미 설정되어 있지 않은 경우에만 업데이트
+                    if not hasattr(self, '_theme_loaded'):
+                        self.current_theme_key = data.get("current_theme", "material_dark")
+                        self._theme_loaded = True
+            else:
+                self._create_default_themes()
         except Exception as e:
             print(f"테마 로드 오류: {e}")
             self._create_default_themes()

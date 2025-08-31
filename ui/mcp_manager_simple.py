@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
+from ui.styles.material_theme_manager import material_theme_manager
 import logging
 import json
 import time
@@ -56,7 +57,7 @@ class MCPManagerDialog(QDialog):
         self.refresh_timer.setSingleShot(True)
         self.refresh_timer.timeout.connect(self._do_refresh)
 
-        self.setStyleSheet(self._get_dialog_style())
+        self.setStyleSheet(self._get_themed_dialog_style())
 
         self.setup_ui()
         # 초기 로딩
@@ -67,17 +68,7 @@ class MCPManagerDialog(QDialog):
 
         # 제목
         title_label = QLabel("MCP 서버 관리")
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #ffffff;
-                font-size: 18px;
-                font-weight: 800;
-                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
-                padding: 15px 0;
-                text-transform: uppercase;
-                letter-spacing: 2px;
-            }
-        """)
+        title_label.setStyleSheet(self._get_title_style())
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title_label)
 
@@ -98,59 +89,17 @@ class MCPManagerDialog(QDialog):
 
         self.start_button = QPushButton("시작")
         self.start_button.clicked.connect(self.start_server)
-        self.start_button.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(150, 255, 150, 0.8), 
-                    stop:1 rgba(100, 255, 200, 0.8));
-                color: #ffffff;
-                border: 2px solid rgba(150, 255, 150, 0.4);
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(170, 255, 170, 0.9), 
-                    stop:1 rgba(120, 255, 220, 0.9));
-                border-color: rgba(150, 255, 150, 0.6);
-            }
-        """)
+        self.start_button.setStyleSheet(self._get_start_button_style())
         button_layout.addWidget(self.start_button)
 
         self.stop_button = QPushButton("중지")
         self.stop_button.clicked.connect(self.stop_server)
-        self.stop_button.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(255, 100, 100, 0.8), 
-                    stop:1 rgba(255, 150, 100, 0.8));
-                color: #ffffff;
-                border: 2px solid rgba(255, 100, 100, 0.4);
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(255, 120, 120, 0.9), 
-                    stop:1 rgba(255, 170, 120, 0.9));
-                border-color: rgba(255, 100, 100, 0.6);
-            }
-        """)
+        self.stop_button.setStyleSheet(self._get_stop_button_style())
         button_layout.addWidget(self.stop_button)
 
         self.restart_button = QPushButton("재시작")
         self.restart_button.clicked.connect(self.restart_server)
-        self.restart_button.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(255, 200, 100, 0.8), 
-                    stop:1 rgba(255, 150, 200, 0.8));
-                color: #ffffff;
-                border: 2px solid rgba(255, 200, 100, 0.4);
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(255, 220, 120, 0.9), 
-                    stop:1 rgba(255, 170, 220, 0.9));
-                border-color: rgba(255, 200, 100, 0.6);
-            }
-        """)
+        self.restart_button.setStyleSheet(self._get_restart_button_style())
         button_layout.addWidget(self.restart_button)
 
         left_layout.addLayout(button_layout)
@@ -168,27 +117,12 @@ class MCPManagerDialog(QDialog):
 
         # 서버 상태
         self.status_label = QLabel("서버를 선택하세요")
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #ffffff;
-                font-size: 16px;
-                font-weight: 700;
-                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
-                padding: 8px 0;
-            }
-        """)
+        self.status_label.setStyleSheet(self._get_status_label_style())
         right_layout.addWidget(self.status_label)
 
         # 도구 목록
         tools_label = QLabel("사용 가능한 도구:")
-        tools_label.setStyleSheet("""
-            QLabel {
-                color: #b0e0b0;
-                font-size: 15px;
-                font-weight: 700;
-                padding: 8px 0;
-            }
-        """)
+        tools_label.setStyleSheet(self._get_section_label_style())
         right_layout.addWidget(tools_label)
 
         self.tools_text = QTextEdit()
@@ -198,14 +132,7 @@ class MCPManagerDialog(QDialog):
 
         # 서버 설정 정보
         config_label = QLabel("서버 설정:")
-        config_label.setStyleSheet("""
-            QLabel {
-                color: #b0e0b0;
-                font-size: 15px;
-                font-weight: 700;
-                padding: 8px 0;
-            }
-        """)
+        config_label.setStyleSheet(self._get_section_label_style())
         right_layout.addWidget(config_label)
 
         self.config_text = QTextEdit()
@@ -233,7 +160,9 @@ class MCPManagerDialog(QDialog):
     def refresh_servers(self):
         """서버 목록 새로고침"""
         self.status_label.setText("⏳ 서버 목록을 불러오는 중...")
-        self.status_label.setStyleSheet("color: #FFA726;")
+        theme = material_theme_manager.get_current_theme()
+        colors = theme.get('colors', {})
+        self.status_label.setStyleSheet(f"color: {colors.get('warning', '#FFA726')};")
         self.refresh_button.setEnabled(False)
 
         # 타이머로 지연 실행
@@ -251,7 +180,9 @@ class MCPManagerDialog(QDialog):
 
             if not servers:
                 self.status_label.setText("설정된 서버가 없습니다")
-                self.status_label.setStyleSheet("color: #FFA726;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('warning', '#FFA726')};")
                 self.refresh_button.setEnabled(True)
                 return
 
@@ -299,17 +230,23 @@ class MCPManagerDialog(QDialog):
 
             if server_count == 0:
                 self.status_label.setText("활성화된 서버가 없습니다")
-                self.status_label.setStyleSheet("color: #FFA726;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('warning', '#FFA726')};")
             else:
                 self.status_label.setText(f"✅ {server_count}개 서버 로드 완료")
-                self.status_label.setStyleSheet("color: #66BB6A;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('success', '#66BB6A')};")
 
             print("서버 새로고침 완료")
 
         except Exception as e:
             print(f"새로고침 오류: {e}")
             self.status_label.setText(f"❌ 오류: {str(e)}")
-            self.status_label.setStyleSheet("color: #F44336;")
+            theme = material_theme_manager.get_current_theme()
+            colors = theme.get('colors', {})
+            self.status_label.setStyleSheet(f"color: {colors.get('error', '#F44336')};")
         finally:
             self.refresh_button.setEnabled(True)
 
@@ -329,11 +266,13 @@ class MCPManagerDialog(QDialog):
         tools = data["tools"]
 
         # 상태 표시
+        theme = material_theme_manager.get_current_theme()
+        colors = theme.get('colors', {})
         status_color = {
-            "실행중": "#66BB6A",
-            "중지됨": "#F44336",
-            "오류": "#FFA726",
-        }.get(status, "#FFA726")
+            "실행중": colors.get('success', '#66BB6A'),
+            "중지됨": colors.get('error', '#F44336'),
+            "오류": colors.get('warning', '#FFA726'),
+        }.get(status, colors.get('warning', '#FFA726'))
 
         self.status_label.setText(f"{server_name}: {status}")
         self.status_label.setStyleSheet(f"color: {status_color};")
@@ -376,7 +315,9 @@ class MCPManagerDialog(QDialog):
 
         try:
             self.status_label.setText(f"⏳ {server_name} 시작 중...")
-            self.status_label.setStyleSheet("color: #FFA726;")
+            theme = material_theme_manager.get_current_theme()
+            colors = theme.get('colors', {})
+            self.status_label.setStyleSheet(f"color: {colors.get('warning', '#FFA726')};")
             QApplication.processEvents()
 
             # 서버 시작 로직
@@ -384,11 +325,15 @@ class MCPManagerDialog(QDialog):
 
             if success:
                 self.status_label.setText(f"✅ {server_name} 시작됨")
-                self.status_label.setStyleSheet("color: #66BB6A;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('success', '#66BB6A')};")
                 QTimer.singleShot(1000, self.refresh_servers)
             else:
                 self.status_label.setText(f"❌ {server_name} 시작 실패")
-                self.status_label.setStyleSheet("color: #F44336;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('error', '#F44336')};")
 
         except Exception as e:
             QMessageBox.warning(self, "오류", f"서버 시작 실패: {str(e)}")
@@ -404,7 +349,9 @@ class MCPManagerDialog(QDialog):
 
         try:
             self.status_label.setText(f"⏳ {server_name} 중지 중...")
-            self.status_label.setStyleSheet("color: #FFA726;")
+            theme = material_theme_manager.get_current_theme()
+            colors = theme.get('colors', {})
+            self.status_label.setStyleSheet(f"color: {colors.get('warning', '#FFA726')};")
             QApplication.processEvents()
 
             # 서버 중지 로직
@@ -412,11 +359,15 @@ class MCPManagerDialog(QDialog):
 
             if success:
                 self.status_label.setText(f"✅ {server_name} 중지됨")
-                self.status_label.setStyleSheet("color: #66BB6A;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('success', '#66BB6A')};")
                 QTimer.singleShot(1000, self.refresh_servers)
             else:
                 self.status_label.setText(f"❌ {server_name} 중지 실패")
-                self.status_label.setStyleSheet("color: #F44336;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('error', '#F44336')};")
 
         except Exception as e:
             QMessageBox.warning(self, "오류", f"서버 중지 실패: {str(e)}")
@@ -432,7 +383,9 @@ class MCPManagerDialog(QDialog):
 
         try:
             self.status_label.setText(f"⏳ {server_name} 재시작 중...")
-            self.status_label.setStyleSheet("color: #FFA726;")
+            theme = material_theme_manager.get_current_theme()
+            colors = theme.get('colors', {})
+            self.status_label.setStyleSheet(f"color: {colors.get('warning', '#FFA726')};")
             QApplication.processEvents()
 
             # 서버 재시작 로직
@@ -440,59 +393,60 @@ class MCPManagerDialog(QDialog):
 
             if success:
                 self.status_label.setText(f"✅ {server_name} 재시작됨")
-                self.status_label.setStyleSheet("color: #66BB6A;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('success', '#66BB6A')};")
                 QTimer.singleShot(2000, self.refresh_servers)
             else:
                 self.status_label.setText(f"❌ {server_name} 재시작 실패")
-                self.status_label.setStyleSheet("color: #F44336;")
+                theme = material_theme_manager.get_current_theme()
+                colors = theme.get('colors', {})
+                self.status_label.setStyleSheet(f"color: {colors.get('error', '#F44336')};")
 
         except Exception as e:
             QMessageBox.warning(self, "오류", f"서버 재시작 실패: {str(e)}")
     
-    def _get_dialog_style(self):
-        return """
-            QDialog {
-                background: #5a5a5f;
-                color: #ffffff;
+    def _get_themed_dialog_style(self):
+        theme = material_theme_manager.get_current_theme()
+        colors = theme.get('colors', {})
+        
+        return f"""
+            QDialog {{
+                background: {colors.get('background', '#121212')};
+                color: {colors.get('text_primary', '#ffffff')};
                 font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
-            }
-            QLabel {
-                color: #ffffff;
+            }}
+            QLabel {{
+                color: {colors.get('text_primary', '#ffffff')};
                 font-size: 14px;
                 font-weight: 600;
                 padding: 4px 0;
-            }
-            QListWidget {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 rgba(45, 45, 55, 0.95), 
-                    stop:1 rgba(35, 35, 45, 0.95));
-                border: 2px solid rgba(100, 200, 255, 0.3);
+            }}
+            QListWidget {{
+                background: {colors.get('surface', '#1e1e1e')};
+                border: 2px solid {colors.get('divider', '#333333')};
                 border-radius: 10px;
                 padding: 12px;
                 font-size: 14px;
-                color: #ffffff;
-            }
-            QListWidget::item {
+                color: {colors.get('text_primary', '#ffffff')};
+            }}
+            QListWidget::item {{
                 padding: 12px;
                 border-radius: 8px;
                 margin: 4px 0;
-                background: rgba(60, 60, 70, 0.5);
-            }
-            QListWidget::item:selected {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 rgba(100, 200, 255, 0.4), 
-                    stop:1 rgba(150, 100, 255, 0.4));
-                color: #ffffff;
-            }
-            QListWidget::item:hover {
-                background: rgba(70, 70, 80, 0.7);
-            }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(100, 200, 255, 0.8), 
-                    stop:1 rgba(150, 100, 255, 0.8));
-                color: #ffffff;
-                border: 2px solid rgba(100, 200, 255, 0.4);
+                background: {colors.get('code_bg', '#2d2d2d')};
+            }}
+            QListWidget::item:selected {{
+                background: {colors.get('primary', '#bb86fc')};
+                color: {colors.get('on_primary', '#000000')};
+            }}
+            QListWidget::item:hover {{
+                background: {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')};
+            }}
+            QPushButton {{
+                background: {colors.get('primary', '#bb86fc')};
+                color: {colors.get('on_primary', '#000000')};
+                border: 2px solid {colors.get('primary_variant', '#3700b3')};
                 border-radius: 10px;
                 font-weight: 700;
                 font-size: 14px;
@@ -500,66 +454,153 @@ class MCPManagerDialog(QDialog):
                 text-transform: uppercase;
                 letter-spacing: 1px;
                 min-height: 20px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(120, 220, 255, 0.9), 
-                    stop:1 rgba(170, 120, 255, 0.9));
-                border-color: rgba(100, 200, 255, 0.6);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(80, 180, 235, 0.7), 
-                    stop:1 rgba(130, 80, 235, 0.7));
-            }
-            QPushButton:disabled {
-                background: rgba(55, 65, 81, 0.5);
-                color: #6b7280;
-                border-color: rgba(100, 100, 100, 0.2);
-            }
-            QTextEdit {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 rgba(45, 45, 55, 0.95), 
-                    stop:1 rgba(35, 35, 45, 0.95));
-                border: 2px solid rgba(100, 200, 255, 0.3);
+            }}
+            QPushButton:hover {{
+                background: {colors.get('secondary', '#03dac6')};
+                color: {colors.get('on_secondary', '#000000')};
+                border-color: {colors.get('secondary_variant', '#018786')};
+            }}
+            QPushButton:pressed {{
+                background: {colors.get('primary_variant', '#3700b3')};
+            }}
+            QPushButton:disabled {{
+                background: {colors.get('text_secondary', '#b3b3b3')};
+                color: {colors.get('divider', '#333333')};
+                border-color: {colors.get('divider', '#333333')};
+            }}
+            QTextEdit {{
+                background: {colors.get('surface', '#1e1e1e')};
+                border: 2px solid {colors.get('divider', '#333333')};
                 border-radius: 8px;
                 padding: 12px;
-                font-family: 'SF Mono', 'Monaco', monospace;
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
                 font-size: 13px;
-                color: #e8e8e8;
-            }
-            QGroupBox {
-                color: #ffffff;
+                color: {colors.get('text_primary', '#ffffff')};
+            }}
+            QGroupBox {{
+                color: {colors.get('text_primary', '#ffffff')};
                 font-size: 15px;
                 font-weight: 700;
-                border: 2px solid rgba(100, 200, 255, 0.3);
+                border: 2px solid {colors.get('divider', '#333333')};
                 border-radius: 10px;
                 margin-top: 10px;
                 padding-top: 15px;
-            }
-            QGroupBox::title {
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px;
-                background: #5a5a5f;
-            }
-            QCheckBox {
-                color: #ffffff;
+                background: {colors.get('background', '#121212')};
+            }}
+            QCheckBox {{
+                color: {colors.get('text_primary', '#ffffff')};
                 font-size: 14px;
                 font-weight: 500;
                 spacing: 8px;
-            }
-            QCheckBox::indicator {
+            }}
+            QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border: 2px solid rgba(100, 200, 255, 0.4);
+                border: 2px solid {colors.get('divider', '#333333')};
                 border-radius: 4px;
-                background: rgba(45, 45, 55, 0.8);
-            }
-            QCheckBox::indicator:checked {
+                background: {colors.get('surface', '#1e1e1e')};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {colors.get('primary', '#bb86fc')};
+                border-color: {colors.get('primary_variant', '#3700b3')};
+            }}
+        """
+    
+    def _get_title_style(self):
+        theme = material_theme_manager.get_current_theme()
+        colors = theme.get('colors', {})
+        
+        return f"""
+            QLabel {{
+                color: {colors.get('text_primary', '#ffffff')};
+                font-size: 18px;
+                font-weight: 800;
+                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                padding: 15px 0;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }}
+        """
+    
+    def _get_start_button_style(self):
+        return """
+            QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(100, 200, 255, 0.8), 
-                    stop:1 rgba(150, 100, 255, 0.8));
-                border-color: rgba(100, 200, 255, 0.6);
+                    stop:0 rgba(76, 175, 80, 0.8), 
+                    stop:1 rgba(139, 195, 74, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(76, 175, 80, 0.4);
             }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(102, 187, 106, 0.9), 
+                    stop:1 rgba(156, 204, 101, 0.9));
+                border-color: rgba(76, 175, 80, 0.6);
+            }
+        """
+    
+    def _get_stop_button_style(self):
+        return """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(244, 67, 54, 0.8), 
+                    stop:1 rgba(255, 87, 34, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(244, 67, 54, 0.4);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(229, 115, 115, 0.9), 
+                    stop:1 rgba(255, 138, 101, 0.9));
+                border-color: rgba(244, 67, 54, 0.6);
+            }
+        """
+    
+    def _get_restart_button_style(self):
+        return """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 193, 7, 0.8), 
+                    stop:1 rgba(255, 152, 0, 0.8));
+                color: #ffffff;
+                border: 2px solid rgba(255, 193, 7, 0.4);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 213, 79, 0.9), 
+                    stop:1 rgba(255, 183, 77, 0.9));
+                border-color: rgba(255, 193, 7, 0.6);
+            }
+        """
+    
+    def _get_status_label_style(self):
+        theme = material_theme_manager.get_current_theme()
+        colors = theme.get('colors', {})
+        
+        return f"""
+            QLabel {{
+                color: {colors.get('text_primary', '#ffffff')};
+                font-size: 16px;
+                font-weight: 700;
+                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                padding: 8px 0;
+            }}
+        """
+    
+    def _get_section_label_style(self):
+        theme = material_theme_manager.get_current_theme()
+        colors = theme.get('colors', {})
+        
+        return f"""
+            QLabel {{
+                color: {colors.get('secondary', '#03dac6')};
+                font-size: 15px;
+                font-weight: 700;
+                padding: 8px 0;
+            }}
         """

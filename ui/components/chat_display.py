@@ -321,7 +321,21 @@ class ChatDisplay:
                 }}
             </style>
             <script>
-            {webchannel_js}
+                function showLoadedImage(imageId, imageUrl) {{
+                    var loadingDiv = document.getElementById(imageId + '_loading');
+                    var img = document.getElementById(imageId);
+                    if (loadingDiv) loadingDiv.style.display = 'none';
+                    if (img) img.style.display = 'block';
+                }}
+                
+                function showImageError(imageId) {{
+                    var loadingDiv = document.getElementById(imageId + '_loading');
+                    if (loadingDiv) {{
+                        loadingDiv.innerHTML = '<div style="color:#ff6b6b;text-align:center;">이미지 로드 실패</div>';
+                    }}
+                }}
+                
+                {webchannel_js}
             </script>
         </head>
         <body>
@@ -608,8 +622,8 @@ class ChatDisplay:
                 
                 <img id="{image_id}" src="{url}" alt="Generated Image" 
                      style="display: none; max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);" 
-                     onload="showLoadedImage('{image_id}', '{url}')" 
-                     onerror="showImageError('{image_id}')" />
+                     onload="if(typeof showLoadedImage === 'function') showLoadedImage('{image_id}', '{url}')" 
+                     onerror="if(typeof showImageError === 'function') showImageError('{image_id}')" />
             </div>
             '''
             

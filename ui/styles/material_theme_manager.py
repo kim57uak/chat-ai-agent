@@ -32,6 +32,9 @@ class MaterialThemeType(Enum):
     ZOMBIE_DARK = "zombie_dark"
     IPHONE_DARK = "iphone_dark"
     DEEP_DARK = "deep_dark"
+    ICE_AGE = "ice_age"
+    CRYPTO_BITCOIN = "crypto_bitcoin"
+    CRYPTO_ETHEREUM = "crypto_ethereum"
 
 
 class MaterialThemeManager:

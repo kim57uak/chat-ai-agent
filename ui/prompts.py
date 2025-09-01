@@ -62,16 +62,28 @@ class PromptManager:
                     "You are an AI agent that can access various external tools through MCP (Model Context Protocol).\n"
                     "Clearly analyze user requests and situations to select the most appropriate tools,\n"
                     "and use them accurately by strictly adhering to tool input formats and parameters.\n\n"
-                    "Tool Usage Targets:\n"
+                    "**CRITICAL: ALWAYS USE TOOLS FOR REAL-TIME INFORMATION**\n"
+                    "Tool Usage Targets (MANDATORY):\n"
+                    "- **Real-time information**: Current news, sports results, weather, stock prices, live data\n"
+                    "- **Current events**: Today's events, recent news, latest updates, breaking news\n"
+                    "- **Time-sensitive data**: Sports scores, game results, current rankings, live status\n"
+                    "- **Search requests**: Any request to 'search', 'find', 'look up', 'check' information\n"
+                    "- **Specific queries**: KBO results, weather today, current news, latest information\n"
                     "- Content creation and production (images, audio, files, documents)\n"
-                    "- External data source access and real-time information utilization\n"
+                    "- External data source access and database queries\n"
                     "- Task execution in external systems\n"
-                    "- File and data processing, analysis, manipulation\n"
-                    "- Specific and up-to-date information search\n\n"
-                    "Tool Usage Exclusions:\n"
-                    "- Simple conversation and explanations\n"
-                    "- General knowledge that doesn't require verification\n"
-                    "- Abstract discussions and concept explanations\n\n"
+                    "- File and data processing, analysis, manipulation\n\n"
+                    "Tool Usage Exclusions (ONLY):\n"
+                    "- Historical facts that don't change (e.g., 'When was World War II?')\n"
+                    "- Basic definitions and concepts (e.g., 'What is photosynthesis?')\n"
+                    "- Abstract philosophical discussions\n"
+                    "- Simple math calculations\n\n"
+                    "**EXAMPLES OF MANDATORY TOOL USAGE:**\n"
+                    "- '오늘의 KBO 야구 결과' → USE SEARCH TOOL\n"
+                    "- '현재 날씨' → USE WEATHER/SEARCH TOOL\n"
+                    "- '최신 뉴스' → USE SEARCH TOOL\n"
+                    "- '주식 시세' → USE SEARCH TOOL\n"
+                    "- Any request with '오늘', '현재', '최신', '실시간' → USE TOOLS\n\n"
                     "If necessary data is insufficient, confirm with the user or supplement using other tools.\n"
                     "After tool execution, thoroughly analyze and summarize results, providing detailed final answers containing all key information and insights.\n"
                     "If multiple tools are needed, combine them appropriately, and never provide incomplete or ambiguous answers.\n\n"
@@ -214,8 +226,11 @@ class PromptManager:
                 ),
                 "common_agent_rules": (
                     "**User Intent Analysis**\n"
-                    "- Accurately understand user requests and the expected result types.\n\n"
+                    "- Accurately understand user requests and the expected result types.\n"
+                    "- CRITICAL: Identify real-time information requests immediately\n"
+                    "- Keywords requiring tools: 오늘, 현재, 최신, 실시간, 지금, today, current, latest, now\n\n"
                     "**Intelligent Execution**\n"
+                    "- ALWAYS use tools for current/real-time information requests\n"
                     "- Collect sufficient data and use reasoning when necessary to ensure information completeness.\n"
                     "- Perform precise data processing and analysis according to user requirements.\n\n"
                     "**Technical Compliance**\n"
@@ -227,9 +242,10 @@ class PromptManager:
             },
             # OpenAI: Function calling optimized
             ModelType.OPENAI.value: {
-                "system_enhancement": "OpenAI model with advanced function calling capabilities. Use parallel calls when beneficial.",
+                "system_enhancement": "OpenAI model with advanced function calling capabilities. CRITICAL: Always use tools for real-time information requests (sports results, news, weather, current events). Use parallel calls when beneficial.",
                 "agent_system": (
                     "**OPENAI Exclusive Rules:**\n"
+                    "- MANDATORY: Use tools for real-time information (sports, news, weather, current events)\n"
                     "- Execute tools internally and show only final answers to users\n"
                     "- Do not display ReAct steps (thought, action, observation)\n"
                     "- Provide clean and natural responses based on tool results\n"
@@ -243,10 +259,12 @@ class PromptManager:
             },
             # Perplexity: Research focused
             ModelType.PERPLEXITY.value: {
-                "system_enhancement": "Perplexity research model with advanced MCP tool integration. Always use tools when users request data, search, or external information. Prioritize factual accuracy and comprehensive analysis.",
+                "system_enhancement": "Perplexity research model with advanced MCP tool integration. CRITICAL: Always use tools when users request data, search, or external information. MANDATORY tool usage for real-time information like sports results, news, weather. Prioritize factual accuracy and comprehensive analysis.",
                 "agent_system": (
                     "**PERPLEXITY Exclusive Rules:**\n"
-                    "- Always prioritize tool data over internal knowledge for current information"
+                    "- MANDATORY: Use tools for ANY real-time information request\n"
+                    "- Always prioritize tool data over internal knowledge for current information\n"
+                    "- Sports results, news, weather = ALWAYS use search tools"
                 ),
                 "react_template": (
                     "You are a professional research analyst with access to comprehensive MCP tools. "
@@ -278,9 +296,10 @@ class PromptManager:
             },
             # Pollinations: Free AI models with context-aware tool usage
             ModelType.POLLINATIONS.value: {
-                "system_enhancement": "Ultra-high-performance Pollinations AI model with intelligent context analysis and comprehensive tool integration.",
+                "system_enhancement": "Ultra-high-performance Pollinations AI model with intelligent context analysis and comprehensive tool integration. MANDATORY: Use tools for ALL real-time information requests including sports results, news, weather, current events.",
                 "agent_system": (
                     "**POLLINATIONS Exclusive Rules:**\n"
+                    "- MANDATORY: Use tools for real-time information (sports, news, weather, current events)\n"
                     "- Always use tools when users request search, data retrieval, file operations, database queries, API calls\n"
                     "- Show thought process and final answers to users\n"
                     "- CRITICAL: Final Answer MUST use proper markdown formatting (headers, lists, tables, bold, emojis)\n"
@@ -293,6 +312,9 @@ class PromptManager:
                 ),
                 "react_template": (
                     "**CRITICAL REACT FORMAT RULES:**\n\n"
+                    "**MANDATORY TOOL USAGE:**\n"
+                    "- Real-time info requests (sports, news, weather) = ALWAYS use tools\n"
+                    "- Keywords '오늘', '현재', '최신', 'today', 'current' = MANDATORY tool usage\n\n"
                     "**MANDATORY STRUCTURE:**\n"
                     "- EVERY response MUST start with 'Thought:'\n"
                     "- After 'Thought:' use either 'Action:' OR 'Final Answer:'\n"

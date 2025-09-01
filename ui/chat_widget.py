@@ -48,6 +48,9 @@ class ChatWidget(QWidget):
         self._setup_components()
         self._setup_connections()
         self._load_previous_conversations()
+        
+        # 테마 적용 (지연 실행)
+        QTimer.singleShot(500, self._apply_theme_if_needed)
     
     def _setup_ui(self):
         """UI 구성"""
@@ -661,15 +664,13 @@ class ChatWidget(QWidget):
         try:
             # Qt 스타일시트 업데이트
             if theme_manager.use_material_theme:
-                # Material 테마 사용 시 Qt 스타일시트 업데이트
                 self._apply_material_theme_styles()
             else:
-                # 기본 테마 사용
                 self.setStyleSheet(FlatTheme.get_chat_widget_style())
             
-            # 웹뷰 CSS 업데이트
+            # 웹뷰 완전히 다시 로드
             if hasattr(self, 'chat_display'):
-                self.chat_display.update_theme()
+                self.chat_display.init_web_view()
             
             # 로딩바 테마 업데이트
             if hasattr(self, 'loading_bar') and hasattr(self.loading_bar, 'update_theme'):
@@ -879,3 +880,13 @@ class ChatWidget(QWidget):
         self.send_button.setStyleSheet(send_button_style)
         self.cancel_button.setStyleSheet(cancel_button_style)
         self.upload_button.setStyleSheet(upload_button_style)
+    
+    def _apply_theme_if_needed(self):
+        """필요시 테마 적용"""
+        try:
+            if theme_manager.use_material_theme:
+                self._apply_material_theme_styles()
+                if hasattr(self, 'chat_display'):
+                    self.chat_display.update_theme()
+        except Exception as e:
+            print(f"테마 적용 오류: {e}")

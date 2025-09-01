@@ -15,6 +15,9 @@ class AppRunner:
     def run(self) -> int:
         """Run the application with error handling."""
         try:
+            # 테마 미리 로드
+            self._load_saved_theme()
+            
             self._window = MainWindow()
             self._window.show()
             return self._app.exec()
@@ -25,3 +28,21 @@ class AppRunner:
         except Exception as e:
             print(f"Application error: {e}")
             return 1
+    
+    def _load_saved_theme(self):
+        """저장된 테마 미리 로드"""
+        try:
+            import os
+            import json
+            from ui.styles.theme_manager import theme_manager
+            
+            theme_file = "theme.json"
+            if os.path.exists(theme_file):
+                with open(theme_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    saved_theme = data.get("current_theme", "material_dark")
+                    theme_manager.material_manager.current_theme_key = saved_theme
+                    theme_manager.material_manager.themes = data.get("themes", {})
+                    print(f"앞서 로드된 테마: {saved_theme}")
+        except Exception as e:
+            print(f"테마 선로드 오류: {e}")

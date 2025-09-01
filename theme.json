@@ -1,5 +1,5 @@
 {
-  "current_theme": "deep_dark",
+  "current_theme": "material_forest",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -755,6 +755,114 @@
         "background": "rgba(205, 33, 42, 0.15)",
         "chunk": "linear-gradient(90deg, #CD212A 0%, #000000 25%, #003478 50%, #000000 75%, #CD212A 100%)",
         "glow": "rgba(205, 33, 42, 0.8)"
+      }
+    },
+    "ice_age": {
+      "name": "Ice Age",
+      "type": "dark",
+      "colors": {
+        "primary": "#87CEEB",
+        "primary_variant": "#4682B4",
+        "secondary": "#B0E0E6",
+        "secondary_variant": "#5F9EA0",
+        "background": "#0F1419",
+        "surface": "linear-gradient(135deg, #1C2833 0%, #2C3E50 50%, #1B2631 100%)",
+        "error": "#FF6B9D",
+        "on_primary": "#000000",
+        "on_secondary": "#000000",
+        "on_background": "#E8F4F8",
+        "on_surface": "#E8F4F8",
+        "on_error": "#FFFFFF",
+        "text_primary": "#E8F4F8",
+        "text_secondary": "#A2C4C9",
+        "divider": "#34495E",
+        "user_bg": "linear-gradient(135deg, rgba(135, 206, 235, 0.12) 0%, rgba(15, 20, 25, 0.8) 50%, rgba(176, 224, 230, 0.12) 100%)",
+        "user_border": "#87CEEB",
+        "ai_bg": "linear-gradient(135deg, rgba(176, 224, 230, 0.12) 0%, rgba(15, 20, 25, 0.8) 50%, rgba(135, 206, 235, 0.12) 100%)",
+        "ai_border": "#B0E0E6",
+        "system_bg": "linear-gradient(135deg, rgba(162, 196, 201, 0.08) 0%, rgba(15, 20, 25, 0.6) 100%)",
+        "system_border": "#A2C4C9",
+        "code_bg": "linear-gradient(135deg, #0B1116 0%, #1A252F 100%)",
+        "code_border": "#2C3E50",
+        "scrollbar": "linear-gradient(135deg, #87CEEB 0%, #4682B4 100%)",
+        "scrollbar_track": "#1C2833"
+      },
+      "loading_bar": {
+        "background": "rgba(135, 206, 235, 0.15)",
+        "chunk": "linear-gradient(90deg, #87CEEB 0%, #B0E0E6 25%, #4682B4 50%, #5F9EA0 75%, #87CEEB 100%)",
+        "glow": "rgba(135, 206, 235, 0.6)"
+      }
+    },
+    "crypto_bitcoin": {
+      "name": "Bitcoin Gold",
+      "type": "dark",
+      "colors": {
+        "primary": "#F7931A",
+        "primary_variant": "#E8851C",
+        "secondary": "#FFD700",
+        "secondary_variant": "#FFA500",
+        "background": "#1A1A1A",
+        "surface": "linear-gradient(135deg, #2A2A2A 0%, #1F1F1F 50%, #252525 100%)",
+        "error": "#FF4444",
+        "on_primary": "#000000",
+        "on_secondary": "#000000",
+        "on_background": "#FFFFFF",
+        "on_surface": "#FFFFFF",
+        "on_error": "#FFFFFF",
+        "text_primary": "#FFFFFF",
+        "text_secondary": "#CCCCCC",
+        "divider": "#404040",
+        "user_bg": "linear-gradient(135deg, rgba(247, 147, 26, 0.15) 0%, rgba(26, 26, 26, 0.8) 50%, rgba(255, 215, 0, 0.15) 100%)",
+        "user_border": "#F7931A",
+        "ai_bg": "linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(26, 26, 26, 0.8) 50%, rgba(247, 147, 26, 0.15) 100%)",
+        "ai_border": "#FFD700",
+        "system_bg": "linear-gradient(135deg, rgba(204, 204, 204, 0.08) 0%, rgba(26, 26, 26, 0.6) 100%)",
+        "system_border": "#CCCCCC",
+        "code_bg": "linear-gradient(135deg, #1F1F1F 0%, #2A2A2A 100%)",
+        "code_border": "#404040",
+        "scrollbar": "linear-gradient(135deg, #F7931A 0%, #FFD700 100%)",
+        "scrollbar_track": "#2A2A2A"
+      },
+      "loading_bar": {
+        "background": "rgba(247, 147, 26, 0.15)",
+        "chunk": "linear-gradient(90deg, #F7931A 0%, #FFD700 25%, #FFA500 50%, #E8851C 75%, #F7931A 100%)",
+        "glow": "rgba(247, 147, 26, 0.8)"
+      }
+    },
+    "crypto_ethereum": {
+      "name": "Ethereum Blue",
+      "type": "dark",
+      "colors": {
+        "primary": "#627EEA",
+        "primary_variant": "#4B6CD6",
+        "secondary": "#8A92B2",
+        "secondary_variant": "#6B73A3",
+        "background": "#0D1421",
+        "surface": "linear-gradient(135deg, #1B2332 0%, #162028 50%, #1A2230 100%)",
+        "error": "#FF5555",
+        "on_primary": "#FFFFFF",
+        "on_secondary": "#FFFFFF",
+        "on_background": "#F0F0F0",
+        "on_surface": "#F0F0F0",
+        "on_error": "#FFFFFF",
+        "text_primary": "#F0F0F0",
+        "text_secondary": "#B8C5D1",
+        "divider": "#2A3441",
+        "user_bg": "linear-gradient(135deg, rgba(98, 126, 234, 0.15) 0%, rgba(13, 20, 33, 0.8) 50%, rgba(138, 146, 178, 0.15) 100%)",
+        "user_border": "#627EEA",
+        "ai_bg": "linear-gradient(135deg, rgba(138, 146, 178, 0.15) 0%, rgba(13, 20, 33, 0.8) 50%, rgba(98, 126, 234, 0.15) 100%)",
+        "ai_border": "#8A92B2",
+        "system_bg": "linear-gradient(135deg, rgba(184, 197, 209, 0.08) 0%, rgba(13, 20, 33, 0.6) 100%)",
+        "system_border": "#B8C5D1",
+        "code_bg": "linear-gradient(135deg, #0A1118 0%, #1A2230 100%)",
+        "code_border": "#2A3441",
+        "scrollbar": "linear-gradient(135deg, #627EEA 0%, #8A92B2 100%)",
+        "scrollbar_track": "#1B2332"
+      },
+      "loading_bar": {
+        "background": "rgba(98, 126, 234, 0.15)",
+        "chunk": "linear-gradient(90deg, #627EEA 0%, #8A92B2 25%, #4B6CD6 50%, #6B73A3 75%, #627EEA 100%)",
+        "glow": "rgba(98, 126, 234, 0.8)"
       }
     }
   }

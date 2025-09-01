@@ -11,8 +11,9 @@
 
 ### 🧠 다중 LLM 지원
 - **OpenAI**: GPT-3.5, GPT-4, GPT-4V
-- **Google**: Gemini Pro, Gemini 2.0 Flash
+- **Google**: Gemini Pro, Gemini 2.0 Flash, **Gemini 2.5 Flash Image Preview** 🎨
 - **Perplexity**: Sonar 시리즈, R1 모델
+- **Pollinations**: 무료 텍스트/이미지 생성 모델
 - **확장 가능**: 새로운 모델 쉽게 추가 가능
 
 ### 💬 고급 채팅 인터페이스
@@ -66,6 +67,12 @@
 - Bitbucket 저장소 관리
 - Jira/Confluence 연동
 - 파일 시스템 접근
+
+### 이미지 생성
+- **Gemini 2.5 Flash Image Preview**: Google의 최신 이미지 생성 모델
+- **Pollinations**: 무료 이미지 생성 서비스
+- 한글 프롬프트 자동 번역
+- Base64 이미지 데이터 반환
 
 ### 기타 서비스
 - Gmail 이메일 관리
@@ -124,6 +131,9 @@ AI: [MySQL 도구 사용] → 데이터베이스 목록 표시
 
 사용자: "파리 여행 상품을 찾아주세요"
 AI: [하나투어 API 사용] → 파리 여행 상품 검색 결과
+
+사용자: "아름다운 일몰 풍경을 그려주세요"
+AI: [Gemini 이미지 생성] → 고품질 일몰 이미지 생성
 
 사용자: "이 Excel 파일의 내용을 요약해주세요"
 AI: [Excel 도구 사용] → 파일 분석 후 요약 제공

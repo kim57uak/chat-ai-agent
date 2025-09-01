@@ -2,6 +2,7 @@ from typing import Dict, Type
 from .base_model_strategy import BaseModelStrategy
 from .openai_strategy import OpenAIStrategy
 from .gemini_strategy import GeminiStrategy
+from .gemini_image_strategy import GeminiImageStrategy
 from .perplexity_strategy import PerplexityStrategy
 from .claude_strategy import ClaudeStrategy
 from .pollinations_strategy import PollinationsStrategy
@@ -16,6 +17,7 @@ class ModelStrategyFactory:
     _strategies: Dict[str, Type[BaseModelStrategy]] = {
         'openai': OpenAIStrategy,
         'gemini': GeminiStrategy,
+        'gemini_image': GeminiImageStrategy,
         'perplexity': PerplexityStrategy,
         'claude': ClaudeStrategy,
         'anthropic': ClaudeStrategy,
@@ -39,7 +41,9 @@ class ModelStrategyFactory:
         """모델명으로부터 전략 타입 결정"""
         model_lower = model_name.lower()
         
-        if model_lower.startswith("gemini"):
+        if "image-preview" in model_lower and model_lower.startswith("gemini"):
+            return 'gemini_image'
+        elif model_lower.startswith("gemini"):
             return 'gemini'
         elif any(keyword in model_lower for keyword in ["sonar", "r1-", "perplexity"]):
             return 'perplexity'

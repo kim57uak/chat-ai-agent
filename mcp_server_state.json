@@ -9,7 +9,7 @@
   "excel-stdio": true,
   "gmail": true,
   "json-mcp-server": false,
-  "search-mcp-server": false,
+  "search-mcp-server": true,
   "github": false,
   "filesystem": false,
   "youtube_transcript": false,

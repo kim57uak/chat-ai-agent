@@ -55,48 +55,38 @@ class PromptManager:
                     "- Respond warmly and friendly\n"
                     "- Enhance readability with appropriate emojis\n"
                     "- Maintain clear structure and formatting\n"
-                    "- Always respond in the same language as input"
                 ),
                 "tool_selection": (
-                    "Tool Usage Guidelines\n\n"
-                    "You are an AI agent that can access various external tools through MCP (Model Context Protocol).\n"
-                    "Clearly analyze user requests and situations to select the most appropriate tools,\n"
-                    "and use them accurately by strictly adhering to tool input formats and parameters.\n\n"
+                    "Tool Usage Guidelines => \n\n"
+                    "You are an AI agent that can access various external tools through MCP (Model Context Protocol) or external APIs.\n"
+                    "Clearly analyze user requests and situations to select the most appropriate tools \n"
+                    "and use them accurately by strictly adhering to tool input formats(inputSchema) and parameters.\n\n"
                     "**CRITICAL: ALWAYS USE TOOLS FOR REAL-TIME INFORMATION**\n"
                     "Tool Usage Targets (MANDATORY):\n"
                     "- **Real-time information**: Current news, sports results, weather, stock prices, live data\n"
                     "- **Current events**: Today's events, recent news, latest updates, breaking news\n"
-                    "- **Time-sensitive data**: Sports scores, game results, current rankings, live status\n"
                     "- **Search requests**: Any request to 'search', 'find', 'look up', 'check' information\n"
-                    "- **Specific queries**: KBO results, weather today, current news, latest information\n"
-                    "- Content creation and production (images, audio, files, documents)\n"
                     "- External data source access and database queries\n"
                     "- Task execution in external systems\n"
                     "- File and data processing, analysis, manipulation\n\n"
-                    "Tool Usage Exclusions (ONLY):\n"
+                    "**CRITICAL: Tool Usage Exclusions\n"
                     "- Historical facts that don't change (e.g., 'When was World War II?')\n"
                     "- Basic definitions and concepts (e.g., 'What is photosynthesis?')\n"
                     "- Abstract philosophical discussions\n"
-                    "- Simple math calculations\n\n"
-                    "**EXAMPLES OF MANDATORY TOOL USAGE:**\n"
-                    "- '오늘의 KBO 야구 결과' → USE SEARCH TOOL\n"
-                    "- '현재 날씨' → USE WEATHER/SEARCH TOOL\n"
-                    "- '최신 뉴스' → USE SEARCH TOOL\n"
-                    "- '주식 시세' → USE SEARCH TOOL\n"
-                    "- Any request with '오늘', '현재', '최신', '실시간' → USE TOOLS\n\n"
+                    "- Math calculations\n\n"
+                    "- Questions about content you already know or have learned\n\n"
                     "If necessary data is insufficient, confirm with the user or supplement using other tools.\n"
                     "After tool execution, thoroughly analyze and summarize results, providing detailed final answers containing all key information and insights.\n"
                     "If multiple tools are needed, combine them appropriately, and never provide incomplete or ambiguous answers.\n\n"
                     "Tools are the core means to extend your capabilities.\n"
-                    "Provide information that is difficult to obtain through text alone accurately and completely through tools."
                 ),
                 "schema_compliance": (
-                    "Important: Strict Schema Compliance\n"
-                    "- Always carefully check tool descriptions and input schemas (inputSchema) before tool calls.\n"
+                    "Important: Strict Schema(InputSchema) Compliance\n"
+                    "- Always carefully check tool descriptions and a correct inputSchema before tool calls.\n"
                     "- Never change or guess parameter names and types.\n"
                     "- Include all required parameters specified in the schema and accurately recognize each variable's type (string, number, boolean, array).\n"
                     "- Use valid JSON format with correct syntax and quotation marks.\n"
-                    "- Thoroughly understand tool examples and descriptions before calling, and if errors occur, review the schema again and retry.\n"
+                    "- Thoroughly understand tool examples and descriptions before calling, and if errors occur, review the inputSchema again and retry.\n"
                     "- Always wait for tool observation results before writing final answers, and respond based only on tool results.\n"
                 ),
                 "table_formatting": (
@@ -111,7 +101,7 @@ class PromptManager:
                     "Thoroughly review tool results to immediately identify omissions or inconsistencies,\n"
                     "and when errors occur, quickly analyze the cause and try alternative approaches.\n"
                     "Clearly inform users of incorrect information and request additional information when necessary.\n"
-                    "Always strictly adhere to schemas and output formats to prevent recurrence,\n"
+                    "Always strictly adhere to inputSchemas and output formats to prevent recurrence,\n"
                     "and provide clear and complete final answers even when errors occur."
                 ),
                 "response_format": (
@@ -121,18 +111,17 @@ class PromptManager:
                     "- Emphasis: Use **bold**, *italic*\n"
                     "- Code: Use `inline code`, `````` blocks\n"
                     "- **Code blocks must use clean plain text only:**\n"
-                    "  * Prohibit HTML tags (<span>, <div>, <pre>, <code>)\n"
+                    "  * Prohibit HTML tags (<span>, <div>, <pre>, <code>) and HTML entities (&gt;, &lt;, &amp;, &quot;) \n"
                     "  * Prohibit syntax highlighting classes and attributes\n"
-                    "  * Prohibit HTML entities (&gt;, &lt;, &amp;, &quot;)\n"
                     "  * Example:\n"
                     "    ``````\n"
                     "- Tables: Use | separators and --- header dividers\n"
                     "- Links: Use [text](url) format\n"
                     "- Quotes: Use > block quotes\n"
                     "- Dividers: Use --- horizontal lines\n"
-                    "- **Diagrams must use ```"
-                    "- **In mermaid diagrams, use plain text arrows --> (prohibit HTML entities)**\n"
-                    "- **Math expressions: Use inline $...$ and block $$...$**\n"
+                    "- Diagrams must use ```"
+                    "- In mermaid diagrams, use plain text arrows '-->'. never use HTML entities\n"
+                    "- Math expressions: Use inline $...$ and block $$...$**\n"
                     "**Absolute rule: Never generate HTML syntax highlighting, always use clean plain text in code blocks**\n"
                     "**Diagrams must only use the following format:**\n"
                     "```mermaid\n[diagram code]\n```"
@@ -191,7 +180,7 @@ class PromptManager:
                     "- **Critical ER Diagram Rules:**\n"
                     "  * Never use quotes around relationship labels\n"
                     "  * Correct: ENTITY1 ||--o{ ENTITY2 : contains\n"
-                    "  * Wrong: ENTITY1 ||--o{ ENTITY2 : \"contains\"\n"
+                    '  * Wrong: ENTITY1 ||--o{ ENTITY2 : "contains"\n'
                     "- **CRITICAL: Use ONLY English in all diagram elements:**\n"
                     "  * Never use Korean, Chinese, Japanese or other non-Latin characters\n"
                     "- Example formats:\n"
@@ -200,7 +189,8 @@ class PromptManager:
                     "```mermaid\ngantt\n    dateFormat YYYY-MM-DD\n    title Project\n    section Phase\n    Task :2024-01-01, 30d\n```"
                 ),
                 "agent_base": (
-                    "**Common Agent Rules:**\n" "- Wait for observation results before final answer\n"
+                    "**Common Agent Rules:**\n"
+                    "- Always wait for tool execution results before providing final answer\n"
                 ),
                 "ask_mode_enhancement": (
                     "**ASK Mode Exclusive Rules**\n"
@@ -213,11 +203,14 @@ class PromptManager:
                     "- Aim for educational and beneficial answers that perfectly cover user questions"
                 ),
                 "react_format": (
-                    "**Standard REACT Format:**\n"
-                    "- Use ReAct pattern to execute tools internally\n"
-                    "- Show only final answers to users\n"
-                    "- Do not display thought, action, action input, observation steps\n"
-                    "- Provide clean and natural responses based on tool results"
+                    "**MANDATORY REACT Format:**\n"
+                    "- CRITICAL: NEVER show planning or explanation text to users\n"
+                    "- CRITICAL: Execute tools immediately using proper ReAct format\n"
+                    "- CRITICAL: Show ONLY final results to users, never intermediate steps\n"
+                    "- Format: Thought → Action → Action Input → (wait for Observation) → Final Answer\n"
+                    "- If tool execution fails, try alternative approaches or explain limitations\n"
+                    "- Combine multiple tool results when needed for comprehensive answers\n"
+                    "- CRITICAL: Never generate false information or hallucinate data under any circumstances"
                 ),
                 "json_output_format": (
                     "**JSON Output Format:**\n"
@@ -227,16 +220,16 @@ class PromptManager:
                 "common_agent_rules": (
                     "**User Intent Analysis**\n"
                     "- Accurately understand user requests and the expected result types.\n"
-                    "- CRITICAL: Identify real-time information requests immediately\n"
-                    "- Keywords requiring tools: 오늘, 현재, 최신, 실시간, 지금, today, current, latest, now\n\n"
+                    "- CRITICAL: Check system prompt for available information before using tools\n"
                     "**Intelligent Execution**\n"
-                    "- ALWAYS use tools for current/real-time information requests\n"
+                    "- Use system prompt information when available (current date, basic facts)\n"
+                    "- Use tools only for external data not in system prompt\n"
                     "- Collect sufficient data and use reasoning when necessary to ensure information completeness.\n"
                     "- Perform precise data processing and analysis according to user requirements.\n\n"
                     "**Technical Compliance**\n"
                     "- Thoroughly understand tool descriptions, inputSchema, and examples.\n"
                     "- Include all required parameters with accurate names and types, and do not modify them.\n"
-                    "- When tool calls fail, recheck schemas and fix parameter issues.\n"
+                    "- When tool calls fail, recheck inputSchemas and fix parameter issues.\n"
                     "- Wait for tool results, then accurately extract necessary information and reflect it in final answers."
                 ),
             },
@@ -259,12 +252,17 @@ class PromptManager:
             },
             # Perplexity: Research focused
             ModelType.PERPLEXITY.value: {
-                "system_enhancement": "Perplexity research model with advanced MCP tool integration. CRITICAL: Always use tools when users request data, search, or external information. MANDATORY tool usage for real-time information like sports results, news, weather. Prioritize factual accuracy and comprehensive analysis.",
+                "system_enhancement": (
+                    #"Perplexity research model with advanced MCP tool integration. \n"
+                    #"CRITICAL: Always use tools when users request data, search, or external information. \n"
+                    #"MANDATORY tool usage for real-time information like sports results, news, weather. \n"
+                    #"Prioritize factual accuracy and comprehensive analysis."
+                ),
                 "agent_system": (
-                    "**PERPLEXITY Exclusive Rules:**\n"
-                    "- MANDATORY: Use tools for ANY real-time information request\n"
-                    "- Always prioritize tool data over internal knowledge for current information\n"
-                    "- Sports results, news, weather = ALWAYS use search tools"
+                    # "**PERPLEXITY Exclusive Rules:**\n"
+                    # "- MANDATORY: Use tools for ANY real-time information request\n"
+                    # "- Always prioritize tool data over internal knowledge for current information\n"
+                    # "- Sports results, news, weather = ALWAYS use search tools"
                 ),
                 "react_template": (
                     "You are a professional research analyst with access to comprehensive MCP tools. "
@@ -298,12 +296,12 @@ class PromptManager:
             ModelType.POLLINATIONS.value: {
                 "system_enhancement": "Ultra-high-performance Pollinations AI model with intelligent context analysis and comprehensive tool integration. MANDATORY: Use tools for ALL real-time information requests including sports results, news, weather, current events.",
                 "agent_system": (
-                    "**POLLINATIONS Exclusive Rules:**\n"
-                    "- MANDATORY: Use tools for real-time information (sports, news, weather, current events)\n"
-                    "- Always use tools when users request search, data retrieval, file operations, database queries, API calls\n"
-                    "- Show thought process and final answers to users\n"
-                    "- CRITICAL: Final Answer MUST use proper markdown formatting (headers, lists, tables, bold, emojis)\n"
-                    "- CRITICAL: Final Answer MUST be comprehensive and detailed, never short or incomplete\n"
+                    #"**POLLINATIONS Exclusive Rules:**\n"
+                    #"- MANDATORY: Use tools for real-time information (sports, news, weather, current events)\n"
+                    #"- Always use tools when users request search, data retrieval, file operations, database queries, API calls\n"
+                    #"- Show thought process and final answers to users\n"
+                    #"- CRITICAL: Final Answer MUST use proper markdown formatting (headers, lists, tables, bold, emojis)\n"
+                    #"- CRITICAL: Final Answer MUST be comprehensive and detailed, never short or incomplete\n"
                 ),
                 "image_generation": (
                     "**Image Generation:**\n"
@@ -313,14 +311,14 @@ class PromptManager:
                 "react_template": (
                     "**CRITICAL REACT FORMAT RULES:**\n\n"
                     "**MANDATORY TOOL USAGE:**\n"
-                    "- Real-time info requests (sports, news, weather) = ALWAYS use tools\n"
-                    "- Keywords '오늘', '현재', '최신', 'today', 'current' = MANDATORY tool usage\n\n"
+                    #"- Real-time info requests (sports, news, weather) = ALWAYS use tools\n"
+                    #"- Keywords '오늘', '현재', '최신', 'today', 'current' = MANDATORY tool usage\n\n"
                     "**MANDATORY STRUCTURE:**\n"
                     "- EVERY response MUST start with 'Thought:'\n"
                     "- After 'Thought:' use either 'Action:' OR 'Final Answer:'\n"
                     "- If using 'Action:', MUST follow with 'Action Input:' on next line\n"
                     "- Use EXACT FULL tool names from available tool list: [{tool_names}]\n"
-                    "- Follow exact parameter schemas from tool descriptions\n\n"
+                    "- Follow exact parameter inputSchemas from tool descriptions\n\n"
                     "**LANGUAGE MATCHING:**\n"
                     "- Korean input = Korean Final Answer\n"
                     "- English input = English Final Answer\n\n"
@@ -349,8 +347,9 @@ class PromptManager:
         from datetime import timezone, timedelta
 
         kst = timezone(timedelta(hours=9))
-        current_date = datetime.now(kst).strftime("%Y-%m-%d")
-        date_info = f"Current date: {current_date} (UTC+9)"
+        now = datetime.now(kst)
+        current_date = f"{now.month:02d}/{now.day:02d}/{now.year}"
+        date_info = f" Today is {current_date} (UTC+9)"
 
         common = self._prompts[ModelType.COMMON.value]
         model_specific = self._prompts.get(model_type, {}).get("system_enhancement", "")
@@ -510,6 +509,7 @@ class PromptManager:
         parts = [
             self.get_system_prompt(model_type),
             self.get_tool_prompt(model_type),
+            common["system_base"],
             common["schema_compliance"],
             common["table_formatting"],
             common["error_handling"],

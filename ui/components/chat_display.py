@@ -43,6 +43,10 @@ class ChatDisplay:
         settings.setAttribute(settings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
         settings.setAttribute(settings.WebAttribute.AllowRunningInsecureContent, True)
+        settings.setAttribute(settings.WebAttribute.PlaybackRequiresUserGesture, False)
+        settings.setAttribute(settings.WebAttribute.FullScreenSupportEnabled, True)
+        settings.setAttribute(settings.WebAttribute.WebGLEnabled, True)
+        settings.setAttribute(settings.WebAttribute.Accelerated2dCanvasEnabled, True)
         
         # 웹뷰 배경 투명 설정
         self.web_view.page().setBackgroundColor(self.web_view.palette().color(self.web_view.palette().ColorRole.Window))
@@ -658,12 +662,15 @@ class ChatDisplay:
         self.progressive_display.cancel_current_display()
     
     def _process_image_urls(self, text):
-        """이미지 URL 감지 및 렌더링 처리"""
+        """이미지 URL 및 유튜브 링크 감지 및 렌더링 처리"""
         import re
         import uuid
         
         # Pollination 이미지 URL 패턴 감지
         pollination_pattern = r'https://image\.pollinations\.ai/prompt/[^\s)]+'
+        
+        # 유튜브 URL 패턴 감지 (더 정확한 패턴)
+        youtube_pattern = r'https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})(?:[^\s<>"]*)?'
         
         def replace_image_url(match):
             url = match.group(0)
@@ -716,8 +723,18 @@ class ChatDisplay:
             
             return css_animation + html_content
         
-        # URL을 이미지 태그로 변환
-        processed_text = re.sub(pollination_pattern, replace_image_url, text)
+        def replace_youtube_url(match):
+            full_url = match.group(0)
+            video_id = match.group(2)
+            
+            # 전체화면 지원을 위한 완전한 iframe 설정
+            return f'\n\n<div style="margin:10px 0;padding:10px;background:rgba(40,40,40,0.5);border-radius:8px;"><p style="color:#87CEEB;margin:0 0 10px 0;font-size:14px;">📺 YouTube: <a href="{full_url}" target="_blank" style="color:#87CEEB;">{video_id}</a></p><iframe width="560" height="315" src="https://www.youtube.com/embed/{video_id}?enablejsapi=1&fs=1&modestbranding=1&rel=0&showinfo=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe></div>\n\n'
+        
+        # 유튜브 URL을 먼저 처리 (더 긴 패턴이므로)
+        processed_text = re.sub(youtube_pattern, replace_youtube_url, text)
+        
+        # 이미지 URL을 이미지 태그로 변환
+        processed_text = re.sub(pollination_pattern, replace_image_url, processed_text)
         
         return processed_text
 

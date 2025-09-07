@@ -225,6 +225,47 @@ class ChatDisplay:
                     }
                 }
                 
+                function copyHtmlMessage(messageId) {
+                    try {
+                        const contentDiv = document.getElementById(messageId + '_content');
+                        if (!contentDiv) return;
+                        
+                        const htmlContent = contentDiv.innerHTML;
+                        
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(htmlContent).then(() => {
+                                showHtmlCopyFeedback(messageId);
+                            }).catch(() => {
+                                fallbackCopyHtml(htmlContent, messageId);
+                            });
+                        } else {
+                            fallbackCopyHtml(htmlContent, messageId);
+                        }
+                    } catch (error) {
+                        console.error('HTML copy failed:', error);
+                    }
+                }
+                
+                function fallbackCopyHtml(html, messageId) {
+                    try {
+                        const textArea = document.createElement('textarea');
+                        textArea.value = html;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        
+                        const successful = document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        
+                        if (successful) {
+                            showHtmlCopyFeedback(messageId);
+                        }
+                    } catch (err) {
+                        console.error('Fallback HTML copy error:', err);
+                    }
+                }
+                
                 function showMessageCopyFeedback(messageId) {
                     const messageDiv = document.getElementById(messageId);
                     if (messageDiv) {
@@ -241,6 +282,29 @@ class ChatDisplay:
                                 copyBtn.innerHTML = originalText;
                                 copyBtn.style.background = 'rgba(95,95,100,0.45)';
                                 copyBtn.style.borderColor = 'rgba(160,160,165,0.3)';
+                                copyBtn.style.opacity = '0.5';
+                                copyBtn.style.transform = 'scale(1)';
+                            }, 2000);
+                        }
+                    }
+                }
+                
+                function showHtmlCopyFeedback(messageId) {
+                    const messageDiv = document.getElementById(messageId);
+                    if (messageDiv) {
+                        const copyBtn = messageDiv.querySelector('button[title="HTML 코드 복사"]');
+                        if (copyBtn) {
+                            const originalText = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '✓';
+                            copyBtn.style.background = 'rgba(40,167,69,0.5)';
+                            copyBtn.style.borderColor = 'rgba(40,167,69,0.4)';
+                            copyBtn.style.opacity = '0.75';
+                            copyBtn.style.transform = 'scale(1.05)';
+                            
+                            setTimeout(() => {
+                                copyBtn.innerHTML = originalText;
+                                copyBtn.style.background = 'rgba(75,85,99,0.45)';
+                                copyBtn.style.borderColor = 'rgba(140,150,160,0.3)';
                                 copyBtn.style.opacity = '0.5';
                                 copyBtn.style.transform = 'scale(1)';
                             }, 2000);
@@ -473,7 +537,7 @@ class ChatDisplay:
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋';
             copyBtn.title = '메시지 복사';
-            copyBtn.style.cssText = 'position:absolute;top:18px;right:70px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            copyBtn.style.cssText = 'position:absolute;top:18px;right:120px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
             copyBtn.onclick = function() {{ copyMessage('{display_message_id}'); }};
             copyBtn.onmouseenter = function() {{ 
                 this.style.background = 'rgba(105,105,110,0.475)';
@@ -492,14 +556,37 @@ class ChatDisplay:
                 this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';
             }};
             
+            var copyHtmlBtn = document.createElement('button');
+            copyHtmlBtn.innerHTML = '🔗';
+            copyHtmlBtn.title = 'HTML 코드 복사';
+            copyHtmlBtn.style.cssText = 'position:absolute;top:18px;right:70px;background:rgba(75,85,99,0.45);color:rgba(168,178,188,0.7);border:1px solid rgba(140,150,160,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            copyHtmlBtn.onclick = function() {{ copyHtmlMessage('{display_message_id}'); }};
+            copyHtmlBtn.onmouseenter = function() {{ 
+                this.style.background = 'rgba(85,95,109,0.475)';
+                this.style.borderColor = 'rgba(160,170,180,0.4)';
+                this.style.color = 'rgba(200,210,220,0.85)';
+                this.style.opacity = '0.75';
+                this.style.transform = 'scale(1.05)';
+                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';
+            }};
+            copyHtmlBtn.onmouseleave = function() {{ 
+                this.style.background = 'rgba(75,85,99,0.45)';
+                this.style.borderColor = 'rgba(140,150,160,0.3)';
+                this.style.color = 'rgba(168,178,188,0.7)';
+                this.style.opacity = '0.5';
+                this.style.transform = 'scale(1)';
+                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';
+            }};
+            
             {delete_button_html}
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{display_message_id}_content';
-            contentDiv.style.cssText = 'margin:0;padding-left:8px;padding-right:80px;line-height:1.6;color:{content_color};font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
+            contentDiv.style.cssText = 'margin:0;padding-left:8px;padding-right:130px;line-height:1.6;color:{content_color};font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(copyBtn);
+            messageDiv.appendChild(copyHtmlBtn);
             messageDiv.appendChild(contentDiv);
             messagesDiv.appendChild(messageDiv);
             

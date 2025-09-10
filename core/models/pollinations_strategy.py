@@ -266,74 +266,40 @@ class PollinationsStrategy(BaseModelStrategy):
             return HumanMessage(content=cleaned_input.strip() or "Please describe what you see in the image.")
     
     def should_use_tools(self, user_input: str) -> bool:
-        """도구 사용 여부 결정 - 순수 AI 컨텍스트 기반 판단"""
+        """도구 사용 여부 결정 - 문맥 기반 판단"""
         if self.llm.is_image_model:
             return self._is_image_generation_request(user_input)
         
-        try:
-            # 사용 가능한 도구 정보 수집
-            available_tools_info = ""
-            if hasattr(self, 'tools') and self.tools:
-                try:
-                    if isinstance(self.tools, list):
-                        tool_names = [tool.name for tool in self.tools[:10]]
-                    else:
-                        tool_names = [str(tool) for tool in list(self.tools)[:10]]
-                    available_tools_info = f"Available tools: {', '.join(tool_names)}"
-                except Exception as e:
-                    logger.warning(f"Tool names extraction failed: {e}")
-                    available_tools_info = f"Available tools: {len(self.tools)} tools"
-            
-            # 컨텍스트 기반 판단 프롬프트
-            context_prompt = f"""Analyze the user's intent and determine if external tools are needed.
-
-User request: "{user_input}"
-{available_tools_info}
-
-Does this request require using external tools/APIs to fulfill? 
-Consider the user's intent, not just keywords.
-
-If the user wants to:
-- Get information from external sources
-- Search or retrieve data
-- Perform actions beyond conversation
-- Use specific tools or APIs
-Answer: YES
-
-If it's just:
-- General conversation
-- Explanations or discussions
-- Questions about concepts
-Answer: NO
-
-Analyze the intent and answer: YES or NO"""
-
-            response = self.llm.generate_text(context_prompt)
-            decision = str(response).strip().upper()
-            
-            # 첫 번째 YES 또는 NO 찾기
-            import re
-            match = re.search(r'\b(YES|NO)\b', decision)
-            if match:
-                result = match.group(1) == "YES"
-            else:
-                # YES가 NO보다 먼저 나오면 True
-                yes_pos = decision.find("YES")
-                no_pos = decision.find("NO")
-                if yes_pos != -1 and (no_pos == -1 or yes_pos < no_pos):
-                    result = True
-                else:
-                    result = False
-            
-            decision_str = str(decision)
-            logger.info(f"Pollinations 컨텍스트 기반 판단: '{user_input}' -> {decision_str[:100]} -> {result}")
-            return result
-
-        except Exception as e:
-            logger.error(f"Pollinations tool usage decision error: {e}")
-            import traceback
-            traceback.print_exc()
+        if not hasattr(self, 'tools') or not self.tools:
             return False
+        
+        try:
+            # 휴리스틱 기반 판단 (API 호출 없음)
+            has_question = '?' in user_input or any(user_input.strip().endswith(word) for word in ['요?', '까?', '나?', '지?'])
+            has_request = any(user_input.endswith(word) for word in ['줘', '해줘', '보여줘', '알려줘', '찾아줘', '해', '요', '세요'])
+            has_specific_info = any([
+                any(char.isdigit() for char in user_input),
+                len([w for w in user_input.split() if w.isupper()]) > 0,
+                '@' in user_input or 'http' in user_input,
+                len(user_input.split()) > 5
+            ])
+            
+            is_greeting = any(word in user_input.lower() for word in ['안녕', '고마워', '감사', 'hello', 'hi', 'thanks'])
+            is_simple_chat = len(user_input.split()) <= 3 and not has_question and not has_request
+            
+            if is_greeting or is_simple_chat:
+                result = False
+            elif has_question or has_request or has_specific_info:
+                result = True
+            else:
+                result = len(user_input.split()) > 4
+            
+            logger.info(f"Pollinations 휴리스틱 판단: '{user_input}' -> Q:{has_question}, R:{has_request}, S:{has_specific_info} -> {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Pollinations 판단 오류: {e}")
+            return len(user_input.split()) > 4
     
     def create_agent_executor(self, tools: List) -> Optional[AgentExecutor]:
         """에이전트 실행기 생성 - Pollinations 전용 파싱 오류 처리"""

@@ -13,16 +13,30 @@ class TokenLogger:
     
     @staticmethod
     def estimate_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
-        """텍스트의 토큰 수 추정 (간단한 방식)"""
+        """텍스트의 토큰 수 추정 (통합된 방식)"""
+        if not text:
+            return 0
+        
         try:
-            # 간단한 토큰 추정: 1토큰 ≈ 4문자 (영어 기준)
-            # 한글의 경우 더 적은 문자 수로 토큰이 구성됨
-            if any(ord(char) > 127 for char in text):  # 한글/특수문자 포함
-                return len(text) // 2  # 한글은 대략 2문자당 1토큰
-            else:
-                return len(text) // 4  # 영어는 대략 4문자당 1토큰
+            # 모델별 토큰 계산 방식 통일
+            # 한글과 영어가 섞인 텍스트를 고려한 정확한 추정
+            korean_chars = sum(1 for char in text if ord(char) >= 0xAC00 and ord(char) <= 0xD7A3)
+            english_chars = sum(1 for char in text if char.isalpha() and ord(char) < 128)
+            other_chars = len(text) - korean_chars - english_chars
+            
+            # 한글: 1.5문자당 1토큰, 영어: 4문자당 1토큰, 기타: 3문자당 1토큰
+            estimated_tokens = int(
+                korean_chars / 1.5 + 
+                english_chars / 4.0 + 
+                other_chars / 3.0
+            )
+            
+            # 최소 토큰 수 보장
+            return max(1, estimated_tokens) if text.strip() else 0
+            
         except Exception:
-            return len(text) // 3  # 기본 추정
+            # 폴백: 전체 길이 기반 추정
+            return max(1, len(text) // 3) if text.strip() else 0
     
     @staticmethod
     def tokens_to_kb(tokens: int) -> float:
@@ -75,63 +89,79 @@ class TokenLogger:
     
     @staticmethod
     def extract_actual_tokens(response_obj) -> tuple[int, int]:
-        """API 응답에서 실제 토큰 사용량 추출"""
-        try:
-            if not response_obj:
-                return 0, 0
+        """API 응답에서 실제 토큰 사용량 추출 (통합 버전)"""
+        if not response_obj:
+            return 0, 0
             
-            # OpenAI 직접 응답 형식
+        try:
+            # 1. OpenAI 직접 응답 형식
             if hasattr(response_obj, 'usage'):
                 usage = response_obj.usage
-                return getattr(usage, 'prompt_tokens', 0), getattr(usage, 'completion_tokens', 0)
+                input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', 0))
+                output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', 0))
+                if input_tokens > 0 or output_tokens > 0:
+                    return input_tokens, output_tokens
             
-            # Langchain 응답 형식
+            # 2. Langchain 응답 형식
             if hasattr(response_obj, 'response_metadata'):
                 metadata = response_obj.response_metadata
+                
+                # token_usage 필드 확인
                 if 'token_usage' in metadata:
                     token_usage = metadata['token_usage']
-                    return token_usage.get('prompt_tokens', 0), token_usage.get('completion_tokens', 0)
+                    input_tokens = token_usage.get('prompt_tokens', token_usage.get('input_tokens', 0))
+                    output_tokens = token_usage.get('completion_tokens', token_usage.get('output_tokens', 0))
+                    if input_tokens > 0 or output_tokens > 0:
+                        return input_tokens, output_tokens
+                
+                # usage_metadata 필드 확인
                 if 'usage_metadata' in metadata:
                     usage_metadata = metadata['usage_metadata']
-                    return usage_metadata.get('input_tokens', 0), usage_metadata.get('output_tokens', 0)
-            
-            # Google Gemini 응답 형식
-            if hasattr(response_obj, 'usage_metadata'):
-                usage = response_obj.usage_metadata
-                return getattr(usage, 'prompt_token_count', 0), getattr(usage, 'candidates_token_count', 0)
-            
-            # Anthropic Claude 응답 형식
-            if hasattr(response_obj, 'usage'):
-                usage = response_obj.usage
-                return getattr(usage, 'input_tokens', 0), getattr(usage, 'output_tokens', 0)
-            
-            # Perplexity 응답 형식
-            if hasattr(response_obj, 'model_extra') and 'usage' in response_obj.model_extra:
-                usage = response_obj.model_extra['usage']
-                return usage.get('prompt_tokens', 0), usage.get('completion_tokens', 0)
-            
-            # 리스트 형태의 응답 (에이전트 응답 등)
-            if isinstance(response_obj, list) and response_obj:
-                for item in response_obj:
-                    input_tokens, output_tokens = TokenLogger.extract_actual_tokens(item)
+                    input_tokens = usage_metadata.get('input_tokens', usage_metadata.get('prompt_tokens', 0))
+                    output_tokens = usage_metadata.get('output_tokens', usage_metadata.get('completion_tokens', 0))
                     if input_tokens > 0 or output_tokens > 0:
                         return input_tokens, output_tokens
             
-            # 딕셔너리 형태의 응답
+            # 3. Google Gemini 직접 응답 형식
+            if hasattr(response_obj, 'usage_metadata'):
+                usage = response_obj.usage_metadata
+                input_tokens = getattr(usage, 'prompt_token_count', getattr(usage, 'input_tokens', 0))
+                output_tokens = getattr(usage, 'candidates_token_count', getattr(usage, 'output_tokens', 0))
+                if input_tokens > 0 or output_tokens > 0:
+                    return input_tokens, output_tokens
+            
+            # 4. 리스트 형태의 응답 (에이전트 응답 등)
+            if isinstance(response_obj, list) and response_obj:
+                total_input = 0
+                total_output = 0
+                for item in response_obj:
+                    input_tokens, output_tokens = TokenLogger.extract_actual_tokens(item)
+                    total_input += input_tokens
+                    total_output += output_tokens
+                if total_input > 0 or total_output > 0:
+                    return total_input, total_output
+            
+            # 5. 딕셔너리 형태의 응답
             if isinstance(response_obj, dict):
-                # 직접 토큰 정보가 있는 경우
+                # 직접 usage 필드
                 if 'usage' in response_obj:
                     usage = response_obj['usage']
-                    return usage.get('prompt_tokens', usage.get('input_tokens', 0)), usage.get('completion_tokens', usage.get('output_tokens', 0))
+                    input_tokens = usage.get('prompt_tokens', usage.get('input_tokens', 0))
+                    output_tokens = usage.get('completion_tokens', usage.get('output_tokens', 0))
+                    if input_tokens > 0 or output_tokens > 0:
+                        return input_tokens, output_tokens
                 
                 # 중첩된 구조에서 토큰 정보 찾기
                 for key, value in response_obj.items():
-                    if isinstance(value, dict) and ('tokens' in str(key).lower() or 'usage' in str(key).lower()):
-                        input_tokens, output_tokens = TokenLogger.extract_actual_tokens(value)
-                        if input_tokens > 0 or output_tokens > 0:
-                            return input_tokens, output_tokens
+                    if isinstance(value, dict):
+                        key_lower = str(key).lower()
+                        if 'token' in key_lower or 'usage' in key_lower:
+                            input_tokens, output_tokens = TokenLogger.extract_actual_tokens(value)
+                            if input_tokens > 0 or output_tokens > 0:
+                                return input_tokens, output_tokens
             
             return 0, 0
+            
         except Exception as e:
             logger.debug(f"토큰 추출 실패: {e}")
             return 0, 0

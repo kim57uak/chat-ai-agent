@@ -9,6 +9,7 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 from core.file_utils import load_config, load_model_api_key, load_last_model
 from core.conversation_history import ConversationHistory
 from core.message_validator import MessageValidator
+from core.simple_token_accumulator import token_accumulator
 
 # 리팩토링된 컴포넌트들
 from ui.components.ai_processor import AIProcessor
@@ -169,6 +170,7 @@ class ChatWidget(QWidget):
         self.ai_processor.error.connect(self.on_ai_error)
         self.ai_processor.streaming.connect(self.on_ai_streaming)
         self.ai_processor.streaming_complete.connect(self.on_streaming_complete)
+        self.ai_processor.conversation_completed.connect(self._on_conversation_completed)
         
         # 상태 표시 연결
         status_display.status_updated.connect(self.update_status_display)
@@ -221,18 +223,27 @@ class ChatWidget(QWidget):
         if not user_text:
             return
         
-        # 이전 요청 취소
+        # 새 AI 프로세서 생성 (토큰 누적기는 초기화하지 않음)
         self.ai_processor.cancel()
         self.ai_processor = AIProcessor(self)
         self.ai_processor.finished.connect(self.on_ai_response)
         self.ai_processor.error.connect(self.on_ai_error)
         self.ai_processor.streaming.connect(self.on_ai_streaming)
+        self.ai_processor.conversation_completed.connect(self._on_conversation_completed)
         
         self._process_new_message(user_text)
     
     def _process_new_message(self, user_text):
         """새 메시지 처리"""
         self.request_start_time = datetime.now()
+        
+        # 사용자 입력 시에만 토큰 누적기 초기화 (사용자가 직접 입력한 경우만)
+        print(f"[ChatWidget] 사용자 메시지 입력 - 토큰 누적기 상태 확인")
+        # 대화가 비활성 상태일 때만 시작
+        if not token_accumulator.conversation_active:
+            token_accumulator.start_conversation()
+        else:
+            print(f"[ChatWidget] 대화가 이미 진행 중 - 토큰 계속 누적")
         
         # 사용자 메시지를 히스토리에 즉시 추가 (하이브리드 방식에서는 즉시 추가)
         message_id = self.conversation_history.add_message('user', user_text)
@@ -315,6 +326,7 @@ class ChatWidget(QWidget):
         self.ai_processor.finished.connect(self.on_ai_response)
         self.ai_processor.error.connect(self.on_ai_error)
         self.ai_processor.streaming.connect(self.on_ai_streaming)
+        self.ai_processor.conversation_completed.connect(self._on_conversation_completed)
         
         self._process_file_upload(file_path)
     
@@ -375,13 +387,22 @@ class ChatWidget(QWidget):
             tools_text = ", ".join([f"{emoji} {tool}" for emoji, tool in tool_emojis])
             tools_info = f"\n\n*사용된 도구: {tools_text}*"
         
-        # 토큰 사용량 정보 추가
+        # 토큰 정보 추가
         token_info = ""
         current_status = status_display.current_status
-        if current_status.get('total_tokens', 0) > 0:
-            total_tokens = current_status['total_tokens']
-            input_tokens = current_status.get('input_tokens', 0)
-            output_tokens = current_status.get('output_tokens', 0)
+        input_tokens = current_status.get('input_tokens', 0)
+        output_tokens = current_status.get('output_tokens', 0)
+        total_tokens = current_status.get('total_tokens', 0)
+        
+        # 토큰 누적기에서 누적 토큰 가져오기
+        current_input, current_output, current_total = token_accumulator.get_total()
+        if current_total > 0:
+            input_tokens = current_input
+            output_tokens = current_output
+            total_tokens = current_total
+        
+        # 토큰 정보 표시 (기존 형태 유지)
+        if total_tokens > 0:
             if input_tokens > 0 and output_tokens > 0:
                 token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
             else:
@@ -393,9 +414,17 @@ class ChatWidget(QWidget):
         display_sender = '에이전트' if '에이전트' in sender else 'AI'
         
         # AI 응답을 히스토리에 추가 - 토큰 정보 포함
+        current_status = status_display.current_status
         input_tokens = current_status.get('input_tokens', 0)
         output_tokens = current_status.get('output_tokens', 0)
         total_tokens = current_status.get('total_tokens', 0)
+        
+        # 토큰 누적기에서 누적 토큰 가져오기
+        current_input, current_output, current_total = token_accumulator.get_total()
+        if current_total > 0:
+            input_tokens = current_input
+            output_tokens = current_output
+            total_tokens = current_total
         
         ai_message_id = self.conversation_history.add_message(
             'assistant', text, current_model, 
@@ -407,6 +436,9 @@ class ChatWidget(QWidget):
         self.messages.append({'role': 'assistant', 'content': text})
         
         self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
+        
+        # 모델 라벨 업데이트 (세션 토큰 정보 포함)
+        self.model_manager.update_model_label()
         
         self.ui_manager.set_ui_enabled(True)
         self.ui_manager.show_loading(False)
@@ -627,6 +659,17 @@ class ChatWidget(QWidget):
         
         # 세션 통계도 초기화
         status_display.reset_session_stats()
+        
+        # 토큰 누적기 초기화
+        token_accumulator.reset()
+        print(f"[ChatWidget] 대화 히스토리 초기화 - 토큰 누적기도 초기화")
+        
+        # 토큰 트래커도 초기화
+        from core.token_tracker import token_tracker
+        if hasattr(token_tracker, 'current_conversation'):
+            token_tracker.current_conversation = None
+        if hasattr(token_tracker, 'conversation_history'):
+            token_tracker.conversation_history.clear()
         
         print("대화 히스토리가 초기화되었습니다.")
         
@@ -880,6 +923,19 @@ class ChatWidget(QWidget):
         self.send_button.setStyleSheet(send_button_style)
         self.cancel_button.setStyleSheet(cancel_button_style)
         self.upload_button.setStyleSheet(upload_button_style)
+    
+    def _on_conversation_completed(self, _):
+        """대화 완료 시 토큰 누적기 종료"""
+        try:
+            # 대화 종료만 처리 (토큰 박스는 표시하지 않음)
+            if token_accumulator.end_conversation():
+                input_tokens, output_tokens, total_tokens = token_accumulator.get_total()
+                print(f"[ChatWidget] 대화 완료 - 토큰: {total_tokens:,}개")
+            
+        except Exception as e:
+            print(f"대화 완료 처리 오류: {e}")
+    
+
     
     def _apply_theme_if_needed(self):
         """필요시 테마 적용"""

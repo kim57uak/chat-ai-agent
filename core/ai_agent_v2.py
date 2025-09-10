@@ -3,6 +3,7 @@ from core.models.model_strategy_factory import ModelStrategyFactory
 from core.chat.simple_chat_processor import SimpleChatProcessor
 from core.chat.tool_chat_processor import ToolChatProcessor
 from core.conversation_history import ConversationHistory
+from core.token_tracker import token_tracker
 from tools.langchain.langchain_tools import MCPTool, MCPToolRegistry
 from mcp.servers.mcp import get_all_mcp_tools
 from mcp.tools.tool_manager import tool_manager
@@ -53,6 +54,9 @@ class AIAgentV2:
     
     def process_message(self, user_input: str) -> Tuple[str, List]:
         """메시지 처리 - 도구 사용 여부 자동 결정"""
+        # 대화 토큰 트래킹 시작
+        conversation_id = token_tracker.start_conversation(user_input, self.model_name)
+        
         # 사용자 메시지를 히스토리에 추가
         self.conversation_history.add_message("user", user_input)
         
@@ -69,11 +73,18 @@ class AIAgentV2:
             self.conversation_history.add_message("assistant", response)
             self.conversation_history.save_to_file()
             
+            # 대화 토큰 트래킹 종료
+            token_tracker.end_conversation(response)
+            
             return response, used_tools
             
         except Exception as e:
             logger.error(f"메시지 처리 오류: {e}")
             error_response = f"메시지 처리 중 오류가 발생했습니다: {str(e)[:100]}..."
+            
+            # 오류 시에도 대화 토큰 트래킹 종료
+            token_tracker.end_conversation(error_response)
+            
             return error_response, []
     
     def process_message_with_history(
@@ -141,6 +152,10 @@ class AIAgentV2:
         # 대화 히스토리가 없으면 내부 히스토리에서 5단계 가져오기
         if not conversation_history:
             conversation_history = self.conversation_history.get_context_messages()
+        
+        # 단순 채팅에서도 토큰 트래킹 시작 (현재 대화가 없는 경우)
+        if not token_tracker.current_conversation:
+            token_tracker.start_conversation(user_input, self.model_name)
         
         response, used_tools = self.simple_processor.process_message(user_input, conversation_history)
         return response, used_tools

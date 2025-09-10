@@ -1,6 +1,7 @@
 from typing import List, Dict, Tuple
 from .base_chat_processor import BaseChatProcessor
 from core.token_logger import TokenLogger
+from core.token_tracker import token_tracker, StepType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,9 @@ class SimpleChatProcessor(BaseChatProcessor):
     def process_message(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
         """단순 채팅 처리 - 대화 히스토리 포함"""
         try:
+            # 토큰 트래킹 시작
+            token_tracker.start_step(StepType.INITIAL_PROMPT, "Simple Chat Processing")
+            
             # user_input 타입 검증 및 변환
             if isinstance(user_input, list):
                 user_input = str(user_input)
@@ -78,6 +82,9 @@ class SimpleChatProcessor(BaseChatProcessor):
                 else:
                     response = self.model_strategy.llm.invoke(messages)
                 
+                # 응답 객체 저장 (토큰 추출용)
+                self.model_strategy._last_response = response
+                
                 logger.info(f"생성된 메시지 수: {len(messages)}")
                 
                 # Perplexity 응답 처리 (문자열 또는 객체)
@@ -105,10 +112,39 @@ class SimpleChatProcessor(BaseChatProcessor):
                 print(f"Response attributes: {dir(response) if hasattr(response, '__dict__') else 'No attributes'}")
                 response_content = "응답을 생성할 수 없습니다."
             
-            # 토큰 사용량 로깅 (Pollinations가 아닌 경우만)
+            # 토큰 사용량 로깅 및 트래킹 (Pollinations가 아닌 경우만)
             if 'pollinations' not in self.model_strategy.model_name.lower():
+                # 기존 로깅
                 TokenLogger.log_messages_token_usage(
                     self.model_strategy.model_name, messages, response_content, "simple_chat"
+                )
+                
+                # 토큰 트래킹 종료 - 실제 토큰 정보 추출
+                input_text = "\n".join([str(msg.content) if hasattr(msg, 'content') else str(msg) for msg in messages])
+                
+                # 실제 토큰 정보 추출
+                actual_input, actual_output = TokenLogger.extract_actual_tokens(response)
+                
+                token_tracker.end_step(
+                    StepType.FINAL_RESPONSE,
+                    "Simple Chat Response",
+                    input_text=input_text,
+                    output_text=response_content,
+                    response_obj=response,
+                    additional_info={
+                        "input_tokens": actual_input,
+                        "output_tokens": actual_output,
+                        "total_tokens": actual_input + actual_output
+                    }
+                )
+            else:
+                # Pollinations의 경우 추정치만 사용
+                input_text = user_input
+                token_tracker.end_step(
+                    StepType.FINAL_RESPONSE,
+                    "Pollinations Response",
+                    input_text=input_text,
+                    output_text=response_content
                 )
             
             return self.format_response(response_content), []

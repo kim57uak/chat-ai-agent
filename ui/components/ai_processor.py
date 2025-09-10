@@ -5,6 +5,7 @@ import time
 from ui.components.status_display import status_display
 from core.token_logger import TokenLogger
 from core.ai_logger import ai_logger
+from core.simple_token_accumulator import token_accumulator
 
 
 class AIProcessor(QObject):
@@ -14,6 +15,7 @@ class AIProcessor(QObject):
     error = pyqtSignal(str)
     streaming = pyqtSignal(str, str)  # sender, partial_text
     streaming_complete = pyqtSignal(str, str, list)  # sender, full_text, used_tools
+    conversation_completed = pyqtSignal(object)  # ConversationTokens 객체
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -201,10 +203,23 @@ class AIProcessor(QObject):
                         # Ask 모드에서는 도구 사용 불가 메시지 제거 (AI가 컨텍스트 파악해서 판단)
                 
                 if not self._cancelled and response:
+                    # 토큰 트래커 시작 (대화 추적)
+                    from core.token_tracker import token_tracker, StepType
+                    
+                    # 토큰 누적기 상태 확인
+                    print(f"[AI_PROCESSOR] 토큰 누적기 초기 상태: {token_accumulator.get_total()}")
+                    
+                    # 대화 시작 (아직 시작되지 않았다면)
+                    if not token_tracker.current_conversation:
+                        conversation_input = processed_file_prompt or processed_user_text or ""
+                        token_tracker.start_conversation(conversation_input, model)
+                    
                     # 실제 토큰 사용량 추출 먼저 수행
                     actual_input_tokens, actual_output_tokens = 0, 0
                     if hasattr(client, '_last_response'):
                         actual_input_tokens, actual_output_tokens = TokenLogger.extract_actual_tokens(client._last_response)
+                    
+                    print(f"[AI_PROCESSOR] 실제 토큰 추출: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
                     
                     # 실제 토큰이 없으면 추정치 사용
                     if actual_input_tokens == 0 and actual_output_tokens == 0:
@@ -221,6 +236,49 @@ class AIProcessor(QObject):
                         
                         actual_input_tokens = TokenLogger.estimate_tokens(input_text, model)
                         actual_output_tokens = TokenLogger.estimate_tokens(response, model)
+                        print(f"[AI_PROCESSOR] 추정 토큰 사용: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
+                    else:
+                        print(f"[AI_PROCESSOR] 실제 토큰 사용: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
+                    
+                    # 토큰 트래커에 단계 기록
+                    step_name = "Agent Response" if agent_mode else "Simple Response"
+                    step_type = StepType.FINAL_RESPONSE
+                    
+                    # 입력 텍스트 구성 (트래커용)
+                    tracker_input_text = ""
+                    if messages:
+                        for msg in messages:
+                            if isinstance(msg, dict) and msg.get('content'):
+                                tracker_input_text += str(msg['content']) + "\n"
+                    if user_text:
+                        tracker_input_text += user_text
+                    if file_prompt:
+                        tracker_input_text += file_prompt
+                    
+                    # 토큰 트래커에 단계 종료 기록
+                    token_tracker.start_step(step_type, step_name)
+                    token_tracker.end_step(
+                        step_type=step_type,
+                        step_name=step_name,
+                        input_text=tracker_input_text,
+                        output_text=response,
+                        response_obj=getattr(client, '_last_response', None),
+                        tool_name=', '.join([str(tool) for tool in used_tools]) if used_tools else None,
+                        additional_info={
+                            'input_tokens': actual_input_tokens,
+                            'output_tokens': actual_output_tokens,
+                            'model': model,
+                            'agent_mode': agent_mode,
+                            'tools_used': [str(tool) for tool in used_tools]
+                        }
+                    )
+                    
+                    # 토큰 누적기에 토큰 추가
+                    token_accumulator.add(actual_input_tokens, actual_output_tokens)
+                    print(f"[AI_PROCESSOR] 토큰 누적기에 추가: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
+                    
+                    # 대화 종료
+                    token_tracker.end_conversation(response)
                     
                     # AI 응답 로깅 (정확한 토큰 정보 포함)
                     response_time = time.time() - request_start_time
@@ -264,6 +322,7 @@ class AIProcessor(QObject):
 
                     
                     # 상태 표시에 실제 토큰 정보 업데이트
+                    print(f"[AI_PROCESSOR] status_display.update_tokens() 호출: {actual_input_tokens}/{actual_output_tokens}")
                     status_display.update_tokens(actual_input_tokens, actual_output_tokens)
                     
                     # 로그에 실제 토큰 사용량 기록
@@ -275,19 +334,32 @@ class AIProcessor(QObject):
                     # 상태 표시 완료
                     status_display.finish_processing(True)
                     
-                    # sender에 모델 정보와 토큰 정보 포함 - TokenLogger와 동일한 형식
-                    total_tokens = actual_input_tokens + actual_output_tokens
-                    token_info = f" | 📊 {total_tokens:,}토큰 (IN:{actual_input_tokens:,} OUT:{actual_output_tokens:,})"
+                    # sender에 모델 정보와 토큰 정보 포함 - 토큰 트래커 정보 우선 사용
+                    tracker_stats = token_tracker.get_conversation_stats()
+                    if tracker_stats and tracker_stats.get('total_actual_tokens', 0) > 0:
+                        total_tokens = tracker_stats['total_actual_tokens']
+                        token_info = f" | 📊 {total_tokens:,}토큰 (트래커)"
+                    else:
+                        total_tokens = actual_input_tokens + actual_output_tokens
+                        token_info = f" | 📊 {total_tokens:,}토큰 (IN:{actual_input_tokens:,} OUT:{actual_output_tokens:,})"
+                    
                     model_sender = f"{sender}_{model}{token_info}"
+                    
+                    # 응답 전송
                     self.finished.emit(model_sender, response, used_tools)
+                    
+                    # 대화 완료 시그널 발송 (응답 전송 후)
+                    self.conversation_completed.emit(None)
                 elif not self._cancelled:
                     status_display.finish_processing(False)
+                    print(f"[AI_PROCESSOR] 응답 생성 실패")
                     self.error.emit("응답을 생성할 수 없습니다.")
                     
             except Exception as e:
                 if not self._cancelled:
                     status_display.finish_processing(False)
                     error_msg = f'오류 발생: {str(e)}'
+                    print(f"[AI_PROCESSOR] 오류 발생")
                     self.error.emit(error_msg)
                     
                     # 오류 상세 로깅

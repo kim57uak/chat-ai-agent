@@ -1,10 +1,12 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QFileDialog, QMessageBox
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QFileDialog, 
+                            QMessageBox, QDockWidget, QSplitter)
 from PyQt6.QtGui import QAction
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
 from ui.chat_widget import ChatWidget
 from ui.settings_dialog import SettingsDialog
 from ui.mcp_dialog import MCPDialog
 from ui.mcp_manager_simple import MCPManagerDialog
+from ui.components.token_usage_display import TokenUsageDisplay
 from mcp.servers.mcp import start_mcp_servers, stop_mcp_servers
 from ui.components.status_display import status_display
 from ui.styles.flat_theme import FlatTheme
@@ -30,16 +32,34 @@ class MainWindow(QMainWindow):
     
     def _setup_ui(self) -> None:
         """Setup UI components."""
-        # Central widget
+        # Central widget with splitter
         central_widget = QWidget(self)
         central_widget.setStyleSheet("background-color: #0a0a0a !important; color: #f3f4f6 !important;")
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         
+        # Splitter for chat and token usage
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
         # Chat widget
         self.chat_widget = ChatWidget(self)
         self.chat_widget.setStyleSheet("background-color: #0a0a0a !important;")
-        layout.addWidget(self.chat_widget)
+        splitter.addWidget(self.chat_widget)
+        
+        # Token usage display (initially visible)
+        self.token_display = TokenUsageDisplay(self)
+        self.token_display.setVisible(True)  # 기본적으로 표시
+        self.token_display.export_requested.connect(self._show_export_message)
+        splitter.addWidget(self.token_display)
+        
+
+        
+        print("TokenUsageDisplay 생성 완료")  # 디버깅
+        
+        # Set splitter proportions (80% chat, 20% token display)
+        splitter.setSizes([800, 200])
+        
+        layout.addWidget(splitter)
         self.setCentralWidget(central_widget)
         
         # 상태 표시 초기화
@@ -82,6 +102,15 @@ class MainWindow(QMainWindow):
         user_prompt_action = QAction('유저 프롬프트 설정', self)
         user_prompt_action.triggered.connect(self.open_user_prompt)
         settings_menu.addAction(user_prompt_action)
+        
+        settings_menu.addSeparator()
+        
+        # Token usage toggle
+        self.token_usage_action = QAction('토큰 사용량 표시', self)
+        self.token_usage_action.setCheckable(True)
+        self.token_usage_action.setChecked(True)  # 기본적으로 활성화
+        self.token_usage_action.triggered.connect(self.toggle_token_display)
+        settings_menu.addAction(self.token_usage_action)
         
         # Theme menu
         theme_menu = menubar.addMenu('테마')
@@ -292,3 +321,16 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"창 제목 업데이트 오류: {e}")
             self.setWindowTitle('AIAgent')
+    
+    def toggle_token_display(self):
+        """토큰 사용량 표시 토글"""
+        is_visible = self.token_display.isVisible()
+        self.token_display.setVisible(not is_visible)
+        self.token_usage_action.setChecked(not is_visible)
+        
+        if not is_visible:
+            self.token_display.refresh_display()
+    
+    def _show_export_message(self, message: str):
+        """내보내기 메시지 표시"""
+        QMessageBox.information(self, '내보내기 완료', message)

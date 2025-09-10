@@ -1,6 +1,7 @@
 from typing import List, Dict, Tuple
 from .base_chat_processor import BaseChatProcessor
 from core.token_logger import TokenLogger
+from core.token_tracker import token_tracker, StepType
 import logging
 import time
 
@@ -22,6 +23,13 @@ class ToolChatProcessor(BaseChatProcessor):
     def process_message(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
         """도구 사용 채팅 처리 - 시간 제한 및 반복 제한 적용"""
         try:
+            # 대화 트래킹 시작 (현재 대화가 없는 경우)
+            if not token_tracker.current_conversation:
+                token_tracker.start_conversation(user_input, self.model_strategy.model_name)
+            
+            # 토큰 트래킹 시작
+            token_tracker.start_step(StepType.TOOL_DECISION, "Tool Usage Decision")
+            
             if not self.validate_input(user_input):
                 return "유효하지 않은 입력입니다.", []
             
@@ -30,6 +38,14 @@ class ToolChatProcessor(BaseChatProcessor):
             
             start_time = time.time()
             logger.info(f"도구 채팅 시작: {user_input[:50]}...")
+            
+            # 도구 결정 단계 종료
+            token_tracker.end_step(
+                StepType.TOOL_DECISION,
+                "Tool Usage Decision",
+                input_text=user_input,
+                output_text=f"Using {len(self.tools)} available tools"
+            )
             
             # 에이전트 실행기 생성 (지연 로딩)
             if not self._agent_executor:
@@ -59,26 +75,73 @@ class ToolChatProcessor(BaseChatProcessor):
                 # 에이전트 실행 전 입력 토큰 로깅을 위한 준비
                 input_text = agent_input["input"]
                 
+                # 도구 실행 단계 시작
+                token_tracker.start_step(StepType.TOOL_EXECUTION, "Agent Tool Execution")
+                
                 result = self._agent_executor.invoke(agent_input)
                 
                 # 에이전트 실행 결과 토큰 로깅 및 히스토리 저장
                 output_text = result.get("output", "")
                 if output_text:
+                    # MCP 도구 결과를 포함한 전체 입력 토큰 계산
+                    total_input_text = input_text
+                    
+                    # 중간 단계에서 도구 결과 추출하여 입력 토큰에 포함
+                    intermediate_steps = result.get("intermediate_steps", [])
+                    tool_results_text = ""
+                    used_tools = []
+                    
+                    for step in intermediate_steps:
+                        if len(step) >= 2:
+                            action, observation = step[0], step[1]
+                            # 도구명 추출
+                            tool_name = getattr(action, 'tool', 'unknown_tool')
+                            used_tools.append(tool_name)
+                            
+                            if observation and str(observation).strip():
+                                tool_results_text += f"\nTool Result: {str(observation)}"
+                    
+                    # 도구 결과가 있으면 입력 토큰에 추가
+                    if tool_results_text:
+                        total_input_text += tool_results_text
+                        logger.info(f"MCP 도구 결과 {len(tool_results_text)} 문자를 입력 토큰에 추가")
+                    
+                    # 실제 토큰 정보 추출
+                    actual_input, actual_output = 0, 0
+                    if hasattr(self.model_strategy, '_last_response'):
+                        actual_input, actual_output = TokenLogger.extract_actual_tokens(self.model_strategy._last_response)
+                    
+                    # 도구 실행 단계 종료
+                    token_tracker.end_step(
+                        StepType.TOOL_EXECUTION,
+                        "Agent Tool Execution",
+                        input_text=total_input_text,
+                        output_text=output_text,
+                        response_obj=getattr(self.model_strategy, '_last_response', None),
+                        tool_name=",".join(used_tools) if used_tools else None,
+                        additional_info={
+                            "intermediate_steps_count": len(intermediate_steps),
+                            "input_tokens": actual_input,
+                            "output_tokens": actual_output,
+                            "total_tokens": actual_input + actual_output
+                        }
+                    )
+                    
                     # 실제 토큰 정보 추출 시도
                     input_tokens, output_tokens = 0, 0
                     if hasattr(self.model_strategy, '_last_response'):
                         input_tokens, output_tokens = TokenLogger.extract_actual_tokens(self.model_strategy._last_response)
                     
-                    # 실제 토큰이 없으면 추정치 사용
+                    # 실제 토큰이 없으면 추정치 사용 (도구 결과 포함)
                     if input_tokens == 0 and output_tokens == 0:
-                        input_tokens = TokenLogger.estimate_tokens(input_text, self.model_strategy.model_name)
+                        input_tokens = TokenLogger.estimate_tokens(total_input_text, self.model_strategy.model_name)
                         output_tokens = TokenLogger.estimate_tokens(output_text, self.model_strategy.model_name)
                     
                     # 토큰 로깅
                     if input_tokens > 0 or output_tokens > 0:
-                        TokenLogger.log_actual_token_usage(self.model_strategy.model_name, self.model_strategy._last_response if hasattr(self.model_strategy, '_last_response') else None, "agent_execution")
+                        TokenLogger.log_actual_token_usage(self.model_strategy.model_name, self.model_strategy._last_response if hasattr(self.model_strategy, '_last_response') else None, "mcp_agent_execution")
                     else:
-                        TokenLogger.log_token_usage(self.model_strategy.model_name, input_text, output_text, "agent_execution")
+                        TokenLogger.log_token_usage(self.model_strategy.model_name, total_input_text, output_text, "mcp_agent_execution")
                     
                     # 대화 히스토리에 토큰 정보와 함께 저장
                     if hasattr(self, 'conversation_history') and self.conversation_history:
@@ -149,6 +212,11 @@ class ToolChatProcessor(BaseChatProcessor):
             
             elapsed = time.time() - start_time
             logger.debug(f"도구 채팅 완료: {elapsed:.2f}초")
+            
+            # 대화 종료
+            if token_tracker.current_conversation:
+                token_tracker.end_conversation(output)
+            
             return self.format_response(output), used_tools
             
         except Exception as e:
@@ -270,7 +338,12 @@ class ToolChatProcessor(BaseChatProcessor):
                     pass
                 
                 # 도구 실행 결과를 사용자 친화적으로 처리
-                return self._format_tool_result(final_result, used_tools)
+                formatted_result, tools = self._format_tool_result(final_result, used_tools)
+                
+                # MCP 도구 사용 시 토큰 로깅 (부분 결과)
+                self._log_mcp_token_usage(user_input, tool_results, formatted_result)
+                
+                return formatted_result, tools
         
         return "요청이 복잡하여 처리 시간이 초과되었습니다. 더 구체적이고 간단한 질문으로 다시 시도해주세요.", []
     
@@ -347,3 +420,27 @@ class ToolChatProcessor(BaseChatProcessor):
             return f"📋 **결과:** {result[:500]}{'...' if len(result) > 500 else ''}", used_tools
         except Exception:
             return "✅ **작업이 완료되었습니다.**", used_tools
+    
+    def _log_mcp_token_usage(self, user_input: str, tool_results: List[str], ai_response: str):
+        """MCP 도구 사용 시 토큰 사용량 로깅"""
+        try:
+            # 전체 입력 토큰 계산 (사용자 입력 + 도구 결과)
+            total_input = user_input
+            if tool_results:
+                tool_text = "\n".join(tool_results)
+                total_input += f"\n\nMCP Tool Results:\n{tool_text}"
+            
+            # 토큰 추정
+            input_tokens = TokenLogger.estimate_tokens(total_input, self.model_strategy.model_name)
+            output_tokens = TokenLogger.estimate_tokens(ai_response, self.model_strategy.model_name)
+            
+            # 로깅
+            TokenLogger.log_token_usage(
+                self.model_strategy.model_name, 
+                total_input, 
+                ai_response, 
+                "mcp_partial_result"
+            )
+            
+        except Exception as e:
+            logger.warning(f"MCP 토큰 로깅 실패: {e}")

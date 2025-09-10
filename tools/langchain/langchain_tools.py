@@ -223,51 +223,106 @@ class MCPTool(BaseTool):
         return intersection / union if union > 0 else 0.0
     
     def _format_search_result(self, result: Dict[str, Any]) -> str:
-        """검색 결과 포맷팅 (요약하지 않고 구조화)"""
+        """검색 결과 포맷팅 (전체 내용 반환)"""
         try:
             content = result.get('content', [])
             if not content:
                 return "검색 결과가 없습니다."
             
-            # 모든 검색 결과 처리 (첫 번째만이 아닌)
-            formatted_results = []
+            # 디버깅을 위한 로그
+            logger.info(f"검색 결과 content 개수: {len(content)}")
             
-            for i, item in enumerate(content[:3]):  # 최대 3개 결과만
-                text_content = item.get('text', '')
+            formatted_results = []
+            result_count = 0
+            
+            for i, item in enumerate(content):
+                logger.info(f"처리 중인 content 항목 {i}: {type(item)}")
+                text_content = item.get('text', '') if isinstance(item, dict) else str(item)
+                
+                if not text_content:
+                    continue
                 
                 # JSON 파싱 시도
-                if text_content.startswith('['):
+                if text_content.strip().startswith('[') or text_content.strip().startswith('{'):
                     try:
                         search_data = json.loads(text_content)
+                        
+                        # 리스트 형태의 검색 결과
                         if isinstance(search_data, list):
-                            for j, search_item in enumerate(search_data[:2]):  # 각 결과에서 최대 2개
-                                query = search_item.get('query', '')
-                                engine = search_item.get('engine', '')
-                                result_text = search_item.get('resultText', '')
-                                url = search_item.get('url', '')
-                                
-                                formatted_results.append(f"**검색 결과 {len(formatted_results)+1}:**")
+                            for search_item in search_data:
+                                result_count += 1
+                                if isinstance(search_item, dict):
+                                    query = search_item.get('query', '')
+                                    engine = search_item.get('engine', '')
+                                    result_text = search_item.get('resultText', search_item.get('text', ''))
+                                    url = search_item.get('url', '')
+                                    title = search_item.get('title', '')
+                                    
+                                    formatted_results.append(f"**검색 결과 {result_count}:**")
+                                    if title:
+                                        formatted_results.append(f"제목: {title}")
+                                    if query:
+                                        formatted_results.append(f"검색어: {query}")
+                                    if engine:
+                                        formatted_results.append(f"검색엔진: {engine}")
+                                    if url:
+                                        formatted_results.append(f"URL: {url}")
+                                    if result_text:
+                                        formatted_results.append(f"내용: {result_text}")
+                                    formatted_results.append("")  # 빈 줄
+                                else:
+                                    result_count += 1
+                                    formatted_results.append(f"**검색 결과 {result_count}:**")
+                                    formatted_results.append(str(search_item))
+                                    formatted_results.append("")  # 빈 줄
+                        
+                        # 딕셔너리 형태의 검색 결과
+                        elif isinstance(search_data, dict):
+                            result_count += 1
+                            query = search_data.get('query', '')
+                            engine = search_data.get('engine', '')
+                            result_text = search_data.get('resultText', search_data.get('text', ''))
+                            url = search_data.get('url', '')
+                            title = search_data.get('title', '')
+                            
+                            formatted_results.append(f"**검색 결과 {result_count}:**")
+                            if title:
+                                formatted_results.append(f"제목: {title}")
+                            if query:
                                 formatted_results.append(f"검색어: {query}")
+                            if engine:
                                 formatted_results.append(f"검색엔진: {engine}")
-                                if url:
-                                    formatted_results.append(f"URL: {url}")
+                            if url:
+                                formatted_results.append(f"URL: {url}")
+                            if result_text:
                                 formatted_results.append(f"내용: {result_text}")
-                                formatted_results.append("")  # 빈 줄
-                    except:
+                            formatted_results.append("")  # 빈 줄
+                            
+                    except json.JSONDecodeError as je:
+                        logger.warning(f"JSON 파싱 실패: {je}")
                         # JSON 파싱 실패 시 원본 텍스트 사용
-                        formatted_results.append(f"**검색 결과 {len(formatted_results)+1}:**")
+                        result_count += 1
+                        formatted_results.append(f"**검색 결과 {result_count}:**")
                         formatted_results.append(text_content)
                         formatted_results.append("")  # 빈 줄
                 else:
                     # 일반 텍스트 결과
-                    formatted_results.append(f"**검색 결과 {len(formatted_results)+1}:**")
+                    result_count += 1
+                    formatted_results.append(f"**검색 결과 {result_count}:**")
                     formatted_results.append(text_content)
                     formatted_results.append("")  # 빈 줄
+            
+            logger.info(f"총 {result_count}개의 검색 결과 포맷팅 완료")
+            
+            if not formatted_results:
+                return "검색 결과를 처리할 수 없습니다."
             
             return "\n".join(formatted_results)
             
         except Exception as e:
             logger.error(f"검색 결과 포맷팅 오류: {e}")
+            import traceback
+            logger.error(f"상세 오류: {traceback.format_exc()}")
             return f"검색 결과 처리 중 오류가 발생했습니다: {e}"
 
 

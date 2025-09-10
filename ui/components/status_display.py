@@ -54,10 +54,16 @@ class StatusDisplay(QObject):
         self.status_updated.emit(self.current_status.copy())
     
     def update_tokens(self, input_tokens: int = 0, output_tokens: int = 0):
-        """토큰 사용량 업데이트"""
+        """토큰 사용량 업데이트 (현재 단계만)"""
         self.current_status['input_tokens'] = input_tokens
         self.current_status['output_tokens'] = output_tokens
         self.current_status['total_tokens'] = input_tokens + output_tokens
+        
+        # 전역 토큰 카운터에 토큰 추가
+        from core.global_token_counter import global_token_counter
+        print(f"[StatusDisplay] update_tokens() 호출: {input_tokens}/{output_tokens}")
+        global_token_counter.add_tokens(input_tokens, output_tokens)
+        
         self.status_updated.emit(self.current_status.copy())
     
     def add_tool_used(self, tool_name: str):
@@ -139,8 +145,7 @@ class StatusDisplay(QObject):
             elapsed = status['elapsed_time']
             time_str = f"{elapsed:.1f}초" if elapsed < 60 else f"{elapsed//60:.0f}분 {elapsed%60:.1f}초"
         
-        # 토큰 정보 - TokenLogger와 동일한 계산식 사용
-        from core.token_logger import TokenLogger
+        # 토큰 정보 - 기존 형태 유지
         total_tokens = status.get('total_tokens', 0)
         input_tokens = status.get('input_tokens', 0)
         output_tokens = status.get('output_tokens', 0)
@@ -166,11 +171,18 @@ class StatusDisplay(QObject):
         mode = status.get('mode', 'ask')
         mode_icon = '🔧' if mode == 'agent' else '💬'
         
+        # 응답 시간과 토큰 사용량을 한 줄로 표시
+        status_parts = [f"{config['icon']} {config['text']}", f"{mode_icon} {model}", f"⏱️ {time_str}"]
+        
+        if token_str:
+            status_parts.append(token_str)
+        
+        if tools_str:
+            status_parts.append(tools_str)
+        
         return f'''
         <div class="status-active" style="color: {config['color']}; font-size: 11px;">
-            {config['icon']} {config['text']} | {mode_icon} {model} | ⏱️ {time_str}
-            {f" | {token_str}" if token_str else ""}
-            {f" | {tools_str}" if tools_str else ""}
+            {" | ".join(status_parts)}
         </div>
         '''
 

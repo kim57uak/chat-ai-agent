@@ -6,6 +6,7 @@ from langchain.prompts import PromptTemplate
 from .base_model_strategy import BaseModelStrategy
 from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
+from core.token_tracker import token_tracker, StepType
 from core.parsers.custom_react_parser import CustomReActParser
 import logging
 
@@ -27,7 +28,7 @@ class GeminiStrategy(BaseModelStrategy):
             max_retries = 3
             request_timeout = 30
         
-        return ChatGoogleGenerativeAI(
+        llm = ChatGoogleGenerativeAI(
             model=self.model_name,
             google_api_key=self.api_key,
             temperature=0.1,
@@ -36,6 +37,16 @@ class GeminiStrategy(BaseModelStrategy):
             max_retries=max_retries,
             request_timeout=request_timeout,
         )
+        
+        # 토큰 사용량 추적을 위한 콜백 설정
+        self._setup_token_tracking_callbacks(llm)
+        return llm
+    
+    def _setup_token_tracking_callbacks(self, llm):
+        """토큰 사용량 추적을 위한 콜백 설정 - 단순화"""
+        # Pydantic 모델의 제약사항으로 인해 단순히 전략 객체에 참조만 저장
+        self._tracked_llm = llm
+        pass
     
     def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
         """Gemini 메시지 형식 생성 - 대화 히스토리 포함"""
@@ -190,12 +201,29 @@ class GeminiStrategy(BaseModelStrategy):
                 HumanMessage(content=decision_prompt),
             ]
             
+            # 도구 결정 단계 시작
+            token_tracker.start_step(StepType.TOOL_DECISION, "Gemini Tool Decision")
+            
             llm_start = time.time()
             response = self.llm.invoke(messages)
             llm_elapsed = time.time() - llm_start
             decision = response.content.strip().upper()
             
-            # 토큰 사용량 로깅
+            # 응답 객체 저장 (토큰 추출용)
+            self._last_response = response
+            
+            # 도구 결정 단계 종료
+            input_text = "\n".join([str(msg.content) for msg in messages])
+            token_tracker.end_step(
+                StepType.TOOL_DECISION,
+                "Gemini Tool Decision",
+                input_text=input_text,
+                output_text=decision,
+                response_obj=response,
+                additional_info={"force_agent": force_agent}
+            )
+            
+            # 기존 로깅
             TokenLogger.log_messages_token_usage(
                 self.model_name, messages, decision, "tool_decision"
             )

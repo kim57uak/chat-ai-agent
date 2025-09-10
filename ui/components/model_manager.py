@@ -60,8 +60,18 @@ class ModelManager:
     def update_model_label(self):
         """모델 라벨 업데이트"""
         from core.file_utils import load_last_model
+        from core.session_token_manager import session_token_manager
+        
         model = load_last_model()
-        self.model_label.setText(f'현재 모델: <b>{model}</b> 📋')
+        
+        # 세션 토큰 정보 추가
+        total_input, total_output, total_tokens = session_token_manager.get_session_total_tokens()
+        
+        if total_tokens > 0:
+            token_info = f" | 📊 세션: {total_tokens:,}토큰 (IN:{total_input:,} OUT:{total_output:,})"
+            self.model_label.setText(f'🤖 {model}{token_info}')
+        else:
+            self.model_label.setText(f'🤖 {model} | 📊 세션: 0토큰')
     
     def update_tools_label(self):
         """도구 라벨 업데이트"""

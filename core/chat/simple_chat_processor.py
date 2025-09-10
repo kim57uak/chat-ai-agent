@@ -87,11 +87,27 @@ class SimpleChatProcessor(BaseChatProcessor):
                 
                 logger.info(f"생성된 메시지 수: {len(messages)}")
                 
-                # Perplexity 응답 처리 (문자열 또는 객체)
+                # 응답 처리 (모든 모델 대응)
                 if isinstance(response, str):
                     response_content = response
                 else:
-                    response_content = getattr(response, 'content', str(response))
+                    # 다양한 속성에서 응답 추출 시도
+                    response_content = None
+                    
+                    # 1. content 속성 확인
+                    if hasattr(response, 'content') and response.content:
+                        response_content = response.content
+                    # 2. choices 구조 확인 (OpenAI 호환)
+                    elif hasattr(response, 'choices') and response.choices and len(response.choices) > 0:
+                        choice = response.choices[0]
+                        if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
+                            response_content = choice.message.content
+                    # 3. text 속성 확인
+                    elif hasattr(response, 'text') and response.text:
+                        response_content = response.text
+                    # 4. 기본 문자열 변환
+                    else:
+                        response_content = str(response)
                 
                 # tool_calls가 있으면 도구 사용 시도로 간주하고 거부
                 if hasattr(response, 'tool_calls') and response.tool_calls:
@@ -105,12 +121,36 @@ class SimpleChatProcessor(BaseChatProcessor):
                 print(f"Content length: {len(response_content) if response_content else 0}")
                 print("=== END DEBUG ===")
             
-            # 응답 내용 검증
+            # 응답 내용 검증 및 디버깅
             if not response_content or response_content.strip() == "":
                 print(f"\n=== EMPTY RESPONSE DEBUG ===\nOriginal response: {response}")
                 print(f"Response type: {type(response)}")
-                print(f"Response attributes: {dir(response) if hasattr(response, '__dict__') else 'No attributes'}")
-                response_content = "응답을 생성할 수 없습니다."
+                if hasattr(response, '__dict__'):
+                    print(f"Response dict: {response.__dict__}")
+                if hasattr(response, 'content'):
+                    print(f"Response.content: '{response.content}'")
+                if hasattr(response, 'text'):
+                    print(f"Response.text: '{response.text}'")
+                print(f"Response str: '{str(response)}'")
+                
+                # OpenRouter 모델의 경우 다른 속성 확인
+                if 'openrouter' in self.model_strategy.model_name.lower() or any(prefix in self.model_strategy.model_name for prefix in ['deepseek/', 'qwen/', 'meta-llama/', 'nvidia/']):
+                    print(f"OpenRouter model detected: {self.model_strategy.model_name}")
+                    # 다양한 속성에서 응답 찾기
+                    for attr in ['message', 'choices', 'data', 'result']:
+                        if hasattr(response, attr):
+                            attr_value = getattr(response, attr)
+                            print(f"Response.{attr}: {attr_value}")
+                            if attr == 'choices' and attr_value and len(attr_value) > 0:
+                                choice = attr_value[0]
+                                if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
+                                    response_content = choice.message.content
+                                    print(f"Found content in choices[0].message.content: '{response_content}'")
+                                    break
+                
+                # 여전히 비어있으면 기본 메시지
+                if not response_content or response_content.strip() == "":
+                    response_content = "죄송합니다. 현재 응답을 생성할 수 없습니다. 잠시 후 다시 시도해 주세요."
             
             # 토큰 사용량 로깅 및 트래킹 (Pollinations가 아닌 경우만)
             if 'pollinations' not in self.model_strategy.model_name.lower():

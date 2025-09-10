@@ -21,6 +21,7 @@ class ModelType(Enum):
     PERPLEXITY = "perplexity"
     CLAUDE = "claude"
     POLLINATIONS = "pollinations"
+    OPENROUTER = "openrouter"
     COMMON = "common"
 
 
@@ -340,6 +341,18 @@ class PromptManager:
                     "Thought:{agent_scratchpad}"
                 ),
             },
+            # OpenRouter: Advanced AI models with comprehensive tool integration
+            ModelType.OPENROUTER.value: {
+                "system_enhancement": "High-performance OpenRouter AI model with advanced reasoning capabilities and comprehensive tool integration. Uses common + pollinations prompt system for optimal performance.",
+                "agent_system": (
+                    "**OPENROUTER Exclusive Rules:**\n"
+                    "- Use common + pollinations prompt system for enhanced performance\n"
+                    "- MANDATORY: Use tools for real-time information (sports, news, weather, current events)\n"
+                    "- Execute tools internally and show only final answers to users\n"
+                    "- Provide comprehensive, detailed responses with proper markdown formatting\n"
+                    "- Apply all common formatting rules and readability enhancements"
+                ),
+            },
         }
 
     def get_system_prompt(self, model_type: str, use_tools: bool = True) -> str:
@@ -543,6 +556,8 @@ class PromptManager:
             or "pollinations" in model_name_lower
         ):
             return ModelType.POLLINATIONS.value
+        elif any(keyword in model_name_lower for keyword in ["deepseek/", "qwen/", "meta-llama/", "nvidia/", "moonshotai/"]):
+            return ModelType.OPENROUTER.value
         else:
             return ModelType.OPENAI.value  # Default value
 

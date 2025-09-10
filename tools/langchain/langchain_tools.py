@@ -124,6 +124,13 @@ class MCPTool(BaseTool):
     
     def _process_openai_input(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """OpenAI 도구 에이전트의 입력 형식을 스키마 기반으로 처리"""
+        # kwargs 구조 처리
+        if 'kwargs' in input_data and isinstance(input_data['kwargs'], dict):
+            kwargs = input_data['kwargs']
+            logger.info(f"kwargs 구조 감지: {kwargs}")
+            return kwargs
+        
+        # args 구조 처리
         if 'args' in input_data and isinstance(input_data['args'], list):
             args = input_data['args']
             input_schema = self.tool_schema.get('inputSchema', {})

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                             QPushButton, QTextEdit, QGroupBox, QScrollArea,
                             QFrame, QProgressBar, QTableWidget, QTableWidgetItem,
                             QHeaderView, QTabWidget)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QObject
 from PyQt6.QtGui import QFont, QPalette
 from core.token_tracker import token_tracker, StepType
 import json
@@ -14,6 +14,59 @@ from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class AsyncDataProcessor(QObject):
+    """비동기 데이터 처리 워커"""
+    
+    data_ready = pyqtSignal(dict)  # 처리된 데이터 시그널
+    
+    def __init__(self):
+        super().__init__()
+        self._should_stop = False
+    
+    def process_data(self):
+        """백그라운드에서 데이터 처리"""
+        if self._should_stop:
+            return
+        
+        try:
+            # 무거운 통계 계산을 백그라운드에서 수행
+            stats = token_tracker.get_conversation_stats()
+            
+            # 전체 히스토리 통계 계산
+            history = token_tracker.conversation_history
+            current_conv = token_tracker.current_conversation
+            
+            all_conversations = list(history)
+            if current_conv and current_conv not in history:
+                all_conversations.append(current_conv)
+            
+            # 모델별 통계 계산
+            model_stats = {}
+            for conv in all_conversations:
+                model = conv.model_name
+                if model not in model_stats:
+                    model_stats[model] = {'count': 0, 'tokens': 0}
+                model_stats[model]['count'] += 1
+                model_stats[model]['tokens'] += conv.total_tokens
+            
+            processed_data = {
+                'current_stats': stats,
+                'total_conversations': len(all_conversations),
+                'total_tokens': sum(conv.total_tokens for conv in all_conversations),
+                'model_stats': model_stats
+            }
+            
+            if not self._should_stop:
+                self.data_ready.emit(processed_data)
+                
+        except Exception as e:
+            logger.error(f"비동기 데이터 처리 오류: {e}")
+    
+    def stop(self):
+        """처리 중단"""
+        self._should_stop = True
 
 
 class TokenUsageDisplay(QWidget):
@@ -25,6 +78,7 @@ class TokenUsageDisplay(QWidget):
         super().__init__(parent)
         self.setup_ui()
         self.setup_timer()
+        self.setup_async_processing()
     
     def setup_ui(self):
         """UI 설정"""
@@ -183,17 +237,55 @@ class TokenUsageDisplay(QWidget):
         layout.addLayout(button_layout)
     
     def setup_timer(self):
-        """자동 새로고침 타이머 설정"""
+        """자동 새로고침 타이머 설정 - 성능 최적화"""
         self.refresh_timer = QTimer()
         self.refresh_timer.timeout.connect(self.refresh_display)
-        self.refresh_timer.start(500)  # 0.5초마다 새로고침 (실시간 업데이트)
+        self.refresh_timer.start(2000)  # 2초마다 새로고침 (성능 최적화)
+        
+        # 데이터 변경 감지용 캐시
+        self._last_stats_hash = None
+        self._last_steps_count = 0
+    
+    def setup_async_processing(self):
+        """비동기 처리 설정"""
+        self.worker_thread = QThread()
+        self.data_processor = AsyncDataProcessor()
+        self.data_processor.moveToThread(self.worker_thread)
+        
+        # 시그널 연결
+        self.data_processor.data_ready.connect(self.on_async_data_ready)
+        
+        # 스레드 시작
+        self.worker_thread.start()
+        
+        # 비동기 처리 타이머 (무거운 작업용)
+        self.async_timer = QTimer()
+        self.async_timer.timeout.connect(self.data_processor.process_data)
+        self.async_timer.start(5000)  # 5초마다 비동기 처리
     
     def refresh_display(self):
-        """화면 새로고침"""
+        """화면 새로고침 - 변경된 데이터만 업데이트"""
         try:
-            self.update_current_conversation()
-            self.update_steps_table()
-            self.update_statistics()
+            # 현재 통계 해시 계산
+            stats = token_tracker.get_conversation_stats()
+            current_hash = hash(str(stats)) if stats else 0
+            current_steps = len(stats.get('steps', [])) if stats else 0
+            
+            # 데이터가 변경된 경우만 업데이트
+            if (current_hash != self._last_stats_hash or 
+                current_steps != self._last_steps_count):
+                
+                self.update_current_conversation()
+                
+                # 단계 테이블은 새로운 단계가 추가된 경우만 업데이트
+                if current_steps != self._last_steps_count:
+                    self.update_steps_table()
+                
+                # 통계는 비동기로 처리됨 (별도 처리 불필요)
+                
+                self._last_stats_hash = current_hash
+                self._last_steps_count = current_steps
+                
         except Exception as e:
             logger.error(f"토큰 사용량 화면 새로고침 오류: {e}")
     
@@ -281,7 +373,7 @@ class TokenUsageDisplay(QWidget):
             self.current_step_label.setText("Current Step: -")
     
     def update_steps_table(self):
-        """단계별 테이블 업데이트"""
+        """단계별 테이블 업데이트 - 가상화 적용"""
         stats = token_tracker.get_conversation_stats()
         
         if not stats or not stats.get('steps'):
@@ -289,9 +381,17 @@ class TokenUsageDisplay(QWidget):
             return
         
         steps = stats['steps']
-        self.steps_table.setRowCount(len(steps))
         
-        for i, step in enumerate(steps):
+        # 최대 50개 단계만 표시 (성능 최적화)
+        max_display_steps = 50
+        display_steps = steps[-max_display_steps:] if len(steps) > max_display_steps else steps
+        
+        self.steps_table.setRowCount(len(display_steps))
+        
+        # 테이블 업데이트 일시 중단 (성능 향상)
+        self.steps_table.setUpdatesEnabled(False)
+        
+        for i, step in enumerate(display_steps):
             # 단계 번호
             self.steps_table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
             
@@ -347,6 +447,9 @@ class TokenUsageDisplay(QWidget):
                 accuracy = 0.0  # 실제 토큰 정보가 없으면 정확도 계산 불가
             
             self.steps_table.setItem(i, 7, QTableWidgetItem(f"{accuracy:.1f}%" if accuracy > 0 else "N/A"))
+        
+        # 테이블 업데이트 재개
+        self.steps_table.setUpdatesEnabled(True)
     
     def update_statistics(self):
         """통계 정보 업데이트"""
@@ -425,12 +528,51 @@ class TokenUsageDisplay(QWidget):
             logger.error(f"데이터 내보내기 오류: {e}")
             self.export_requested.emit(error_msg)
     
+    def on_async_data_ready(self, data):
+        """비동기 처리된 데이터 수신"""
+        try:
+            # UI 스레드에서 안전하게 통계 업데이트
+            self.update_statistics_from_data(data)
+        except Exception as e:
+            logger.error(f"비동기 데이터 처리 오류: {e}")
+    
+    def update_statistics_from_data(self, data):
+        """비동기 처리된 데이터로 통계 업데이트"""
+        total_conversations = data['total_conversations']
+        total_tokens = data['total_tokens']
+        model_stats = data['model_stats']
+        
+        avg_tokens = total_tokens / total_conversations if total_conversations > 0 else 0
+        
+        self.total_conversations_label.setText(f"Total Conversations: {total_conversations}")
+        self.avg_tokens_label.setText(f"Average Tokens per Conversation: {avg_tokens:.1f}")
+        self.total_tokens_label.setText(f"Total Tokens Used: {total_tokens:,}")
+        
+        # 모델별 통계 텍스트 생성
+        stats_text = ""
+        for model, stats in model_stats.items():
+            stats_text += f"{model}:\n"
+            stats_text += f"  Conversations: {stats['count']}\n"
+            stats_text += f"  Total Tokens: {stats['tokens']:,}\n"
+            stats_text += f"  Avg Tokens: {stats['tokens'] / stats['count']:.1f}\n\n"
+        
+        self.model_stats_text.setPlainText(stats_text)
+    
     def clear_history(self):
         """히스토리 지우기"""
         token_tracker.conversation_history.clear()
         if hasattr(token_tracker, 'current_conversation'):
             token_tracker.current_conversation = None
         self.refresh_display()
+    
+    def closeEvent(self, event):
+        """위젯 종료 시 스레드 정리"""
+        if hasattr(self, 'data_processor'):
+            self.data_processor.stop()
+        if hasattr(self, 'worker_thread'):
+            self.worker_thread.quit()
+            self.worker_thread.wait()
+        super().closeEvent(event)
     
     def show_processing_progress(self, step_name: str):
         """처리 진행률 표시"""

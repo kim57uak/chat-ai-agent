@@ -29,16 +29,32 @@ class OpenAILLMFactory(LLMFactory):
         response_settings = config.get("response_settings", {})
         max_tokens = response_settings.get("max_tokens", 4000)  # 대용량 응답 지원
         
-        logger.info(f"OpenAI LLM 생성 - streaming: {streaming}, max_tokens: {max_tokens}")
+        # OpenRouter 모델인지 확인
+        models = config.get('models', {})
+        model_config = models.get(model_name, {})
+        provider = model_config.get('provider')
         
-        return ChatOpenAI(
-            model=model_name,
-            openai_api_key=api_key,
-            temperature=0.1,
-            max_tokens=max_tokens,
-            streaming=streaming,
-            request_timeout=120  # 대용량 응답을 위한 타임아웃 증가
-        )
+        if provider == 'openrouter':
+            logger.info(f"OpenRouter LLM 생성 - model: {model_name}, streaming: {streaming}, max_tokens: {max_tokens}")
+            return ChatOpenAI(
+                model=model_name,
+                openai_api_key=api_key,
+                openai_api_base="https://openrouter.ai/api/v1",
+                temperature=0.1,
+                max_tokens=max_tokens,
+                streaming=streaming,
+                request_timeout=120
+            )
+        else:
+            logger.info(f"OpenAI LLM 생성 - streaming: {streaming}, max_tokens: {max_tokens}")
+            return ChatOpenAI(
+                model=model_name,
+                openai_api_key=api_key,
+                temperature=0.1,
+                max_tokens=max_tokens,
+                streaming=streaming,
+                request_timeout=120  # 대용량 응답을 위한 타임아웃 증가
+            )
 
 
 class GeminiLLMFactory(LLMFactory):
@@ -130,9 +146,27 @@ class LLMFactoryProvider:
     @classmethod
     def get_factory(cls, model_name: str) -> LLMFactory:
         """모델명에 따라 적절한 팩토리 반환"""
+        # config.json에서 provider 정보 확인
+        config = load_config()
+        models = config.get('models', {})
+        model_config = models.get(model_name, {})
+        provider = model_config.get('provider')
+        
+        # provider가 명시되어 있으면 우선 사용
+        if provider:
+            if provider == 'google':
+                return cls._factories['gemini']
+            elif provider == 'perplexity':
+                return cls._factories['perplexity']
+            elif provider in ['claude', 'anthropic']:
+                return cls._factories['claude']
+            elif provider in ['openai', 'openrouter']:
+                return cls._factories['openai']  # OpenRouter도 OpenAI 호환 API 사용
+        
+        # 기존 모델명 기반 매칭 (후방 호환성)
         if model_name.startswith("gemini"):
             return cls._factories['gemini']
-        elif "sonar" in model_name or "r1-" in model_name or "perplexity" in model_name:
+        elif "sonar" in model_name and "perplexity" in model_name:
             return cls._factories['perplexity']
         elif "claude" in model_name:
             return cls._factories['claude']

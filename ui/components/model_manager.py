@@ -59,19 +59,25 @@ class ModelManager:
     
     def update_model_label(self):
         """모델 라벨 업데이트"""
-        from core.file_utils import load_last_model
+        from core.file_utils import load_last_model, load_config
         from core.session_token_manager import session_token_manager
         
         model = load_last_model()
+        config = load_config()
+        models = config.get('models', {})
+        
+        # 모델 이모지 가져오기
+        model_config = models.get(model, {})
+        model_emoji = self._get_model_emoji(model, model_config)
         
         # 세션 토큰 정보 추가
         total_input, total_output, total_tokens = session_token_manager.get_session_total_tokens()
         
         if total_tokens > 0:
             token_info = f" | 📊 세션: {total_tokens:,}토큰 (IN:{total_input:,} OUT:{total_output:,})"
-            self.model_label.setText(f'🤖 {model}{token_info}')
+            self.model_label.setText(f'{model_emoji} {model}{token_info}')
         else:
-            self.model_label.setText(f'🤖 {model} | 📊 세션: 0토큰')
+            self.model_label.setText(f'{model_emoji} {model} | 📊 세션: 0토큰')
     
     def update_tools_label(self):
         """도구 라벨 업데이트"""
@@ -92,7 +98,7 @@ class ModelManager:
             print(f"도구 라벨 업데이트 오류: {e}")
     
     def show_model_popup(self, event):
-        """모델 선택 팝업 표시"""
+        """모델 선택 팝업 표시 - 계층 구조"""
         try:
             from core.file_utils import load_config, save_last_model, load_last_model
             
@@ -118,24 +124,128 @@ class ModelManager:
                 QMenu::item:selected {
                     background-color: rgb(163,135,215);
                 }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #444444;
+                    margin: 4px 0px;
+                }
             """)
             
             current_model = load_last_model()
             
-            for model_name, model_config in models.items():
-                # Pollinations 모델은 API 키가 필요 없으므로 항상 표시
-                api_key = model_config.get('api_key', '')
-                if (api_key and api_key != 'none') or model_name == 'pollinations-image':
-                    emoji = "🎨" if model_name == 'pollinations-image' else "🤖"
-                    action = menu.addAction(f"{emoji} {model_name}")
+            # 모델을 카테고리별로 분류
+            categorized_models = self._categorize_models(models)
+            
+            # 카테고리별로 서브메뉴 생성
+            for category, category_models in categorized_models.items():
+                if not category_models:
+                    continue
+                    
+                category_info = self._get_category_info(category)
+                submenu = menu.addMenu(f"{category_info['emoji']} {category_info['name']} ({len(category_models)}개)")
+                submenu.setStyleSheet(menu.styleSheet())
+                
+                for model_name, model_config in category_models.items():
+                    model_emoji = self._get_model_emoji(model_name, model_config)
+                    display_name = self._get_model_display_name(model_name, model_config)
+                    
+                    action = submenu.addAction(f"{model_emoji} {display_name}")
                     if model_name == current_model:
-                        action.setText(f"✅ {model_name} (현재)")
+                        action.setText(f"✅ {display_name} (현재)")
                     action.triggered.connect(lambda checked, m=model_name: self.change_model(m))
             
             menu.exec(self.model_label.mapToGlobal(event.pos()))
             
         except Exception as e:
             print(f"모델 팝업 표시 오류: {e}")
+    
+    def _categorize_models(self, models):
+        """모델을 카테고리별로 분류"""
+        categories = {
+            'openrouter_reasoning': {},
+            'openrouter_coding': {},
+            'openrouter_multimodal': {},
+            'openrouter_meta_llama': {},
+            'google': {},
+            'perplexity': {},
+            'pollinations': {},
+            'other': {}
+        }
+        
+        for model_name, model_config in models.items():
+            api_key = model_config.get('api_key', '')
+            if not (api_key and api_key != 'none'):
+                continue
+                
+            provider = model_config.get('provider', '')
+            category = model_config.get('category', '')
+            
+            if provider == 'openrouter':
+                if category == 'reasoning':
+                    categories['openrouter_reasoning'][model_name] = model_config
+                elif category == 'coding':
+                    categories['openrouter_coding'][model_name] = model_config
+                elif category == 'multimodal':
+                    categories['openrouter_multimodal'][model_name] = model_config
+                elif category == 'meta_llama':
+                    categories['openrouter_meta_llama'][model_name] = model_config
+                else:
+                    categories['other'][model_name] = model_config
+            elif provider == 'google':
+                categories['google'][model_name] = model_config
+            elif provider == 'perplexity':
+                categories['perplexity'][model_name] = model_config
+            elif provider == 'pollinations':
+                categories['pollinations'][model_name] = model_config
+            else:
+                categories['other'][model_name] = model_config
+        
+        return categories
+    
+    def _get_category_info(self, category):
+        """카테고리 정보 반환"""
+        category_map = {
+            'openrouter_reasoning': {'emoji': '🧠', 'name': 'OpenRouter 추론 특화'},
+            'openrouter_coding': {'emoji': '💻', 'name': 'OpenRouter 코딩 특화'},
+            'openrouter_multimodal': {'emoji': '🖼️', 'name': 'OpenRouter 멀티모달'},
+            'openrouter_meta_llama': {'emoji': '🦙', 'name': 'OpenRouter Meta Llama'},
+            'google': {'emoji': '🔍', 'name': 'Google Gemini'},
+            'perplexity': {'emoji': '🔬', 'name': 'Perplexity'},
+            'pollinations': {'emoji': '🌸', 'name': 'Pollinations'},
+            'other': {'emoji': '🤖', 'name': '기타 모델'}
+        }
+        return category_map.get(category, {'emoji': '🤖', 'name': category})
+    
+    def _get_model_emoji(self, model_name, model_config):
+        """모델별 이모지 반환"""
+        if 'image' in model_name.lower():
+            return '🎨'
+        elif model_config.get('category') == 'reasoning':
+            return '🧠'
+        elif model_config.get('category') == 'coding':
+            return '💻'
+        elif model_config.get('category') == 'multimodal':
+            return '🖼️'
+        elif model_config.get('category') == 'meta_llama':
+            return '🦙'
+        elif 'gemini' in model_name.lower():
+            return '💎'
+        elif 'sonar' in model_name.lower():
+            return '🔬'
+        elif 'pollinations' in model_name.lower():
+            return '🌸'
+        else:
+            return '🤖'
+    
+    def _get_model_display_name(self, model_name, model_config):
+        """모델 표시명 생성"""
+        description = model_config.get('description', '')
+        if description:
+            # 이모지 제거하고 간단한 설명만 추출
+            clean_desc = description.split(' - ')[-1] if ' - ' in description else description
+            clean_desc = ''.join(char for char in clean_desc if not char.startswith('�'))
+            return f"{model_name.split('/')[-1]} - {clean_desc[:30]}..."
+        return model_name
     
     def change_model(self, model_name):
         """모델 변경"""

@@ -95,16 +95,9 @@ class AIAgentV2:
     ) -> Tuple[str, List]:
         """대화 기록을 포함한 메시지 처리"""
         try:
-            if force_agent:
-                # Agent 모드: 도구 사용 여부 판단 후 결정
-                should_use_tools = self._should_use_tools(user_input)
-                if should_use_tools and self.tools:
-                    return self._process_with_tools(user_input, conversation_history)
-                else:
-                    # Agent 모드이지만 도구 사용 불필요
-                    return self._process_simple(user_input, conversation_history)
+            if force_agent and self.tools:
+                return self._process_with_tools(user_input, conversation_history)
             else:
-                # Ask 모드: 도구 사용 판단 없이 무조건 단순 채팅
                 return self._process_simple(user_input, conversation_history)
                 
         except Exception as e:

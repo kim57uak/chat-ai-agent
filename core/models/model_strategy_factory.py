@@ -6,6 +6,7 @@ from .gemini_image_strategy import GeminiImageStrategy
 from .perplexity_strategy import PerplexityStrategy
 from .claude_strategy import ClaudeStrategy
 from .pollinations_strategy import PollinationsStrategy
+from .openrouter_strategy import OpenRouterStrategy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,17 +23,31 @@ class ModelStrategyFactory:
         'claude': ClaudeStrategy,
         'anthropic': ClaudeStrategy,
         'pollinations': PollinationsStrategy,
+        'openrouter': OpenRouterStrategy,
     }
     
     @classmethod
     def create_strategy(cls, api_key: str, model_name: str) -> BaseModelStrategy:
         """모델명에 따라 적절한 전략 생성"""
-        strategy_type = cls._determine_strategy_type(model_name)
-        strategy_class = cls._strategies.get(strategy_type)
+        # config.json에서 provider 정보 확인
+        from core.file_utils import load_config
+        config = load_config()
+        models = config.get('models', {})
+        model_config = models.get(model_name, {})
+        provider = model_config.get('provider')
         
-        if not strategy_class:
-            logger.warning(f"Unknown model type for {model_name}, using OpenAI strategy as fallback")
-            strategy_class = OpenAIStrategy
+        # provider가 명시되어 있으면 우선 사용
+        if provider and provider in cls._strategies:
+            strategy_class = cls._strategies[provider]
+            logger.info(f"Using provider-based strategy for {model_name}: {provider}")
+        else:
+            # 모델명 기반 전략 결정
+            strategy_type = cls._determine_strategy_type(model_name)
+            strategy_class = cls._strategies.get(strategy_type)
+            
+            if not strategy_class:
+                logger.warning(f"Unknown model type for {model_name}, using OpenAI strategy as fallback")
+                strategy_class = OpenAIStrategy
         
         return strategy_class(api_key, model_name)
     
@@ -45,12 +60,14 @@ class ModelStrategyFactory:
             return 'gemini_image'
         elif model_lower.startswith("gemini"):
             return 'gemini'
-        elif any(keyword in model_lower for keyword in ["sonar", "r1-", "perplexity"]):
+        elif any(keyword in model_lower for keyword in ["sonar", "perplexity"]) and not model_lower.startswith(("deepseek/", "qwen/", "meta-llama/", "nvidia/", "moonshotai/")):
             return 'perplexity'
         elif "claude" in model_lower:
             return 'claude'
         elif model_lower.startswith("pollinations-") or "pollinations" in model_lower:
             return 'pollinations'
+        elif any(keyword in model_lower for keyword in ["deepseek/", "qwen/", "meta-llama/", "nvidia/", "moonshotai/"]):
+            return 'openrouter'
         else:
             return 'openai'  # 기본값
     

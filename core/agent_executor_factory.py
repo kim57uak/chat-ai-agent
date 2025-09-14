@@ -71,12 +71,12 @@ class GeminiAgentExecutorFactory(AgentExecutorFactory):
         react_prompt = PromptTemplate.from_template(
             f"""{base_prompt}
 
+{react_pattern}
+
 Available tools:
 {{tools}}
 
 Tool names: {{tool_names}}
-
-{react_pattern}
 
 Question: {{input}}
 {{agent_scratchpad}}
@@ -113,12 +113,12 @@ class PerplexityAgentExecutorFactory(AgentExecutorFactory):
         react_prompt = PromptTemplate.from_template(
             f"""{base_prompt}
 
+{research_approach}
+
 Available tools:
 {{tools}}
 
 Tool names: {{tool_names}}
-
-{research_approach}
 
 Question: {{input}}
 {{agent_scratchpad}}
@@ -161,12 +161,12 @@ class ClaudeAgentExecutorFactory(AgentExecutorFactory):
         react_prompt = PromptTemplate.from_template(
             f"""{base_prompt}
 
+{tool_prompt}
+
 Available tools:
 {{tools}}
 
 Tool names: {{tool_names}}
-
-{tool_prompt}
 
 Question: {{input}}
 {{agent_scratchpad}}

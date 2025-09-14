@@ -494,30 +494,32 @@ class ChatDisplay:
         # 메시지 컨테이너 생성과 콘텐츠 설정을 한 번에 처리
         safe_content = json.dumps(formatted_text, ensure_ascii=False)
         
-        # 시스템 메시지가 아닌 경우에만 삭제 버튼 추가
-        delete_button_html = ""
-        if sender != '시스템' and message_id:
-            delete_button_html = f'''
+        # 삭제 버튼 HTML (시스템 메시지가 아닌 경우에만)
+        delete_button_js = ""
+        if sender != '시스템':
+            # message_id가 없으면 display_message_id 사용
+            delete_id = message_id if message_id else display_message_id
+            delete_button_js = f'''
             var deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '🗑️';
             deleteBtn.title = '메시지 삭제';
-            deleteBtn.style.cssText = 'position:absolute;top:18px;right:18px;background:rgba(220,53,69,0.4);color:rgba(255,255,255,0.7);border:1px solid rgba(220,53,69,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
-            deleteBtn.onclick = function() {{ deleteMessage('{message_id}'); }};
+            deleteBtn.style.cssText = 'position:absolute;top:18px;right:18px;background:rgba(220,53,69,0.6);color:#ffffff;border:1px solid rgba(220,53,69,0.8);padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;opacity:0.7;transition:all 0.2s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:20;box-shadow:0 2px 8px rgba(220,53,69,0.3);';
+            deleteBtn.onclick = function() {{ 
+                deleteMessage('{delete_id}'); 
+            }};
             deleteBtn.onmouseenter = function() {{ 
-                this.style.background = 'rgba(220,53,69,0.475)';
-                this.style.borderColor = 'rgba(220,53,69,0.4)';
-                this.style.color = 'rgba(255,255,255,0.9)';
-                this.style.opacity = '0.75';
-                this.style.transform = 'scale(1.05)';
-                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';
+                this.style.background = 'rgba(220,53,69,0.8)';
+                this.style.borderColor = 'rgba(220,53,69,1.0)';
+                this.style.opacity = '1.0';
+                this.style.transform = 'scale(1.1)';
+                this.style.boxShadow = '0 4px 12px rgba(220,53,69,0.5)';
             }};
             deleteBtn.onmouseleave = function() {{ 
-                this.style.background = 'rgba(220,53,69,0.4)';
-                this.style.borderColor = 'rgba(220,53,69,0.3)';
-                this.style.color = 'rgba(255,255,255,0.7)';
-                this.style.opacity = '0.5';
+                this.style.background = 'rgba(220,53,69,0.6)';
+                this.style.borderColor = 'rgba(220,53,69,0.8)';
+                this.style.opacity = '0.7';
                 this.style.transform = 'scale(1)';
-                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';
+                this.style.boxShadow = '0 2px 8px rgba(220,53,69,0.3)';
             }};
             messageDiv.appendChild(deleteBtn);
             '''
@@ -529,7 +531,7 @@ class ChatDisplay:
             var messagesDiv = document.getElementById('messages');
             var messageDiv = document.createElement('div');
             messageDiv.id = '{display_message_id}';
-            messageDiv.setAttribute('data-message-id', '{message_id or ""}');
+            messageDiv.setAttribute('data-message-id', '{message_id or display_message_id}');
             messageDiv.style.cssText = 'margin:20px 0;padding:20px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
             messageDiv.onmouseenter = function() {{ }};
             messageDiv.onmouseleave = function() {{ }};
@@ -541,7 +543,7 @@ class ChatDisplay:
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋';
             copyBtn.title = '메시지 복사';
-            copyBtn.style.cssText = 'position:absolute;top:18px;right:120px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            copyBtn.style.cssText = 'position:absolute;top:18px;right:140px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
             copyBtn.onclick = function() {{ copyMessage('{display_message_id}'); }};
             copyBtn.onmouseenter = function() {{ 
                 this.style.background = 'rgba(105,105,110,0.475)';
@@ -563,7 +565,7 @@ class ChatDisplay:
             var copyHtmlBtn = document.createElement('button');
             copyHtmlBtn.innerHTML = '🔗';
             copyHtmlBtn.title = 'HTML 코드 복사';
-            copyHtmlBtn.style.cssText = 'position:absolute;top:18px;right:70px;background:rgba(75,85,99,0.45);color:rgba(168,178,188,0.7);border:1px solid rgba(140,150,160,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            copyHtmlBtn.style.cssText = 'position:absolute;top:18px;right:80px;background:rgba(75,85,99,0.45);color:rgba(168,178,188,0.7);border:1px solid rgba(140,150,160,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
             copyHtmlBtn.onclick = function() {{ copyHtmlMessage('{display_message_id}'); }};
             copyHtmlBtn.onmouseenter = function() {{ 
                 this.style.background = 'rgba(85,95,109,0.475)';
@@ -582,11 +584,11 @@ class ChatDisplay:
                 this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';
             }};
             
-            {delete_button_html}
+            {delete_button_js}
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{display_message_id}_content';
-            contentDiv.style.cssText = 'margin:0;padding-left:8px;padding-right:130px;line-height:1.6;color:{content_color};font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
+            contentDiv.style.cssText = 'margin:0;padding-left:8px;padding-right:160px;line-height:1.6;color:{content_color};font-size:14px;word-wrap:break-word;font-weight:400;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;';
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(copyBtn);
@@ -795,19 +797,26 @@ class LinkHandler(QObject):
     def deleteMessage(self, message_id):
         """메시지 삭제"""
         try:
+            print(f"[DELETE] 삭제 요청: {message_id}")
+            
+            # 먼저 DOM에서 제거 (즉시 시각적 피드백)
+            if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
+                self.chat_widget.chat_display.web_view.page().runJavaScript(
+                    f"removeMessageFromDOM('{message_id}')"
+                )
+                print(f"[DELETE] DOM에서 제거 완료: {message_id}")
+            
+            # 데이터에서 삭제
             if self.chat_widget and hasattr(self.chat_widget, 'delete_message'):
                 success = self.chat_widget.delete_message(message_id)
-                if success:
-                    # DOM에서 메시지 제거
-                    self.chat_widget.chat_display.web_view.page().runJavaScript(
-                        f"removeMessageFromDOM('{message_id}')"
-                    )
-                else:
-                    print(f"메시지 삭제 실패: {message_id}")
+                print(f"[DELETE] 데이터 삭제 결과: {success}")
             else:
-                print("메시지 삭제 기능을 사용할 수 없습니다")
+                print(f"[DELETE] delete_message 메소드 없음")
+                
         except Exception as e:
-            print(f"메시지 삭제 오류: {e}")
+            print(f"[DELETE] 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 class ImageDownloadThread(QThread):

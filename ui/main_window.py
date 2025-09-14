@@ -7,11 +7,13 @@ from ui.settings_dialog import SettingsDialog
 from ui.mcp_dialog import MCPDialog
 from ui.mcp_manager_simple import MCPManagerDialog
 from ui.components.token_usage_display import TokenUsageDisplay
+from ui.session_panel import SessionPanel
 from mcp.servers.mcp import start_mcp_servers, stop_mcp_servers
 from ui.components.status_display import status_display
 from ui.styles.flat_theme import FlatTheme
 from ui.styles.theme_manager import theme_manager
 from ui.styles.material_theme_manager import MaterialThemeType
+from core.session import session_manager, message_manager
 import os
 import json
 import threading
@@ -27,7 +29,7 @@ class MainWindow(QMainWindow):
     def _setup_window(self) -> None:
         """Setup main window properties."""
         self._update_window_title()
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1400, 900)  # 창 크기 약간 증가
         self._apply_current_theme()
     
     def _setup_ui(self) -> None:
@@ -38,28 +40,70 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # Splitter for chat and token usage
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Main splitter for session panel, chat, and token usage
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setHandleWidth(8)  # 핸들 너비 증가
+        self.splitter.setChildrenCollapsible(False)  # 완전히 접히지 않도록
         
-        # Chat widget
+        # 스플리터 스타일 설정
+        self.splitter.setStyleSheet("""
+            QSplitter::handle {
+                background-color: #333333;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                margin: 2px;
+            }
+            QSplitter::handle:hover {
+                background-color: #444444;
+                border-color: #666666;
+            }
+            QSplitter::handle:pressed {
+                background-color: #555555;
+            }
+        """)
+        
+        # Session panel (left)
+        self.session_panel = SessionPanel(self)
+        self.session_panel.session_selected.connect(self._on_session_selected)
+        self.session_panel.session_created.connect(self._on_session_created)
+        self.splitter.addWidget(self.session_panel)
+        
+        # Chat widget (center)
         self.chat_widget = ChatWidget(self)
         self.chat_widget.setStyleSheet("background-color: #0a0a0a !important;")
-        splitter.addWidget(self.chat_widget)
+        self.chat_widget.setMinimumWidth(400)  # 최소 너비 설정
+        self.splitter.addWidget(self.chat_widget)
         
-        # Token usage display (initially visible)
+        # Token usage display (right)
         self.token_display = TokenUsageDisplay(self)
         self.token_display.setVisible(True)  # 기본적으로 표시
+        self.token_display.setMinimumWidth(250)  # 최소 너비 설정
+        self.token_display.setMaximumWidth(600)  # 최대 너비 설정
         self.token_display.export_requested.connect(self._show_export_message)
-        splitter.addWidget(self.token_display)
+        self.splitter.addWidget(self.token_display)
         
-
+        print("SessionPanel 및 TokenUsageDisplay 생성 완료")  # 디버깅
         
-        print("TokenUsageDisplay 생성 완료")  # 디버깅
+        # Set splitter proportions (20% session, 55% chat, 25% token display)
+        self.splitter.setSizes([250, 700, 300])
+        self.splitter.setStretchFactor(0, 0)  # 세션 패널은 고정 크기
+        self.splitter.setStretchFactor(1, 3)  # 채팅창이 가장 많이 늘어남
+        self.splitter.setStretchFactor(2, 1)  # 토큰창은 적게 늘어남
         
-        # Set splitter proportions (80% chat, 20% token display)
-        splitter.setSizes([800, 200])
+        # 현재 세션 ID 추적
+        self.current_session_id = None
         
-        layout.addWidget(splitter)
+        # 자동 세션 생성 플래그
+        self._auto_session_created = False
+        
+        # 세션 패널에 메인 윈도우 참조 전달
+        self.session_panel.main_window = self
+        
+        # 스플리터 상태 저장/복원 기능 추가
+        self._load_splitter_state()
+        self.splitter.splitterMoved.connect(self._save_splitter_state)
+        
+        layout.addWidget(self.splitter)
         self.setCentralWidget(central_widget)
         
         # 상태 표시 초기화
@@ -111,6 +155,15 @@ class MainWindow(QMainWindow):
         self.token_usage_action.setChecked(True)  # 기본적으로 활성화
         self.token_usage_action.triggered.connect(self.toggle_token_display)
         settings_menu.addAction(self.token_usage_action)
+        
+
+        
+        settings_menu.addSeparator()
+        
+        # Splitter reset action
+        reset_layout_action = QAction('레이아웃 초기화', self)
+        reset_layout_action.triggered.connect(self.reset_layout)
+        settings_menu.addAction(reset_layout_action)
         
         # Theme menu
         theme_menu = menubar.addMenu('테마')
@@ -226,6 +279,9 @@ class MainWindow(QMainWindow):
         print("애플리케이션 종료 시작")
         
         try:
+            # 스플리터 상태 저장
+            self._save_splitter_state()
+            
             if hasattr(self, 'chat_widget'):
                 self.chat_widget.close()
             stop_mcp_servers()
@@ -264,6 +320,14 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'chat_widget'):
                 self.chat_widget.update_theme()
             
+            # 세션 패널 테마 업데이트
+            if hasattr(self, 'session_panel'):
+                self.session_panel.update_theme()
+            
+            # 토큰 패널 테마 업데이트
+            if hasattr(self, 'token_display'):
+                self.token_display.update_theme()
+            
             # 메뉴 체크 상태 업데이트
             self._update_theme_menu_checks(theme_key)
             
@@ -286,7 +350,9 @@ class MainWindow(QMainWindow):
             
             if hasattr(self, 'chat_widget'):
                 self.chat_widget.update_theme()
-                
+            
+            if hasattr(self, 'session_panel'):
+                self.session_panel.update_theme()
         except Exception as e:
             print(f"저장된 테마 적용 오류: {e}")
     
@@ -330,7 +396,165 @@ class MainWindow(QMainWindow):
         
         if not is_visible:
             self.token_display.refresh_display()
+            # 토큰 창이 다시 표시될 때 적절한 크기로 복원
+            current_sizes = self.splitter.sizes()
+            total_width = sum(current_sizes)
+            self.splitter.setSizes([250, int(total_width * 0.55), int(total_width * 0.25)])
+        else:
+            # 토큰 창을 숨길 때 채팅창이 더 많은 공간을 차지
+            current_sizes = self.splitter.sizes()
+            total_width = sum(current_sizes)
+            self.splitter.setSizes([250, total_width - 250, 0])
+    
+    def _load_splitter_state(self):
+        """스플리터 상태 로드"""
+        try:
+            if os.path.exists('splitter_state.json'):
+                with open('splitter_state.json', 'r') as f:
+                    state = json.load(f)
+                    sizes = state.get('sizes', [250, 700, 300])
+                    self.splitter.setSizes(sizes)
+        except Exception as e:
+            print(f"스플리터 상태 로드 오류: {e}")
+    
+    def _save_splitter_state(self):
+        """스플리터 상태 저장"""
+        try:
+            state = {
+                'sizes': self.splitter.sizes()
+            }
+            with open('splitter_state.json', 'w') as f:
+                json.dump(state, f)
+        except Exception as e:
+            print(f"스플리터 상태 저장 오류: {e}")
+    
+    def reset_layout(self):
+        """레이아웃 초기화"""
+        self.splitter.setSizes([250, 700, 300])
+        self.session_panel.setVisible(True)
+        self.token_display.setVisible(True)
+        self.token_usage_action.setChecked(True)
+        self._save_splitter_state()
+        print("레이아웃이 초기화되었습니다.")
     
     def _show_export_message(self, message: str):
         """내보내기 메시지 표시"""
         QMessageBox.information(self, '내보내기 완료', message)
+    
+    def _on_session_selected(self, session_id: int):
+        """세션 선택 이벤트 처리"""
+        try:
+            # 메인 윈도우의 현재 세션 ID 업데이트
+            self.current_session_id = session_id
+            self._auto_session_created = True  # 세션이 선택되었으므로 자동 생성 플래그 설정
+            
+            session = session_manager.get_session(session_id)
+            if not session:
+                QMessageBox.warning(self, '오류', '세션을 찾을 수 없습니다.')
+                return
+            
+            # 최대 100개 메시지 로드
+            print(f"[SESSION_SELECT] 세션 {session_id}에서 메시지 로드 시도")
+            messages = session_manager.get_session_messages(session_id, limit=100, include_html=True)
+            print(f"[SESSION_SELECT] DB에서 {len(messages)}개 메시지 로드됨")
+            # ID도 포함하여 컨텍스트 메시지 생성
+            context_messages = [{'role': msg['role'], 'content': msg['content'], 'id': msg['id']} for msg in messages]
+            print(f"[SESSION_SELECT] 컨텍스트 메시지 변환 완료: {len(context_messages)}개")
+            
+            if hasattr(self.chat_widget, 'load_session_context'):
+                self.chat_widget.load_session_context(context_messages)
+            
+            print(f"[SESSION_SELECT] 세션 로드 완료: {session['title']} ({len(context_messages)}개 메시지)")
+            
+        except Exception as e:
+            print(f"세션 선택 오류: {e}")
+    
+    def _on_session_created(self, session_id: int):
+        """새 세션 생성 이벤트 처리"""
+        self.current_session_id = session_id
+        self._auto_session_created = True  # 세션이 생성되었으므로 자동 생성 플래그 설정
+        # 새 세션이므로 채팅 화면 초기화
+        if hasattr(self.chat_widget, 'chat_display'):
+            self.chat_widget.chat_display.clear_messages()
+        print(f"새 세션 생성: {session_id}")
+    
+    def save_message_to_session(self, role: str, content: str, token_count: int = 0, content_html: str = None):
+        """메시지를 현재 세션에 저장"""
+        print(f"[SAVE_MESSAGE] 시작 - role: {role}, current_session_id: {self.current_session_id}, content 길이: {len(content) if content else 0}")
+        
+        # 현재 세션이 없으면 자동으로 새 세션 생성
+        if not self.current_session_id:
+            print(f"[SAVE_MESSAGE] 세션 ID가 없음 - 자동 세션 생성 시도")
+            self._create_auto_session()
+        
+        if self.current_session_id:
+            try:
+                print(f"[SAVE_MESSAGE] 세션 {self.current_session_id}에 메시지 저장 시도")
+                message_id = session_manager.add_message(
+                    self.current_session_id, 
+                    role, 
+                    content, 
+                    content_html=content_html,
+                    token_count=token_count
+                )
+                print(f"[SAVE_MESSAGE] 성공 - message_id: {message_id}")
+                # 세션 패널 새로고침
+                self.session_panel.load_sessions()
+            except Exception as e:
+                print(f"[SAVE_MESSAGE] 오류: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"[SAVE_MESSAGE] 실패 - 세션 ID가 여전히 None")
+    
+    def delete_message_from_session(self, message_id: int) -> bool:
+        """세션에서 메시지 삭제"""
+        if self.current_session_id:
+            try:
+                success = message_manager.delete_message(self.current_session_id, message_id)
+                if success:
+                    # 세션 패널 새로고침
+                    self.session_panel.load_sessions()
+                return success
+            except Exception as e:
+                print(f"메시지 삭제 오류: {e}")
+                return False
+        return False
+    
+    def _create_auto_session(self):
+        """자동 세션 생성"""
+        print(f"[AUTO_SESSION] 시작 - _auto_session_created: {self._auto_session_created}")
+        if not self._auto_session_created:
+            try:
+                from datetime import datetime
+                title = f"대화 {datetime.now().strftime('%m/%d %H:%M')}"
+                print(f"[AUTO_SESSION] 세션 생성 시도 - title: {title}")
+                self.current_session_id = session_manager.create_session(title)
+                self._auto_session_created = True
+                print(f"[AUTO_SESSION] 성공 - session_id: {self.current_session_id}")
+                # 세션 패널 새로고침
+                self.session_panel.load_sessions()
+                # 생성된 세션 선택
+                self.session_panel.select_session(self.current_session_id)
+            except Exception as e:
+                print(f"[AUTO_SESSION] 오류: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"[AUTO_SESSION] 이미 생성됨 - current_session_id: {self.current_session_id}")
+    
+    def toggle_session_panel(self):
+        """세션 패널 표시 토글"""
+        is_visible = self.session_panel.isVisible()
+        self.session_panel.setVisible(not is_visible)
+        self.session_panel_action.setChecked(not is_visible)
+        
+        current_sizes = self.splitter.sizes()
+        total_width = sum(current_sizes)
+        
+        if not is_visible:
+            # 세션 패널 표시
+            self.splitter.setSizes([250, total_width - 250 - current_sizes[2], current_sizes[2]])
+        else:
+            # 세션 패널 숨김
+            self.splitter.setSizes([0, total_width - current_sizes[2], current_sizes[2]])

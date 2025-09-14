@@ -79,75 +79,134 @@ class TokenUsageDisplay(QWidget):
         self.setup_ui()
         self.setup_timer()
         self.setup_async_processing()
+        self.apply_theme()
     
     def setup_ui(self):
-        """UI 설정"""
+        """UI 설정 - 패딩/마진 최소화, 가독성 최우선"""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)  # 최소 마진
+        layout.setSpacing(4)  # 최소 간격
         
-        # 제목
-        title = QLabel("🔢 Token Usage Tracker")
-        title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        # 제목 - 더 큰 폰트와 명확한 아이콘
+        title = QLabel("📊 Token Tracker")
+        title.setFont(QFont("SF Pro Display", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("""
+            QLabel {
+                padding: 8px;
+                margin: 2px;
+                font-weight: 700;
+            }
+        """)
         layout.addWidget(title)
         
-        # 탭 위젯
+        # 탭 위젯 - 패딩 최소화
         self.tab_widget = QTabWidget()
+        self.tab_widget.setStyleSheet("""
+            QTabWidget {
+                margin: 0px;
+                padding: 0px;
+            }
+            QTabWidget::pane {
+                margin: 2px;
+                padding: 4px;
+            }
+        """)
         layout.addWidget(self.tab_widget)
         
         # 현재 대화 탭
         self.current_tab = self.create_current_conversation_tab()
-        self.tab_widget.addTab(self.current_tab, "Current Conversation")
+        self.tab_widget.addTab(self.current_tab, "Current")
         
         # 단계별 상세 탭
         self.steps_tab = self.create_steps_detail_tab()
-        self.tab_widget.addTab(self.steps_tab, "Step Details")
+        self.tab_widget.addTab(self.steps_tab, "Steps")
         
         # 통계 탭
         self.stats_tab = self.create_statistics_tab()
-        self.tab_widget.addTab(self.stats_tab, "Statistics")
+        self.tab_widget.addTab(self.stats_tab, "Stats")
         
         # 컨트롤 버튼
         self.create_control_buttons(layout)
     
     def create_current_conversation_tab(self):
-        """현재 대화 탭 생성"""
+        """현재 대화 탭 생성 - 패딩 최소화, 가독성 최우선"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
         
-        # 현재 대화 정보
-        self.current_info_group = QGroupBox("Current Conversation")
+        # 현재 대화 정보 - 더 큰 박스
+        self.current_info_group = QGroupBox("💬 Current")
         current_layout = QVBoxLayout(self.current_info_group)
+        current_layout.setContentsMargins(8, 12, 8, 8)
+        current_layout.setSpacing(6)
         
-        # 기본 정보
-        self.conversation_id_label = QLabel("Conversation ID: -")
+        # 기본 정보 - 더 큰 폰트
+        self.conversation_id_label = QLabel("ID: -")
         self.model_name_label = QLabel("Model: -")
         self.steps_count_label = QLabel("Steps: 0")
-        self.duration_label = QLabel("Duration: 0ms")
+        self.duration_label = QLabel("Time: 0ms")
+        
+        for label in [self.conversation_id_label, self.model_name_label, 
+                     self.steps_count_label, self.duration_label]:
+            label.setStyleSheet("""
+                QLabel {
+                    font-size: 14px;
+                    font-weight: 600;
+                    padding: 4px 8px;
+                    margin: 2px;
+                }
+            """)
         
         current_layout.addWidget(self.conversation_id_label)
         current_layout.addWidget(self.model_name_label)
         current_layout.addWidget(self.steps_count_label)
         current_layout.addWidget(self.duration_label)
         
-        # 토큰 사용량 요약
-        self.token_summary_group = QGroupBox("Token Usage Summary")
+        # 토큰 사용량 요약 - 더 큰 박스
+        self.token_summary_group = QGroupBox("🔢 Tokens")
         token_layout = QVBoxLayout(self.token_summary_group)
+        token_layout.setContentsMargins(8, 12, 8, 8)
+        token_layout.setSpacing(6)
         
-        self.actual_tokens_label = QLabel("Actual Tokens: Input 0, Output 0, Total 0")
-        self.estimated_tokens_label = QLabel("Estimated Tokens: Input 0, Output 0, Total 0")
-        self.accuracy_label = QLabel("Accuracy: Input 0%, Output 0%")
+        self.actual_tokens_label = QLabel("Session: 0 tokens")
+        self.estimated_tokens_label = QLabel("Current: 0 tokens")
+        self.accuracy_label = QLabel("Accuracy: N/A")
+        
+        for label in [self.actual_tokens_label, self.estimated_tokens_label, self.accuracy_label]:
+            label.setStyleSheet("""
+                QLabel {
+                    font-size: 14px;
+                    font-weight: 600;
+                    padding: 4px 8px;
+                    margin: 2px;
+                }
+            """)
         
         token_layout.addWidget(self.actual_tokens_label)
         token_layout.addWidget(self.estimated_tokens_label)
         token_layout.addWidget(self.accuracy_label)
         
-        # 진행률 표시
-        self.progress_group = QGroupBox("Processing Progress")
+        # 진행률 표시 - 더 큰 박스
+        self.progress_group = QGroupBox("⚡ Progress")
         progress_layout = QVBoxLayout(self.progress_group)
+        progress_layout.setContentsMargins(8, 12, 8, 8)
+        progress_layout.setSpacing(6)
         
-        self.current_step_label = QLabel("Current Step: -")
+        self.current_step_label = QLabel("Step: -")
+        self.current_step_label.setStyleSheet("""
+            QLabel {
+                font-size: 14px;
+                font-weight: 600;
+                padding: 4px 8px;
+                margin: 2px;
+            }
+        """)
+        
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
+        self.progress_bar.setMinimumHeight(24)
         
         progress_layout.addWidget(self.current_step_label)
         progress_layout.addWidget(self.progress_bar)
@@ -217,24 +276,214 @@ class TokenUsageDisplay(QWidget):
         return widget
     
     def create_control_buttons(self, layout):
-        """컨트롤 버튼 생성"""
-        button_layout = QHBoxLayout()
+        """컨트롤 버튼 생성 - 더 큰 버튼, 명확한 아이콘"""
+        button_layout = QVBoxLayout()  # 세로 배치로 변경
+        button_layout.setContentsMargins(4, 4, 4, 4)
+        button_layout.setSpacing(4)
         
         self.refresh_button = QPushButton("🔄 Refresh")
         self.refresh_button.clicked.connect(self.refresh_display)
+        self.refresh_button.setMinimumHeight(36)
         
-        self.export_button = QPushButton("📁 Export Data")
+        self.export_button = QPushButton("📤 Export")
         self.export_button.clicked.connect(self.export_data)
+        self.export_button.setMinimumHeight(36)
         
-        self.clear_button = QPushButton("🗑️ Clear History")
+        self.clear_button = QPushButton("🗑️ Clear")
         self.clear_button.clicked.connect(self.clear_history)
+        self.clear_button.setMinimumHeight(36)
+        
+        for button in [self.refresh_button, self.export_button, self.clear_button]:
+            button.setStyleSheet("""
+                QPushButton {
+                    font-size: 14px;
+                    font-weight: 700;
+                    padding: 8px 12px;
+                    margin: 2px;
+                }
+            """)
         
         button_layout.addWidget(self.refresh_button)
         button_layout.addWidget(self.export_button)
         button_layout.addWidget(self.clear_button)
-        button_layout.addStretch()
         
         layout.addLayout(button_layout)
+    
+    def apply_theme(self):
+        """채팅창과 동일한 Material Design 테마 적용"""
+        try:
+            from ui.styles.theme_manager import theme_manager
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                
+                # 채팅창과 동일한 배경색 사용
+                bg_color = colors.get('background', '#121212')
+                text_color = colors.get('text_primary', '#ffffff')
+                surface_color = colors.get('surface', '#1e1e1e')
+                primary_color = colors.get('primary', '#bb86fc')
+                secondary_color = colors.get('secondary', '#03dac6')
+                
+                # 전체 패널 스타일 - 채팅창과 동일한 배경
+                self.setStyleSheet(f"""
+                    TokenUsageDisplay {{
+                        background-color: {bg_color};
+                        color: {text_color};
+                        border: none;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    }}
+                    
+                    QLabel {{
+                        color: {text_color};
+                        font-size: 14px;
+                        font-weight: 600;
+                        padding: 4px 8px;
+                        background: transparent;
+                        border: none;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    }}
+                    
+                    QGroupBox {{
+                        background-color: {surface_color};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 12px;
+                        padding: 8px;
+                        margin: 4px;
+                        font-weight: 700;
+                        font-size: 14px;
+                        color: {text_color};
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    }}
+                    
+                    QGroupBox::title {{
+                        subcontrol-origin: margin;
+                        left: 8px;
+                        padding: 4px 8px;
+                        background: {primary_color};
+                        color: {colors.get('on_primary', '#000000')};
+                        border-radius: 6px;
+                        font-weight: 700;
+                        font-size: 13px;
+                    }}
+                    
+                    QPushButton {{
+                        background-color: {primary_color};
+                        color: {colors.get('on_primary', '#000000')};
+                        border: 2px solid {colors.get('primary_variant', '#3700b3')};
+                        padding: 12px 16px;
+                        border-radius: 14px;
+                        font-weight: 700;
+                        font-size: 14px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        margin: 2px;
+                    }}
+                    
+                    QPushButton:hover {{
+                        background-color: {colors.get('primary_variant', '#3700b3')};
+                    }}
+                    
+                    QPushButton:pressed {{
+                        background-color: {colors.get('primary_variant', '#3700b3')};
+                    }}
+                    
+                    QTabWidget {{
+                        background: transparent;
+                        border: none;
+                    }}
+                    
+                    QTabWidget::pane {{
+                        background-color: {surface_color};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 12px;
+                        margin: 2px;
+                    }}
+                    
+                    QTabBar::tab {{
+                        background-color: {bg_color};
+                        color: {text_color};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        padding: 8px 16px;
+                        margin: 2px;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 13px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    }}
+                    
+                    QTabBar::tab:selected {{
+                        background-color: {primary_color};
+                        color: {colors.get('on_primary', '#000000')};
+                        border-color: {colors.get('primary_variant', '#3700b3')};
+                        font-weight: 700;
+                    }}
+                    
+                    QTabBar::tab:hover {{
+                        background-color: {colors.get('primary_variant', '#3700b3')};
+                        color: {colors.get('on_primary', '#000000')};
+                    }}
+                    
+                    QTableWidget {{
+                        background-color: {surface_color};
+                        color: {text_color};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 12px;
+                        gridline-color: {colors.get('divider', '#333333')};
+                        font-size: 13px;
+                        font-weight: 500;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    }}
+                    
+                    QTableWidget::item {{
+                        padding: 8px;
+                        border: none;
+                    }}
+                    
+                    QTableWidget::item:selected {{
+                        background-color: {primary_color};
+                        color: {colors.get('on_primary', '#000000')};
+                    }}
+                    
+                    QHeaderView::section {{
+                        background-color: {primary_color};
+                        color: {colors.get('on_primary', '#000000')};
+                        border: 1px solid {colors.get('primary_variant', '#3700b3')};
+                        padding: 8px;
+                        font-weight: 700;
+                        font-size: 12px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    }}
+                    
+                    QTextEdit {{
+                        background-color: {bg_color};
+                        color: {text_color};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 12px;
+                        padding: 8px;
+                        font-size: 13px;
+                        font-weight: 500;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        selection-background-color: {primary_color};
+                    }}
+                    
+                    QProgressBar {{
+                        background-color: {surface_color};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 8px;
+                        text-align: center;
+                        font-weight: 600;
+                        font-size: 12px;
+                    }}
+                    
+                    QProgressBar::chunk {{
+                        background-color: {primary_color};
+                        border-radius: 6px;
+                    }}
+                """)
+        except Exception as e:
+            logger.error(f"토큰 패널 테마 적용 오류: {e}")
+    
+    def update_theme(self):
+        """테마 업데이트"""
+        self.apply_theme()
     
     def setup_timer(self):
         """자동 새로고침 타이머 설정 - 성능 최적화"""

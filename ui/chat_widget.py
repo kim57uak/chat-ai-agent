@@ -249,6 +249,14 @@ class ChatWidget(QWidget):
         message_id = self.conversation_history.add_message('user', user_text)
         self.messages.append({'role': 'user', 'content': user_text})
         
+        # 메인 윈도우에 사용자 메시지 저장 알림
+        print(f"[CHAT_WIDGET] 사용자 메시지 저장 시도: {user_text[:50]}...")
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, 'save_message_to_session'):
+            main_window.save_message_to_session('user', user_text, 0)
+        else:
+            print(f"[CHAT_WIDGET] MainWindow를 찾을 수 없거나 save_message_to_session 메소드 없음")
+        
         self.chat_display.append_message('사용자', user_text, message_id=message_id)
         self.input_text.clear()
         
@@ -432,8 +440,17 @@ class ChatWidget(QWidget):
             output_tokens=output_tokens if output_tokens > 0 else None,
             total_tokens=total_tokens if total_tokens > 0 else None
         )
-        self.conversation_history.save_to_file()
+        # self.conversation_history.save_to_file()  # JSON 저장 비활성화
         self.messages.append({'role': 'assistant', 'content': text})
+        
+        # 메인 윈도우에 AI 메시지 저장 알림 (HTML 포함)
+        print(f"[CHAT_WIDGET] AI 메시지 저장 시도: {text[:50]}...")
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, 'save_message_to_session'):
+            # AI 메시지는 원본 텍스트를 저장하고 enhanced_text를 HTML로 저장
+            main_window.save_message_to_session('assistant', text, total_tokens, enhanced_text)
+        else:
+            print(f"[CHAT_WIDGET] MainWindow를 찾을 수 없거나 save_message_to_session 메소드 없음")
         
         self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
         
@@ -653,8 +670,11 @@ class ChatWidget(QWidget):
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""
-        self.conversation_history.clear_session()
-        self.conversation_history.save_to_file()
+        if hasattr(self.conversation_history, 'clear_session'):
+            self.conversation_history.clear_session()
+        else:
+            self.conversation_history.current_session = []
+        # self.conversation_history.save_to_file()  # JSON 저장 비활성화
         self.messages = []
         
         # 세션 통계도 초기화
@@ -670,6 +690,12 @@ class ChatWidget(QWidget):
             token_tracker.current_conversation = None
         if hasattr(token_tracker, 'conversation_history'):
             token_tracker.conversation_history.clear()
+        
+        # 메인 윈도우의 현재 세션 ID도 초기화
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, 'current_session_id'):
+            main_window.current_session_id = None
+            main_window._auto_session_created = False
         
         print("대화 히스토리가 초기화되었습니다.")
         
@@ -694,12 +720,51 @@ class ChatWidget(QWidget):
     def delete_message(self, message_id: str) -> bool:
         """메시지 삭제"""
         try:
-            success = self.conversation_history.delete_message(message_id)
+            print(f"[CHAT_DELETE] 삭제 시작: {message_id}")
+            
+            # 메인 윈도우에서 세션 ID 가져오기
+            main_window = self._find_main_window()
+            if not main_window or not hasattr(main_window, 'current_session_id') or not main_window.current_session_id:
+                print(f"[CHAT_DELETE] 세션 ID가 없음")
+                return False
+            
+            session_id = main_window.current_session_id
+            print(f"[CHAT_DELETE] 세션 ID: {session_id}")
+            
+            # DB에서 삭제
+            from core.session.message_manager import message_manager
+            
+            # message_id를 정수로 변환
+            try:
+                db_message_id = int(message_id)
+                print(f"[CHAT_DELETE] DB 메시지 ID: {db_message_id}")
+            except ValueError:
+                print(f"[CHAT_DELETE] 잘못된 메시지 ID 형식: {message_id}")
+                return False
+            
+            # DB에서 삭제 실행
+            success = message_manager.delete_message(session_id, db_message_id)
+            print(f"[CHAT_DELETE] DB 삭제 결과: {success}")
+            
             if success:
-                print(f"메시지 삭제 성공: {message_id}")
+                # 메모리에서도 삭제
+                try:
+                    self.conversation_history.delete_message(message_id)
+                    print(f"[CHAT_DELETE] 메모리 삭제 완료")
+                except Exception as e:
+                    print(f"[CHAT_DELETE] 메모리 삭제 오류: {e}")
+                
+                # 세션 패널 새로고침
+                if hasattr(main_window, 'session_panel'):
+                    main_window.session_panel.load_sessions()
+                    print(f"[CHAT_DELETE] 세션 패널 새로고침 완료")
+            
             return success
+            
         except Exception as e:
-            print(f"메시지 삭제 오류: {e}")
+            print(f"[CHAT_DELETE] 오류: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def update_theme(self):
@@ -930,12 +995,76 @@ class ChatWidget(QWidget):
             # 대화 종료만 처리 (토큰 박스는 표시하지 않음)
             if token_accumulator.end_conversation():
                 input_tokens, output_tokens, total_tokens = token_accumulator.get_total()
-                print(f"[ChatWidget] 대화 완료 - 토큰: {total_tokens:,}개")
+                print(f"[ChatWidget] 대화 완룮 - 토큰: {total_tokens:,}개")
             
         except Exception as e:
-            print(f"대화 완료 처리 오류: {e}")
+            print(f"대화 완룮 처리 오류: {e}")
+    
+    def load_session_context(self, context_messages):
+        """세션 컨텍스트 로드"""
+        try:
+            # 기존 대화 히스토리 초기화
+            if hasattr(self.conversation_history, 'clear_session'):
+                self.conversation_history.clear_session()
+            else:
+                self.conversation_history.current_session = []
+            self.messages = []
+            
+            # 세션 컨텍스트를 대화 히스토리에 로드
+            for msg in context_messages:
+                if hasattr(self.conversation_history, 'add_message'):
+                    self.conversation_history.add_message(msg['role'], msg['content'])
+                self.messages.append(msg)
+            
+            # 채팅 화면 초기화 (웹뷰 다시 로드하지 않고 메시지만 지움)
+            self.chat_display.web_view.page().runJavaScript("document.getElementById('messages').innerHTML = '';")
+            
+            # 세션 메시지들을 채팅 화면에 표시 (최대 100개)
+            display_messages = context_messages[-100:] if len(context_messages) > 100 else context_messages
+            print(f"[LOAD_SESSION] 표시할 메시지 수: {len(display_messages)}")
+            
+            # 메시지 표시 전 잠시 대기
+            QTimer.singleShot(100, lambda: self._display_session_messages(display_messages))
+            
+            # 세션 로드 완료 메시지
+            if display_messages:
+                load_msg = f"💼 세션 로드 완료: {len(display_messages)}개 메시지"
+                if len(context_messages) > 100:
+                    load_msg += f" (최근 100개만 표시, 전체: {len(context_messages)}개)"
+                self.chat_display.append_message('시스템', load_msg)
+            
+            print(f"[LOAD_SESSION] 세션 컨텍스트 로드 시작: {len(context_messages)}개 메시지 (표시 예정: {len(display_messages)}개)")
+            
+        except Exception as e:
+            print(f"세션 컨텍스트 로드 오류: {e}")
     
 
+    
+    def _find_main_window(self):
+        """메인 윈도우 찾기"""
+        widget = self
+        while widget:
+            if widget.__class__.__name__ == 'MainWindow':
+                return widget
+            widget = widget.parent()
+        return None
+    
+    def _display_session_messages(self, messages):
+        """세션 메시지들을 화면에 표시"""
+        try:
+            for i, msg in enumerate(messages):
+                print(f"[LOAD_SESSION] 메시지 {i+1} 표시: role={msg['role']}, content={msg['content'][:30]}...")
+                # 세션에서 로드한 메시지는 DB ID를 사용
+                msg_id = str(msg.get('id', f"session_msg_{i}"))
+                if msg['role'] == 'user':
+                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id)
+                elif msg['role'] == 'assistant':
+                    # AI 메시지는 기본 형태로 표시
+                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id)
+            
+            print(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
+        except Exception as e:
+            print(f"[LOAD_SESSION] 메시지 표시 오류: {e}")
     
     def _apply_theme_if_needed(self):
         """필요시 테마 적용"""

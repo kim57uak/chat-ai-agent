@@ -145,21 +145,26 @@ class ConversationHistory:
         self.current_session = []
 
     def save_to_file(self):
-        """Save to file"""
-        try:
-            if self._resolved_path is None:
-                self._resolved_path = config_path_manager.get_config_path(self.history_file)
-            
-            data = {
-                "messages": self.current_session,
-                "last_updated": datetime.now().isoformat()
-            }
-            
-            with open(self._resolved_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-                
-        except Exception as e:
-            print(f"History save failed: {e}")
+        """JSON 저장 기능 비활성화 - 세션 관리 시스템으로 대체됨"""
+        # JSON 저장 기능 비활성화
+        # 나중에 다시 필요할 수도 있으므로 코드는 주석 처리
+        pass
+        
+        # 기존 코드 (비활성화)
+        # try:
+        #     if self._resolved_path is None:
+        #         self._resolved_path = config_path_manager.get_config_path(self.history_file)
+        #     
+        #     data = {
+        #         "messages": self.current_session,
+        #         "last_updated": datetime.now().isoformat()
+        #     }
+        #     
+        #     with open(self._resolved_path, "w", encoding="utf-8") as f:
+        #         json.dump(data, f, ensure_ascii=False, indent=2)
+        #         
+        # except Exception as e:
+        #     print(f"History save failed: {e}")
 
     def load_from_file(self):
         """Load from file with validation"""
@@ -275,7 +280,7 @@ class ConversationHistory:
             self.current_session = [msg for msg in self.current_session if msg.get("id") != message_id]
             
             if len(self.current_session) < original_length:
-                self.save_to_file()
+                # self.save_to_file()  # JSON 저장 비활성화
                 return True
             return False
         except Exception as e:

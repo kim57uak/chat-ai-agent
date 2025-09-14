@@ -121,7 +121,10 @@ class AIAgentV2:
             return False
         
         # 도구 정보를 전략에 전달
-        self.model_strategy.tools = self.tools
+        if hasattr(self.model_strategy, 'set_tools'):
+            self.model_strategy.set_tools(self.tools)
+        else:
+            self.model_strategy.tools = self.tools
         
         # 모델별 전략에 위임
         result = self.model_strategy.should_use_tools(user_input)

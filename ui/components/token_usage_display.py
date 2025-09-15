@@ -310,18 +310,24 @@ class TokenUsageDisplay(QWidget):
         layout.addLayout(button_layout)
     
     def apply_theme(self):
-        """채팅창과 동일한 Material Design 테마 적용"""
+        """채팅창과 동일한 Material Design 테마 적용 - 대비색 개선"""
         try:
             from ui.styles.theme_manager import theme_manager
             if theme_manager.use_material_theme:
                 colors = theme_manager.material_manager.get_theme_colors()
+                is_dark = theme_manager.is_material_dark_theme()
                 
-                # 채팅창과 동일한 배경색 사용
+                # 테마별 대비색 설정
                 bg_color = colors.get('background', '#121212')
-                text_color = colors.get('text_primary', '#ffffff')
+                text_color = colors.get('text_primary', '#ffffff' if is_dark else '#000000')
                 surface_color = colors.get('surface', '#1e1e1e')
                 primary_color = colors.get('primary', '#bb86fc')
                 secondary_color = colors.get('secondary', '#03dac6')
+                
+                # 테마별 추가 색상 설정
+                on_primary_color = colors.get('on_primary', '#000000' if is_dark else '#ffffff')
+                divider_color = colors.get('divider', '#333333' if is_dark else '#e0e0e0')
+                primary_variant_color = colors.get('primary_variant', '#3700b3')
                 
                 # 전체 패널 스타일 - 채팅창과 동일한 배경
                 self.setStyleSheet(f"""
@@ -344,7 +350,7 @@ class TokenUsageDisplay(QWidget):
                     
                     QGroupBox {{
                         background-color: {surface_color};
-                        border: 1px solid {colors.get('divider', '#333333')};
+                        border: 1px solid {divider_color};
                         border-radius: 12px;
                         padding: 8px;
                         margin: 4px;
@@ -359,7 +365,7 @@ class TokenUsageDisplay(QWidget):
                         left: 8px;
                         padding: 4px 8px;
                         background: {primary_color};
-                        color: {colors.get('on_primary', '#000000')};
+                        color: {on_primary_color};
                         border-radius: 6px;
                         font-weight: 700;
                         font-size: 13px;
@@ -367,8 +373,8 @@ class TokenUsageDisplay(QWidget):
                     
                     QPushButton {{
                         background-color: {primary_color};
-                        color: {colors.get('on_primary', '#000000')};
-                        border: 2px solid {colors.get('primary_variant', '#3700b3')};
+                        color: {on_primary_color};
+                        border: 2px solid {primary_variant_color};
                         padding: 12px 16px;
                         border-radius: 14px;
                         font-weight: 700;
@@ -378,11 +384,11 @@ class TokenUsageDisplay(QWidget):
                     }}
                     
                     QPushButton:hover {{
-                        background-color: {colors.get('primary_variant', '#3700b3')};
+                        background-color: {primary_variant_color};
                     }}
                     
                     QPushButton:pressed {{
-                        background-color: {colors.get('primary_variant', '#3700b3')};
+                        background-color: {primary_variant_color};
                     }}
                     
                     QTabWidget {{
@@ -392,7 +398,7 @@ class TokenUsageDisplay(QWidget):
                     
                     QTabWidget::pane {{
                         background-color: {surface_color};
-                        border: 1px solid {colors.get('divider', '#333333')};
+                        border: 1px solid {divider_color};
                         border-radius: 12px;
                         margin: 2px;
                     }}
@@ -400,7 +406,7 @@ class TokenUsageDisplay(QWidget):
                     QTabBar::tab {{
                         background-color: {bg_color};
                         color: {text_color};
-                        border: 1px solid {colors.get('divider', '#333333')};
+                        border: 1px solid {divider_color};
                         padding: 8px 16px;
                         margin: 2px;
                         border-radius: 6px;
@@ -411,22 +417,22 @@ class TokenUsageDisplay(QWidget):
                     
                     QTabBar::tab:selected {{
                         background-color: {primary_color};
-                        color: {colors.get('on_primary', '#000000')};
-                        border-color: {colors.get('primary_variant', '#3700b3')};
+                        color: {on_primary_color};
+                        border-color: {primary_variant_color};
                         font-weight: 700;
                     }}
                     
                     QTabBar::tab:hover {{
-                        background-color: {colors.get('primary_variant', '#3700b3')};
-                        color: {colors.get('on_primary', '#000000')};
+                        background-color: {primary_variant_color};
+                        color: {on_primary_color};
                     }}
                     
                     QTableWidget {{
                         background-color: {surface_color};
                         color: {text_color};
-                        border: 1px solid {colors.get('divider', '#333333')};
+                        border: 1px solid {divider_color};
                         border-radius: 12px;
-                        gridline-color: {colors.get('divider', '#333333')};
+                        gridline-color: {divider_color};
                         font-size: 13px;
                         font-weight: 500;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
@@ -439,13 +445,13 @@ class TokenUsageDisplay(QWidget):
                     
                     QTableWidget::item:selected {{
                         background-color: {primary_color};
-                        color: {colors.get('on_primary', '#000000')};
+                        color: {on_primary_color};
                     }}
                     
                     QHeaderView::section {{
                         background-color: {primary_color};
-                        color: {colors.get('on_primary', '#000000')};
-                        border: 1px solid {colors.get('primary_variant', '#3700b3')};
+                        color: {on_primary_color};
+                        border: 1px solid {primary_variant_color};
                         padding: 8px;
                         font-weight: 700;
                         font-size: 12px;
@@ -455,7 +461,7 @@ class TokenUsageDisplay(QWidget):
                     QTextEdit {{
                         background-color: {bg_color};
                         color: {text_color};
-                        border: 1px solid {colors.get('divider', '#333333')};
+                        border: 1px solid {divider_color};
                         border-radius: 12px;
                         padding: 8px;
                         font-size: 13px;
@@ -466,11 +472,12 @@ class TokenUsageDisplay(QWidget):
                     
                     QProgressBar {{
                         background-color: {surface_color};
-                        border: 1px solid {colors.get('divider', '#333333')};
+                        border: 1px solid {divider_color};
                         border-radius: 8px;
                         text-align: center;
                         font-weight: 600;
                         font-size: 12px;
+                        color: {text_color};
                     }}
                     
                     QProgressBar::chunk {{

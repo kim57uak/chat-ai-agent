@@ -37,19 +37,29 @@ class ChatDisplay:
         """웹 브라우저 초기화 - 고급 다크 테마"""
         from ui.styles.theme_manager import theme_manager
         
-        # 웹 보안 설정 완화
+        # 웹 보안 설정 완화 (PyQt6 호환)
         settings = self.web_view.settings()
         settings.setAttribute(settings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
         settings.setAttribute(settings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
-        settings.setAttribute(settings.WebAttribute.AllowRunningInsecureContent, True)
-        settings.setAttribute(settings.WebAttribute.PlaybackRequiresUserGesture, False)
-        settings.setAttribute(settings.WebAttribute.FullScreenSupportEnabled, True)
-        settings.setAttribute(settings.WebAttribute.WebGLEnabled, True)
-        settings.setAttribute(settings.WebAttribute.Accelerated2dCanvasEnabled, True)
         
-        # 웹뷰 배경 투명 설정
+        # PyQt6에서 지원하는 속성만 사용
+        try:
+            settings.setAttribute(settings.WebAttribute.AllowRunningInsecureContent, True)
+        except AttributeError:
+            pass
+        try:
+            settings.setAttribute(settings.WebAttribute.PlaybackRequiresUserGesture, False)
+        except AttributeError:
+            pass
+        
+        # 웹뷰 배경 투명 설정 및 스크롤 최적화
         self.web_view.page().setBackgroundColor(self.web_view.palette().color(self.web_view.palette().ColorRole.Window))
+        
+        # 스크롤 성능 향상을 위한 추가 설정
+        from PyQt6.QtCore import QUrl
+        self.web_view.page().profile().setHttpCacheType(self.web_view.page().profile().HttpCacheType.MemoryHttpCache)
+        self.web_view.page().profile().setHttpCacheMaximumSize(50 * 1024 * 1024)  # 50MB 캐시
         
         # 콘솔 메시지 캡처
         self.web_view.page().javaScriptConsoleMessage = self.handle_console_message
@@ -361,6 +371,35 @@ class ChatDisplay:
             <style id="theme-style">
                 {theme_css}
                 
+                /* 실제 성능 최적화 */
+                * {{
+                    box-sizing: border-box;
+                }}
+                
+                html, body {{
+                    scroll-behavior: smooth;
+                    overflow-x: hidden;
+                    -webkit-font-smoothing: antialiased;
+                    -moz-osx-font-smoothing: grayscale;
+                }}
+                
+                #messages {{
+                    /* 가상화를 위한 최적화 */
+                    height: auto;
+                    overflow-y: visible;
+                }}
+                
+                .message {{
+                    /* GPU 레이어 생성 */
+                    -webkit-transform: translate3d(0,0,0);
+                    transform: translate3d(0,0,0);
+                    /* 렌더링 최적화 */
+                    -webkit-backface-visibility: hidden;
+                    backface-visibility: hidden;
+                    /* 레이아웃 최적화 */
+                    contain: layout;
+                }}
+                
                 /* Mermaid v10 다이어그램 전용 스타일 */
                 .mermaid {{
                     background: #2a2a2a;
@@ -503,7 +542,7 @@ class ChatDisplay:
             var deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '🗑️';
             deleteBtn.title = '메시지 삭제';
-            deleteBtn.style.cssText = 'position:absolute;top:18px;right:18px;background:rgba(220,53,69,0.6);color:#ffffff;border:1px solid rgba(220,53,69,0.8);padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;opacity:0.7;transition:all 0.2s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:20;box-shadow:0 2px 8px rgba(220,53,69,0.3);';
+            deleteBtn.style.cssText = 'position:absolute;top:18px;right:18px;background:rgba(220,53,69,0.6);color:#ffffff;border:1px solid rgba(220,53,69,0.8);padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;opacity:0.7;transition:all 0.2s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:20;';
             deleteBtn.onclick = function() {{ 
                 deleteMessage('{delete_id}'); 
             }};
@@ -529,9 +568,26 @@ class ChatDisplay:
             console.log('메시지 생성 및 콘텐츠 설정 시작: {display_message_id}');
             
             var messagesDiv = document.getElementById('messages');
+            
+            // 메시지 수 제한 (성능 최적화)
+            var messageCount = messagesDiv.children.length;
+            var maxMessages = 100; // 최대 100개 유지
+            
+            if (messageCount >= maxMessages) {{
+                // 오래된 메시지 10개 제거
+                for (var i = 0; i < 10 && messagesDiv.firstChild; i++) {{
+                    var oldMsg = messagesDiv.firstChild;
+                    messagesDiv.removeChild(oldMsg);
+                    oldMsg = null; // 메모리 해제
+                }}
+                // 강제 가비지 콜렉션
+                if (window.gc) window.gc();
+            }}
+            
             var messageDiv = document.createElement('div');
             messageDiv.id = '{display_message_id}';
             messageDiv.setAttribute('data-message-id', '{message_id or display_message_id}');
+            messageDiv.className = 'message';
             messageDiv.style.cssText = 'margin:20px 0;padding:20px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
             messageDiv.onmouseenter = function() {{ }};
             messageDiv.onmouseleave = function() {{ }};
@@ -543,7 +599,7 @@ class ChatDisplay:
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋';
             copyBtn.title = '메시지 복사';
-            copyBtn.style.cssText = 'position:absolute;top:18px;right:140px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            copyBtn.style.cssText = 'position:absolute;top:18px;right:140px;background:rgba(95,95,100,0.45);color:rgba(208,208,208,0.7);border:1px solid rgba(160,160,165,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;';
             copyBtn.onclick = function() {{ copyMessage('{display_message_id}'); }};
             copyBtn.onmouseenter = function() {{ 
                 this.style.background = 'rgba(105,105,110,0.475)';
@@ -600,42 +656,46 @@ class ChatDisplay:
             contentDiv.innerHTML = {safe_content};
             console.log('콘텐츠 설정 완료: {display_message_id}');
             
-            // 렌더링 처리
-            setTimeout(() => {{
+            // 렌더링 처리 (성능 최적화)
+            requestAnimationFrame(() => {{
                 console.log('렌더링 시작: {display_message_id}');
                 
-                // Mermaid 렌더링
+                // Mermaid 렌더링 (비동기)
                 if (typeof mermaid !== 'undefined') {{
-                    try {{
-                        console.log('Mermaid 렌더링 시도');
-                        mermaid.run();
-                        console.log('Mermaid 렌더링 완료');
-                    }} catch (e) {{
-                        console.error('Mermaid 렌더링 오류:', e);
-                    }}
+                    setTimeout(() => {{
+                        try {{
+                            console.log('Mermaid 렌더링 시도');
+                            mermaid.run();
+                            console.log('Mermaid 렌더링 완료');
+                        }} catch (e) {{
+                            console.error('Mermaid 렌더링 오류:', e);
+                        }}
+                    }}, 50);
                 }}
                 
-                // MathJax 강제 렌더링
-                setTimeout(() => {{
-                    if (window.MathJax && MathJax.typesetPromise) {{
-                        console.log('MathJax 강제 렌더링 시도');
+                // MathJax 렌더링 (비동기)
+                if (window.MathJax && MathJax.typesetPromise) {{
+                    setTimeout(() => {{
+                        console.log('MathJax 렌더링 시도');
                         MathJax.typesetPromise([contentDiv])
-                            .then(() => {{
-                                console.log('MathJax 강제 렌더링 성공');
-                            }})
-                            .catch((err) => {{
-                                console.error('MathJax 강제 렌더링 오류:', err);
-                                // 실패 시 전체 렌더링 시도
-                                MathJax.typesetPromise().catch(e => console.error('MathJax 전체 렌더링 실패:', e));
-                            }});
-                    }} else {{
-                        console.log('MathJax 사용 불가');
-                    }}
-                }}, 200);
-            }}, 100);
+                            .then(() => console.log('MathJax 렌더링 성공'))
+                            .catch((err) => console.error('MathJax 렌더링 오류:', err));
+                    }}, 100);
+                }}
+            }});
             
-            window.scrollTo(0, document.body.scrollHeight);
+            // 즉시 스크롤 (성능 우선)
+            setTimeout(() => {{
+                window.scrollTo(0, document.body.scrollHeight);
+            }}, 10);
             console.log('메시지 생성 완료: {display_message_id}');
+            
+            // 메모리 정리
+            if (messageCount > 80) {{
+                setTimeout(() => {{
+                    if (window.gc) window.gc();
+                }}, 500);
+            }}
         }} catch(e) {{
             console.error('메시지 생성 오류:', e);
         }}

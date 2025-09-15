@@ -138,48 +138,45 @@ class SessionListItem(QWidget):
             # 테마별 대비 색상 설정
             if is_dark:
                 title_color = '#ffffff'
-                category_text_color = '#000000'  # 어두운 배경에 밝은 그라데이션에는 검은 글자
-                message_color = colors.get('secondary', '#03dac6')
-                time_color = '#cccccc'
+                message_bg = '#4f46e5'
+                time_bg = '#374151'
+                shadow_color = 'rgba(0,0,0,1.0)'
             else:
-                title_color = '#1a1a1a'
-                category_text_color = '#ffffff'  # 밝은 배경에 어두운 그라데이션에는 흰 글자
-                message_color = colors.get('primary', '#1976d2')
-                time_color = '#666666'
+                title_color = '#000000'
+                message_bg = '#1976d2'
+                time_bg = '#6b7280'
+                shadow_color = 'rgba(255,255,255,1.0)'
             
-            # 제목 스타일 - 가독성 최우선
+            # 제목 스타일 - 테마별 대비색 적용
             self.title_label.setStyleSheet(f"""
                 QLabel {{
-                    color: #ffffff;
+                    color: {title_color};
                     font-size: 16px;
                     font-weight: 700;
                     line-height: 1.2;
                     background: transparent;
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                    text-shadow: 1px 1px 2px rgba(0,0,0,1.0);
+                    text-shadow: 1px 1px 2px {shadow_color};
                     padding: 0px;
                     margin: 0px;
                 }}
             """)
             
-            # 카테고리 스타일 제거
-            
-            # 메시지 수 스타일 - 단순하고 명확
+            # 메시지 수 스타일 - 테마별 배경색 적용
             self.message_count_label.setStyleSheet(f"""
                 QLabel {{
                     color: #ffffff;
                     font-size: 13px;
                     font-weight: 700;
                     padding: 4px 8px;
-                    background: #4f46e5;
+                    background: {message_bg};
                     border-radius: 8px;
-                    border: 1px solid #ffffff;
+                    border: 1px solid {colors.get('divider', '#333333')};
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                    text-shadow: 1px 1px 1px rgba(0,0,0,1.0);
                 }}
             """)
             
-            # 시간 스타일 - 단순하고 명확
+            # 시간 스타일 - 테마별 배경색 적용
             if hasattr(self, 'time_label'):
                 self.time_label.setStyleSheet(f"""
                     QLabel {{
@@ -187,24 +184,22 @@ class SessionListItem(QWidget):
                         font-size: 12px;
                         font-weight: 600;
                         padding: 2px 6px;
-                        background: #374151;
+                        background: {time_bg};
                         border-radius: 6px;
-                        border: 1px solid #ffffff;
+                        border: 1px solid {colors.get('divider', '#333333')};
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                        text-shadow: 1px 1px 1px rgba(0,0,0,1.0);
                     }}
                 """)
             
-            # 삭제 버튼 스타일 - 단순하고 명확
+            # 삭제 버튼 스타일
             self.delete_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: #dc2626;
                     color: #ffffff;
-                    border: 1px solid #ffffff;
+                    border: 1px solid {colors.get('divider', '#333333')};
                     border-radius: 6px;
                     font-size: 12px;
                     font-weight: 700;
-                    text-shadow: 1px 1px 1px rgba(0,0,0,1.0);
                 }}
                 QPushButton:hover {{
                     background: #b91c1c;
@@ -215,29 +210,44 @@ class SessionListItem(QWidget):
             self.update_item_style(colors)
     
     def update_item_style(self, colors):
-        """가독성 최우선 단순 디자인"""
+        """테마별 대비색을 고려한 아이템 스타일"""
+        is_dark = theme_manager.is_material_dark_theme()
+        
         if self.is_selected:
-            # 선택된 상태 - 단순한 배경
+            # 선택된 상태
+            selected_bg = colors.get('primary', '#4f46e5')
+            selected_border = colors.get('primary_variant', '#3700b3')
             self.setStyleSheet(f"""
                 SessionListItem {{
-                    background: #4f46e5;
-                    border: 2px solid #ffffff;
+                    background: {selected_bg};
+                    border: 2px solid {selected_border};
                     border-radius: 8px;
                     margin: 2px;
                 }}
             """)
         else:
-            # 기본 상태 - 단순한 배경
+            # 기본 상태 - 테마별 배경색
+            if is_dark:
+                item_bg = '#374151'
+                item_border = '#6b7280'
+                hover_bg = '#4b5563'
+                hover_border = '#9ca3af'
+            else:
+                item_bg = '#e5e7eb'
+                item_border = '#d1d5db'
+                hover_bg = '#d1d5db'
+                hover_border = '#9ca3af'
+            
             self.setStyleSheet(f"""
                 SessionListItem {{
-                    background: #374151;
-                    border: 1px solid #6b7280;
+                    background: {item_bg};
+                    border: 1px solid {item_border};
                     border-radius: 8px;
                     margin: 2px;
                 }}
                 SessionListItem:hover {{
-                    background: #4b5563;
-                    border: 2px solid #9ca3af;
+                    background: {hover_bg};
+                    border: 2px solid {hover_border};
                 }}
             """)
     
@@ -335,20 +345,6 @@ class SessionPanel(QWidget):
         # 새 세션 버튼 - 더 큰 버튼
         self.new_session_btn = QPushButton("➕ New Session")
         self.new_session_btn.setMinimumHeight(44)
-        self.new_session_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #007acc;
-                color: white;
-                border: none;
-                padding: 12px;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #005a9e;
-            }
-        """)
         self.new_session_btn.clicked.connect(self.create_new_session)
         button_layout.addWidget(self.new_session_btn)
         
@@ -383,8 +379,9 @@ class SessionPanel(QWidget):
         
         # 통계 정보 - 더 큰 박스
         self.stats_label = QLabel()
-        self.stats_label.setStyleSheet("color: #666; font-size: 12px; padding: 8px;")
+        # 통계 라벨 스타일은 apply_theme에서 설정
         self.stats_label.setMinimumHeight(36)
+        self.stats_label.setObjectName("stats_label")  # 스타일 적용을 위한 이름 설정
         layout.addWidget(self.stats_label)
         
         self.setLayout(layout)
@@ -724,10 +721,13 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 헤더 라벨 스타일 - 채팅창 정보 라벨과 동일
+        # 헤더 라벨 스타일 - 테마별 대비색 적용
+        is_dark = theme_manager.is_material_dark_theme()
+        header_text_color = colors.get('on_primary', '#000000') if is_dark else '#ffffff'
+        
         header_style = f"""
         QLabel {{
-            color: {colors.get('on_primary', '#000000')};
+            color: {header_text_color};
             font-size: 16px;
             font-weight: 700;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
@@ -757,11 +757,15 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 검색 입력창 - 채팅창 입력창과 동일
+        # 검색 입력창 - 테마별 대비색 적용
+        is_dark = theme_manager.is_material_dark_theme()
+        input_text_color = text_color if is_dark else colors.get('text_primary', '#000000')
+        placeholder_color = colors.get('text_secondary', '#b3b3b3') if is_dark else '#999999'
+        
         search_style = f"""
         QLineEdit {{
-            background-color: {bg_color};
-            color: {text_color};
+            background-color: {surface_color};
+            color: {input_text_color};
             border: 1px solid {colors.get('divider', '#333333')};
             border-radius: 12px;
             font-size: 15px;
@@ -774,7 +778,7 @@ class SessionPanel(QWidget):
             border-color: {primary_color};
         }}
         QLineEdit::placeholder {{
-            color: {colors.get('text_secondary', '#b3b3b3')};
+            color: {placeholder_color};
         }}
         """
         
@@ -859,10 +863,13 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 통계 라벨 스타일 - 채팅창 상태 라벨과 동일
+        # 통계 라벨 스타일 - 테마별 대비색 적용
+        is_dark = theme_manager.is_material_dark_theme()
+        stats_text_color = colors.get('text_secondary', '#b3b3b3') if is_dark else colors.get('text_primary', '#333333')
+        
         stats_style = f"""
         QLabel {{
-            color: {colors.get('text_secondary', '#b3b3b3')};
+            color: {stats_text_color};
             font-size: 12px;
             font-weight: 600;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
@@ -898,12 +905,23 @@ class SessionPanel(QWidget):
         self.stats_label.setStyleSheet(stats_style)
     
     def _apply_default_theme(self):
-        """기본 테마 적용"""
+        """기본 테마 적용 - 라이트 테마용 대비색"""
         self.setStyleSheet("""
         SessionPanel {
             background-color: #f5f5f5;
             color: #333333;
             border-right: 1px solid #ddd;
+        }
+        QLabel {
+            color: #333333;
+        }
+        QLineEdit {
+            background-color: #ffffff;
+            color: #333333;
+            border: 1px solid #cccccc;
+        }
+        QLineEdit::placeholder {
+            color: #999999;
         }
         """)
     

@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         
         # Token usage display (right)
         self.token_display = TokenUsageDisplay(self)
-        self.token_display.setVisible(True)  # 기본적으로 표시
+        self.token_display.setVisible(False)  # 기본적으로 숨김
         self.token_display.setMinimumWidth(250)  # 최소 너비 설정
         self.token_display.setMaximumWidth(600)  # 최대 너비 설정
         self.token_display.export_requested.connect(self._show_export_message)
@@ -84,8 +84,8 @@ class MainWindow(QMainWindow):
         
         print("SessionPanel 및 TokenUsageDisplay 생성 완료")  # 디버깅
         
-        # Set splitter proportions (20% session, 55% chat, 25% token display)
-        self.splitter.setSizes([250, 700, 300])
+        # Set splitter proportions (토큰 패널 기본 닫힘)
+        self.splitter.setSizes([250, 950, 0])
         self.splitter.setStretchFactor(0, 0)  # 세션 패널은 고정 크기
         self.splitter.setStretchFactor(1, 3)  # 채팅창이 가장 많이 늘어남
         self.splitter.setStretchFactor(2, 1)  # 토큰창은 적게 늘어남
@@ -152,7 +152,7 @@ class MainWindow(QMainWindow):
         # Token usage toggle
         self.token_usage_action = QAction('토큰 사용량 표시', self)
         self.token_usage_action.setCheckable(True)
-        self.token_usage_action.setChecked(True)  # 기본적으로 활성화
+        self.token_usage_action.setChecked(False)  # 기본적으로 비활성화
         self.token_usage_action.triggered.connect(self.toggle_token_display)
         settings_menu.addAction(self.token_usage_action)
         
@@ -412,8 +412,11 @@ class MainWindow(QMainWindow):
             if os.path.exists('splitter_state.json'):
                 with open('splitter_state.json', 'r') as f:
                     state = json.load(f)
-                    sizes = state.get('sizes', [250, 700, 300])
+                    sizes = state.get('sizes', [250, 950, 0])  # 기본값 변경
+                    token_visible = state.get('token_visible', False)  # 토큰 패널 표시 상태
                     self.splitter.setSizes(sizes)
+                    self.token_display.setVisible(token_visible)
+                    self.token_usage_action.setChecked(token_visible)
         except Exception as e:
             print(f"스플리터 상태 로드 오류: {e}")
     
@@ -421,7 +424,8 @@ class MainWindow(QMainWindow):
         """스플리터 상태 저장"""
         try:
             state = {
-                'sizes': self.splitter.sizes()
+                'sizes': self.splitter.sizes(),
+                'token_visible': self.token_display.isVisible()
             }
             with open('splitter_state.json', 'w') as f:
                 json.dump(state, f)
@@ -430,10 +434,10 @@ class MainWindow(QMainWindow):
     
     def reset_layout(self):
         """레이아웃 초기화"""
-        self.splitter.setSizes([250, 700, 300])
+        self.splitter.setSizes([250, 950, 0])
         self.session_panel.setVisible(True)
-        self.token_display.setVisible(True)
-        self.token_usage_action.setChecked(True)
+        self.token_display.setVisible(False)
+        self.token_usage_action.setChecked(False)
         self._save_splitter_state()
         print("레이아웃이 초기화되었습니다.")
     

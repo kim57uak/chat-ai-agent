@@ -59,16 +59,19 @@ class ChatWidget(QWidget):
         info_layout = QHBoxLayout()
         
         self.model_label = QLabel(self)
+        self.session_info_label = QLabel("세션: 선택된 세션 없음", self)
         self.tools_label = QLabel(self)
         self.status_label = QLabel(self)
         
         # 새로운 플랫 스타일 적용
         styles = FlatTheme.get_info_labels_style()
         self.model_label.setStyleSheet(styles['model_label'])
+        self.session_info_label.setStyleSheet(styles['tools_label'])  # tools_label 스타일 재사용
         self.tools_label.setStyleSheet(styles['tools_label'])
         self.status_label.setStyleSheet(styles['status_label'])
         
         info_layout.addWidget(self.model_label, 1)
+        info_layout.addWidget(self.session_info_label, 1)
         info_layout.addWidget(self.status_label, 0)
         info_layout.addWidget(self.tools_label, 0)
         self.layout.addLayout(info_layout)
@@ -848,6 +851,7 @@ class ChatWidget(QWidget):
         """
         
         self.model_label.setStyleSheet(model_label_style)
+        self.session_info_label.setStyleSheet(tools_label_style)  # 동일한 스타일 사용
         self.tools_label.setStyleSheet(tools_label_style)
         self.status_label.setStyleSheet(status_label_style)
         
@@ -1065,6 +1069,27 @@ class ChatWidget(QWidget):
             print(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
         except Exception as e:
             print(f"[LOAD_SESSION] 메시지 표시 오류: {e}")
+    
+    def update_session_info(self, session_id=None):
+        """세션 정보 업데이트"""
+        try:
+            if not session_id:
+                self.session_info_label.setText("세션: 선택된 세션 없음")
+                return
+            
+            from core.session import session_manager
+            session = session_manager.get_session(session_id)
+            if session:
+                title = session['title']
+                if len(title) > 20:
+                    title = title[:17] + "..."
+                message_count = session_manager.get_message_count(session_id)
+                self.session_info_label.setText(f"세션: {title} (💬 {message_count}개)")
+            else:
+                self.session_info_label.setText("세션: 오류")
+        except Exception as e:
+            print(f"세션 정보 업데이트 오류: {e}")
+            self.session_info_label.setText("세션: 오류")
     
     def _apply_theme_if_needed(self):
         """필요시 테마 적용"""

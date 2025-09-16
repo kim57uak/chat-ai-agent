@@ -5,6 +5,7 @@ Chat Session Manager
 
 from typing import List, Dict, Optional
 import logging
+import re
 from .session_database import SessionDatabase
 
 logger = logging.getLogger(__name__)
@@ -124,16 +125,30 @@ class SessionManager:
         
         return success
     
+    def _remove_html_tags(self, text: str) -> str:
+        """HTML 태그 제거"""
+        if not text:
+            return text
+        # HTML 태그 제거
+        clean_text = re.sub(r'<[^>]+>', '', text)
+        # HTML 엔티티 디코딩
+        clean_text = clean_text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+        return clean_text.strip()
+    
     def add_message(self, session_id: int, role: str, content: str, 
                    content_html: str = None, token_count: int = 0, tool_calls: str = None) -> int:
         """메시지 추가"""
         print(f"[SESSION_MANAGER] add_message - session_id: {session_id}, role: {role}, content 길이: {len(content) if content else 0}")
+        
+        # content 필드에는 HTML 태그 제거된 텍스트 저장
+        clean_content = self._remove_html_tags(content)
+        
         with self.db.get_connection() as conn:
             # 메시지 추가
             cursor = conn.execute('''
                 INSERT INTO messages (session_id, role, content, content_html, token_count, tool_calls)
                 VALUES (?, ?, ?, ?, ?, ?)
-            ''', (session_id, role, content, content_html, token_count, tool_calls))
+            ''', (session_id, role, clean_content, content_html, token_count, tool_calls))
             
             message_id = cursor.lastrowid
             print(f"[SESSION_MANAGER] 메시지 삽입 성공 - message_id: {message_id}")
@@ -241,6 +256,16 @@ class SessionManager:
                 })
             
             return sessions
+    
+    def get_message_count(self, session_id: int) -> int:
+        """세션의 실제 메시지 수 조회"""
+        with self.db.get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT COUNT(*) FROM messages WHERE session_id = ?
+            ''', (session_id,))
+            
+            row = cursor.fetchone()
+            return row[0] if row else 0
     
     def get_session_stats(self) -> Dict:
         """세션 통계 조회"""

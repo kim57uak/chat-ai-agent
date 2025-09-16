@@ -156,7 +156,6 @@ class SessionListItem(QWidget):
                     line-height: 1.2;
                     background: transparent;
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                    text-shadow: 1px 1px 2px {shadow_color};
                     padding: 0px;
                     margin: 0px;
                 }}

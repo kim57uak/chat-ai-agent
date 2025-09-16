@@ -149,10 +149,19 @@ class MainWindow(QMainWindow):
         
         settings_menu.addSeparator()
         
+        # Session panel toggle
+        self.session_panel_action = QAction('세션 패널 표시', self)
+        self.session_panel_action.setCheckable(True)
+        self.session_panel_action.setChecked(True)  # 기본적으로 활성화
+        self.session_panel_action.setShortcut('Ctrl+[')
+        self.session_panel_action.triggered.connect(self.toggle_session_panel)
+        settings_menu.addAction(self.session_panel_action)
+        
         # Token usage toggle
         self.token_usage_action = QAction('토큰 사용량 표시', self)
         self.token_usage_action.setCheckable(True)
         self.token_usage_action.setChecked(False)  # 기본적으로 비활성화
+        self.token_usage_action.setShortcut('Ctrl+]')
         self.token_usage_action.triggered.connect(self.toggle_token_display)
         settings_menu.addAction(self.token_usage_action)
         
@@ -388,23 +397,47 @@ class MainWindow(QMainWindow):
             print(f"창 제목 업데이트 오류: {e}")
             self.setWindowTitle('AIAgent')
     
+    def toggle_session_panel(self):
+        """세션 패널 표시 토글"""
+        is_visible = self.session_panel.isVisible()
+        self.session_panel.setVisible(not is_visible)
+        self.session_panel_action.setChecked(not is_visible)
+        
+        current_sizes = self.splitter.sizes()
+        total_width = sum(current_sizes)
+        
+        if not is_visible:
+            # 세션 패널 표시
+            token_width = current_sizes[2] if self.token_display.isVisible() else 0
+            self.splitter.setSizes([250, total_width - 250 - token_width, token_width])
+        else:
+            # 세션 패널 숨김
+            token_width = current_sizes[2] if self.token_display.isVisible() else 0
+            self.splitter.setSizes([0, total_width - token_width, token_width])
+        
+        self._save_splitter_state()
+    
     def toggle_token_display(self):
         """토큰 사용량 표시 토글"""
         is_visible = self.token_display.isVisible()
         self.token_display.setVisible(not is_visible)
         self.token_usage_action.setChecked(not is_visible)
         
+        current_sizes = self.splitter.sizes()
+        total_width = sum(current_sizes)
+        
         if not is_visible:
             self.token_display.refresh_display()
-            # 토큰 창이 다시 표시될 때 적절한 크기로 복원
-            current_sizes = self.splitter.sizes()
-            total_width = sum(current_sizes)
-            self.splitter.setSizes([250, int(total_width * 0.55), int(total_width * 0.25)])
+            # 토큰 창 표시
+            session_width = current_sizes[0] if self.session_panel.isVisible() else 0
+            token_width = 300
+            self.splitter.setSizes([session_width, total_width - session_width - token_width, token_width])
         else:
-            # 토큰 창을 숨길 때 채팅창이 더 많은 공간을 차지
-            current_sizes = self.splitter.sizes()
-            total_width = sum(current_sizes)
-            self.splitter.setSizes([250, total_width - 250, 0])
+            # 토큰 창 숨김
+            session_width = current_sizes[0] if self.session_panel.isVisible() else 0
+            self.splitter.setSizes([session_width, total_width - session_width, 0])
+        
+        self._save_splitter_state()
     
     def _load_splitter_state(self):
         """스플리터 상태 로드"""
@@ -412,11 +445,15 @@ class MainWindow(QMainWindow):
             if os.path.exists('splitter_state.json'):
                 with open('splitter_state.json', 'r') as f:
                     state = json.load(f)
-                    sizes = state.get('sizes', [250, 950, 0])  # 기본값 변경
-                    token_visible = state.get('token_visible', False)  # 토큰 패널 표시 상태
+                    sizes = state.get('sizes', [250, 950, 0])
+                    token_visible = state.get('token_visible', False)
+                    session_visible = state.get('session_visible', True)
+                    
                     self.splitter.setSizes(sizes)
                     self.token_display.setVisible(token_visible)
                     self.token_usage_action.setChecked(token_visible)
+                    self.session_panel.setVisible(session_visible)
+                    self.session_panel_action.setChecked(session_visible)
         except Exception as e:
             print(f"스플리터 상태 로드 오류: {e}")
     
@@ -425,7 +462,8 @@ class MainWindow(QMainWindow):
         try:
             state = {
                 'sizes': self.splitter.sizes(),
-                'token_visible': self.token_display.isVisible()
+                'token_visible': self.token_display.isVisible(),
+                'session_visible': self.session_panel.isVisible()
             }
             with open('splitter_state.json', 'w') as f:
                 json.dump(state, f)
@@ -436,6 +474,7 @@ class MainWindow(QMainWindow):
         """레이아웃 초기화"""
         self.splitter.setSizes([250, 950, 0])
         self.session_panel.setVisible(True)
+        self.session_panel_action.setChecked(True)
         self.token_display.setVisible(False)
         self.token_usage_action.setChecked(False)
         self._save_splitter_state()
@@ -451,6 +490,10 @@ class MainWindow(QMainWindow):
             # 메인 윈도우의 현재 세션 ID 업데이트
             self.current_session_id = session_id
             self._auto_session_created = True  # 세션이 선택되었으므로 자동 생성 플래그 설정
+            
+            # 채팅 위젯의 세션 정보 업데이트
+            if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
+                self.chat_widget.update_session_info(session_id)
             
             session = session_manager.get_session(session_id)
             if not session:
@@ -477,6 +520,11 @@ class MainWindow(QMainWindow):
         """새 세션 생성 이벤트 처리"""
         self.current_session_id = session_id
         self._auto_session_created = True  # 세션이 생성되었으므로 자동 생성 플래그 설정
+        
+        # 채팅 위젯의 세션 정보 업데이트
+        if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
+            self.chat_widget.update_session_info(session_id)
+        
         # 새 세션이므로 채팅 화면 초기화
         if hasattr(self.chat_widget, 'chat_display'):
             self.chat_widget.chat_display.clear_messages()
@@ -502,6 +550,9 @@ class MainWindow(QMainWindow):
                     token_count=token_count
                 )
                 print(f"[SAVE_MESSAGE] 성공 - message_id: {message_id}")
+                # 채팅 위젯의 세션 정보 업데이트
+                if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
+                    self.chat_widget.update_session_info(self.current_session_id)
                 # 세션 패널 새로고침
                 self.session_panel.load_sessions()
             except Exception as e:
@@ -536,6 +587,11 @@ class MainWindow(QMainWindow):
                 self.current_session_id = session_manager.create_session(title)
                 self._auto_session_created = True
                 print(f"[AUTO_SESSION] 성공 - session_id: {self.current_session_id}")
+                
+                # 채팅 위젯의 세션 정보 업데이트
+                if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
+                    self.chat_widget.update_session_info(self.current_session_id)
+                
                 # 세션 패널 새로고침
                 self.session_panel.load_sessions()
                 # 생성된 세션 선택
@@ -547,18 +603,3 @@ class MainWindow(QMainWindow):
         else:
             print(f"[AUTO_SESSION] 이미 생성됨 - current_session_id: {self.current_session_id}")
     
-    def toggle_session_panel(self):
-        """세션 패널 표시 토글"""
-        is_visible = self.session_panel.isVisible()
-        self.session_panel.setVisible(not is_visible)
-        self.session_panel_action.setChecked(not is_visible)
-        
-        current_sizes = self.splitter.sizes()
-        total_width = sum(current_sizes)
-        
-        if not is_visible:
-            # 세션 패널 표시
-            self.splitter.setSizes([250, total_width - 250 - current_sizes[2], current_sizes[2]])
-        else:
-            # 세션 패널 숨김
-            self.splitter.setSizes([0, total_width - current_sizes[2], current_sizes[2]])

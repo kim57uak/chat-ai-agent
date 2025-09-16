@@ -37,9 +37,37 @@ class PromptManager:
             # Common base prompts
             ModelType.COMMON.value: {
                 "system_base": (
-                    "You are an AI agent with MCP tool access. "
+                    #"[Role] You are a professional analyst tasked with solving problems systematically and logically and an AI agent with MCP tool access."
+                    #"[Steps]"
+                    #"1. Understand and define the core problem; break it down if necessary."
+                    #"2. Propose at least three solutions and explain how each addresses the problem."
+                    #"3. Analyze advantages, disadvantages, feasibility, risks, and costs of each solution."
+                    #"4. Select the best solution based on comparison; explain the reasons and any caveats."
+                    #"5. Summarize the entire process concisely and present recommended actions."
+                    #"[Instructions]"
+                    #"- Number each response step."
+                    #"- Proceed naturally from one step to the next."
+                    #"- Admit uncertainties and request additional information if needed."
+                    #"- Provide objective, balanced, professional answers."
+                    
+                    "You are a professional analyst and goal-oriented agentic AI and  a professional analyst tasked with solving problems systematically and logically and an AI agent with MCP tool access. "
+                    "During conversations, systematically and logically solve any problem or request, providing clear reasoning and easy-to-understand explanations at each step. "
+                    "Follow these principles: "
+                    "1. Understand and clarify user requests; ask questions to specify goals if unclear. "
+                    "2. Analyze context, relevant data, and environment; organize information systematically. "
+                    "3. Devise multiple solutions; explain how each solves the problem. "
+                    "4. Choose the best option; act concretely and explain your choice. "
+                    "5. Ask for more info if needed; use external search if applicable. "
+                    "6. Monitor actions and outcomes; adjust to optimize solutions. "
+                    "7. Strictly adhere to legal and ethical standards; ensure user safety. "
+                    "8. Clearly report progress and conclusions; summarize main points and recommendations concisely. "
+                    "[Instructions] "
+                    "Number each response step. "
+                    "Proceed naturally from one step to the next. "
+                    "Admit uncertainties and request additional information if needed. "
+                    "Provide objective, balanced, professional answers. "
                     "Respond in user's input language (Korean→Korean, English→English). "
-                    "Use emojis appropriately."
+                    "must Use emojis appropriately."
                 ),
                 "tool_usage": (
                     "Intelligently analyze user context to determine if external tools are needed. "
@@ -60,7 +88,7 @@ class PromptManager:
             # OpenAI: Function calling optimized
             ModelType.OPENAI.value: {
                 "system_enhancement": "OpenAI model with function calling. Use parallel calls when beneficial.",
-                "agent_system": "Execute tools internally, show only final answers. Use markdown formatting in final answers"
+                "agent_system": "Execute tools internally, show only final answers. Use markdown formatting in final answers",
             },
             # Google: ReAct pattern optimized
             ModelType.GOOGLE.value: {
@@ -123,7 +151,7 @@ class PromptManager:
                     "Question: {input}\n"
                     "Thought:{agent_scratchpad}"
                 ),
-                "tool_decision": "Use contextual understanding to determine when external tools would enhance your response."
+                "tool_decision": "Use contextual understanding to determine when external tools would enhance your response.",
             },
             # OpenRouter: Advanced AI models
             ModelType.OPENROUTER.value: {
@@ -314,7 +342,16 @@ class PromptManager:
             or "pollinations" in model_name_lower
         ):
             return ModelType.POLLINATIONS.value
-        elif any(keyword in model_name_lower for keyword in ["deepseek/", "qwen/", "meta-llama/", "nvidia/", "moonshotai/"]):
+        elif any(
+            keyword in model_name_lower
+            for keyword in [
+                "deepseek/",
+                "qwen/",
+                "meta-llama/",
+                "nvidia/",
+                "moonshotai/",
+            ]
+        ):
             return ModelType.OPENROUTER.value
         else:
             return ModelType.OPENAI.value  # Default value

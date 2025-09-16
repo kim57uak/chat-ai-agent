@@ -5,6 +5,7 @@ Message Management Utilities
 
 from typing import List, Dict, Optional
 import logging
+import re
 from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -76,15 +77,29 @@ class MessageManager:
             return None
     
     @staticmethod
+    def _remove_html_tags(text: str) -> str:
+        """메시지에서 HTML 태그 제거"""
+        if not text:
+            return text
+        # HTML 태그 제거
+        clean_text = re.sub(r'<[^>]+>', '', text)
+        # HTML 엔티티 디코딩
+        clean_text = clean_text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+        return clean_text.strip()
+    
+    @staticmethod
     def update_message(session_id: int, message_id: int, content: str, content_html: str = None) -> bool:
         """메시지 내용 수정"""
         try:
+            # content 필드에는 HTML 태그 제거된 텍스트 저장
+            clean_content = MessageManager._remove_html_tags(content)
+            
             with session_manager.db.get_connection() as conn:
                 cursor = conn.execute('''
                     UPDATE messages 
                     SET content = ?, content_html = ?
                     WHERE id = ? AND session_id = ?
-                ''', (content, content_html, message_id, session_id))
+                ''', (clean_content, content_html, message_id, session_id))
                 
                 success = cursor.rowcount > 0
                 conn.commit()

@@ -54,11 +54,13 @@ class ToolChatProcessor(BaseChatProcessor):
             if not self._agent_executor:
                 return "에이전트 실행기를 생성할 수 없습니다.", []
             
-            # Gemini Pro 모델의 경우 더 긴 시간 제한 설정
+            # 모델별 시간 제한 설정 (더 여유롭게)
             if 'gemini' in self.model_strategy.model_name.lower():
-                timeout = 60  # Gemini는 60초
+                timeout = 240  # Gemini는 240초
+            elif 'gpt-4' in self.model_strategy.model_name.lower():
+                timeout = 180  # GPT-4는 180초
             else:
-                timeout = 30  # 다른 모델은 30초
+                timeout = 120  # 다른 모델은 120초
             
             # 에이전트 실행 - 대화 히스토리 포함
             try:

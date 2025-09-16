@@ -48,8 +48,8 @@ class OpenAIAgentExecutorFactory(AgentExecutorFactory):
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=10,
-            max_execution_time=60,
+            max_iterations=15,
+            max_execution_time=240,
             handle_parsing_errors=True,
         )
 
@@ -88,8 +88,8 @@ Question: {{input}}
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=10,
-            max_execution_time=60,
+            max_iterations=15,
+            max_execution_time=240,
             handle_parsing_errors=True,
             early_stopping_method="force",
             return_intermediate_steps=True,
@@ -132,8 +132,8 @@ Question: {{input}}
                 agent=agent,
                 tools=tools,
                 verbose=True,
-                max_iterations=10,
-                max_execution_time=60,
+                max_iterations=15,
+                max_execution_time=180,
                 handle_parsing_errors=True,
                 early_stopping_method="force",
                 return_intermediate_steps=True,
@@ -178,8 +178,8 @@ Question: {{input}}
             agent=agent,
             tools=tools,
             verbose=True,
-            max_iterations=15,  # Claude는 더 많은 반복 허용
-            max_execution_time=120,  # Claude는 더 긴 시간 허용
+            max_iterations=20,  # Claude는 더 많은 반복 허용
+            max_execution_time=300,  # Claude는 더 긴 시간 허용
             handle_parsing_errors=True,
             early_stopping_method="force",
             return_intermediate_steps=True,

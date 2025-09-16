@@ -164,39 +164,30 @@ class SessionManager:
             conn.commit()
             return message_id
     
-    def get_session_messages(self, session_id: int, limit: int = 100, include_html: bool = False) -> List[Dict]:
+    def get_session_messages(self, session_id: int, limit: int = 100, include_html: bool = True) -> List[Dict]:
         """세션의 메시지 목록 조회 (시간순 정렬)"""
         print(f"[GET_MESSAGES] session_id: {session_id}, limit: {limit}, include_html: {include_html}")
         with self.db.get_connection() as conn:
-            if include_html:
-                cursor = conn.execute('''
-                    SELECT id, role, content, content_html, timestamp, token_count, tool_calls
-                    FROM messages 
-                    WHERE session_id = ?
-                    ORDER BY timestamp ASC
-                    LIMIT ?
-                ''', (session_id, limit))
-            else:
-                cursor = conn.execute('''
-                    SELECT id, role, content, timestamp, token_count, tool_calls
-                    FROM messages 
-                    WHERE session_id = ?
-                    ORDER BY timestamp ASC
-                    LIMIT ?
-                ''', (session_id, limit))
+            cursor = conn.execute('''
+                SELECT id, role, content, content_html, timestamp, token_count, tool_calls
+                FROM messages 
+                WHERE session_id = ?
+                ORDER BY timestamp ASC
+                LIMIT ?
+            ''', (session_id, limit))
             
             messages = []
             for row in cursor.fetchall():
+                # content_html이 있으면 우선 사용, 없으면 content 사용
+                display_content = row['content_html'] if row['content_html'] else row['content']
                 message = {
                     'id': row['id'],
                     'role': row['role'],
-                    'content': row['content'],
+                    'content': display_content,
                     'timestamp': row['timestamp'],
                     'token_count': row['token_count'],
                     'tool_calls': row['tool_calls']
                 }
-                if include_html and 'content_html' in row.keys():
-                    message['content_html'] = row['content_html']
                 messages.append(message)
             
             print(f"[GET_MESSAGES] 반환할 메시지 수: {len(messages)}")
@@ -207,7 +198,25 @@ class SessionManager:
     
     def get_session_context(self, session_id: int, max_tokens: int = 4000) -> List[Dict]:
         """세션 컨텍스트 조회 (토큰 제한 고려)"""
-        messages = self.get_session_messages(session_id)
+        # 컨텍스트용으로는 순수 텍스트 사용
+        with self.db.get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT id, role, content, timestamp, token_count, tool_calls
+                FROM messages 
+                WHERE session_id = ?
+                ORDER BY timestamp ASC
+            ''', (session_id,))
+            
+            messages = []
+            for row in cursor.fetchall():
+                messages.append({
+                    'id': row['id'],
+                    'role': row['role'],
+                    'content': row['content'],  # 컨텍스트용으로는 순수 텍스트 사용
+                    'timestamp': row['timestamp'],
+                    'token_count': row['token_count'],
+                    'tool_calls': row['tool_calls']
+                })
         
         # 토큰 수가 제한을 넘지 않도록 최근 메시지부터 선택
         context_messages = []

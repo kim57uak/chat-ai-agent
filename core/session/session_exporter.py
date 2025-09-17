@@ -90,7 +90,7 @@ class SessionExporter:
                 f.write(f"""
     <div class="header">
         <h1>{html.escape(session_data['title'])}</h1>
-        <p>카테고리: {html.escape(session_data.get('topic_category', '없음'))}</p>
+        <p>카테고리: {html.escape(session_data.get('topic_category') or '없음')}</p>
         <p>생성일: {session_data['created_at']}</p>
         <p>메시지 수: {len(messages)}개</p>
     </div>
@@ -99,12 +99,13 @@ class SessionExporter:
                 # 메시지 내용
                 for msg in messages:
                     timestamp = msg.get('timestamp', '')
-                    if timestamp:
+                    if timestamp and timestamp is not None:
                         try:
-                            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                            timestamp_str = str(timestamp)
+                            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
                             time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
                         except:
-                            time_str = timestamp
+                            time_str = str(timestamp)
                     else:
                         time_str = ""
                     
@@ -117,8 +118,11 @@ class SessionExporter:
                         # HTML 태그를 그대로 렌더링하기 위해 이스케이프하지 않음
                         content = content_html
                     else:
-                        # 순수 텍스트를 HTML로 변환
-                        content = SessionExporter._convert_text_to_html(msg['content'])
+                        # 순수 텍스트를 HTML로 변환 (None 체크 포함)
+                        msg_content = msg.get('content')
+                        if msg_content is None:
+                            msg_content = ''
+                        content = SessionExporter._convert_text_to_html(msg_content)
                     
                     f.write(f"""
     <div class="message {css_class}">
@@ -171,7 +175,9 @@ class SessionExporter:
             return True
             
         except Exception as e:
+            import traceback
             logger.error(f"HTML 내보내기 오류: {e}")
+            logger.error(f"스택 트레이스: {traceback.format_exc()}")
             return False
     
     @staticmethod
@@ -381,6 +387,13 @@ class SessionExporter:
         """순수 텍스트를 HTML로 변환 (마크다운 및 mermaid 지원)"""
         import re
         
+        # None 또는 빈 문자열 처리
+        if text is None or text == '':
+            return ''
+        
+        # 문자열로 변환 (안전장치)
+        text = str(text)
+        
         # 순수 텍스트인 경우에만 HTML 이스케이프 적용
         # 이미 HTML 태그가 있는 경우는 이스케이프하지 않음
         if '<' in text and '>' in text:
@@ -414,10 +427,11 @@ class SessionExporter:
         
         text = re.sub(mermaid_pattern, replace_mermaid, text, flags=re.DOTALL)
         
-        # 줄바꿈 처리
-        text = text.replace('\n', '<br>')
+        # 줄바꿈 처리 (안전장치 추가)
+        if text:
+            text = text.replace('\n', '<br>')
         
-        return text
+        return text or ''
     
     @staticmethod
     def export_to_json(session_data: Dict, messages: List[Dict], file_path: str) -> bool:

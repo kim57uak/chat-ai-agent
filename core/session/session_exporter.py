@@ -111,12 +111,14 @@ class SessionExporter:
                     role_name = "사용자" if msg['role'] == 'user' else "AI"
                     css_class = "user-message" if msg['role'] == 'user' else "ai-message"
                     
-                    # HTML 내용이 있으면 사용, 없으면 텍스트를 HTML로 변환
+                    # content_html이 있으면 HTML 이스케이프 없이 직접 사용
                     content_html = msg.get('content_html')
                     if content_html and content_html.strip():
+                        # HTML 태그를 그대로 렌더링하기 위해 이스케이프하지 않음
                         content = content_html
                     else:
-                        content = SessionExporter._process_mermaid_in_text(msg['content'])
+                        # 순수 텍스트를 HTML로 변환
+                        content = SessionExporter._convert_text_to_html(msg['content'])
                     
                     f.write(f"""
     <div class="message {css_class}">
@@ -375,25 +377,47 @@ class SessionExporter:
         return 'default'
     
     @staticmethod
-    def _process_mermaid_in_text(text: str) -> str:
-        """텍스트에서 mermaid 코드 블록을 HTML로 변환"""
+    def _convert_text_to_html(text: str) -> str:
+        """순수 텍스트를 HTML로 변환 (마크다운 및 mermaid 지원)"""
         import re
         
-        # mermaid 코드 블록 패턴
-        mermaid_pattern = r'```(?:mermaid)?\s*\n?((?:graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|gitgraph).*?)```'
+        # 순수 텍스트인 경우에만 HTML 이스케이프 적용
+        # 이미 HTML 태그가 있는 경우는 이스케이프하지 않음
+        if '<' in text and '>' in text:
+            # HTML 태그가 있는 경우 그대로 반환
+            return text
+        
+        # 순수 텍스트인 경우 HTML 이스케이프
+        text = html.escape(text)
+        
+        # 마크다운 기본 변환
+        # 굵은 글씨
+        text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+        text = re.sub(r'__(.*?)__', r'<strong>\1</strong>', text)
+        
+        # 기울임
+        text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)
+        text = re.sub(r'_(.*?)_', r'<em>\1</em>', text)
+        
+        # 코드 블록
+        text = re.sub(r'```(.*?)```', r'<pre><code>\1</code></pre>', text, flags=re.DOTALL)
+        
+        # 인라인 코드
+        text = re.sub(r'`(.*?)`', r'<code>\1</code>', text)
+        
+        # mermaid 코드 블록 처리
+        mermaid_pattern = r'<pre><code>(?:mermaid\s*\n)?((?:graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|gitgraph).*?)</code></pre>'
         
         def replace_mermaid(match):
             mermaid_code = match.group(1).strip()
-            return f'<div class="mermaid">{html.escape(mermaid_code)}</div>'
+            return f'<div class="mermaid">{mermaid_code}</div>'
         
-        # mermaid 코드 블록을 div로 변환
-        processed_text = re.sub(mermaid_pattern, replace_mermaid, text, flags=re.DOTALL | re.MULTILINE)
+        text = re.sub(mermaid_pattern, replace_mermaid, text, flags=re.DOTALL)
         
-        # 나머지 텍스트는 HTML 이스케이프 후 줄바꿈 처리
-        if processed_text == text:
-            return html.escape(text).replace('\n', '<br>')
-        else:
-            return processed_text.replace('\n', '<br>')
+        # 줄바꿈 처리
+        text = text.replace('\n', '<br>')
+        
+        return text
     
     @staticmethod
     def export_to_json(session_data: Dict, messages: List[Dict], file_path: str) -> bool:

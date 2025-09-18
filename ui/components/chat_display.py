@@ -496,8 +496,8 @@ class ChatDisplay:
         """채팅 위젯 참조 설정"""
         self.link_handler.chat_widget = chat_widget
     
-    def append_message(self, sender, text, original_sender=None, progressive=False, message_id=None):
-        """메시지 추가 - progressive=True시 점진적 출력"""
+    def append_message(self, sender, text, original_sender=None, progressive=False, message_id=None, prepend=False):
+        """메시지 추가 - progressive=True시 점진적 출력, prepend=True시 상단에 추가"""
         # 테마에 따른 색상 가져오기
         from ui.styles.theme_manager import theme_manager
         colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
@@ -571,7 +571,7 @@ class ChatDisplay:
             
             // 메시지 수 제한 (성능 최적화)
             var messageCount = messagesDiv.children.length;
-            var maxMessages = 100; // 최대 100개 유지
+            var maxMessages = 50; // 최대 50개 유지
             
             if (messageCount >= maxMessages) {{
                 // 오래된 메시지 10개 제거
@@ -650,7 +650,13 @@ class ChatDisplay:
             messageDiv.appendChild(copyBtn);
             messageDiv.appendChild(copyHtmlBtn);
             messageDiv.appendChild(contentDiv);
-            messagesDiv.appendChild(messageDiv);
+            
+            // prepend 옵션에 따라 상단 또는 하단에 추가
+            if ({str(prepend).lower()}) {{
+                messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+            }} else {{
+                messagesDiv.appendChild(messageDiv);
+            }}
             
             // 콘텐츠 즉시 설정
             contentDiv.innerHTML = {safe_content};
@@ -684,14 +690,22 @@ class ChatDisplay:
                 }}
             }});
             
-            // 즉시 스크롤 (성능 우선)
+            // 스크롤 위치 조정 (prepend 옵션에 따라)
             setTimeout(() => {{
-                window.scrollTo(0, document.body.scrollHeight);
+                if ({str(prepend).lower()}) {{
+                    // prepend시 스크롤 위치 유지
+                    var currentScrollY = window.scrollY;
+                    var messageHeight = messageDiv.offsetHeight + 20; // 마진 포함
+                    window.scrollTo(0, currentScrollY + messageHeight);
+                }} else {{
+                    // 일반 추가시 하단으로 스크롤
+                    window.scrollTo(0, document.body.scrollHeight);
+                }}
             }}, 10);
             console.log('메시지 생성 완료: {display_message_id}');
             
             // 메모리 정리
-            if (messageCount > 80) {{
+            if (messageCount > 40) {{
                 setTimeout(() => {{
                     if (window.gc) window.gc();
                 }}, 500);
@@ -877,6 +891,16 @@ class LinkHandler(QObject):
             print(f"[DELETE] 오류: {e}")
             import traceback
             traceback.print_exc()
+    
+    @pyqtSlot()
+    def onScrollToTop(self):
+        """스크롤이 상단에 도달했을 때 호출"""
+        try:
+            print("[SCROLL] 상단 도달 - 더 많은 메시지 로드 시도")
+            if self.chat_widget and hasattr(self.chat_widget, 'load_more_messages'):
+                self.chat_widget.load_more_messages()
+        except Exception as e:
+            print(f"[SCROLL] 오류: {e}")
 
 
 class ImageDownloadThread(QThread):

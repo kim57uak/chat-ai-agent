@@ -45,6 +45,13 @@ class ChatWidget(QWidget):
         self.messages = []
         self.request_start_time = None
         
+        # 페이징 관련 변수
+        self.current_session_id = None
+        self.loaded_message_count = 0
+        self.total_message_count = 0
+        self.page_size = 10
+        self.is_loading_more = False
+        
         self._setup_ui()
         self._setup_components()
         self._setup_connections()
@@ -1004,9 +1011,15 @@ class ChatWidget(QWidget):
         except Exception as e:
             print(f"대화 완룮 처리 오류: {e}")
     
-    def load_session_context(self, context_messages):
-        """세션 컨텍스트 로드"""
+    def load_session_context(self, session_id: int):
+        """세션 컨텍스트 로드 (페이징 지원)"""
         try:
+            self.current_session_id = session_id
+            
+            # 전체 메시지 수 조회
+            from core.session.session_manager import session_manager
+            self.total_message_count = session_manager.get_message_count(session_id)
+            
             # 기존 대화 히스토리 초기화
             if hasattr(self.conversation_history, 'clear_session'):
                 self.conversation_history.clear_session()
@@ -1014,30 +1027,37 @@ class ChatWidget(QWidget):
                 self.conversation_history.current_session = []
             self.messages = []
             
+            # 채팅 화면 초기화
+            self.chat_display.web_view.page().runJavaScript("document.getElementById('messages').innerHTML = '';")
+            
+            # 최근 50개 메시지만 로드
+            initial_limit = min(50, self.total_message_count)
+            offset = max(0, self.total_message_count - initial_limit)
+            
+            context_messages = session_manager.get_session_messages(session_id, initial_limit, offset)
+            self.loaded_message_count = len(context_messages)
+            
             # 세션 컨텍스트를 대화 히스토리에 로드
             for msg in context_messages:
                 if hasattr(self.conversation_history, 'add_message'):
                     self.conversation_history.add_message(msg['role'], msg['content'])
                 self.messages.append(msg)
             
-            # 채팅 화면 초기화 (웹뷰 다시 로드하지 않고 메시지만 지움)
-            self.chat_display.web_view.page().runJavaScript("document.getElementById('messages').innerHTML = '';")
-            
-            # 세션 메시지들을 채팅 화면에 표시 (최대 100개)
-            display_messages = context_messages[-100:] if len(context_messages) > 100 else context_messages
-            print(f"[LOAD_SESSION] 표시할 메시지 수: {len(display_messages)}")
-            
-            # 메시지 표시 전 잠시 대기
-            QTimer.singleShot(100, lambda: self._display_session_messages(display_messages))
+            # 메시지 표시
+            QTimer.singleShot(100, lambda: self._display_session_messages(context_messages))
             
             # 세션 로드 완료 메시지
-            if display_messages:
-                load_msg = f"💼 세션 로드 완료: {len(display_messages)}개 메시지"
-                if len(context_messages) > 100:
-                    load_msg += f" (최근 100개만 표시, 전체: {len(context_messages)}개)"
+            if context_messages:
+                load_msg = f"💼 세션 로드 완료: {len(context_messages)}개 메시지"
+                if self.total_message_count > 50:
+                    load_msg += f" (최근 50개만 표시, 전체: {self.total_message_count}개)"
+                    load_msg += "\n\n🔼 위로 스크롤하면 이전 메시지를 볼 수 있습니다."
                 self.chat_display.append_message('시스템', load_msg)
             
-            print(f"[LOAD_SESSION] 세션 컨텍스트 로드 시작: {len(context_messages)}개 메시지 (표시 예정: {len(display_messages)}개)")
+            # 스크롤 이벤트 리스너 추가
+            self._setup_scroll_listener()
+            
+            print(f"[LOAD_SESSION] 세션 컨텍스트 로드 시작: {self.total_message_count}개 메시지 (표시: {len(context_messages)}개)")
             
         except Exception as e:
             print(f"세션 컨텍스트 로드 오류: {e}")
@@ -1053,18 +1073,16 @@ class ChatWidget(QWidget):
             widget = widget.parent()
         return None
     
-    def _display_session_messages(self, messages):
+    def _display_session_messages(self, messages, prepend=False):
         """세션 메시지들을 화면에 표시"""
         try:
             for i, msg in enumerate(messages):
                 print(f"[LOAD_SESSION] 메시지 {i+1} 표시: role={msg['role']}, content={msg['content'][:30]}...")
-                # 세션에서 로드한 메시지는 DB ID를 사용
                 msg_id = str(msg.get('id', f"session_msg_{i}"))
                 if msg['role'] == 'user':
-                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id)
+                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id, prepend=prepend)
                 elif msg['role'] == 'assistant':
-                    # AI 메시지는 기본 형태로 표시
-                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id)
+                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id, prepend=prepend)
             
             print(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
         except Exception as e:
@@ -1100,3 +1118,69 @@ class ChatWidget(QWidget):
                     self.chat_display.update_theme()
         except Exception as e:
             print(f"테마 적용 오류: {e}")
+    
+    def _setup_scroll_listener(self):
+        """스크롤 이벤트 리스너 설정"""
+        self.chat_display_view.page().runJavaScript("""
+            if (!window.scrollListenerAdded) {
+                window.addEventListener('scroll', function() {
+                    if (window.scrollY <= 10) {
+                        if (window.pyqt_bridge && window.pyqt_bridge.onScrollToTop) {
+                            window.pyqt_bridge.onScrollToTop();
+                        }
+                    }
+                });
+                window.scrollListenerAdded = true;
+            }
+        """)
+    
+    def load_more_messages(self):
+        """더 많은 메시지 로드"""
+        if self.is_loading_more or not self.current_session_id:
+            return
+        
+        if self.loaded_message_count >= self.total_message_count:
+            print("[LOAD_MORE] 모든 메시지가 이미 로드됨")
+            return
+        
+        self.is_loading_more = True
+        
+        try:
+            from core.session.session_manager import session_manager
+            
+            # 이전 메시지 10개 로드
+            remaining_messages = self.total_message_count - self.loaded_message_count
+            load_count = min(self.page_size, remaining_messages)
+            offset = self.total_message_count - self.loaded_message_count - load_count
+            
+            print(f"[LOAD_MORE] 로드 시도: offset={offset}, limit={load_count}")
+            
+            older_messages = session_manager.get_session_messages(
+                self.current_session_id, load_count, offset
+            )
+            
+            if older_messages:
+                # 이전 메시지들을 대화 히스토리에 추가
+                for msg in older_messages:
+                    if hasattr(self.conversation_history, 'add_message'):
+                        self.conversation_history.add_message(msg['role'], msg['content'])
+                    self.messages.insert(0, msg)
+                
+                # 화면 상단에 메시지 추가
+                self._display_session_messages(older_messages, prepend=True)
+                self.loaded_message_count += len(older_messages)
+                
+                print(f"[LOAD_MORE] {len(older_messages)}개 메시지 추가 로드 (전체: {self.loaded_message_count}/{self.total_message_count})")
+                
+                # 로드 완료 메시지
+                if self.loaded_message_count < self.total_message_count:
+                    load_msg = f"🔼 {len(older_messages)}개 이전 메시지 로드 완료. 더 보려면 위로 스크롤하세요."
+                else:
+                    load_msg = f"🎉 모든 메시지를 로드했습니다! (전체 {self.total_message_count}개)"
+                
+                self.chat_display.append_message('시스템', load_msg, prepend=True)
+            
+        except Exception as e:
+            print(f"[LOAD_MORE] 오류: {e}")
+        finally:
+            self.is_loading_more = False

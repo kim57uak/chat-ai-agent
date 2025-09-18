@@ -164,17 +164,17 @@ class SessionManager:
             conn.commit()
             return message_id
     
-    def get_session_messages(self, session_id: int, limit: int = 100, include_html: bool = True) -> List[Dict]:
-        """세션의 메시지 목록 조회 (시간순 정렬)"""
-        print(f"[GET_MESSAGES] session_id: {session_id}, limit: {limit}, include_html: {include_html}")
+    def get_session_messages(self, session_id: int, limit: int = 100, offset: int = 0, include_html: bool = True) -> List[Dict]:
+        """세션의 메시지 목록 조회 (시간순 정렬, 페이징 지원)"""
+        print(f"[GET_MESSAGES] session_id: {session_id}, limit: {limit}, offset: {offset}, include_html: {include_html}")
         with self.db.get_connection() as conn:
             cursor = conn.execute('''
                 SELECT id, role, content, content_html, timestamp, token_count, tool_calls
                 FROM messages 
                 WHERE session_id = ?
                 ORDER BY timestamp ASC
-                LIMIT ?
-            ''', (session_id, limit))
+                LIMIT ? OFFSET ?
+            ''', (session_id, limit, offset))
             
             messages = []
             for row in cursor.fetchall():
@@ -191,9 +191,6 @@ class SessionManager:
                 messages.append(message)
             
             print(f"[GET_MESSAGES] 반환할 메시지 수: {len(messages)}")
-            # 메시지 내용 디버깅
-            for i, msg in enumerate(messages[:3]):  # 처음 3개만 로그
-                print(f"[GET_MESSAGES] 메시지 {i+1}: role={msg['role']}, content={msg['content'][:50]}...")
             return messages
     
     def get_session_context(self, session_id: int, max_tokens: int = 4000) -> List[Dict]:

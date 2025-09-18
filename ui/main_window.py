@@ -500,18 +500,13 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, '오류', '세션을 찾을 수 없습니다.')
                 return
             
-            # 최대 100개 메시지 로드
-            print(f"[SESSION_SELECT] 세션 {session_id}에서 메시지 로드 시도")
-            messages = session_manager.get_session_messages(session_id, limit=100, include_html=True)
-            print(f"[SESSION_SELECT] DB에서 {len(messages)}개 메시지 로드됨")
-            # ID도 포함하여 컨텍스트 메시지 생성
-            context_messages = [{'role': msg['role'], 'content': msg['content'], 'id': msg['id']} for msg in messages]
-            print(f"[SESSION_SELECT] 컨텍스트 메시지 변환 완료: {len(context_messages)}개")
+            # 새로운 페이징 방식으로 세션 로드
+            print(f"[SESSION_SELECT] 세션 {session_id} 로드 시도")
             
             if hasattr(self.chat_widget, 'load_session_context'):
-                self.chat_widget.load_session_context(context_messages)
+                self.chat_widget.load_session_context(session_id)
             
-            print(f"[SESSION_SELECT] 세션 로드 완료: {session['title']} ({len(context_messages)}개 메시지)")
+            print(f"[SESSION_SELECT] 세션 로드 완료: {session['title']}")
             
         except Exception as e:
             print(f"세션 선택 오류: {e}")
@@ -528,6 +523,12 @@ class MainWindow(QMainWindow):
         # 새 세션이므로 채팅 화면 초기화
         if hasattr(self.chat_widget, 'chat_display'):
             self.chat_widget.chat_display.clear_messages()
+        
+        # 페이징 변수 초기화
+        self.chat_widget.current_session_id = session_id
+        self.chat_widget.loaded_message_count = 0
+        self.chat_widget.total_message_count = 0
+        self.chat_widget.is_loading_more = False
         print(f"새 세션 생성: {session_id}")
     
     def save_message_to_session(self, role: str, content: str, token_count: int = 0, content_html: str = None):

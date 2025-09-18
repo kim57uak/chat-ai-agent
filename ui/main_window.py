@@ -13,7 +13,7 @@ from ui.components.status_display import status_display
 from ui.styles.flat_theme import FlatTheme
 from ui.styles.theme_manager import theme_manager
 from ui.styles.material_theme_manager import MaterialThemeType
-from core.session import session_manager, message_manager
+from core.session import session_manager
 import os
 import json
 import threading
@@ -146,6 +146,13 @@ class MainWindow(QMainWindow):
         user_prompt_action = QAction('유저 프롬프트 설정', self)
         user_prompt_action.triggered.connect(self.open_user_prompt)
         settings_menu.addAction(user_prompt_action)
+        
+        settings_menu.addSeparator()
+        
+        # Export actions
+        export_pdf_action = QAction('대화 PDF로 내보내기', self)
+        export_pdf_action.triggered.connect(self.export_current_conversation_pdf)
+        settings_menu.addAction(export_pdf_action)
         
         settings_menu.addSeparator()
         
@@ -483,6 +490,52 @@ class MainWindow(QMainWindow):
     def _show_export_message(self, message: str):
         """내보내기 메시지 표시"""
         QMessageBox.information(self, '내보내기 완료', message)
+    
+    def export_current_conversation_pdf(self):
+        """현재 대화를 PDF로 내보내기"""
+        if not self.current_session_id:
+            QMessageBox.warning(self, '경고', '현재 활성된 대화 세션이 없습니다.')
+            return
+        
+        try:
+            # 세션 정보 가져오기
+            session = session_manager.get_session(self.current_session_id)
+            if not session:
+                QMessageBox.warning(self, '오류', '세션을 찾을 수 없습니다.')
+                return
+            
+            # 메시지 가져오기 (HTML 포함)
+            messages = session_manager.get_session_messages(self.current_session_id, include_html=True)
+            if not messages:
+                QMessageBox.information(self, '정보', '내보낼 메시지가 없습니다.')
+                return
+            
+            # PDF 내보내기 실행
+            from core.pdf_exporter import PDFExporter
+            pdf_exporter = PDFExporter(self)
+            
+            # 메시지 형식 변환 - HTML 콘텐츠 사용
+            formatted_messages = []
+            for msg in messages:
+                # content는 이미 HTML 렌더링된 상태
+                content = msg.get('content', '')
+                formatted_messages.append({
+                    'role': msg.get('role', 'unknown'),
+                    'content': content,
+                    'timestamp': msg.get('timestamp', '')
+                })
+            
+            success = pdf_exporter.export_conversation_to_pdf(
+                formatted_messages, 
+                session.get('title', '대화')
+            )
+            
+            if success:
+                QMessageBox.information(self, '완료', 'PDF 내보내기가 완료되었습니다.')
+            
+        except Exception as e:
+            print(f"PDF 내보내기 오류: {e}")
+            QMessageBox.critical(self, '오류', f'PDF 내보내기 실패: {str(e)}')
     
     def _on_session_selected(self, session_id: int):
         """세션 선택 이벤트 처리"""

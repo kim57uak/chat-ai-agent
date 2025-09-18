@@ -593,7 +593,7 @@ class SessionPanel(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("내보내기 형식 선택")
         dialog.setModal(True)
-        dialog.resize(300, 200)
+        dialog.resize(300, 250)
         
         layout = QVBoxLayout()
         layout.addWidget(QLabel(f"세션 '{session['title']}'를 내보내기:"))
@@ -605,6 +605,7 @@ class SessionPanel(QWidget):
         html_radio = QRadioButton("HTML 파일 (.html)")
         json_radio = QRadioButton("JSON 파일 (.json)")
         md_radio = QRadioButton("Markdown 파일 (.md)")
+        pdf_radio = QRadioButton("PDF 파일 (.pdf)")
         
         text_radio.setChecked(True)  # 기본 선택
         
@@ -612,11 +613,13 @@ class SessionPanel(QWidget):
         button_group.addButton(html_radio, 1)
         button_group.addButton(json_radio, 2)
         button_group.addButton(md_radio, 3)
+        button_group.addButton(pdf_radio, 4)
         
         layout.addWidget(text_radio)
         layout.addWidget(html_radio)
         layout.addWidget(json_radio)
         layout.addWidget(md_radio)
+        layout.addWidget(pdf_radio)
         
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(dialog.accept)
@@ -632,7 +635,11 @@ class SessionPanel(QWidget):
     def _export_with_format(self, session: Dict, format_id: int):
         """선택된 형식으로 내보내기"""
         try:
-            # 파일 형식 매핑
+            if format_id == 4:  # PDF 내보내기
+                self._export_to_pdf(session)
+                return
+            
+            # 기존 파일 형식 매핑
             formats = {
                 0: ('.txt', 'Text files (*.txt)', SessionExporter.export_to_text),
                 1: ('.html', 'HTML files (*.html)', SessionExporter.export_to_html),
@@ -672,6 +679,43 @@ class SessionPanel(QWidget):
         except Exception as e:
             logger.error(f"세션 내보내기 오류: {e}")
             QMessageBox.critical(self, '오류', f'내보내기 중 오류가 발생했습니다:\n{e}')
+    
+    def _export_to_pdf(self, session: Dict):
+        """PDF로 내보내기 - HTML 렌더링된 상태로"""
+        try:
+            # 메시지 데이터 가져오기 (HTML 포함)
+            messages = session_manager.get_session_messages(session['id'], include_html=True)
+            
+            if not messages:
+                QMessageBox.information(self, '정보', '내보낼 메시지가 없습니다.')
+                return
+            
+            # PDF 내보내기 실행
+            from core.pdf_exporter import PDFExporter
+            pdf_exporter = PDFExporter(self)
+            
+            # 메시지 형식 변환 - HTML 콘텐츠 사용
+            formatted_messages = []
+            for msg in messages:
+                # content는 이미 HTML 렌더링된 상태
+                content = msg.get('content', '')
+                formatted_messages.append({
+                    'role': msg.get('role', 'unknown'),
+                    'content': content,
+                    'timestamp': msg.get('timestamp', '')
+                })
+            
+            success = pdf_exporter.export_conversation_to_pdf(
+                formatted_messages, 
+                session.get('title', '대화')
+            )
+            
+            if success:
+                QMessageBox.information(self, '성공', 'PDF 내보내기가 완료되었습니다.')
+            
+        except Exception as e:
+            logger.error(f"PDF 내보내기 오류: {e}")
+            QMessageBox.critical(self, '오류', f'PDF 내보내기 실패: {str(e)}')
     
     def update_stats(self):
         """통계 정보 업데이트"""

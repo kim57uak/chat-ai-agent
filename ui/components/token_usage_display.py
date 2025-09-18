@@ -285,15 +285,19 @@ class TokenUsageDisplay(QWidget):
         self.refresh_button.clicked.connect(self.refresh_display)
         self.refresh_button.setMinimumHeight(36)
         
-        self.export_button = QPushButton("📤 Export")
+        self.export_button = QPushButton("📤 Export JSON")
         self.export_button.clicked.connect(self.export_data)
         self.export_button.setMinimumHeight(36)
+        
+        self.export_pdf_button = QPushButton("📄 Export PDF")
+        self.export_pdf_button.clicked.connect(self.export_conversation_pdf)
+        self.export_pdf_button.setMinimumHeight(36)
         
         self.clear_button = QPushButton("🗑️ Clear")
         self.clear_button.clicked.connect(self.clear_history)
         self.clear_button.setMinimumHeight(36)
         
-        for button in [self.refresh_button, self.export_button, self.clear_button]:
+        for button in [self.refresh_button, self.export_button, self.export_pdf_button, self.clear_button]:
             button.setStyleSheet("""
                 QPushButton {
                     font-size: 14px;
@@ -305,6 +309,7 @@ class TokenUsageDisplay(QWidget):
         
         button_layout.addWidget(self.refresh_button)
         button_layout.addWidget(self.export_button)
+        button_layout.addWidget(self.export_pdf_button)
         button_layout.addWidget(self.clear_button)
         
         layout.addLayout(button_layout)
@@ -783,6 +788,71 @@ class TokenUsageDisplay(QWidget):
             error_msg = f"데이터 내보내기 실패: {str(e)}"
             logger.error(f"데이터 내보내기 오류: {e}")
             self.export_requested.emit(error_msg)
+    
+    def export_conversation_pdf(self):
+        """현재 대화를 PDF로 내보내기"""
+        try:
+            # 메인 윈도우에서 현재 세션 메시지 가져오기
+            main_window = self.parent()
+            while main_window and not hasattr(main_window, 'current_session_id'):
+                main_window = main_window.parent()
+            
+            if not main_window or not main_window.current_session_id:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "경고", "현재 활성된 대화 세션이 없습니다.")
+                return
+            
+            # 세션 메시지 가져오기
+            from core.session.session_manager import session_manager
+            from core.session.message_manager import message_manager
+            
+            session = session_manager.get_session(main_window.current_session_id)
+            if not session:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "오류", "세션을 찾을 수 없습니다.")
+                return
+            
+            messages = message_manager.get_messages(main_window.current_session_id)
+            if not messages:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.information(self, "정보", "내보낼 메시지가 없습니다.")
+                return
+            
+            # PDF 내보내기 실행
+            from core.pdf_exporter import PDFExporter
+            pdf_exporter = PDFExporter(self)
+            
+            # 세션 제목 정리 (특수문자 제거)
+            session_title = session.get('title', '대화')
+            if not session_title or session_title.strip() == '':
+                session_title = '대화'
+            
+            # 파일명에 사용할 수 없는 문자 제거
+            import re
+            clean_title = re.sub(r'[<>:"/\\|?*]', '_', session_title)
+            clean_title = clean_title.strip()[:50]  # 최대 50자로 제한
+            
+            # 메시지 형식 변환
+            formatted_messages = []
+            for msg in messages:
+                formatted_messages.append({
+                    'role': msg.get('role', 'unknown'),
+                    'content': msg.get('content', ''),
+                    'timestamp': msg.get('timestamp', msg.get('created_at', ''))
+                })
+            
+            success = pdf_exporter.export_conversation_to_pdf(
+                formatted_messages, 
+                clean_title
+            )
+            
+            if success:
+                self.export_requested.emit("PDF 내보내기가 완료되었습니다.")
+            
+        except Exception as e:
+            logger.error(f"PDF 내보내기 오류: {e}")
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "오류", f"PDF 내보내기 실패: {str(e)}")
     
     def on_async_data_ready(self, data):
         """비동기 처리된 데이터 수신"""

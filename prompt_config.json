@@ -1,0 +1,29 @@
+{
+  "conversation_settings": {
+    "enable_history": true,
+    "hybrid_mode": true,
+    "user_message_limit": 6,
+    "ai_response_limit": 4,
+    "ai_response_token_limit": 4000,
+    "max_history_pairs": 6,
+    "max_tokens_estimate": 8000
+  },
+  "response_settings": {
+    "enable_length_limit": false,
+    "max_tokens": 4096,
+    "max_response_length": 50000,
+    "enable_streaming": true,
+    "streaming_chunk_size": 300
+  },
+  "language_detection": {
+    "korean_threshold": 0.1,
+    "description": "Korean character ratio threshold for language detection (0.0-1.0)"
+  },
+  "theme": {
+    "current_theme": "material_high_contrast"
+  },
+  "history_settings": {
+    "initial_load_count": 52,
+    "page_size": 10
+  }
+}

@@ -88,6 +88,37 @@ class MessageManager:
         return clean_text.strip()
     
     @staticmethod
+    def get_messages(session_id: int) -> List[Dict]:
+        """세션의 모든 메시지 조회"""
+        try:
+            with session_manager.db.get_connection() as conn:
+                cursor = conn.execute('''
+                    SELECT id, role, content, content_html, timestamp, token_count, tool_calls
+                    FROM messages 
+                    WHERE session_id = ?
+                    ORDER BY timestamp ASC
+                ''', (session_id,))
+                
+                messages = []
+                for row in cursor.fetchall():
+                    messages.append({
+                        'id': row['id'],
+                        'role': row['role'],
+                        'content': row['content'],
+                        'content_html': row['content_html'],
+                        'timestamp': row['timestamp'],
+                        'created_at': row['timestamp'],  # PDF 내보내기 호환성
+                        'token_count': row['token_count'],
+                        'tool_calls': row['tool_calls']
+                    })
+                
+                return messages
+                
+        except Exception as e:
+            logger.error(f"메시지 목록 조회 오류: {e}")
+            return []
+    
+    @staticmethod
     def update_message(session_id: int, message_id: int, content: str, content_html: str = None) -> bool:
         """메시지 내용 수정"""
         try:

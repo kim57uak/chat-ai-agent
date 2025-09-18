@@ -571,7 +571,7 @@ class ChatDisplay:
             
             // 메시지 수 제한 (성능 최적화)
             var messageCount = messagesDiv.children.length;
-            var maxMessages = 50; // 최대 50개 유지
+            var maxMessages = 100; // 최대 100개 유지 (동적 로드로 인해 증가)
             
             if (messageCount >= maxMessages) {{
                 // 오래된 메시지 10개 제거
@@ -705,7 +705,7 @@ class ChatDisplay:
             console.log('메시지 생성 완료: {display_message_id}');
             
             // 메모리 정리
-            if (messageCount > 40) {{
+            if (messageCount > 80) {{
                 setTimeout(() => {{
                     if (window.gc) window.gc();
                 }}, 500);

@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QFileDialog,
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QTimer, Qt
 from ui.chat_widget import ChatWidget
-from ui.settings_dialog import SettingsDialog
+from ui.settings_dialog_tabbed import SettingsDialog
 from ui.mcp_dialog import MCPDialog
 from ui.mcp_manager_simple import MCPManagerDialog
 from ui.components.token_usage_display import TokenUsageDisplay

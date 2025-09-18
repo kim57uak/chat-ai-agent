@@ -49,7 +49,8 @@ class ChatWidget(QWidget):
         self.current_session_id = None
         self.loaded_message_count = 0
         self.total_message_count = 0
-        self.page_size = 10
+        self.page_size = self._load_paging_settings().get('page_size', 10)
+        self.initial_load_count = self._load_paging_settings().get('initial_load_count', 50)
         self.is_loading_more = False
         
         self._setup_ui()
@@ -1030,8 +1031,8 @@ class ChatWidget(QWidget):
             # 채팅 화면 초기화
             self.chat_display.web_view.page().runJavaScript("document.getElementById('messages').innerHTML = '';")
             
-            # 최근 50개 메시지만 로드
-            initial_limit = min(50, self.total_message_count)
+            # 설정된 초기 로드 개수만 로드
+            initial_limit = min(self.initial_load_count, self.total_message_count)
             offset = max(0, self.total_message_count - initial_limit)
             
             context_messages = session_manager.get_session_messages(session_id, initial_limit, offset)
@@ -1049,8 +1050,8 @@ class ChatWidget(QWidget):
             # 세션 로드 완료 메시지
             if context_messages:
                 load_msg = f"💼 세션 로드 완료: {len(context_messages)}개 메시지"
-                if self.total_message_count > 50:
-                    load_msg += f" (최근 50개만 표시, 전체: {self.total_message_count}개)"
+                if self.total_message_count > self.initial_load_count:
+                    load_msg += f" (최근 {self.initial_load_count}개만 표시, 전체: {self.total_message_count}개)"
                     load_msg += "\n\n🔼 위로 스크롤하면 이전 메시지를 볼 수 있습니다."
                 self.chat_display.append_message('시스템', load_msg)
             
@@ -1118,6 +1119,18 @@ class ChatWidget(QWidget):
                     self.chat_display.update_theme()
         except Exception as e:
             print(f"테마 적용 오류: {e}")
+    
+    def _load_paging_settings(self):
+        """페이징 설정 로드"""
+        try:
+            import json
+            if os.path.exists('prompt_config.json'):
+                with open('prompt_config.json', 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    return config.get('paging_settings', {})
+        except Exception as e:
+            print(f"페이징 설정 로드 오류: {e}")
+        return {}
     
     def _setup_scroll_listener(self):
         """스크롤 이벤트 리스너 설정"""

@@ -1,0 +1,35 @@
+{
+  "paging_settings": {
+    "initial_load_count": 54,
+    "page_size": 10,
+    "description": "Chat session paging configuration"
+  },
+  "conversation_settings": {
+    "hybrid_mode": true,
+    "user_message_limit": 4,
+    "ai_response_limit": 4,
+    "ai_response_token_limit": 4000
+  },
+  "response_settings": {
+    "max_tokens": 4096,
+    "max_response_length": 50000,
+    "enable_length_limit": false
+  },
+  "language_detection": {
+    "korean_threshold": 0.1,
+    "description": "Korean character ratio threshold for language detection (0.0-1.0)"
+  },
+  "ui_settings": {
+    "progressive_display": {
+      "enabled": true,
+      "delay_per_line": 100,
+      "initial_delay": 100
+    }
+  },
+  "user_prompt": {
+    "gpt": "Use your real-time search capabilities when needed.",
+    "gemini": "Use your real-time search capabilities when needed.",
+    "perplexity": "Use your real-time search capabilities when needed.",
+    "claude": "Use your real-time search capabilities when needed."
+  }
+}

@@ -1,7 +1,7 @@
 {
   "osm-mcp-server": false,
   "hanatourApi": true,
-  "mysql": true,
+  "mysql": false,
   "bitbucket": false,
   "mcp-atlassian": false,
   "notionApi": false,
@@ -16,6 +16,5 @@
   "wikipedia-mcp": false,
   "duckduckgo": false,
   "sale-product-search": false,
-  "pollinations": true,
-  "google-search": false
+  "pollinations": false
 }

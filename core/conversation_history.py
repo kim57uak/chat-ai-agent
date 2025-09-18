@@ -15,8 +15,7 @@ class ConversationHistory:
         self._resolved_path = None
         self.current_session = []
         self.config = load_config()
-        from core.config_utils import get_conversation_settings
-        self.settings = get_conversation_settings()
+        self.settings = self.config.get("conversation_settings", {})
         
         # 설정값 로드
         self.hybrid_mode = self.settings.get("hybrid_mode", True)

@@ -169,8 +169,8 @@ Tool Results:
     def _limit_response_length(self, response: str) -> str:
         """응답 길이 제한"""
         try:
-            from core.config_utils import get_response_settings
-            response_settings = get_response_settings()
+            config = load_config()
+            response_settings = config.get("response_settings", {})
             
             if not response_settings.get("enable_length_limit", True):
                 return response

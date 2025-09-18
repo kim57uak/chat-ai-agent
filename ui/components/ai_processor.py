@@ -409,7 +409,6 @@ class AIProcessor(QObject):
             config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config.json')
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-                from core.config_utils import get_language_detection_settings
-                return get_language_detection_settings().get('korean_threshold', 0.1)
+                return config.get('language_detection', {}).get('korean_threshold', 0.1)
         except Exception:
             return 0.1  # 기본값

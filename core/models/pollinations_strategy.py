@@ -119,16 +119,13 @@ class PollinationsLLM(LLM):
             raise Exception(f"이미지 생성 중 오류가 발생했습니다: {str(e)[:100]}")
     
     def _extract_clean_prompt(self, prompt: str) -> str:
-        """깨끗한 프롬프트 추출"""
+        """깨끗한 프롬프트 추출 - 시스템 프롬프트 유지"""
         # 메시지 형식인지 확인
         if '[SystemMessage(' in prompt or 'HumanMessage(' in prompt:
-            # 마지막 HumanMessage에서 content 추출
-            import re
-            matches = re.findall(r"HumanMessage\(content='([^']+)'", prompt)
-            if matches:
-                return matches[-1]  # 마지막 사용자 메시지
+            # 전체 메시지 구조를 유지하여 반환
+            return prompt.strip()
         
-        # 일반 텍스트면 그대로 반환 (길이 제한 제거)
+        # 일반 텍스트면 그대로 반환
         return prompt.strip()
     
     def _parse_conversation_history(self, prompt: str) -> List[Dict[str, str]]:

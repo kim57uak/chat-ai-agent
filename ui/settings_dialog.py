@@ -46,6 +46,7 @@ class SettingsDialog(QDialog):
         self.create_length_limit_tab()
         self.create_history_settings_tab()
         self.create_language_detection_tab()
+        self.create_news_settings_tab()
         
         # 저장 버튼
         button_layout = QHBoxLayout()
@@ -287,6 +288,122 @@ class SettingsDialog(QDialog):
         
         self.tab_widget.addTab(tab, '🌐 언어감지')
     
+    def create_news_settings_tab(self):
+        """뉴스 설정 탭"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+        
+        # 뉴스 소스 설정 그룹
+        sources_group = QGroupBox('📰 뉴스 소스 설정')
+        sources_layout = QVBoxLayout(sources_group)
+        sources_layout.setSpacing(12)
+        
+        # 국내 뉴스 체크박스
+        self.domestic_cbs = QCheckBox('연합뉴스 사용')
+        sources_layout.addWidget(self.domestic_cbs)
+        
+        # 해외 뉴스 체크박스
+        self.asahi_cbs = QCheckBox('아사히신문 사용')
+        sources_layout.addWidget(self.asahi_cbs)
+        
+        # 해외 뉴스 체크박스
+        self.cbs_news_cbs = QCheckBox('CBS News 사용')
+        sources_layout.addWidget(self.cbs_news_cbs)
+        
+        self.fox_news_cbs = QCheckBox('Fox News 사용')
+        sources_layout.addWidget(self.fox_news_cbs)
+        
+        # 지진 정보 체크박스
+        self.earthquake_cbs = QCheckBox('BGS 지진 정보 사용')
+        sources_layout.addWidget(self.earthquake_cbs)
+        
+        layout.addWidget(sources_group)
+        
+        # 표시 설정 그룹
+        display_group = QGroupBox('📺 표시 설정')
+        display_layout = QVBoxLayout(display_group)
+        display_layout.setSpacing(12)
+        
+        # 국내 뉴스 개수
+        domestic_layout = QHBoxLayout()
+        domestic_layout.addWidget(QLabel('국내 뉴스 개수:'))
+        self.domestic_count_spin = QSpinBox()
+        self.domestic_count_spin.setRange(1, 20)
+        self.domestic_count_spin.setValue(5)
+        self.domestic_count_spin.setSuffix(' 개')
+        self.domestic_count_spin.setMinimumHeight(40)
+        domestic_layout.addWidget(self.domestic_count_spin)
+        display_layout.addLayout(domestic_layout)
+        
+        # 해외 뉴스 개수
+        international_layout = QHBoxLayout()
+        international_layout.addWidget(QLabel('해외 뉴스 개수:'))
+        self.international_count_spin = QSpinBox()
+        self.international_count_spin.setRange(1, 20)
+        self.international_count_spin.setValue(5)
+        self.international_count_spin.setSuffix(' 개')
+        self.international_count_spin.setMinimumHeight(40)
+        international_layout.addWidget(self.international_count_spin)
+        display_layout.addLayout(international_layout)
+        
+        # 지진 정보 개수
+        earthquake_layout = QHBoxLayout()
+        earthquake_layout.addWidget(QLabel('지진 정보 개수:'))
+        self.earthquake_count_spin = QSpinBox()
+        self.earthquake_count_spin.setRange(1, 20)
+        self.earthquake_count_spin.setValue(5)
+        self.earthquake_count_spin.setSuffix(' 개')
+        self.earthquake_count_spin.setMinimumHeight(40)
+        earthquake_layout.addWidget(self.earthquake_count_spin)
+        display_layout.addLayout(earthquake_layout)
+        
+        # 표시 시간
+        duration_layout = QHBoxLayout()
+        duration_layout.addWidget(QLabel('표시 시간:'))
+        self.display_duration_spin = QSpinBox()
+        self.display_duration_spin.setRange(2, 30)
+        self.display_duration_spin.setValue(5)
+        self.display_duration_spin.setSuffix(' 초')
+        self.display_duration_spin.setMinimumHeight(40)
+        duration_layout.addWidget(self.display_duration_spin)
+        display_layout.addLayout(duration_layout)
+        
+        layout.addWidget(display_group)
+        
+        # 날짜 필터링 설정 그룹
+        filter_group = QGroupBox('📅 날짜 필터링 설정')
+        filter_layout = QVBoxLayout(filter_group)
+        filter_layout.setSpacing(12)
+        
+        # 뉴스 날짜 필터링
+        news_filter_layout = QHBoxLayout()
+        news_filter_layout.addWidget(QLabel('뉴스 필터링 (일):'))
+        self.news_days_spin = QSpinBox()
+        self.news_days_spin.setRange(0, 30)
+        self.news_days_spin.setValue(0)
+        self.news_days_spin.setSuffix(' 일 (0=오늘만)')
+        self.news_days_spin.setMinimumHeight(40)
+        news_filter_layout.addWidget(self.news_days_spin)
+        filter_layout.addLayout(news_filter_layout)
+        
+        # 지진 날짜 필터링
+        earthquake_filter_layout = QHBoxLayout()
+        earthquake_filter_layout.addWidget(QLabel('지진 필터링 (일):'))
+        self.earthquake_days_spin = QSpinBox()
+        self.earthquake_days_spin.setRange(1, 30)
+        self.earthquake_days_spin.setValue(3)
+        self.earthquake_days_spin.setSuffix(' 일')
+        self.earthquake_days_spin.setMinimumHeight(40)
+        earthquake_filter_layout.addWidget(self.earthquake_days_spin)
+        filter_layout.addLayout(earthquake_filter_layout)
+        
+        layout.addWidget(filter_group)
+        layout.addStretch()
+        
+        self.tab_widget.addTab(tab, '📰 뉴스')
+    
     def on_provider_changed(self, provider):
         """제공업체 변경 처리"""
         self.model_combo.clear()
@@ -367,6 +484,9 @@ class SettingsDialog(QDialog):
         language_settings = prompt_config.get('language_detection', {})
         korean_threshold = language_settings.get('korean_threshold', 0.1)
         self.korean_threshold_spin.setValue(int(korean_threshold * 100))
+        
+        # 뉴스 설정 로드
+        self.load_news_settings()
     
     def save(self):
         """설정 저장"""
@@ -414,7 +534,115 @@ class SettingsDialog(QDialog):
         }
         
         save_prompt_config(prompt_config)
+        
+        # 뉴스 설정 저장
+        self.save_news_settings()
+        
         self.accept()
+    
+    def load_news_settings(self):
+        """뉴스 설정 로드"""
+        try:
+            with open('news_config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # 소스 설정
+            domestic_sources = config['news_sources']['domestic']
+            international_sources = config['news_sources']['international']
+            earthquake_sources = config['news_sources']['earthquake']
+            
+            # 체크박스 설정
+            self.domestic_cbs.setChecked(any(s['enabled'] for s in domestic_sources if '연합' in s['name']))
+            self.asahi_cbs.setChecked(any(s['enabled'] for s in international_sources if '아사히' in s['name']))
+            self.cbs_news_cbs.setChecked(any(s['enabled'] for s in international_sources if 'CBS' in s['name']))
+            self.fox_news_cbs.setChecked(any(s['enabled'] for s in international_sources if 'Fox' in s['name']))
+            self.earthquake_cbs.setChecked(any(s['enabled'] for s in earthquake_sources))
+            
+            # news_settings 설정 로드
+            news_settings = config.get('news_settings', {})
+            self.domestic_count_spin.setValue(news_settings.get('domestic_count', 3))
+            self.international_count_spin.setValue(news_settings.get('international_count', 3))
+            self.earthquake_count_spin.setValue(news_settings.get('earthquake_count', 2))
+            
+            # 표시 설정
+            display_settings = config.get('display_settings', {})
+            self.display_duration_spin.setValue(display_settings.get('display_duration', 8000) // 1000)
+            
+            # 날짜 필터링 설정
+            date_filter = config.get('date_filter', {})
+            self.news_days_spin.setValue(date_filter.get('news_days', 0))
+            self.earthquake_days_spin.setValue(date_filter.get('earthquake_days', 3))
+            
+        except Exception as e:
+            print(f"뉴스 설정 로드 오류: {e}")
+    
+    def save_news_settings(self):
+        """뉴스 설정 저장"""
+        try:
+            # 기본 설정 로드
+            try:
+                with open('news_config.json', 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            except:
+                config = {
+                    'news_sources': {
+                        'domestic': [],
+                        'international': [],
+                        'earthquake': []
+                    },
+                    'display_settings': {}
+                }
+            
+            # 소스 설정 업데이트
+            for source in config['news_sources']['domestic']:
+                if '연합' in source['name']:
+                    source['enabled'] = self.domestic_cbs.isChecked()
+            
+            for source in config['news_sources']['international']:
+                if '아사히' in source['name']:
+                    source['enabled'] = self.asahi_cbs.isChecked()
+                elif 'CBS' in source['name']:
+                    source['enabled'] = self.cbs_news_cbs.isChecked()
+                elif 'Fox' in source['name']:
+                    source['enabled'] = self.fox_news_cbs.isChecked()
+            
+            for source in config['news_sources']['earthquake']:
+                source['enabled'] = self.earthquake_cbs.isChecked()
+            
+            # news_settings 업데이트 (롤링배너에서 사용)
+            if 'news_settings' not in config:
+                config['news_settings'] = {}
+            
+            config['news_settings'].update({
+                'show_domestic': self.domestic_cbs.isChecked(),
+                'show_international': self.asahi_cbs.isChecked() or self.cbs_news_cbs.isChecked() or self.fox_news_cbs.isChecked(),
+                'show_earthquake': self.earthquake_cbs.isChecked(),
+                'domestic_count': self.domestic_count_spin.value(),
+                'international_count': self.international_count_spin.value(),
+                'earthquake_count': self.earthquake_count_spin.value()
+            })
+            
+            # 표시 설정 업데이트
+            config['display_settings'].update({
+                'domestic_news_count': self.domestic_count_spin.value(),
+                'international_news_count': self.international_count_spin.value(),
+                'earthquake_count': self.earthquake_count_spin.value(),
+                'display_duration': self.display_duration_spin.value() * 1000,
+                'auto_refresh_interval': 300000
+            })
+            
+            # 날짜 필터링 설정 업데이트
+            config['date_filter'] = {
+                'news_days': self.news_days_spin.value(),
+                'earthquake_days': self.earthquake_days_spin.value()
+            }
+            
+            # 저장
+            with open('news_config.json', 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+                
+        except Exception as e:
+            print(f"뉴스 설정 저장 오류: {e}")
     
     def _get_themed_dialog_style(self):
         """테마 스타일 반환"""

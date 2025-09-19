@@ -68,11 +68,26 @@ class MainWindow(QMainWindow):
         self.session_panel.session_created.connect(self._on_session_created)
         self.splitter.addWidget(self.session_panel)
         
-        # Chat widget (center)
+        # Chat widget with news banner (center)
+        chat_container = QWidget()
+        chat_layout = QVBoxLayout(chat_container)
+        chat_layout.setContentsMargins(0, 0, 0, 0)
+        chat_layout.setSpacing(0)
+        
+        # News banner
+        from ui.components.news_banner_simple import NewsBanner
+        self.news_banner = NewsBanner(self)
+        self.news_banner.setMaximumHeight(35)
+        chat_layout.addWidget(self.news_banner)
+        
+        # Chat widget
         self.chat_widget = ChatWidget(self)
         self.chat_widget.setStyleSheet("background-color: #0a0a0a !important;")
         self.chat_widget.setMinimumWidth(400)  # 최소 너비 설정
-        self.splitter.addWidget(self.chat_widget)
+        chat_layout.addWidget(self.chat_widget)
+        
+        chat_container.setMinimumWidth(400)
+        self.splitter.addWidget(chat_container)
         
         # Token usage display (right)
         self.token_display = TokenUsageDisplay(self)
@@ -149,12 +164,7 @@ class MainWindow(QMainWindow):
         
         settings_menu.addSeparator()
         
-        # Export actions
-        export_pdf_action = QAction('대화 PDF로 내보내기', self)
-        export_pdf_action.triggered.connect(self.export_current_conversation_pdf)
-        settings_menu.addAction(export_pdf_action)
-        
-        settings_menu.addSeparator()
+
         
         # Session panel toggle
         self.session_panel_action = QAction('세션 패널 표시', self)
@@ -343,6 +353,10 @@ class MainWindow(QMainWindow):
             # 토큰 패널 테마 업데이트
             if hasattr(self, 'token_display'):
                 self.token_display.update_theme()
+            
+            # 뉴스 배너 테마 업데이트
+            if hasattr(self, 'news_banner'):
+                self.news_banner.update_theme()
             
             # 메뉴 체크 상태 업데이트
             self._update_theme_menu_checks(theme_key)

@@ -155,11 +155,11 @@ class FlatTheme:
                     border: 2px solid rgba(100, 200, 255, 0.4);
                     border-radius: 14px;
                     font-weight: 800;
-                    font-size: 18px;
+                    font-size: 16px;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
-                    padding: 0px;
+                    padding: 2px;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 0.5px;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
@@ -189,10 +189,11 @@ class FlatTheme:
                     border: 2px solid rgba(255, 100, 100, 0.4);
                     border-radius: 14px;
                     font-weight: 800;
-                    font-size: 18px;
+                    font-size: 16px;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                    padding: 2px;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 0.5px;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
@@ -217,10 +218,11 @@ class FlatTheme:
                     border: 2px solid rgba(150, 255, 150, 0.3);
                     border-radius: 14px;
                     font-weight: 700;
-                    font-size: 16px;
+                    font-size: 13px;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                    padding: 2px;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 0.5px;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
@@ -234,6 +236,41 @@ class FlatTheme:
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
                         stop:0 rgba(130, 235, 130, 0.2), 
                         stop:1 rgba(80, 235, 180, 0.2));
+                    transform: scale(0.98);
+                }
+                QPushButton:disabled {
+                    background: rgba(50, 50, 50, 0.5);
+                    color: #6b7280;
+                    border-color: rgba(100, 100, 100, 0.2);
+                }
+            """,
+            'template_button': """
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                        stop:0 rgba(255, 200, 100, 0.2), 
+                        stop:1 rgba(255, 150, 200, 0.2));
+                    color: #e0c0b0;
+                    border: 2px solid rgba(255, 200, 100, 0.3);
+                    border-radius: 14px;
+                    font-weight: 700;
+                    font-size: 12px;
+                    font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                    padding: 2px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                        stop:0 rgba(255, 220, 120, 0.3), 
+                        stop:1 rgba(255, 170, 220, 0.3));
+                    color: #ffffff;
+                    border-color: rgba(255, 200, 100, 0.5);
+                    transform: scale(1.05);
+                }
+                QPushButton:pressed {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                        stop:0 rgba(235, 180, 80, 0.2), 
+                        stop:1 rgba(235, 130, 180, 0.2));
                     transform: scale(0.98);
                 }
                 QPushButton:disabled {

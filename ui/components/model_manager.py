@@ -70,14 +70,8 @@ class ModelManager:
         model_config = models.get(model, {})
         model_emoji = self._get_model_emoji(model, model_config)
         
-        # 세션 토큰 정보 추가
-        total_input, total_output, total_tokens = session_token_manager.get_session_total_tokens()
-        
-        if total_tokens > 0:
-            token_info = f" | 📊 세션: {total_tokens:,}토큰 (IN:{total_input:,} OUT:{total_output:,})"
-            self.model_label.setText(f'{model_emoji} {model}{token_info}')
-        else:
-            self.model_label.setText(f'{model_emoji} {model} | 📊 세션: 0토큰')
+        # 모델명만 표시
+        self.model_label.setText(f'{model_emoji} {model}')
     
     def update_tools_label(self):
         """도구 라벨 업데이트"""

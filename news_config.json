@@ -22,6 +22,16 @@
         "name": "Fox News",
         "url": "https://moxie.foxnews.com/google-publisher/latest.xml",
         "enabled": true
+      },
+      {
+        "name": "Gizmodo",
+        "url": "https://gizmodo.com/feed",
+        "enabled": true
+      },
+      {
+        "name": "BBC News",
+        "url": "http://feeds.bbci.co.uk/news/world/rss.xml",
+        "enabled": true
       }
     ],
     "earthquake": [
@@ -36,19 +46,19 @@
     "show_domestic": true,
     "show_international": true,
     "show_earthquake": true,
-    "domestic_count": 10,
-    "international_count": 10,
-    "earthquake_count": 5
+    "domestic_count": 5,
+    "international_count": 5,
+    "earthquake_count": 3
   },
   "display_settings": {
-    "domestic_news_count": 10,
-    "international_news_count": 10,
-    "earthquake_count": 5,
-    "display_duration": 2000,
+    "domestic_news_count": 5,
+    "international_news_count": 5,
+    "earthquake_count": 3,
+    "display_duration": 3000,
     "auto_refresh_interval": 300000
   },
   "date_filter": {
-    "news_days": 0,
-    "earthquake_days": 3
+    "news_days": 1,
+    "earthquake_days": 2
   }
 }

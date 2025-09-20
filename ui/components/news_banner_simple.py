@@ -73,6 +73,7 @@ class NewsLoader(QObject):
                             items = self.parser.parse_news_rss(source['url'], news_days)
                             for item in items[:domestic_count]:
                                 item['category'] = '국내'
+                                item['source_name'] = source['name']
                                 all_news.append(item)
                         except Exception as e:
                             logger.error(f"국내 뉴스 로딩 실패 ({source['name']}): {e}")
@@ -83,6 +84,7 @@ class NewsLoader(QObject):
                     international_count = news_config.get('international_count', 3)
                     logger.info(f"해외 뉴스 로딩: {len(intl_sources)}개 소스, {international_count}개 수집")
                     
+                    intl_news_collected = []
                     for source in intl_sources:
                         if not source.get('enabled', True):
                             continue
@@ -92,13 +94,19 @@ class NewsLoader(QObject):
                             news_days = date_filter.get('news_days', 0)
                             
                             items = self.parser.parse_news_rss(source['url'], news_days)
-                            for item in items[:international_count]:
+                            for item in items:
                                 item['category'] = '해외'
                                 item['translated_title'] = item['title']
+                                item['source_name'] = source['name']
                                 logger.debug(f"해외 뉴스 원본 제목 설정: {item['title'][:30]}...")
-                                all_news.append(item)
+                                intl_news_collected.append(item)
                         except Exception as e:
                             logger.error(f"해외 뉴스 처리 오류 ({source['name']}): {e}")
+                    
+                    # 전체 해외 뉴스에서 최신 순으로 정렬 후 지정된 개수만 선택
+                    intl_news_collected.sort(key=lambda x: x.get('pubDate') or datetime.min, reverse=True)
+                    for item in intl_news_collected[:international_count]:
+                        all_news.append(item)
                 
                 # 지진 정보 (설정에 따라)
                 if news_config.get('show_earthquake', True):
@@ -118,6 +126,7 @@ class NewsLoader(QObject):
                             for item in items[:earthquake_count]:
                                 item['category'] = '지진'
                                 item['translated_title'] = item['title']
+                                item['source_name'] = source['name']
                                 all_news.append(item)
                         except Exception as e:
                             logger.error(f"지진 정보 처리 오류 ({source['name']}): {e}")
@@ -362,7 +371,16 @@ class NewsBanner(QWidget):
         """롤링 타이머 설정"""
         self.timer = QTimer()
         self.timer.timeout.connect(self.next_news)
-        self.timer.start(8000)  # 8초마다 변경
+        
+        # 설정 파일에서 표시 시간 로드
+        try:
+            with open('news_config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            display_duration = config.get('display_settings', {}).get('display_duration', 8000)
+        except:
+            display_duration = 8000  # 기본값
+        
+        self.timer.start(display_duration)
     
     def load_news(self):
         """뉴스 로딩 - 비동기 (번역 없이)"""
@@ -417,8 +435,24 @@ class NewsBanner(QWidget):
         pub_date = item.get('pubDate')
         date_str = pub_date.strftime('%m/%d %H:%M') if pub_date else ''
         
-        # 표시 텍스트
-        display_text = f"[{category}] {title}"
+        # 언론사명 가져오기
+        source_name = item.get('source_name', item.get('source', ''))
+        if not source_name:
+            # URL에서 도메인 추출
+            import re
+            from urllib.parse import urlparse
+            try:
+                domain = urlparse(item.get('link', '')).netloc
+                source_name = domain.replace('www.', '') if domain else ''
+            except:
+                source_name = ''
+        
+        # 표시 텍스트: [카테고리] [언론사명] 제목 (날짜)
+        if source_name:
+            display_text = f"[{category}] [{source_name}] {title}"
+        else:
+            display_text = f"[{category}] {title}"
+        
         if date_str:
             display_text += f" ({date_str})"
         

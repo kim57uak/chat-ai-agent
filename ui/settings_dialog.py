@@ -70,7 +70,17 @@ class SettingsDialog(QDialog):
     def create_ai_settings_tab(self):
         """AI 설정 탭"""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        
+        # 스크롤 영역 생성
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        
+        # 스크롤 내용 위젯
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
@@ -106,6 +116,14 @@ class SettingsDialog(QDialog):
         layout.addWidget(model_group)
         layout.addStretch()
         
+        # 스크롤 영역에 내용 설정
+        scroll_area.setWidget(scroll_content)
+        
+        # 탭에 스크롤 영역 추가
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll_area)
+        
         # 이벤트 연결
         self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
         self.model_combo.currentTextChanged.connect(self.on_model_changed)
@@ -115,7 +133,17 @@ class SettingsDialog(QDialog):
     def create_length_limit_tab(self):
         """길이 제한 탭"""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        
+        # 스크롤 영역 생성
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        
+        # 스크롤 내용 위젯
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
@@ -168,12 +196,30 @@ class SettingsDialog(QDialog):
         layout.addWidget(response_group)
         layout.addStretch()
         
+        # 스크롤 영역에 내용 설정
+        scroll_area.setWidget(scroll_content)
+        
+        # 탭에 스크롤 영역 추가
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll_area)
+        
         self.tab_widget.addTab(tab, '📏 길이제한')
     
     def create_history_settings_tab(self):
         """히스토리 설정 탭"""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        
+        # 스크롤 영역 생성
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        
+        # 스크롤 내용 위젯
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
@@ -253,12 +299,30 @@ class SettingsDialog(QDialog):
         layout.addWidget(paging_group)
         layout.addStretch()
         
+        # 스크롤 영역에 내용 설정
+        scroll_area.setWidget(scroll_content)
+        
+        # 탭에 스크롤 영역 추가
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll_area)
+        
         self.tab_widget.addTab(tab, '💬 히스토리')
     
     def create_language_detection_tab(self):
         """언어 감지 설정 탭"""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        
+        # 스크롤 영역 생성
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        
+        # 스크롤 내용 위젯
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
@@ -286,12 +350,30 @@ class SettingsDialog(QDialog):
         layout.addWidget(language_group)
         layout.addStretch()
         
+        # 스크롤 영역에 내용 설정
+        scroll_area.setWidget(scroll_content)
+        
+        # 탭에 스크롤 영역 추가
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll_area)
+        
         self.tab_widget.addTab(tab, '🌐 언어감지')
     
     def create_news_settings_tab(self):
         """뉴스 설정 탭"""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        
+        # 스크롤 영역 생성
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        
+        # 스크롤 내용 위젯
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
@@ -300,24 +382,9 @@ class SettingsDialog(QDialog):
         sources_layout = QVBoxLayout(sources_group)
         sources_layout.setSpacing(12)
         
-        # 국내 뉴스 체크박스
-        self.domestic_cbs = QCheckBox('연합뉴스 사용')
-        sources_layout.addWidget(self.domestic_cbs)
-        
-        # 해외 뉴스 체크박스
-        self.asahi_cbs = QCheckBox('아사히신문 사용')
-        sources_layout.addWidget(self.asahi_cbs)
-        
-        # 해외 뉴스 체크박스
-        self.cbs_news_cbs = QCheckBox('CBS News 사용')
-        sources_layout.addWidget(self.cbs_news_cbs)
-        
-        self.fox_news_cbs = QCheckBox('Fox News 사용')
-        sources_layout.addWidget(self.fox_news_cbs)
-        
-        # 지진 정보 체크박스
-        self.earthquake_cbs = QCheckBox('BGS 지진 정보 사용')
-        sources_layout.addWidget(self.earthquake_cbs)
+        # 동적으로 뉴스 소스 체크박스 생성
+        self.news_source_checkboxes = {}
+        self._create_news_source_checkboxes(sources_layout)
         
         layout.addWidget(sources_group)
         
@@ -401,6 +468,14 @@ class SettingsDialog(QDialog):
         
         layout.addWidget(filter_group)
         layout.addStretch()
+        
+        # 스크롤 영역에 내용 설정
+        scroll_area.setWidget(scroll_content)
+        
+        # 탭에 스크롤 영역 추가
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll_area)
         
         self.tab_widget.addTab(tab, '📰 뉴스')
     
@@ -540,23 +615,40 @@ class SettingsDialog(QDialog):
         
         self.accept()
     
+    def _create_news_source_checkboxes(self, layout):
+        """뉴스 소스 체크박스 동적 생성"""
+        try:
+            with open('news_config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # 모든 뉴스 소스에 대해 체크박스 생성
+            for category, sources in config['news_sources'].items():
+                for source in sources:
+                    checkbox_key = f"{category}_{source['name']}"
+                    checkbox = QCheckBox(f"{source['name']} 사용")
+                    self.news_source_checkboxes[checkbox_key] = {
+                        'checkbox': checkbox,
+                        'category': category,
+                        'source_name': source['name']
+                    }
+                    layout.addWidget(checkbox)
+                    
+        except Exception as e:
+            print(f"뉴스 소스 체크박스 생성 오류: {e}")
+    
     def load_news_settings(self):
         """뉴스 설정 로드"""
         try:
             with open('news_config.json', 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
-            # 소스 설정
-            domestic_sources = config['news_sources']['domestic']
-            international_sources = config['news_sources']['international']
-            earthquake_sources = config['news_sources']['earthquake']
-            
-            # 체크박스 설정
-            self.domestic_cbs.setChecked(any(s['enabled'] for s in domestic_sources if '연합' in s['name']))
-            self.asahi_cbs.setChecked(any(s['enabled'] for s in international_sources if '아사히' in s['name']))
-            self.cbs_news_cbs.setChecked(any(s['enabled'] for s in international_sources if 'CBS' in s['name']))
-            self.fox_news_cbs.setChecked(any(s['enabled'] for s in international_sources if 'Fox' in s['name']))
-            self.earthquake_cbs.setChecked(any(s['enabled'] for s in earthquake_sources))
+            # 동적 체크박스 설정
+            for category, sources in config['news_sources'].items():
+                for source in sources:
+                    checkbox_key = f"{category}_{source['name']}"
+                    if checkbox_key in self.news_source_checkboxes:
+                        checkbox = self.news_source_checkboxes[checkbox_key]['checkbox']
+                        checkbox.setChecked(source.get('enabled', False))
             
             # news_settings 설정 로드
             news_settings = config.get('news_settings', {})
@@ -593,30 +685,31 @@ class SettingsDialog(QDialog):
                     'display_settings': {}
                 }
             
-            # 소스 설정 업데이트
-            for source in config['news_sources']['domestic']:
-                if '연합' in source['name']:
-                    source['enabled'] = self.domestic_cbs.isChecked()
-            
-            for source in config['news_sources']['international']:
-                if '아사히' in source['name']:
-                    source['enabled'] = self.asahi_cbs.isChecked()
-                elif 'CBS' in source['name']:
-                    source['enabled'] = self.cbs_news_cbs.isChecked()
-                elif 'Fox' in source['name']:
-                    source['enabled'] = self.fox_news_cbs.isChecked()
-            
-            for source in config['news_sources']['earthquake']:
-                source['enabled'] = self.earthquake_cbs.isChecked()
+            # 동적 소스 설정 업데이트
+            for checkbox_key, checkbox_info in self.news_source_checkboxes.items():
+                category = checkbox_info['category']
+                source_name = checkbox_info['source_name']
+                is_checked = checkbox_info['checkbox'].isChecked()
+                
+                # 해당 카테고리의 소스 찾아서 업데이트
+                for source in config['news_sources'][category]:
+                    if source['name'] == source_name:
+                        source['enabled'] = is_checked
+                        break
             
             # news_settings 업데이트 (롤링배너에서 사용)
             if 'news_settings' not in config:
                 config['news_settings'] = {}
             
+            # 카테고리별 활성화 상태 계산
+            domestic_enabled = any(cb['checkbox'].isChecked() for cb in self.news_source_checkboxes.values() if cb['category'] == 'domestic')
+            international_enabled = any(cb['checkbox'].isChecked() for cb in self.news_source_checkboxes.values() if cb['category'] == 'international')
+            earthquake_enabled = any(cb['checkbox'].isChecked() for cb in self.news_source_checkboxes.values() if cb['category'] == 'earthquake')
+            
             config['news_settings'].update({
-                'show_domestic': self.domestic_cbs.isChecked(),
-                'show_international': self.asahi_cbs.isChecked() or self.cbs_news_cbs.isChecked() or self.fox_news_cbs.isChecked(),
-                'show_earthquake': self.earthquake_cbs.isChecked(),
+                'show_domestic': domestic_enabled,
+                'show_international': international_enabled,
+                'show_earthquake': earthquake_enabled,
                 'domestic_count': self.domestic_count_spin.value(),
                 'international_count': self.international_count_spin.value(),
                 'earthquake_count': self.earthquake_count_spin.value()
@@ -806,6 +899,30 @@ class SettingsDialog(QDialog):
             QTabBar::tab:hover {{
                 background: {colors.get('primary_variant', '#3700b3')};
                 color: {colors.get('on_primary', '#ffffff')};
+            }}
+            QScrollArea {{
+                background: transparent;
+                border: none;
+            }}
+            QScrollBar:vertical {{
+                background: {colors.get('surface', '#1e1e1e')};
+                width: 12px;
+                border-radius: 6px;
+                margin: 0;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {colors.get('primary', '#bb86fc')};
+                border-radius: 6px;
+                min-height: 20px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {colors.get('secondary', '#03dac6')};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0px;
+            }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: transparent;
             }}
         """
     

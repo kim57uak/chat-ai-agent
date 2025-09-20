@@ -11,7 +11,7 @@
   "json-mcp-server": false,
   "search-mcp-server": true,
   "github": false,
-  "filesystem": false,
+  "filesystem": true,
   "youtube_transcript": false,
   "wikipedia-mcp": false,
   "duckduckgo": false,

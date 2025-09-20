@@ -93,12 +93,19 @@ class ChatWidget(QWidget):
         self.loading_bar.hide()
         self.layout.addWidget(self.loading_bar)
         
+        # 템플릿 빠른 바
+        from ui.template_quick_bar import TemplateQuickBar
+        self.template_quick_bar = TemplateQuickBar(self)
+        self.template_quick_bar.template_selected.connect(self._apply_template)
+        self.layout.addWidget(self.template_quick_bar)
+        
         # 입력 영역
         self._setup_input_area()
     
     def _setup_input_area(self):
         """입력 영역 설정"""
         input_layout = QHBoxLayout()
+        input_layout.setSpacing(8)  # 전체 간격 줄임
         
         # 입력 컨테이너
         input_container = QWidget(self)
@@ -114,7 +121,7 @@ class ChatWidget(QWidget):
         
         # 입력창
         self.input_text = QTextEdit(self)
-        self.input_text.setMaximumHeight(80)
+        self.input_text.setMaximumHeight(60)  # 높이 줄임
         self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
         self.input_text.setStyleSheet(FlatTheme.get_input_area_style()['input_text'])
         
@@ -124,26 +131,41 @@ class ChatWidget(QWidget):
         input_container_layout.addWidget(self.mode_toggle, 0)
         input_container_layout.addWidget(self.input_text, 1)
         
-        # 버튼들
+        # 오른쪽 버튼 컨테이너
+        button_container = QWidget(self)
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(4)  # 버튼 간격 줄임
+        
+        # 버튼들 - 크기 조정
         self.send_button = QPushButton('전송', self)
-        self.send_button.setMinimumHeight(80)
+        self.send_button.setFixedSize(88, 60)  # 10% 늘림
         self.send_button.setStyleSheet(FlatTheme.get_input_area_style()['send_button'])
         
+        self.template_button = QPushButton('템플릿', self)  # 새 버튼 추가
+        self.template_button.setFixedSize(88, 60)  # 10% 늘림
+        self.template_button.setStyleSheet(FlatTheme.get_input_area_style()['template_button'])
+        
+        self.upload_button = QPushButton('파일', self)
+        self.upload_button.setFixedSize(88, 60)  # 10% 늘림
+        self.upload_button.setStyleSheet(FlatTheme.get_input_area_style()['upload_button'])
+        
         self.cancel_button = QPushButton('취소', self)
-        self.cancel_button.setMinimumHeight(80)
+        self.cancel_button.setFixedSize(88, 60)  # 10% 늘림
         self.cancel_button.setVisible(False)
         self.cancel_button.setStyleSheet(FlatTheme.get_input_area_style()['cancel_button'])
         
-        self.upload_button = QPushButton('파일\n업로드', self)
-        self.upload_button.setMinimumHeight(80)
-        self.upload_button.setStyleSheet(FlatTheme.get_input_area_style()['upload_button'])
+        # 버튼 순서: 전송 / 템플릿 / 파일
+        button_layout.addWidget(self.send_button)
+        button_layout.addWidget(self.template_button)
+        button_layout.addWidget(self.upload_button)
+        button_layout.addWidget(self.cancel_button)
         
-        input_layout.addSpacing(12)  # 왼쪽 간격
-        input_layout.addWidget(input_container, 5)
-        input_layout.addWidget(self.send_button, 1)
-        input_layout.addWidget(self.cancel_button, 1)
-        input_layout.addWidget(self.upload_button, 1)
-        input_layout.addSpacing(12)  # 오른쪽 간격
+        # 메인 레이아웃에 추가
+        input_layout.addSpacing(8)  # 왼쪽 간격 줄임
+        input_layout.addWidget(input_container, 1)  # 입력창이 대부분 차지
+        input_layout.addWidget(button_container, 0)  # 버튼은 고정 크기
+        input_layout.addSpacing(8)  # 오른쪽 간격 줄임
         
         self.layout.addLayout(input_layout, 0)
     
@@ -160,7 +182,8 @@ class ChatWidget(QWidget):
         self.ui_manager = UIManager(
             self.send_button, 
             self.cancel_button, 
-            self.upload_button, 
+            self.upload_button,
+            self.template_button,
             self.loading_bar
         )
         
@@ -173,6 +196,7 @@ class ChatWidget(QWidget):
         self.send_button.clicked.connect(self.send_message)
         self.cancel_button.clicked.connect(self.cancel_request)
         self.upload_button.clicked.connect(self.upload_file)
+        self.template_button.clicked.connect(self.show_template_menu)
         self.mode_toggle.clicked.connect(self.toggle_mode)
         
         # AI 프로세서 시그널 연결
@@ -193,6 +217,10 @@ class ChatWidget(QWidget):
         self.input_text.keyPressEvent = self.handle_input_key_press
         send_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self.input_text)
         send_shortcut.activated.connect(self.send_message)
+        
+        # 템플릿 단축키
+        template_shortcut = QShortcut(QKeySequence("Ctrl+T"), self)
+        template_shortcut.activated.connect(self._open_template_manager)
         
         # 웹뷰 로드 완료
         self.chat_display_view.loadFinished.connect(self._on_webview_loaded)
@@ -369,6 +397,55 @@ class ChatWidget(QWidget):
             self.uploaded_file_content = None
             self.uploaded_file_name = None
             self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
+    
+    def show_template_menu(self):
+        """템플릿 메뉴 표시"""
+        from PyQt6.QtWidgets import QMenu
+        from PyQt6.QtCore import QPoint
+        from ui.template_manager import template_manager
+        
+        menu = QMenu(self)
+        
+        # 즐겨찾기 템플릿
+        favorites = template_manager.get_favorite_templates()
+        if favorites:
+            for template in favorites[:5]:  # 상위 5개만
+                action = menu.addAction(f"⭐ {template.name}")
+                action.triggered.connect(lambda checked, t=template.content: self._apply_template(t))
+            menu.addSeparator()
+        
+        # 최근 사용 템플릿
+        recent = template_manager.get_recent_templates(3)
+        if recent:
+            for template in recent:
+                action = menu.addAction(f"🕰️ {template.name}")
+                action.triggered.connect(lambda checked, t=template.content: self._apply_template(t))
+            menu.addSeparator()
+        
+        # 템플릿 관리 메뉴
+        manage_action = menu.addAction("📋 템플릿 관리...")
+        manage_action.triggered.connect(self._open_template_manager)
+        
+        # 버튼 위치에서 메뉴 표시
+        button_pos = self.template_button.mapToGlobal(QPoint(0, 0))
+        menu.exec(QPoint(button_pos.x(), button_pos.y() - menu.sizeHint().height()))
+    
+    def _open_template_manager(self):
+        """템플릿 관리 대화상자 열기"""
+        from ui.template_dialog import TemplateDialog
+        
+        dialog = TemplateDialog(self)
+        dialog.template_selected.connect(self._apply_template)
+        dialog.exec()
+    
+    def _apply_template(self, template_text):
+        """템플릿 적용"""
+        current_text = self.input_text.toPlainText().strip()
+        if current_text:
+            self.input_text.setPlainText(f"{template_text} {current_text}")
+        else:
+            self.input_text.setPlainText(template_text)
+        self.input_text.setFocus()
     
     def cancel_request(self):
         """요청 취소"""
@@ -794,6 +871,10 @@ class ChatWidget(QWidget):
             if hasattr(self, 'loading_bar') and hasattr(self.loading_bar, 'update_theme'):
                 self.loading_bar.update_theme()
             
+            # 템플릿 빠른 바 테마 업데이트
+            if hasattr(self, 'template_quick_bar'):
+                self.template_quick_bar.update_theme()
+            
             print("테마 업데이트 완료")
             
         except Exception as e:
@@ -980,11 +1061,31 @@ class ChatWidget(QWidget):
             border: 2px solid {colors.get('secondary_variant', '#018786')};
             border-radius: 14px;
             font-weight: 700;
-            font-size: 16px;
+            font-size: 14px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
         }}
         QPushButton:hover {{
             background-color: {colors.get('secondary_variant', '#018786')};
+        }}
+        QPushButton:disabled {{
+            background-color: {colors.get('surface', '#1e1e1e')};
+            color: {colors.get('text_secondary', '#b3b3b3')};
+            border-color: {colors.get('divider', '#333333')};
+        }}
+        """
+        
+        template_button_style = f"""
+        QPushButton {{
+            background-color: {colors.get('secondary_variant', '#018786')};
+            color: {colors.get('on_secondary', '#000000')};
+            border: 2px solid {colors.get('secondary', '#03dac6')};
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 14px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        }}
+        QPushButton:hover {{
+            background-color: {colors.get('secondary', '#03dac6')};
         }}
         QPushButton:disabled {{
             background-color: {colors.get('surface', '#1e1e1e')};
@@ -999,6 +1100,7 @@ class ChatWidget(QWidget):
         self.send_button.setStyleSheet(send_button_style)
         self.cancel_button.setStyleSheet(cancel_button_style)
         self.upload_button.setStyleSheet(upload_button_style)
+        self.template_button.setStyleSheet(template_button_style)
     
     def _on_conversation_completed(self, _):
         """대화 완료 시 토큰 누적기 종료"""

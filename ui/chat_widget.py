@@ -32,8 +32,8 @@ class ChatWidget(QWidget):
         super().__init__(parent)
         self.setStyleSheet(FlatTheme.get_chat_widget_style())
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(20, 20, 20, 20)
-        self.layout.setSpacing(16)
+        self.layout.setContentsMargins(8, 8, 8, 8)
+        self.layout.setSpacing(4)
         
         # 대화 히스토리 관리
         self.conversation_history = ConversationHistory()
@@ -62,8 +62,9 @@ class ChatWidget(QWidget):
     
     def _setup_ui(self):
         """UI 구성"""
-        # 상단 정보 영역
+        # 상단 정보 영역 - 4등분 균등 배치
         info_layout = QHBoxLayout()
+        info_layout.setSpacing(4)
         
         self.model_label = QLabel(self)
         self.session_info_label = QLabel("세션: 선택된 세션 없음", self)
@@ -77,10 +78,11 @@ class ChatWidget(QWidget):
         self.tools_label.setStyleSheet(styles['tools_label'])
         self.status_label.setStyleSheet(styles['status_label'])
         
-        info_layout.addWidget(self.model_label, 1)
-        info_layout.addWidget(self.session_info_label, 1)
-        info_layout.addWidget(self.status_label, 0)
-        info_layout.addWidget(self.tools_label, 0)
+        # 위치 변경 및 비율 조정: 모델(3) | 세션(3) | 대기중(3) | 도구(1)
+        info_layout.addWidget(self.model_label, 3)
+        info_layout.addWidget(self.session_info_label, 3)
+        info_layout.addWidget(self.status_label, 3)
+        info_layout.addWidget(self.tools_label, 1)
         self.layout.addLayout(info_layout)
         
         # 채팅 표시 영역
@@ -105,7 +107,7 @@ class ChatWidget(QWidget):
     def _setup_input_area(self):
         """입력 영역 설정"""
         input_layout = QHBoxLayout()
-        input_layout.setSpacing(8)  # 전체 간격 줄임
+        input_layout.setSpacing(4)  # 전체 간격 줄임
         
         # 입력 컨테이너
         input_container = QWidget(self)
@@ -119,9 +121,30 @@ class ChatWidget(QWidget):
         self.mode_toggle.setChecked(False)
         self.mode_toggle.setStyleSheet(FlatTheme.get_input_area_style()['mode_toggle'])
         
+        # 드래그 핸들
+        self.drag_handle = QWidget(self)
+        self.drag_handle.setFixedHeight(8)
+        self.drag_handle.setCursor(Qt.CursorShape.SizeVerCursor)
+        self.drag_handle.setStyleSheet("""
+            QWidget {
+                background-color: #666666;
+                border-radius: 4px;
+                margin: 2px 20px;
+            }
+            QWidget:hover {
+                background-color: #888888;
+            }
+        """)
+        self.drag_handle.mousePressEvent = self._start_drag
+        self.drag_handle.mouseMoveEvent = self._handle_drag
+        self.drag_handle.mouseReleaseEvent = self._end_drag
+        self._dragging = False
+        self._drag_start_y = 0
+        self._original_height = 60
+        
         # 입력창
         self.input_text = QTextEdit(self)
-        self.input_text.setMaximumHeight(60)  # 높이 줄임
+        self.input_text.setFixedHeight(60)
         self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
         self.input_text.setStyleSheet(FlatTheme.get_input_area_style()['input_text'])
         
@@ -135,7 +158,7 @@ class ChatWidget(QWidget):
         button_container = QWidget(self)
         button_layout = QHBoxLayout(button_container)
         button_layout.setContentsMargins(0, 0, 0, 0)
-        button_layout.setSpacing(4)  # 버튼 간격 줄임
+        button_layout.setSpacing(2)  # 버튼 간격 줄임
         
         # 버튼들 - 크기 조정
         self.send_button = QPushButton('전송', self)
@@ -162,12 +185,19 @@ class ChatWidget(QWidget):
         button_layout.addWidget(self.cancel_button)
         
         # 메인 레이아웃에 추가
-        input_layout.addSpacing(8)  # 왼쪽 간격 줄임
+        input_layout.addSpacing(0)  # 왼쪽 간격 제거
         input_layout.addWidget(input_container, 1)  # 입력창이 대부분 차지
         input_layout.addWidget(button_container, 0)  # 버튼은 고정 크기
-        input_layout.addSpacing(8)  # 오른쪽 간격 줄임
+        input_layout.addSpacing(0)  # 오른쪽 간격 제거
         
-        self.layout.addLayout(input_layout, 0)
+        # 드래그 핸들과 입력 영역을 수직 레이아웃으로 배치
+        input_with_handle = QVBoxLayout()
+        input_with_handle.setContentsMargins(0, 0, 0, 0)
+        input_with_handle.setSpacing(0)
+        input_with_handle.addWidget(self.drag_handle)
+        input_with_handle.addLayout(input_layout)
+        
+        self.layout.addLayout(input_with_handle, 0)
     
     def _setup_components(self):
         """컴포넌트 초기화"""
@@ -503,7 +533,7 @@ class ChatWidget(QWidget):
             else:
                 token_info = f" | 📊 {total_tokens:,}토큰"
         
-        enhanced_text = f"{text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}{token_info}*"
+        enhanced_text = f"{text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}{token_info}*\n\n⚠️ *AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.*"
         
         # 표시용 sender 결정
         display_sender = '에이전트' if '에이전트' in sender else 'AI'
@@ -575,7 +605,7 @@ class ChatWidget(QWidget):
                 token_info = f" | 📊 {total_tokens:,}토큰"
         
         current_model = load_last_model()
-        enhanced_msg = f"{msg}{error_time}\n\n---\n*🤖 {current_model}{token_info}*" if token_info else f"{msg}{error_time}"
+        enhanced_msg = f"{msg}{error_time}\n\n---\n*🤖 {current_model}{token_info}*\n⚠️ *AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.*" if token_info else f"{msg}{error_time}"
         
         self.chat_display.append_message('시스템', enhanced_msg)
         self.ui_manager.set_ui_enabled(True)
@@ -623,12 +653,39 @@ class ChatWidget(QWidget):
             QTimer.singleShot(1000, self._show_welcome_message)
     
     def update_status_display(self, status_data):
-        """상태 표시 업데이트"""
+        """상태 표시 업데이트 - 동적 크기 조절"""
         try:
             html_status = status_display.get_status_html()
             self.status_label.setText(html_status)
+            
+            # 상태에 따라 레이아웃 비율 동적 조절
+            state = status_data.get('state', 'idle')
+            self._adjust_info_layout_ratios(state)
+            
         except Exception as e:
             print(f"상태 표시 업데이트 오류: {e}")
+    
+    def _adjust_info_layout_ratios(self, state: str):
+        """상태에 따라 정보 영역 레이아웃 비율 조절"""
+        try:
+            # 레이아웃에서 위젯들의 stretch factor 조절
+            info_layout = self.layout.itemAt(0).layout()  # 첫 번째 레이아웃이 info_layout
+            
+            if state == 'idle':
+                # 대기중: 모델(3) | 세션(3) | 대기중(2) | 도구(1)
+                info_layout.setStretchFactor(self.model_label, 3)
+                info_layout.setStretchFactor(self.session_info_label, 3)
+                info_layout.setStretchFactor(self.status_label, 2)
+                info_layout.setStretchFactor(self.tools_label, 1)
+            else:
+                # 활성화: 모델(2) | 세션(2) | 대기중(4) | 도구(1)
+                info_layout.setStretchFactor(self.model_label, 2)
+                info_layout.setStretchFactor(self.session_info_label, 2)
+                info_layout.setStretchFactor(self.status_label, 4)
+                info_layout.setStretchFactor(self.tools_label, 1)
+                
+        except Exception as e:
+            print(f"레이아웃 비율 조절 오류: {e}")
     
     def _load_previous_conversations(self):
         """이전 대화 로드"""
@@ -701,7 +758,7 @@ class ChatWidget(QWidget):
                         if model_breakdown:
                             token_summary += f" ({', '.join(model_breakdown)})"
                     
-                    welcome_msg = f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🔄 **이전 대화**: {len(unique_messages)}개 메시지 로드됨\n{token_summary}\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!'
+                    welcome_msg = f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🔄 **이전 대화**: {len(unique_messages)}개 메시지 로드됨\n{token_summary}\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!'
                     self.chat_display.append_message('시스템', welcome_msg)
                 else:
                     # 빈 히스토리일 때도 토큰 통계 표시
@@ -716,9 +773,9 @@ class ChatWidget(QWidget):
                 stats = self.conversation_history.get_stats()
                 total_tokens = stats.get('total_tokens', 0)
                 if total_tokens > 0:
-                    self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                    self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
                 else:
-                    self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                    self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
                 
         except Exception as e:
             print(f"대화 기록 로드 오류: {e}")
@@ -739,9 +796,9 @@ class ChatWidget(QWidget):
             stats = self.conversation_history.get_stats()
             total_tokens = stats.get('total_tokens', 0)
             if total_tokens > 0:
-                self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
             else:
-                self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
         except Exception as e:
             print(f"웰컴 메시지 표시 오류: {e}")
             self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖')
@@ -1009,7 +1066,7 @@ class ChatWidget(QWidget):
             border-radius: 12px;
             font-size: 15px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 18px;
+            padding: 8px;
             selection-background-color: {colors.get('primary', '#bb86fc')};
         }}
         QTextEdit:focus {{
@@ -1220,6 +1277,23 @@ class ChatWidget(QWidget):
                     self.chat_display.update_theme()
         except Exception as e:
             print(f"테마 적용 오류: {e}")
+    
+    def _start_drag(self, event):
+        """드래그 시작"""
+        self._dragging = True
+        self._drag_start_y = event.globalPosition().y()
+        self._original_height = self.input_text.height()
+    
+    def _handle_drag(self, event):
+        """드래그 처리"""
+        if self._dragging:
+            delta_y = self._drag_start_y - event.globalPosition().y()
+            new_height = int(max(60, min(300, self._original_height + delta_y)))
+            self.input_text.setFixedHeight(new_height)
+    
+    def _end_drag(self, event):
+        """드래그 종료"""
+        self._dragging = False
     
     def _setup_scroll_listener(self):
         """스크롤 이벤트 리스너 설정"""

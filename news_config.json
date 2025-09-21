@@ -46,15 +46,15 @@
     "show_domestic": true,
     "show_international": true,
     "show_earthquake": true,
-    "domestic_count": 5,
+    "domestic_count": 3,
     "international_count": 5,
     "earthquake_count": 3
   },
   "display_settings": {
-    "domestic_news_count": 5,
+    "domestic_news_count": 3,
     "international_news_count": 5,
     "earthquake_count": 3,
-    "display_duration": 3000,
+    "display_duration": 4000,
     "auto_refresh_interval": 300000
   },
   "date_filter": {

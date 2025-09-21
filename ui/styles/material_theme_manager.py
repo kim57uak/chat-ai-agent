@@ -308,7 +308,7 @@ class MaterialThemeManager:
             }
     
     def generate_web_css(self) -> str:
-        """웹뷰용 CSS 생성"""
+        """웹뷰용 Material Design CSS 생성"""
         colors = self.get_theme_colors()
         code_text_color = self._get_code_text_color()
         mermaid_text_color = self._get_mermaid_text_color()
@@ -322,26 +322,29 @@ class MaterialThemeManager:
         html, body {{
             background-color: {colors.get('background', '#121212')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', system-ui, sans-serif !important;
-            font-size: 14px !important;
-            line-height: 1.6 !important;
+            font-family: 'Roboto', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
+            font-size: 16px !important;
+            font-weight: 400 !important;
+            line-height: 1.5 !important;
+            letter-spacing: 0.15px !important;
             margin: 0 !important;
-            padding: 12px !important;
+            padding: 16px !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
         }}
         
         .message {{
-            margin: 12px 0 !important;
+            margin: 24px 0 !important;
             padding: 16px 20px !important;
             border-radius: 12px !important;
             position: relative !important;
-            transition: all 0.2s ease !important;
+            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
+            box-shadow: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12) !important;
         }}
         
         .message:hover {{
-            transform: translateY(-1px) !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0px 3px 3px -2px rgba(0,0,0,0.2), 0px 3px 4px 0px rgba(0,0,0,0.14), 0px 1px 8px 0px rgba(0,0,0,0.12) !important;
         }}
         
         .message.user {{
@@ -407,15 +410,18 @@ class MaterialThemeManager:
         
         pre {{
             background-color: {colors.get('code_bg', '#2d2d2d')} !important;
-            border: 1px solid {colors.get('code_border', '#404040')} !important;
+            border: none !important;
             border-radius: 8px !important;
             padding: 16px !important;
-            margin: 12px 0 !important;
+            margin: 16px 0 !important;
             overflow-x: auto !important;
-            font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace !important;
-            font-size: 13px !important;
-            line-height: 1.4 !important;
+            font-family: 'Roboto Mono', 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace !important;
+            font-size: 14px !important;
+            font-weight: 400 !important;
+            line-height: 1.43 !important;
+            letter-spacing: 0.25px !important;
             color: {code_text_color} !important;
+            box-shadow: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12) !important;
         }}
         
         code {{
@@ -435,9 +441,30 @@ class MaterialThemeManager:
             color: inherit !important;
         }}
         
-        h1, h2, h3, h4, h5, h6 {{
+        h1 {{
             color: {colors.get('text_primary', '#ffffff')} !important;
-            font-weight: 600 !important;
+            font-size: 24px !important;
+            font-weight: 400 !important;
+            line-height: 1.334 !important;
+            letter-spacing: 0px !important;
+            margin: 24px 0 16px 0 !important;
+        }}
+        
+        h2 {{
+            color: {colors.get('text_primary', '#ffffff')} !important;
+            font-size: 20px !important;
+            font-weight: 500 !important;
+            line-height: 1.6 !important;
+            letter-spacing: 0.15px !important;
+            margin: 20px 0 12px 0 !important;
+        }}
+        
+        h3, h4, h5, h6 {{
+            color: {colors.get('text_primary', '#ffffff')} !important;
+            font-size: 16px !important;
+            font-weight: 500 !important;
+            line-height: 1.57 !important;
+            letter-spacing: 0.1px !important;
             margin: 16px 0 8px 0 !important;
         }}
         

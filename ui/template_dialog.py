@@ -2,10 +2,11 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                             QListWidget, QListWidgetItem, QTextEdit, QLineEdit,
                             QComboBox, QLabel, QCheckBox, QSplitter, QGroupBox,
-                            QMessageBox, QInputDialog, QFileDialog)
+                            QMessageBox, QInputDialog, QFileDialog, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QPalette
 from ui.template_manager import template_manager, Template
+from ui.styles.theme_manager import theme_manager
 import json
 
 
@@ -18,22 +19,117 @@ class TemplateDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("📋 템플릿 관리")
         self.setModal(True)
-        self.resize(800, 600)
+        self.resize(1000, 700)
         self.current_template = None
+        self._apply_modern_style()
         self._setup_ui()
         self._load_templates()
         self._connect_signals()
     
+    def _apply_modern_style(self):
+        """현대적 스타일 적용"""
+        if theme_manager.use_material_theme:
+            colors = theme_manager.material_manager.get_theme_colors()
+            self.setStyleSheet(f"""
+                QDialog {{
+                    background-color: {colors.get('background', '#121212')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                }}
+                QGroupBox {{
+                    font-weight: 600;
+                    font-size: 14px;
+                    color: {colors.get('text_primary', '#ffffff')};
+                    border: 2px solid {colors.get('divider', '#333333')};
+                    border-radius: 12px;
+                    margin-top: 12px;
+                    padding-top: 8px;
+                }}
+                QGroupBox::title {{
+                    subcontrol-origin: margin;
+                    left: 16px;
+                    padding: 0 8px 0 8px;
+                    background-color: {colors.get('background', '#121212')};
+                }}
+                QListWidget {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    border: 1px solid {colors.get('divider', '#333333')};
+                    border-radius: 8px;
+                    padding: 8px;
+                    font-size: 14px;
+                }}
+                QListWidget::item {{
+                    padding: 12px 16px;
+                    margin: 2px 0;
+                    border-radius: 6px;
+                    border: none;
+                }}
+                QListWidget::item:selected {{
+                    background-color: {colors.get('primary', '#bb86fc')};
+                    color: {colors.get('on_primary', '#000000')};
+                }}
+                QListWidget::item:hover {{
+                    background-color: {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')};
+                }}
+                QPushButton {{
+                    background-color: {colors.get('primary', '#bb86fc')};
+                    color: {colors.get('on_primary', '#000000')};
+                    border: none;
+                    border-radius: 8px;
+                    padding: 12px 20px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    min-height: 20px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('primary_variant', '#3700b3')};
+                }}
+                QTextEdit, QLineEdit {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                    border: 1px solid {colors.get('divider', '#333333')};
+                    border-radius: 8px;
+                    padding: 12px;
+                    font-size: 14px;
+                }}
+                QTextEdit:focus, QLineEdit:focus {{
+                    border-color: {colors.get('primary', '#bb86fc')};
+                    border-width: 2px;
+                }}
+                QComboBox {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                    border: 1px solid {colors.get('divider', '#333333')};
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    font-size: 14px;
+                    min-height: 20px;
+                }}
+                QCheckBox {{
+                    color: {colors.get('text_primary', '#ffffff')};
+                    font-size: 14px;
+                    spacing: 8px;
+                }}
+                QLabel {{
+                    color: {colors.get('text_primary', '#ffffff')};
+                    font-size: 14px;
+                    font-weight: 500;
+                }}
+            """)
+    
     def _setup_ui(self):
         """UI 구성"""
         layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(24, 24, 24, 24)
         
         # 상단 버튼들
         top_layout = QHBoxLayout()
-        self.new_btn = QPushButton("새 템플릿")
-        self.import_btn = QPushButton("가져오기")
-        self.export_btn = QPushButton("내보내기")
-        self.delete_btn = QPushButton("삭제")
+        top_layout.setSpacing(12)
+        
+        self.new_btn = QPushButton("➕ 새 템플릿")
+        self.import_btn = QPushButton("📁 가져오기")
+        self.export_btn = QPushButton("📤 내보내기")
+        self.delete_btn = QPushButton("🗑️ 삭제")
         
         top_layout.addWidget(self.new_btn)
         top_layout.addWidget(self.import_btn)
@@ -59,9 +155,11 @@ class TemplateDialog(QDialog):
         
         # 하단 버튼들
         bottom_layout = QHBoxLayout()
-        self.use_btn = QPushButton("사용하기")
-        self.save_btn = QPushButton("저장")
-        self.close_btn = QPushButton("닫기")
+        bottom_layout.setSpacing(12)
+        
+        self.use_btn = QPushButton("✅ 사용하기")
+        self.save_btn = QPushButton("💾 저장")
+        self.close_btn = QPushButton("❌ 닫기")
         
         bottom_layout.addStretch()
         bottom_layout.addWidget(self.use_btn)
@@ -72,12 +170,15 @@ class TemplateDialog(QDialog):
     
     def _create_template_list(self):
         """템플릿 목록 위젯 생성"""
-        group = QGroupBox("템플릿 목록")
+        group = QGroupBox("📁 템플릿 목록")
         layout = QVBoxLayout(group)
+        layout.setSpacing(16)
+        layout.setContentsMargins(20, 24, 20, 20)
         
         # 카테고리 필터
         filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("카테고리:"))
+        filter_layout.setSpacing(12)
+        filter_layout.addWidget(QLabel("📊 카테고리:"))
         self.category_filter = QComboBox()
         self.category_filter.addItem("전체")
         self.category_filter.addItems(template_manager.categories)
@@ -86,7 +187,8 @@ class TemplateDialog(QDialog):
         
         # 검색
         search_layout = QHBoxLayout()
-        search_layout.addWidget(QLabel("검색:"))
+        search_layout.setSpacing(12)
+        search_layout.addWidget(QLabel("🔍 검색:"))
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("템플릿 이름 또는 내용 검색...")
         search_layout.addWidget(self.search_input)
@@ -94,6 +196,7 @@ class TemplateDialog(QDialog):
         
         # 템플릿 리스트
         self.template_list = QListWidget()
+        self.template_list.setMinimumHeight(300)
         layout.addWidget(self.template_list)
         
         return group
@@ -167,8 +270,9 @@ class TemplateDialog(QDialog):
         
         for template in templates:
             item = QListWidgetItem()
-            star = "⭐ " if template.favorite else ""
-            item.setText(f"{star}{template.name}")
+            star = "⭐ " if template.favorite else "📄 "
+            category_icon = "📊 "
+            item.setText(f"{star}{template.name}\n{category_icon}{template.category}")
             item.setData(Qt.ItemDataRole.UserRole, template.name)
             self.template_list.addItem(item)
     
@@ -184,8 +288,9 @@ class TemplateDialog(QDialog):
         
         for template in templates:
             item = QListWidgetItem()
-            star = "⭐ " if template.favorite else ""
-            item.setText(f"{star}{template.name}")
+            star = "⭐ " if template.favorite else "📄 "
+            category_icon = "📊 "
+            item.setText(f"{star}{template.name}\n{category_icon}{template.category}")
             item.setData(Qt.ItemDataRole.UserRole, template.name)
             self.template_list.addItem(item)
     
@@ -201,8 +306,9 @@ class TemplateDialog(QDialog):
         templates = template_manager.search_templates(query)
         for template in templates:
             item = QListWidgetItem()
-            star = "⭐ " if template.favorite else ""
-            item.setText(f"{star}{template.name}")
+            star = "⭐ " if template.favorite else "📄 "
+            category_icon = "📊 "
+            item.setText(f"{star}{template.name}\n{category_icon}{template.category}")
             item.setData(Qt.ItemDataRole.UserRole, template.name)
             self.template_list.addItem(item)
     

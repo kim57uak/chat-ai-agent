@@ -2,10 +2,10 @@
   "conversation_settings": {
     "enable_history": true,
     "hybrid_mode": true,
-    "user_message_limit": 6,
+    "user_message_limit": 4,
     "ai_response_limit": 4,
     "ai_response_token_limit": 4000,
-    "max_history_pairs": 6,
+    "max_history_pairs": 4,
     "max_tokens_estimate": 8000
   },
   "response_settings": {

@@ -9,8 +9,8 @@
     ],
     "favorite": true,
     "created_at": "2025-09-20T01:35:50.628921",
-    "used_count": 3,
-    "last_used": "2025-09-20T12:23:54.093825"
+    "used_count": 4,
+    "last_used": "2025-09-21T01:29:21.755931"
   },
   {
     "name": "코드 리뷰 요청",
@@ -22,8 +22,8 @@
     ],
     "favorite": true,
     "created_at": "2025-09-20T01:35:50.628930",
-    "used_count": 5,
-    "last_used": "2025-09-20T22:33:56.290711"
+    "used_count": 6,
+    "last_used": "2025-09-21T01:29:20.489622"
   },
   {
     "name": "웹 검색 및 요약",
@@ -62,7 +62,7 @@
     ],
     "favorite": true,
     "created_at": "2025-09-20T01:47:48.860560",
-    "used_count": 2,
-    "last_used": "2025-09-20T12:23:52.277253"
+    "used_count": 3,
+    "last_used": "2025-09-21T01:29:18.822709"
   }
 ]

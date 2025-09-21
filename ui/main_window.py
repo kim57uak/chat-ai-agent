@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
         # Chat widget with news banner (center)
         chat_container = QWidget()
         chat_layout = QVBoxLayout(chat_container)
-        chat_layout.setContentsMargins(0, 0, 0, 0)
+        chat_layout.setContentsMargins(8, 0, 8, 0)
         chat_layout.setSpacing(0)
         
         # News banner
@@ -368,7 +368,7 @@ class MainWindow(QMainWindow):
     
     def _apply_current_theme(self):
         """현재 테마 적용"""
-        stylesheet = theme_manager.get_material_stylesheet()
+        stylesheet = theme_manager.get_material_design_stylesheet()
         self.setStyleSheet(stylesheet)
     
     def _apply_saved_theme(self):

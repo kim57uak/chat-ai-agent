@@ -158,22 +158,27 @@ class ModernProgressBar(QWidget):
             from ui.styles.theme_manager import theme_manager
             
             if theme_manager.use_material_theme:
-                loading_config = theme_manager.material_manager.get_loading_bar_config()
-                chunk_color = loading_config.get('chunk', '')
+                colors = theme_manager.material_manager.get_theme_colors()
+                primary = colors.get('primary', '#1976d2')
+                secondary = colors.get('secondary', '#03dac6')
                 
-                # 그라디언트에서 색상 추출
-                if 'linear-gradient' in chunk_color:
-                    # 간단한 색상 추출 (예: #bb86fc, #03dac6)
-                    import re
-                    hex_colors = re.findall(r'#[0-9a-fA-F]{6}', chunk_color)
-                    if len(hex_colors) >= 2:
-                        colors = []
-                        for hex_color in hex_colors:
-                            r = int(hex_color[1:3], 16)
-                            g = int(hex_color[3:5], 16)
-                            b = int(hex_color[5:7], 16)
-                            colors.append((r, g, b))
-                        return colors
+                # Material Design 색상을 RGB로 변환
+                def hex_to_rgb(hex_color):
+                    hex_color = hex_color.lstrip('#')
+                    if len(hex_color) == 6:
+                        return (
+                            int(hex_color[0:2], 16),
+                            int(hex_color[2:4], 16), 
+                            int(hex_color[4:6], 16)
+                        )
+                    return (25, 118, 210)  # 기본 Material Blue
+                
+                return [
+                    hex_to_rgb(primary),
+                    hex_to_rgb(secondary),
+                    # 추가 색상 변화를 위한 중간 색상
+                    tuple(int((a + b) / 2) for a, b in zip(hex_to_rgb(primary), hex_to_rgb(secondary)))
+                ]
             
             return None
         except Exception:

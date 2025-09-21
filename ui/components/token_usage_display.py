@@ -84,7 +84,7 @@ class TokenUsageDisplay(QWidget):
     def setup_ui(self):
         """UI 설정 - 패딩/마진 최소화, 가독성 최우선"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)  # 최소 마진
+        layout.setContentsMargins(4, 4, 8, 4)  # 우측 여백 8px로 조정
         layout.setSpacing(4)  # 최소 간격
         
         # 제목 - 더 큰 폰트와 명확한 아이콘

@@ -13,7 +13,7 @@ class TemplateQuickBar(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMaximumHeight(40)
+        self.setFixedHeight(60)
         self._setup_ui()
         self._load_quick_templates()
         template_manager.templates_changed.connect(self._load_quick_templates)
@@ -21,8 +21,8 @@ class TemplateQuickBar(QWidget):
     def _setup_ui(self):
         """UI 구성"""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(5)
+        layout.setContentsMargins(0, 10, 0, 10)
+        layout.setSpacing(8)
         
         # 라벨
         self.label = QLabel("📋 빠른 템플릿:")
@@ -46,7 +46,7 @@ class TemplateQuickBar(QWidget):
         
         # 관리 버튼
         self.manage_btn = QPushButton("⚙️")
-        self.manage_btn.setMaximumWidth(30)
+        self.manage_btn.setFixedSize(40, 40)
         self.manage_btn.setToolTip("템플릿 관리")
         self.manage_btn.clicked.connect(self._open_template_manager)
         layout.addWidget(self.manage_btn)
@@ -66,7 +66,7 @@ class TemplateQuickBar(QWidget):
         favorites = template_manager.get_favorite_templates()
         for template in favorites[:5]:  # 최대 5개
             btn = QPushButton(template.name)
-            btn.setMaximumHeight(30)
+            btn.setFixedHeight(40)
             self._apply_button_theme(btn)
             btn.clicked.connect(lambda checked, t=template: self._use_template(t))
             self.button_layout.addWidget(btn)

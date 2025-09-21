@@ -5,6 +5,7 @@ from typing import Dict, Any
 import json
 import os
 from .material_theme_manager import material_theme_manager, MaterialThemeType
+from .material_design_system import material_design_system
 
 
 class ThemeType(Enum):
@@ -22,6 +23,7 @@ class ThemeManager:
         self.custom_themes = self._load_custom_themes()
         self.material_manager = material_theme_manager
         self.use_material_theme = True
+        self.material_design = material_design_system
     
     def _load_default_themes(self) -> Dict[str, Dict[str, Any]]:
         """기본 테마 로드"""
@@ -290,6 +292,15 @@ class ThemeManager:
                 json.dump(self.custom_themes, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"커스텀 테마 저장 오류: {e}")
+    
+    def get_material_design_stylesheet(self) -> str:
+        """Material Design 기반 스타일시트 생성"""
+        if not self.use_material_theme:
+            return self.generate_theme_css()
+        
+        colors = self.material_manager.get_theme_colors()
+        from .material_stylesheet import create_material_stylesheet
+        return create_material_stylesheet(colors, self.material_design)
 
 
 # 전역 테마 매니저 인스턴스

@@ -84,45 +84,50 @@ class SessionListItem(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(4)
         
-        # 상단: 제목과 삭제 버튼
+        # 상단: 제목과 삭제 버튼 - 정렬 개선
         header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setContentsMargins(2, 2, 2, 2)
+        header_layout.setSpacing(8)
         
         # 제목
         self.title_label = QLabel(self.session_data['title'])
         self.title_label.setWordWrap(True)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header_layout.addWidget(self.title_label, 1)
         
-        # 삭제 버튼
-        self.delete_btn = QPushButton("✕")
-        self.delete_btn.setFixedSize(24, 24)
+        # 삭제 버튼 - 고급스러운 디자인
+        self.delete_btn = QPushButton()
+        self.delete_btn.setFixedSize(28, 28)
         self.delete_btn.clicked.connect(lambda: self.delete_requested.emit(self.session_id))
         self.delete_btn.hide()  # 기본적으로 숨김
-        header_layout.addWidget(self.delete_btn)
+        self.delete_btn.setObjectName("delete_button")
+        header_layout.addWidget(self.delete_btn, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         
         layout.addLayout(header_layout)
         
         # 카테고리 표시 제거 (불필요한 하늘색 라인)
         
-        # 하단: 메시지 수와 시간
+        # 하단: 메시지 수와 시간 - 정렬 개선
         footer_layout = QHBoxLayout()
-        footer_layout.setContentsMargins(0, 0, 0, 0)
-        footer_layout.setSpacing(8)
+        footer_layout.setContentsMargins(2, 2, 2, 2)
+        footer_layout.setSpacing(12)
         
-        # 메시지 수
+        # 메시지 수 - 아이콘 정렬
         self.message_count_label = QLabel(f"💬 {self.session_data['message_count']}")
-        footer_layout.addWidget(self.message_count_label)
+        self.message_count_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        footer_layout.addWidget(self.message_count_label, 0, Qt.AlignmentFlag.AlignLeft)
         
         footer_layout.addStretch()
         
-        # 마지막 사용 시간
+        # 마지막 사용 시간 - 정렬 개선
         last_used = self.session_data.get('last_used_at', '')
         if last_used:
             try:
                 dt = datetime.fromisoformat(last_used.replace('Z', '+00:00'))
                 time_str = dt.strftime("%m/%d %H:%M")
                 self.time_label = QLabel(time_str)
-                footer_layout.addWidget(self.time_label)
+                self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                footer_layout.addWidget(self.time_label, 0, Qt.AlignmentFlag.AlignRight)
             except:
                 pass
         
@@ -190,18 +195,28 @@ class SessionListItem(QWidget):
                     }}
                 """)
             
-            # 삭제 버튼 스타일
+            # 삭제 버튼 스타일 - 고급스러운 디자인
             self.delete_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background: #dc2626;
+                QPushButton#delete_button {{
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                        stop:0 #dc2626, stop:1 #b91c1c);
                     color: #ffffff;
-                    border: 1px solid {colors.get('divider', '#333333')};
-                    border-radius: 6px;
-                    font-size: 12px;
-                    font-weight: 700;
+                    border: 2px solid #b91c1c;
+                    border-radius: 14px;
+                    font-size: 14px;
+                    font-weight: 800;
+                    qproperty-text: "✖️";
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
                 }}
-                QPushButton:hover {{
-                    background: #b91c1c;
+                QPushButton#delete_button:hover {{
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                        stop:0 #b91c1c, stop:1 #dc2626);
+                    border: 2px solid #dc2626;
+                    transform: scale(1.1);
+                }}
+                QPushButton#delete_button:pressed {{
+                    background: #991b1b;
+                    transform: scale(0.9);
                 }}
             """)
             
@@ -293,7 +308,7 @@ class SessionPanel(QWidget):
     def setup_ui(self):
         """UI 설정 - 패딩/마진 최소화, 가독성 최우선"""
         layout = QVBoxLayout()
-        layout.setContentsMargins(4, 4, 4, 4)  # 최소 마진
+        layout.setContentsMargins(8, 4, 4, 4)  # 좌측 여백 8px로 조정
         layout.setSpacing(6)  # 적절한 간격
         
         # 헤더 - 더 큰 폰트와 명확한 아이콘
@@ -304,11 +319,12 @@ class SessionPanel(QWidget):
         header_label.setFont(header_font)
         header_layout.addWidget(header_label)
         
-        # 새로고침 버튼 - 더 큰 버튼
-        refresh_btn = QPushButton("🔄")
-        refresh_btn.setFixedSize(40, 40)
-        refresh_btn.setToolTip("새로고침")
+        # 새로고침 버튼 - 고급스러운 디자인
+        refresh_btn = QPushButton()
+        refresh_btn.setFixedSize(44, 44)
+        refresh_btn.setToolTip("세션 목록 새로고침")
         refresh_btn.clicked.connect(self.load_sessions)
+        refresh_btn.setObjectName("refresh_button")
         header_layout.addWidget(refresh_btn)
         
         layout.addLayout(header_layout)
@@ -782,21 +798,30 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 새로고침 버튼 - 채팅창 버튼과 동일
+        # 새로고침 버튼 - 고급스러운 디자인
         refresh_style = f"""
-        QPushButton {{
-            background-color: {secondary_color};
+        QPushButton#refresh_button {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                stop:0 {secondary_color}, stop:1 {colors.get('secondary_variant', '#018786')});
             color: {colors.get('on_secondary', '#000000')};
             border: 2px solid {colors.get('secondary_variant', '#018786')};
-            border-radius: 14px;
-            font-weight: 700;
-            font-size: 16px;
+            border-radius: 22px;
+            font-weight: 800;
+            font-size: 18px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 8px;
+            padding: 0px;
             margin: 4px;
+            qproperty-text: "♾️";
         }}
-        QPushButton:hover {{
-            background-color: {colors.get('secondary_variant', '#018786')};
+        QPushButton#refresh_button:hover {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                stop:0 {colors.get('secondary_variant', '#018786')}, stop:1 {secondary_color});
+            transform: scale(1.05);
+            border: 3px solid {primary_color};
+        }}
+        QPushButton#refresh_button:pressed {{
+            background: {colors.get('secondary_variant', '#018786')};
+            transform: scale(0.95);
         }}
         """
         
@@ -935,7 +960,7 @@ class SessionPanel(QWidget):
         
         # 새로고침 버튼 찾아서 스타일 적용
         for child in self.findChildren(QPushButton):
-            if child.toolTip() == "새로고침":
+            if child.objectName() == "refresh_button":
                 child.setStyleSheet(refresh_style)
                 break
         

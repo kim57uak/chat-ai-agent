@@ -588,7 +588,7 @@ class ChatDisplay:
             messageDiv.id = '{display_message_id}';
             messageDiv.setAttribute('data-message-id', '{message_id or display_message_id}');
             messageDiv.className = 'message';
-            messageDiv.style.cssText = 'margin:20px 0;padding:20px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
+            messageDiv.style.cssText = 'margin:24px 0;padding:20px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
             messageDiv.onmouseenter = function() {{ }};
             messageDiv.onmouseleave = function() {{ }};
             

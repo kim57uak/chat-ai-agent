@@ -135,7 +135,7 @@ class FlatTheme:
                     border-radius: 12px;
                     font-size: 15px;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
-                    padding: 18px;
+                    padding: 8px;
                     selection-background-color: rgba(100, 200, 255, 0.3);
                     line-height: 1.6;
                 }
@@ -352,15 +352,15 @@ class FlatTheme:
             font-size: 14px !important;
             line-height: 1.5 !important;
             margin: 0 !important;
-            padding: 12px !important;
+            padding: 6px !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
             min-height: 100vh !important;
         }
         
         .message {
-            margin: 12px 0 !important;
-            padding: 16px 20px !important;
+            margin: 6px 0 !important;
+            padding: 10px 14px !important;
             position: relative !important;
             border-radius: 4px !important;
             border: none !important;
@@ -393,7 +393,7 @@ class FlatTheme:
             display: flex !important;
             align-items: center !important;
             gap: 8px !important;
-            margin-bottom: 8px !important;
+            margin-bottom: 4px !important;
             font-weight: 600 !important;
             font-size: 13px !important;
             opacity: 0.9 !important;
@@ -505,7 +505,7 @@ class FlatTheme:
         
         h1, h2, h3, h4, h5, h6 {
             font-weight: 600 !important;
-            margin: 16px 0 8px 0 !important;
+            margin: 8px 0 4px 0 !important;
             color: #c0c0c0 !important;
         }
         
@@ -517,18 +517,18 @@ class FlatTheme:
         h6 { font-size: 14px !important; }
         
         p {
-            margin: 8px 0 !important;
+            margin: 4px 0 !important;
             color: #c0c0c0 !important;
         }
         
         ul, ol {
-            margin: 8px 0 !important;
+            margin: 4px 0 !important;
             padding-left: 20px !important;
             color: #c0c0c0 !important;
         }
         
         li {
-            margin: 4px 0 !important;
+            margin: 2px 0 !important;
             line-height: 1.5 !important;
         }
         

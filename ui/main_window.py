@@ -91,7 +91,7 @@ class MainWindow(QMainWindow):
         
         # Token usage display (right)
         self.token_display = TokenUsageDisplay(self)
-        self.token_display.setVisible(False)  # 기본적으로 숨김
+        self.token_display.setVisible(True)  # 기본적으로 표시
         self.token_display.setMinimumWidth(250)  # 최소 너비 설정
         self.token_display.setMaximumWidth(600)  # 최대 너비 설정
         self.token_display.export_requested.connect(self._show_export_message)
@@ -99,8 +99,8 @@ class MainWindow(QMainWindow):
         
         print("SessionPanel 및 TokenUsageDisplay 생성 완료")  # 디버깅
         
-        # Set splitter proportions (토큰 패널 기본 닫힘)
-        self.splitter.setSizes([250, 950, 0])
+        # Set splitter proportions (토큰 패널 기본 표시)
+        self.splitter.setSizes([250, 700, 300])
         self.splitter.setStretchFactor(0, 0)  # 세션 패널은 고정 크기
         self.splitter.setStretchFactor(1, 3)  # 채팅창이 가장 많이 늘어남
         self.splitter.setStretchFactor(2, 1)  # 토큰창은 적게 늘어남
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
         # Token usage toggle
         self.token_usage_action = QAction('토큰 사용량 표시', self)
         self.token_usage_action.setCheckable(True)
-        self.token_usage_action.setChecked(False)  # 기본적으로 비활성화
+        self.token_usage_action.setChecked(True)  # 기본적으로 활성화
         self.token_usage_action.setShortcut('Ctrl+]')
         self.token_usage_action.triggered.connect(self.toggle_token_display)
         settings_menu.addAction(self.token_usage_action)
@@ -558,6 +558,10 @@ class MainWindow(QMainWindow):
             self.current_session_id = session_id
             self._auto_session_created = True  # 세션이 선택되었으므로 자동 생성 플래그 설정
             
+            # 토큰 누적기 세션 설정
+            from core.token_accumulator import token_accumulator
+            token_accumulator.set_session(session_id)
+            
             # 채팅 위젯의 세션 정보 업데이트
             if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
                 self.chat_widget.update_session_info(session_id)
@@ -582,6 +586,10 @@ class MainWindow(QMainWindow):
         """새 세션 생성 이벤트 처리"""
         self.current_session_id = session_id
         self._auto_session_created = True  # 세션이 생성되었으므로 자동 생성 플래그 설정
+        
+        # 토큰 누적기 세션 설정
+        from core.token_accumulator import token_accumulator
+        token_accumulator.set_session(session_id)
         
         # 채팅 위젯의 세션 정보 업데이트
         if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):

@@ -420,7 +420,7 @@ class NewsBanner(QWidget):
             
             if translated_title and translated_title != original_title and len(translated_title.strip()) > 0:
                 title = translated_title[:80]
-                logger.info(f"해외뉴스 번역 표시: {original_title[:30]}... -> {title[:30]}...")
+                # logger.info(f"해외뉴스 번역 표시: {original_title[:30]}... -> {title[:30]}...")
             else:
                 title = original_title[:80]
                 logger.debug(f"해외뉴스 원본 표시: {title[:30]}...")

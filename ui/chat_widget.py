@@ -116,10 +116,11 @@ class ChatWidget(QWidget):
         input_container_layout.setSpacing(0)
         
         # 모드 토글 버튼
-        self.mode_toggle = QPushButton("💬 Ask", self)
+        self.mode_toggle = QPushButton("🧠", self)
         self.mode_toggle.setCheckable(True)
         self.mode_toggle.setChecked(False)
-        self.mode_toggle.setStyleSheet(FlatTheme.get_input_area_style()['mode_toggle'])
+        self.mode_toggle.setStyleSheet(FlatTheme.get_input_area_style()['mode_toggle'] + "font-size: 48px;")
+        self.mode_toggle.setToolTip("Ask 모드 - 뇌")
         
         # 드래그 핸들
         self.drag_handle = QWidget(self)
@@ -160,23 +161,46 @@ class ChatWidget(QWidget):
         button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.setSpacing(2)  # 버튼 간격 줄임
         
-        # 버튼들 - 크기 조정
-        self.send_button = QPushButton('전송', self)
-        self.send_button.setFixedSize(88, 60)  # 10% 늘림
-        self.send_button.setStyleSheet(FlatTheme.get_input_area_style()['send_button'])
+        # 버튼들 - 투명한 이모지 버튼
+        transparent_button_style = """
+        QPushButton {
+            background: transparent;
+            border: none;
+            font-size: 28px;
+        }
+        QPushButton:hover {
+            background: transparent;
+            font-size: 31px;
+        }
+        QPushButton:pressed {
+            background: transparent;
+            font-size: 26px;
+        }
+        QPushButton:disabled {
+            background: transparent;
+        }
+        """
         
-        self.template_button = QPushButton('템플릿', self)  # 새 버튼 추가
-        self.template_button.setFixedSize(88, 60)  # 10% 늘림
-        self.template_button.setStyleSheet(FlatTheme.get_input_area_style()['template_button'])
+        self.send_button = QPushButton('🚀', self)
+        self.send_button.setFixedSize(88, 60)
+        self.send_button.setStyleSheet(transparent_button_style)
+        self.send_button.setToolTip("전송")
         
-        self.upload_button = QPushButton('파일', self)
-        self.upload_button.setFixedSize(88, 60)  # 10% 늘림
-        self.upload_button.setStyleSheet(FlatTheme.get_input_area_style()['upload_button'])
+        self.template_button = QPushButton('📋', self)
+        self.template_button.setFixedSize(88, 60)
+        self.template_button.setStyleSheet(transparent_button_style)
+        self.template_button.setToolTip("템플릿")
         
-        self.cancel_button = QPushButton('취소', self)
-        self.cancel_button.setFixedSize(88, 60)  # 10% 늘림
+        self.upload_button = QPushButton('📎', self)
+        self.upload_button.setFixedSize(88, 60)
+        self.upload_button.setStyleSheet(transparent_button_style)
+        self.upload_button.setToolTip("파일")
+        
+        self.cancel_button = QPushButton('❌', self)
+        self.cancel_button.setFixedSize(88, 60)
         self.cancel_button.setVisible(False)
-        self.cancel_button.setStyleSheet(FlatTheme.get_input_area_style()['cancel_button'])
+        self.cancel_button.setStyleSheet(transparent_button_style)
+        self.cancel_button.setToolTip("취소")
         
         # 버튼 순서: 전송 / 템플릿 / 파일
         button_layout.addWidget(self.send_button)
@@ -277,10 +301,12 @@ class ChatWidget(QWidget):
         try:
             is_agent_mode = self.mode_toggle.isChecked()
             if is_agent_mode:
-                self.mode_toggle.setText("🔧 Agent")
+                self.mode_toggle.setText("🤖")
+                self.mode_toggle.setToolTip("Agent 모드 - 로봇이 도구를 사용합니다")
                 self.input_text.setPlaceholderText("도구를 사용한 메시지 입력... (Enter로 전송, Shift+Enter로 줄바꿈)")
             else:
-                self.mode_toggle.setText("💬 Ask")
+                self.mode_toggle.setText("🧠")
+                self.mode_toggle.setToolTip("Ask 모드 - 뇌로 생각합니다")
                 self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
         except Exception as e:
             print(f"토글 UI 업데이트 오류: {e}")
@@ -1038,7 +1064,7 @@ class ChatWidget(QWidget):
             border: 1px solid {colors.get('primary_variant', '#3700b3')};
             border-radius: 12px;
             padding: 14px 18px;
-            font-size: 16px;
+            font-size: 36px;
             font-weight: 700;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
             min-width: 100px;
@@ -1074,90 +1100,33 @@ class ChatWidget(QWidget):
         }}
         """
         
-        # 버튼 스타일
-        send_button_style = f"""
-        QPushButton {{
-            background-color: {colors.get('primary', '#bb86fc')};
-            color: {colors.get('on_primary', '#000000')};
-            border: 2px solid {colors.get('primary_variant', '#3700b3')};
-            border-radius: 14px;
-            font-weight: 800;
-            font-size: 18px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-        }}
-        QPushButton:hover {{
-            background-color: {colors.get('primary_variant', '#3700b3')};
-        }}
-        QPushButton:disabled {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_secondary', '#b3b3b3')};
-            border-color: {colors.get('divider', '#333333')};
-        }}
-        """
-        
-        cancel_button_style = f"""
-        QPushButton {{
-            background-color: {colors.get('error', '#cf6679')};
-            color: {colors.get('on_error', '#000000')};
-            border: 2px solid {colors.get('error', '#cf6679')};
-            border-radius: 14px;
-            font-weight: 800;
-            font-size: 18px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-        }}
-        QPushButton:hover {{
-            background-color: {colors.get('error', '#cf6679')};
-            filter: brightness(1.1);
-        }}
-        """
-        
-        upload_button_style = f"""
-        QPushButton {{
-            background-color: {colors.get('secondary', '#03dac6')};
-            color: {colors.get('on_secondary', '#000000')};
-            border: 2px solid {colors.get('secondary_variant', '#018786')};
-            border-radius: 14px;
-            font-weight: 700;
-            font-size: 14px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-        }}
-        QPushButton:hover {{
-            background-color: {colors.get('secondary_variant', '#018786')};
-        }}
-        QPushButton:disabled {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_secondary', '#b3b3b3')};
-            border-color: {colors.get('divider', '#333333')};
-        }}
-        """
-        
-        template_button_style = f"""
-        QPushButton {{
-            background-color: {colors.get('secondary_variant', '#018786')};
-            color: {colors.get('on_secondary', '#000000')};
-            border: 2px solid {colors.get('secondary', '#03dac6')};
-            border-radius: 14px;
-            font-weight: 700;
-            font-size: 14px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-        }}
-        QPushButton:hover {{
-            background-color: {colors.get('secondary', '#03dac6')};
-        }}
-        QPushButton:disabled {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_secondary', '#b3b3b3')};
-            border-color: {colors.get('divider', '#333333')};
-        }}
+        # 투명한 버튼 스타일
+        transparent_button_style = """
+        QPushButton {
+            background: transparent;
+            border: none;
+            font-size: 28px;
+        }
+        QPushButton:hover {
+            background: transparent;
+            font-size: 31px;
+        }
+        QPushButton:pressed {
+            background: transparent;
+            font-size: 26px;
+        }
+        QPushButton:disabled {
+            background: transparent;
+        }
         """
         
         # 스타일 적용
         self.mode_toggle.setStyleSheet(mode_toggle_style)
         self.input_text.setStyleSheet(input_text_style)
-        self.send_button.setStyleSheet(send_button_style)
-        self.cancel_button.setStyleSheet(cancel_button_style)
-        self.upload_button.setStyleSheet(upload_button_style)
-        self.template_button.setStyleSheet(template_button_style)
+        self.send_button.setStyleSheet(transparent_button_style)
+        self.cancel_button.setStyleSheet(transparent_button_style)
+        self.upload_button.setStyleSheet(transparent_button_style)
+        self.template_button.setStyleSheet(transparent_button_style)
     
     def _on_conversation_completed(self, _):
         """대화 완료 시 토큰 누적기 종료"""

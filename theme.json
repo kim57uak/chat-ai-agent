@@ -1,5 +1,5 @@
 {
-  "current_theme": "material_forest",
+  "current_theme": "material_arc_dark",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -863,6 +863,42 @@
         "background": "rgba(98, 126, 234, 0.15)",
         "chunk": "linear-gradient(90deg, #627EEA 0%, #8A92B2 25%, #4B6CD6 50%, #6B73A3 75%, #627EEA 100%)",
         "glow": "rgba(98, 126, 234, 0.8)"
+      }
+    },
+    "eye_comfort": {
+      "name": "Eye Comfort",
+      "type": "light",
+      "colors": {
+        "primary": "#4A90A4",
+        "primary_variant": "#357A8A",
+        "secondary": "#7B9F35",
+        "secondary_variant": "#5D7A28",
+        "background": "#F7F9F2",
+        "surface": "#FEFFFE",
+        "error": "#C85A54",
+        "on_primary": "#FFFFFF",
+        "on_secondary": "#FFFFFF",
+        "on_background": "#2D3748",
+        "on_surface": "#2D3748",
+        "on_error": "#FFFFFF",
+        "text_primary": "#2D3748",
+        "text_secondary": "#4A5568",
+        "divider": "#E2E8F0",
+        "user_bg": "rgba(74, 144, 164, 0.08)",
+        "user_border": "#4A90A4",
+        "ai_bg": "rgba(123, 159, 53, 0.08)",
+        "ai_border": "#7B9F35",
+        "system_bg": "rgba(74, 85, 104, 0.06)",
+        "system_border": "#4A5568",
+        "code_bg": "#F1F5F9",
+        "code_border": "#CBD5E0",
+        "scrollbar": "#A0AEC0",
+        "scrollbar_track": "#F7FAFC"
+      },
+      "loading_bar": {
+        "background": "rgba(74, 144, 164, 0.1)",
+        "chunk": "linear-gradient(90deg, #4A90A4 0%, #7B9F35 100%)",
+        "glow": "rgba(74, 144, 164, 0.25)"
       }
     }
   }

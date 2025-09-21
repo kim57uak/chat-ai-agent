@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QObject
 from PyQt6.QtGui import QFont, QPalette
 from core.token_tracker import token_tracker, StepType
+from core.token_accumulator import token_accumulator
 import json
 from datetime import datetime
 import logging
@@ -79,7 +80,12 @@ class TokenUsageDisplay(QWidget):
         self.setup_ui()
         self.setup_timer()
         self.setup_async_processing()
+        self.connect_token_accumulator()
         self.apply_theme()
+    
+    def connect_token_accumulator(self):
+        """토큰 누적기와 연결"""
+        token_accumulator.token_updated.connect(self.on_token_updated)
     
     def setup_ui(self):
         """UI 설정 - 패딩/마진 최소화, 가독성 최우선"""
@@ -585,9 +591,11 @@ class TokenUsageDisplay(QWidget):
         # 세션 전체 토큰 (추정 토큰 사용)
         session_input_total, session_output_total, session_total = token_tracker.get_session_total_tokens()
         
-        # 토큰 누적기에서 누적 토큰 가져오기
-        from core.simple_token_accumulator import token_accumulator
-        accumulator_input, accumulator_output, accumulator_total = token_accumulator.get_total()
+        # 토큰 누적기에서 세션 총합 가져오기
+        session_total = token_accumulator.get_session_total()
+        accumulator_input = session_total.prompt_tokens
+        accumulator_output = session_total.completion_tokens
+        accumulator_total = session_total.total_tokens
         
         # 현재 대화의 실제 토큰 정보 추출
         current_actual_input = 0
@@ -604,7 +612,7 @@ class TokenUsageDisplay(QWidget):
         
         # 현재 대화 토큰 표시 - 누적기 정보 우선 사용
         if accumulator_total > 0:
-            self.estimated_tokens_label.setText(f"Current Conversation: {accumulator_total:,} tokens (IN:{accumulator_input:,} OUT:{accumulator_output:,}) [누적기]")
+            self.estimated_tokens_label.setText(f"🔥 Session Actual: {accumulator_total:,} tokens (IN:{accumulator_input:,} OUT:{accumulator_output:,})")
         elif current_actual_input > 0 or current_actual_output > 0:
             self.estimated_tokens_label.setText(f"Current Actual: {current_actual_input + current_actual_output:,} tokens (IN:{current_actual_input:,} OUT:{current_actual_output:,})")
         else:
@@ -822,6 +830,20 @@ class TokenUsageDisplay(QWidget):
         if hasattr(token_tracker, 'current_conversation'):
             token_tracker.current_conversation = None
         self.refresh_display()
+    
+    def on_token_updated(self, token_info):
+        """토큰 누적기에서 토큰 업데이트 수신"""
+        try:
+            model = token_info.get('model', '')
+            usage = token_info.get('usage')
+            session_total = token_info.get('session_total')
+            
+            if usage and session_total:
+                logger.info(f"토큰 업데이트 수신: {model} +{usage.total_tokens} = {session_total.total_tokens}")
+                # UI 즉시 업데이트
+                self.refresh_display()
+        except Exception as e:
+            logger.error(f"토큰 업데이트 처리 오류: {e}")
     
     def closeEvent(self, event):
         """위젯 종료 시 스레드 정리"""

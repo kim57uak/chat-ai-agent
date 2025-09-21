@@ -115,6 +115,7 @@ class SessionListItem(QWidget):
         # 메시지 수 - 아이콘 정렬
         self.message_count_label = QLabel(f"💬 {self.session_data['message_count']}")
         self.message_count_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.message_count_label.setStyleSheet("font-size: 16px;")
         footer_layout.addWidget(self.message_count_label, 0, Qt.AlignmentFlag.AlignLeft)
         
         footer_layout.addStretch()
@@ -170,7 +171,7 @@ class SessionListItem(QWidget):
             self.message_count_label.setStyleSheet(f"""
                 QLabel {{
                     color: #ffffff;
-                    font-size: 13px;
+                    font-size: 16px;
                     font-weight: 700;
                     padding: 4px 8px;
                     background: {message_bg};
@@ -203,7 +204,7 @@ class SessionListItem(QWidget):
                     color: #ffffff;
                     border: 2px solid #b91c1c;
                     border-radius: 14px;
-                    font-size: 14px;
+                    font-size: 20px;
                     font-weight: 800;
                     qproperty-text: "✖️";
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
@@ -367,22 +368,46 @@ class SessionPanel(QWidget):
         manage_layout = QHBoxLayout()
         manage_layout.setSpacing(4)
         
+        # 투명한 이모지 버튼 스타일
+        transparent_emoji_style = """
+        QPushButton {
+            background: transparent;
+            border: none;
+            font-size: 28px;
+        }
+        QPushButton:hover {
+            background: transparent;
+            font-size: 31px;
+        }
+        QPushButton:pressed {
+            background: transparent;
+            font-size: 26px;
+        }
+        QPushButton:disabled {
+            background: transparent;
+            opacity: 0.5;
+        }
+        """
+        
         self.rename_btn = QPushButton("✏️")
         self.rename_btn.setToolTip("세션 이름 변경")
         self.rename_btn.setEnabled(False)
-        self.rename_btn.setMinimumHeight(40)
+        self.rename_btn.setMinimumHeight(50)
+        self.rename_btn.setStyleSheet(transparent_emoji_style)
         self.rename_btn.clicked.connect(self.rename_session)
         
         self.export_btn = QPushButton("📤")
         self.export_btn.setToolTip("세션 내보내기")
         self.export_btn.setEnabled(False)
-        self.export_btn.setMinimumHeight(40)
+        self.export_btn.setMinimumHeight(50)
+        self.export_btn.setStyleSheet(transparent_emoji_style)
         self.export_btn.clicked.connect(self.export_session)
         
         self.delete_btn = QPushButton("🗑️")
         self.delete_btn.setToolTip("세션 삭제")
         self.delete_btn.setEnabled(False)
-        self.delete_btn.setMinimumHeight(40)
+        self.delete_btn.setMinimumHeight(50)
+        self.delete_btn.setStyleSheet(transparent_emoji_style)
         self.delete_btn.clicked.connect(self.delete_session)
         
         manage_layout.addWidget(self.rename_btn)
@@ -807,7 +832,7 @@ class SessionPanel(QWidget):
             border: 2px solid {colors.get('secondary_variant', '#018786')};
             border-radius: 22px;
             font-weight: 800;
-            font-size: 18px;
+            font-size: 24px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
             padding: 0px;
             margin: 4px;
@@ -850,7 +875,7 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 리스트 위젯 - 채팅창과 동일한 배경
+        # 리스트 위젯 - 채팅창과 동일한 배경 및 스크롤바
         list_style = f"""
         QListWidget {{
             background-color: {bg_color};
@@ -876,17 +901,24 @@ class SessionPanel(QWidget):
             background: transparent;
         }}
         QScrollBar:vertical {{
-            background: {colors.get('surface', '#1e1e1e')};
-            width: 12px;
-            border-radius: 6px;
+            background: {colors.get('scrollbar_track', colors.get('surface', '#1e1e1e'))};
+            width: 8px;
+            border-radius: 4px;
         }}
         QScrollBar::handle:vertical {{
-            background: {primary_color};
-            border-radius: 6px;
+            background: {colors.get('scrollbar', colors.get('text_secondary', '#b3b3b3'))};
+            border-radius: 4px;
             min-height: 20px;
         }}
         QScrollBar::handle:vertical:hover {{
-            background: {colors.get('primary_variant', '#3700b3')};
+            background: {primary_color};
+        }}
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            border: none;
+            background: none;
+        }}
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+            background: none;
         }}
         """
         
@@ -908,27 +940,25 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 관리 버튼들 - 채팅창 업로드 버튼과 동일
-        manage_button_style = f"""
-        QPushButton {{
-            background-color: {secondary_color};
-            color: {colors.get('on_secondary', '#000000')};
-            border: 2px solid {colors.get('secondary_variant', '#018786')};
-            border-radius: 14px;
-            font-weight: 700;
-            font-size: 16px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 8px 12px;
-            margin: 2px;
-        }}
-        QPushButton:hover {{
-            background-color: {colors.get('secondary_variant', '#018786')};
-        }}
-        QPushButton:disabled {{
-            background-color: {surface_color};
-            color: {colors.get('text_secondary', '#b3b3b3')};
-            border-color: {colors.get('divider', '#333333')};
-        }}
+        # 투명한 이모지 버튼 스타일 - 채팅창과 동일
+        manage_button_style = """
+        QPushButton {
+            background: transparent;
+            border: none;
+            font-size: 28px;
+        }
+        QPushButton:hover {
+            background: transparent;
+            font-size: 31px;
+        }
+        QPushButton:pressed {
+            background: transparent;
+            font-size: 26px;
+        }
+        QPushButton:disabled {
+            background: transparent;
+            opacity: 0.5;
+        }
         """
         
         # 통계 라벨 스타일 - 테마별 대비색 적용
@@ -936,7 +966,7 @@ class SessionPanel(QWidget):
         stats_text_color = colors.get('text_secondary', '#b3b3b3') if is_dark else colors.get('text_primary', '#333333')
         
         stats_style = f"""
-        QLabel {{
+        QLabel#stats_label {{
             color: {stats_text_color};
             font-size: 12px;
             font-weight: 600;
@@ -970,7 +1000,9 @@ class SessionPanel(QWidget):
         self.rename_btn.setStyleSheet(manage_button_style)
         self.export_btn.setStyleSheet(manage_button_style)
         self.delete_btn.setStyleSheet(manage_button_style)
-        self.stats_label.setStyleSheet(stats_style)
+        # 통계 라벨에 스타일 적용
+        if hasattr(self, 'stats_label'):
+            self.stats_label.setStyleSheet(stats_style)
     
     def _apply_default_theme(self):
         """기본 테마 적용 - 라이트 테마용 대비색"""

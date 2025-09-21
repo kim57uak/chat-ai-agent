@@ -243,19 +243,29 @@ class MaterialThemeManager:
         }}
         
         QScrollBar:vertical {{
-            background-color: {colors.get('scrollbar_track', '#1e1e1e')};
+            background: {colors.get('surface', '#1e1e1e')};
             width: 12px;
             border-radius: 6px;
+            border: none;
         }}
         
         QScrollBar::handle:vertical {{
-            background-color: {colors.get('scrollbar', '#555555')};
+            background: {colors.get('primary', '#bb86fc')};
             border-radius: 6px;
             min-height: 20px;
         }}
         
         QScrollBar::handle:vertical:hover {{
-            background-color: {colors.get('primary', '#bb86fc')};
+            background: {colors.get('primary_variant', '#3700b3')};
+        }}
+        
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            border: none;
+            background: none;
+        }}
+        
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+            background: none;
         }}
         """
     

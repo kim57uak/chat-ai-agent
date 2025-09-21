@@ -95,12 +95,6 @@ class ChatWidget(QWidget):
         self.loading_bar.hide()
         self.layout.addWidget(self.loading_bar)
         
-        # 템플릿 빠른 바
-        from ui.template_quick_bar import TemplateQuickBar
-        self.template_quick_bar = TemplateQuickBar(self)
-        self.template_quick_bar.template_selected.connect(self._apply_template)
-        self.layout.addWidget(self.template_quick_bar)
-        
         # 입력 영역
         self._setup_input_area()
     
@@ -110,16 +104,37 @@ class ChatWidget(QWidget):
         input_layout.setSpacing(4)  # 전체 간격 줄임
         
         # 입력 컨테이너
-        input_container = QWidget(self)
-        input_container_layout = QHBoxLayout(input_container)
-        input_container_layout.setContentsMargins(0, 0, 0, 0)
-        input_container_layout.setSpacing(0)
+        self.input_container = QWidget(self)
+        input_container_layout = QHBoxLayout(self.input_container)
+        input_container_layout.setContentsMargins(8, 8, 8, 8)
+        input_container_layout.setSpacing(8)
         
         # 모드 토글 버튼
         self.mode_toggle = QPushButton("🧠", self)
         self.mode_toggle.setCheckable(True)
         self.mode_toggle.setChecked(False)
-        self.mode_toggle.setStyleSheet(FlatTheme.get_input_area_style()['mode_toggle'] + "font-size: 48px;")
+        self.mode_toggle.setFixedHeight(48)  # 5% 더 줄임
+        
+        # 토글 버튼 호버 효과 스타일 (35% 증가)
+        toggle_style = """
+        QPushButton {
+            background: transparent;
+            border: none;
+            font-size: 32px;
+        }
+        QPushButton:hover {
+            background: transparent;
+            font-size: 43px;
+        }
+        QPushButton:pressed {
+            background: transparent;
+            font-size: 30px;
+        }
+        QPushButton:checked {
+            background: transparent;
+        }
+        """
+        self.mode_toggle.setStyleSheet(toggle_style)
         self.mode_toggle.setToolTip("Ask 모드 - 뇌")
         
         # 드래그 핸들
@@ -141,18 +156,18 @@ class ChatWidget(QWidget):
         self.drag_handle.mouseReleaseEvent = self._end_drag
         self._dragging = False
         self._drag_start_y = 0
-        self._original_height = 60
+        self._original_height = 57
         
         # 입력창
         self.input_text = QTextEdit(self)
-        self.input_text.setFixedHeight(60)
+        self.input_text.setFixedHeight(57)
         self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
-        self.input_text.setStyleSheet(FlatTheme.get_input_area_style()['input_text'])
+        self._update_input_text_style()
         
         # 컨테이너 스타일
-        input_container.setStyleSheet(FlatTheme.get_input_area_style()['container'])
+        self._update_input_container_style(self.input_container)
         
-        input_container_layout.addWidget(self.mode_toggle, 0)
+        input_container_layout.addWidget(self.mode_toggle, 0, Qt.AlignmentFlag.AlignVCenter)
         input_container_layout.addWidget(self.input_text, 1)
         
         # 오른쪽 버튼 컨테이너
@@ -161,7 +176,7 @@ class ChatWidget(QWidget):
         button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.setSpacing(2)  # 버튼 간격 줄임
         
-        # 버튼들 - 투명한 이모지 버튼
+        # 버튼들 - 투명한 이모지 버튼 (35% 증가)
         transparent_button_style = """
         QPushButton {
             background: transparent;
@@ -170,7 +185,7 @@ class ChatWidget(QWidget):
         }
         QPushButton:hover {
             background: transparent;
-            font-size: 31px;
+            font-size: 38px;
         }
         QPushButton:pressed {
             background: transparent;
@@ -182,22 +197,22 @@ class ChatWidget(QWidget):
         """
         
         self.send_button = QPushButton('🚀', self)
-        self.send_button.setFixedSize(88, 60)
+        self.send_button.setFixedSize(88, 55)
         self.send_button.setStyleSheet(transparent_button_style)
         self.send_button.setToolTip("전송")
         
         self.template_button = QPushButton('📋', self)
-        self.template_button.setFixedSize(88, 60)
+        self.template_button.setFixedSize(88, 55)
         self.template_button.setStyleSheet(transparent_button_style)
         self.template_button.setToolTip("템플릿")
         
         self.upload_button = QPushButton('📎', self)
-        self.upload_button.setFixedSize(88, 60)
+        self.upload_button.setFixedSize(88, 55)
         self.upload_button.setStyleSheet(transparent_button_style)
         self.upload_button.setToolTip("파일")
         
         self.cancel_button = QPushButton('❌', self)
-        self.cancel_button.setFixedSize(88, 60)
+        self.cancel_button.setFixedSize(88, 55)
         self.cancel_button.setVisible(False)
         self.cancel_button.setStyleSheet(transparent_button_style)
         self.cancel_button.setToolTip("취소")
@@ -210,7 +225,7 @@ class ChatWidget(QWidget):
         
         # 메인 레이아웃에 추가
         input_layout.addSpacing(0)  # 왼쪽 간격 제거
-        input_layout.addWidget(input_container, 1)  # 입력창이 대부분 차지
+        input_layout.addWidget(self.input_container, 1)  # 입력창이 대부분 차지
         input_layout.addWidget(button_container, 0)  # 버튼은 고정 크기
         input_layout.addSpacing(0)  # 오른쪽 간격 제거
         
@@ -894,12 +909,29 @@ class ChatWidget(QWidget):
             
             # 메인 윈도우에서 세션 ID 가져오기
             main_window = self._find_main_window()
-            if not main_window or not hasattr(main_window, 'current_session_id') or not main_window.current_session_id:
-                print(f"[CHAT_DELETE] 세션 ID가 없음")
+            session_id = None
+            
+            # 현재 세션 ID 확인 (여러 방법으로 시도)
+            if main_window and hasattr(main_window, 'current_session_id') and main_window.current_session_id:
+                session_id = main_window.current_session_id
+            elif hasattr(self, 'current_session_id') and self.current_session_id:
+                session_id = self.current_session_id
+            
+            # 세션 ID가 없으면 메시지 ID로부터 세션 찾기
+            if not session_id:
+                from core.session.message_manager import message_manager
+                try:
+                    db_message_id = int(message_id)
+                    session_id = message_manager.find_session_by_message_id(db_message_id)
+                    print(f"[CHAT_DELETE] 메시지로부터 세션 ID 찾음: {session_id}")
+                except (ValueError, AttributeError):
+                    print(f"[CHAT_DELETE] 메시지 ID로부터 세션을 찾을 수 없음")
+            
+            if not session_id:
+                print(f"[CHAT_DELETE] 세션 ID를 찾을 수 없음")
                 return False
             
-            session_id = main_window.current_session_id
-            print(f"[CHAT_DELETE] 세션 ID: {session_id}")
+            print(f"[CHAT_DELETE] 사용할 세션 ID: {session_id}")
             
             # DB에서 삭제
             from core.session.message_manager import message_manager
@@ -925,7 +957,7 @@ class ChatWidget(QWidget):
                     print(f"[CHAT_DELETE] 메모리 삭제 오류: {e}")
                 
                 # 세션 패널 새로고침
-                if hasattr(main_window, 'session_panel'):
+                if main_window and hasattr(main_window, 'session_panel'):
                     main_window.session_panel.load_sessions()
                     print(f"[CHAT_DELETE] 세션 패널 새로고침 완료")
             
@@ -945,18 +977,19 @@ class ChatWidget(QWidget):
                 self._apply_material_theme_styles()
             else:
                 self.setStyleSheet(FlatTheme.get_chat_widget_style())
+                # Flat 테마일 때 모든 입력 스타일 업데이트
+                self._update_input_text_style()
+                # 입력 컨테이너 스타일도 업데이트
+                if hasattr(self, 'input_container'):
+                    self._update_input_container_style(self.input_container)
             
-            # 웹뷰 완전히 다시 로드
+            # 채팅 표시 영역 실시간 업데이트
             if hasattr(self, 'chat_display'):
-                self.chat_display.init_web_view()
+                self.chat_display.update_theme()
             
             # 로딩바 테마 업데이트
             if hasattr(self, 'loading_bar') and hasattr(self.loading_bar, 'update_theme'):
                 self.loading_bar.update_theme()
-            
-            # 템플릿 빠른 바 테마 업데이트
-            if hasattr(self, 'template_quick_bar'):
-                self.template_quick_bar.update_theme()
             
             print("테마 업데이트 완료")
             
@@ -1056,15 +1089,15 @@ class ChatWidget(QWidget):
         }}
         """
         
-        # 모드 토글 버튼 스타일
+        # 모드 토글 버튼 스타일 - 입력창과 일치
         mode_toggle_style = f"""
         QPushButton {{
-            background-color: {colors.get('primary', '#bb86fc')};
-            color: {colors.get('on_primary', '#000000')};
-            border: 1px solid {colors.get('primary_variant', '#3700b3')};
+            background-color: {colors.get('surface', '#1e1e1e')};
+            color: {colors.get('text_primary', '#ffffff')};
+            border: 1px solid {colors.get('divider', '#333333')};
             border-radius: 12px;
-            padding: 14px 18px;
-            font-size: 36px;
+            padding: 6px 18px;
+            font-size: 48px;
             font-weight: 700;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
             min-width: 100px;
@@ -1073,22 +1106,21 @@ class ChatWidget(QWidget):
             margin-left: 12px;
         }}
         QPushButton:hover {{
-            background-color: {colors.get('primary_variant', '#3700b3')};
-            color: {colors.get('on_primary', '#000000')};
+            background-color: {colors.get('surface', '#1e1e1e')};
+            color: {colors.get('text_primary', '#ffffff')};
         }}
         QPushButton:checked {{
-            background-color: {colors.get('secondary', '#03dac6')};
-            color: {colors.get('on_secondary', '#000000')};
-            border-color: {colors.get('secondary_variant', '#018786')};
+            background-color: {colors.get('surface', '#1e1e1e')};
+            color: {colors.get('text_primary', '#ffffff')};
         }}
         """
         
         # 입력창 스타일
         input_text_style = f"""
         QTextEdit {{
-            background-color: {colors.get('background', '#121212')};
+            background-color: {colors.get('surface', '#1e1e1e')};
             color: {colors.get('text_primary', '#ffffff')};
-            border: 1px solid {colors.get('divider', '#333333')};
+            border: none;
             border-radius: 12px;
             font-size: 15px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
@@ -1096,7 +1128,7 @@ class ChatWidget(QWidget):
             selection-background-color: {colors.get('primary', '#bb86fc')};
         }}
         QTextEdit:focus {{
-            border-color: {colors.get('primary', '#bb86fc')};
+            border: none;
         }}
         """
         
@@ -1109,7 +1141,7 @@ class ChatWidget(QWidget):
         }
         QPushButton:hover {
             background: transparent;
-            font-size: 31px;
+            font-size: 38px;
         }
         QPushButton:pressed {
             background: transparent;
@@ -1121,8 +1153,9 @@ class ChatWidget(QWidget):
         """
         
         # 스타일 적용
-        self.mode_toggle.setStyleSheet(mode_toggle_style)
-        self.input_text.setStyleSheet(input_text_style)
+        self.input_container.setStyleSheet(container_style)
+        # 토글 버튼은 직접 설정한 호버 효과 스타일 유지
+        self._update_input_text_style(colors)
         self.send_button.setStyleSheet(transparent_button_style)
         self.cancel_button.setStyleSheet(transparent_button_style)
         self.upload_button.setStyleSheet(transparent_button_style)
@@ -1237,6 +1270,112 @@ class ChatWidget(QWidget):
             print(f"세션 정보 업데이트 오류: {e}")
             self.session_info_label.setText("세션: 오류")
     
+    def _update_input_text_style(self, colors=None):
+        """입력창 스타일 동적 업데이트"""
+        try:
+            if theme_manager.use_material_theme and colors:
+                input_text_style = f"""
+                QTextEdit {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                    border: 1px solid {colors.get('divider', '#333333')};
+                    border-radius: 12px;
+                    font-size: 15px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    padding: 8px;
+                    selection-background-color: {colors.get('primary', '#bb86fc')};
+                }}
+                QTextEdit:focus {{
+                    border-color: {colors.get('primary', '#bb86fc')};
+                }}
+                """
+            elif theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                input_text_style = f"""
+                QTextEdit {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                    border: 1px solid {colors.get('divider', '#333333')};
+                    border-radius: 12px;
+                    font-size: 15px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    padding: 8px;
+                    selection-background-color: {colors.get('primary', '#bb86fc')};
+                }}
+                QTextEdit:focus {{
+                    border-color: {colors.get('primary', '#bb86fc')};
+                }}
+                """
+            else:
+                input_text_style = FlatTheme.get_input_area_style()['input_text']
+            
+            self.input_text.setStyleSheet(input_text_style)
+            
+        except Exception as e:
+            print(f"입력창 스타일 업데이트 오류: {e}")
+            self.input_text.setStyleSheet(FlatTheme.get_input_area_style()['input_text'])
+    
+    def _update_mode_toggle_style(self):
+        """모드 토글 스타일 동적 업데이트"""
+        try:
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                style = f"""
+                QPushButton {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                    border: 1px solid {colors.get('divider', '#333333')};
+                    border-radius: 12px;
+                    padding: 6px 18px;
+                    font-size: 40px;
+                    font-weight: 700;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    min-width: 100px;
+                    max-width: 100px;
+                    margin-right: 8px;
+                    margin-left: 12px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                    font-size: 44px;
+                }}
+                QPushButton:checked {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                }}
+                """
+            else:
+                style = FlatTheme.get_input_area_style()['mode_toggle']
+            
+            # 호버 효과 유지를 위해 스타일 업데이트 비활성화
+            pass
+            
+        except Exception as e:
+            print(f"모드 토글 스타일 업데이트 오류: {e}")
+            self.mode_toggle.setStyleSheet(FlatTheme.get_input_area_style()['mode_toggle'] + "font-size: 48px;")
+    
+    def _update_input_container_style(self, container):
+        """입력 컴테이너 스타일 동적 업데이트"""
+        try:
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                style = f"""
+                QWidget {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    border: 2px solid {colors.get('primary', '#bb86fc')};
+                    border-radius: 16px;
+                }}
+                """
+            else:
+                style = FlatTheme.get_input_area_style()['container']
+            
+            container.setStyleSheet(style)
+            
+        except Exception as e:
+            print(f"입력 컴테이너 스타일 업데이트 오류: {e}")
+            container.setStyleSheet(FlatTheme.get_input_area_style()['container'])
+    
     def _apply_theme_if_needed(self):
         """필요시 테마 적용"""
         try:
@@ -1257,7 +1396,7 @@ class ChatWidget(QWidget):
         """드래그 처리"""
         if self._dragging:
             delta_y = self._drag_start_y - event.globalPosition().y()
-            new_height = int(max(60, min(300, self._original_height + delta_y)))
+            new_height = int(max(57, min(300, self._original_height + delta_y)))
             self.input_text.setFixedHeight(new_height)
     
     def _end_drag(self, event):

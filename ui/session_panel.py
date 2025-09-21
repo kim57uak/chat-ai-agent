@@ -368,7 +368,7 @@ class SessionPanel(QWidget):
         manage_layout = QHBoxLayout()
         manage_layout.setSpacing(4)
         
-        # 투명한 이모지 버튼 스타일
+        # 투명한 이모지 버튼 스타일 (35% 증가)
         transparent_emoji_style = """
         QPushButton {
             background: transparent;
@@ -377,7 +377,7 @@ class SessionPanel(QWidget):
         }
         QPushButton:hover {
             background: transparent;
-            font-size: 31px;
+            font-size: 38px;
         }
         QPushButton:pressed {
             background: transparent;
@@ -940,7 +940,7 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 투명한 이모지 버튼 스타일 - 채팅창과 동일
+        # 투명한 이모지 버튼 스타일 - 35% 증가
         manage_button_style = """
         QPushButton {
             background: transparent;
@@ -949,7 +949,7 @@ class SessionPanel(QWidget):
         }
         QPushButton:hover {
             background: transparent;
-            font-size: 31px;
+            font-size: 38px;
         }
         QPushButton:pressed {
             background: transparent;

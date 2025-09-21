@@ -76,6 +76,16 @@ class ChatDisplay:
         theme_css = self._get_current_theme_css()
         mermaid_theme = "dark" if self.is_dark_theme() else "default"
         
+        # 현재 테마의 배경색 가져오기
+        from ui.styles.theme_manager import theme_manager
+        if theme_manager.use_material_theme:
+            colors = theme_manager.material_manager.get_theme_colors()
+            body_bg_color = colors.get('background', '#121212')
+        else:
+            from ui.styles.flat_theme import FlatTheme
+            colors = FlatTheme.get_theme_colors()
+            body_bg_color = colors.get('background', '#1a1a1a')
+        
         # JavaScript 코드를 별도로 생성
         javascript_code = f"""
                 console.log('HTML 로드 시작');
@@ -377,10 +387,13 @@ class ChatDisplay:
                 }}
                 
                 html, body {{
+                    background-color: {body_bg_color} !important;
                     scroll-behavior: smooth;
                     overflow-x: hidden;
                     -webkit-font-smoothing: antialiased;
                     -moz-osx-font-smoothing: grayscale;
+                    margin: 0;
+                    padding: 0;
                 }}
                 
                 #messages {{
@@ -402,7 +415,7 @@ class ChatDisplay:
                 
                 /* Mermaid v10 다이어그램 전용 스타일 */
                 .mermaid {{
-                    background: #2a2a2a;
+                    background: {body_bg_color} !important;
                     border-radius: 8px;
                     padding: 20px;
                     margin: 16px 0;
@@ -473,12 +486,59 @@ class ChatDisplay:
             return True  # 기본 테마는 다크 테마로 간주
     
     def update_theme(self):
-        """테마 업데이트 - 웹뷰 완전 다시 로드"""
+        """테마 업데이트 - 실시간 CSS 업데이트"""
         try:
             from ui.styles.theme_manager import theme_manager
             print(f"테마 업데이트 시작: {theme_manager.material_manager.current_theme_key}")
-            self.init_web_view()
+            
+            # 새로운 테마 CSS 가져오기
+            theme_css = self._get_current_theme_css()
+            
+            # 배경색 가져오기
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                body_bg_color = colors.get('background', '#121212')
+            else:
+                from ui.styles.flat_theme import FlatTheme
+                colors = FlatTheme.get_theme_colors()
+                body_bg_color = colors.get('background', '#1a1a1a')
+            
+            # JavaScript로 실시간 테마 업데이트
+            update_js = f"""
+            try {{
+                console.log('테마 업데이트 시작');
+                
+                // 배경색 업데이트
+                document.body.style.backgroundColor = '{body_bg_color}';
+                document.documentElement.style.backgroundColor = '{body_bg_color}';
+                
+                // 기존 테마 스타일 제거
+                var existingStyle = document.getElementById('theme-style');
+                if (existingStyle) {{
+                    existingStyle.remove();
+                }}
+                
+                // 새로운 테마 스타일 추가
+                var newStyle = document.createElement('style');
+                newStyle.id = 'theme-style';
+                newStyle.textContent = `{theme_css.replace('`', '\`')}`;
+                document.head.appendChild(newStyle);
+                
+                // Mermaid 다이어그램 배경색 업데이트
+                var mermaidElements = document.querySelectorAll('.mermaid');
+                mermaidElements.forEach(function(element) {{
+                    element.style.backgroundColor = '{body_bg_color}';
+                }});
+                
+                console.log('테마 업데이트 완료');
+            }} catch(e) {{
+                console.error('테마 업데이트 오류:', e);
+            }}
+            """
+            
+            self.web_view.page().runJavaScript(update_js)
             print("채팅 디스플레이 테마 업데이트 완료")
+            
         except Exception as e:
             print(f"채팅 디스플레이 테마 업데이트 오류: {e}")
     
@@ -551,14 +611,14 @@ class ChatDisplay:
                 this.style.borderColor = 'rgba(220,53,69,1.0)';
                 this.style.opacity = '1.0';
                 this.style.transform = 'scale(1.1)';
-                this.style.boxShadow = '0 4px 12px rgba(220,53,69,0.5)';
+                /*this.style.boxShadow = '0 4px 12px rgba(220,53,69,0.5)';*/
             }};
             deleteBtn.onmouseleave = function() {{ 
                 this.style.background = 'rgba(220,53,69,0.6)';
                 this.style.borderColor = 'rgba(220,53,69,0.8)';
                 this.style.opacity = '0.7';
                 this.style.transform = 'scale(1)';
-                this.style.boxShadow = '0 2px 8px rgba(220,53,69,0.3)';
+                /*this.style.boxShadow = '0 2px 8px rgba(220,53,69,0.3)';*/
             }};
             messageDiv.appendChild(deleteBtn);
             '''
@@ -588,7 +648,7 @@ class ChatDisplay:
             messageDiv.id = '{display_message_id}';
             messageDiv.setAttribute('data-message-id', '{message_id or display_message_id}');
             messageDiv.className = 'message';
-            messageDiv.style.cssText = 'margin:24px 0;padding:20px 20px;background:{bg_color};border-radius:4px;position:relative;border:none;';
+            messageDiv.style.cssText = 'margin:24px 0;padding:20px 20px;background:transparent;border-radius:4px;position:relative;border:none;';
             messageDiv.onmouseenter = function() {{ }};
             messageDiv.onmouseleave = function() {{ }};
             
@@ -607,7 +667,7 @@ class ChatDisplay:
                 this.style.color = 'rgba(240,240,240,0.85)';
                 this.style.opacity = '0.75';
                 this.style.transform = 'scale(1.05)';
-                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';
+                /*this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';*/
             }};
             copyBtn.onmouseleave = function() {{ 
                 this.style.background = 'rgba(95,95,100,0.45)';
@@ -615,13 +675,13 @@ class ChatDisplay:
                 this.style.color = 'rgba(208,208,208,0.7)';
                 this.style.opacity = '0.5';
                 this.style.transform = 'scale(1)';
-                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';
+                /*this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';*/
             }};
             
             var copyHtmlBtn = document.createElement('button');
             copyHtmlBtn.innerHTML = '🔗';
             copyHtmlBtn.title = 'HTML 코드 복사';
-            copyHtmlBtn.style.cssText = 'position:absolute;top:18px;right:80px;background:rgba(75,85,99,0.45);color:rgba(168,178,188,0.7);border:1px solid rgba(140,150,160,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;box-shadow:0 2px 4px rgba(0,0,0,0.125);';
+            copyHtmlBtn.style.cssText = 'position:absolute;top:18px;right:80px;background:rgba(75,85,99,0.45);color:rgba(168,178,188,0.7);border:1px solid rgba(140,150,160,0.3);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;opacity:0.5;transition:all 0.25s ease;font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;z-index:15;/*box-shadow:0 2px 4px rgba(0,0,0,0.125);*/';
             copyHtmlBtn.onclick = function() {{ copyHtmlMessage('{display_message_id}'); }};
             copyHtmlBtn.onmouseenter = function() {{ 
                 this.style.background = 'rgba(85,95,109,0.475)';
@@ -629,7 +689,7 @@ class ChatDisplay:
                 this.style.color = 'rgba(200,210,220,0.85)';
                 this.style.opacity = '0.75';
                 this.style.transform = 'scale(1.05)';
-                this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';
+                /*this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';*/
             }};
             copyHtmlBtn.onmouseleave = function() {{ 
                 this.style.background = 'rgba(75,85,99,0.45)';
@@ -637,7 +697,7 @@ class ChatDisplay:
                 this.style.color = 'rgba(168,178,188,0.7)';
                 this.style.opacity = '0.5';
                 this.style.transform = 'scale(1)';
-                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';
+                /*this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';*/
             }};
             
             {delete_button_js}
@@ -791,7 +851,7 @@ class ChatDisplay:
                 </div>
                 
                 <img id="{image_id}" src="{url}" alt="Generated Image" 
-                     style="display: none; max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);" 
+                     style="display: none; max-width: 100%; height: auto; border-radius: 8px; /*box-shadow: 0 4px 8px rgba(0,0,0,0.3);*/" 
                      onload="if(typeof showLoadedImage === 'function') showLoadedImage('{image_id}', '{url}')" 
                      onerror="if(typeof showImageError === 'function') showImageError('{image_id}')" />
             </div>

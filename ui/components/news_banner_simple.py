@@ -348,7 +348,7 @@ class NewsBanner(QWidget):
     def setup_ui(self):
         """UI 설정"""
         layout = QHBoxLayout()
-        layout.setContentsMargins(0, 5, 0, 5)
+        layout.setContentsMargins(8, 5, 8, 5)
         
         # 뉴스 레이블
         self.news_label = QLabel("[뉴스] 뉴스 서비스 준비 중...")

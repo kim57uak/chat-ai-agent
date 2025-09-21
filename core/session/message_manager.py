@@ -143,6 +143,24 @@ class MessageManager:
         except Exception as e:
             logger.error(f"메시지 수정 오류: {e}")
             return False
+    
+    @staticmethod
+    def find_session_by_message_id(message_id: int) -> Optional[int]:
+        """메시지 ID로부터 세션 ID 찾기"""
+        try:
+            with session_manager.db.get_connection() as conn:
+                cursor = conn.execute('''
+                    SELECT session_id FROM messages WHERE id = ?
+                ''', (message_id,))
+                
+                row = cursor.fetchone()
+                if row:
+                    return row['session_id']
+                return None
+                
+        except Exception as e:
+            logger.error(f"메시지 ID로 세션 찾기 오류: {e}")
+            return None
 
 
 # 전역 메시지 매니저 인스턴스

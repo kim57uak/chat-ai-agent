@@ -36,7 +36,6 @@ class MainWindow(QMainWindow):
         """Setup UI components."""
         # Central widget with splitter
         central_widget = QWidget(self)
-        central_widget.setStyleSheet("background-color: #0a0a0a !important; color: #f3f4f6 !important;")
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         
@@ -45,22 +44,7 @@ class MainWindow(QMainWindow):
         self.splitter.setHandleWidth(8)  # 핸들 너비 증가
         self.splitter.setChildrenCollapsible(False)  # 완전히 접히지 않도록
         
-        # 스플리터 스타일 설정
-        self.splitter.setStyleSheet("""
-            QSplitter::handle {
-                background-color: #333333;
-                border: 1px solid #555555;
-                border-radius: 3px;
-                margin: 2px;
-            }
-            QSplitter::handle:hover {
-                background-color: #444444;
-                border-color: #666666;
-            }
-            QSplitter::handle:pressed {
-                background-color: #555555;
-            }
-        """)
+        # 스플리터 스타일은 테마 적용 시 설정됨
         
         # Session panel (left)
         self.session_panel = SessionPanel(self)
@@ -71,7 +55,7 @@ class MainWindow(QMainWindow):
         # Chat widget with news banner (center)
         chat_container = QWidget()
         chat_layout = QVBoxLayout(chat_container)
-        chat_layout.setContentsMargins(8, 0, 8, 0)
+        chat_layout.setContentsMargins(0, 0, 0, 0)
         chat_layout.setSpacing(0)
         
         # News banner
@@ -82,7 +66,6 @@ class MainWindow(QMainWindow):
         
         # Chat widget
         self.chat_widget = ChatWidget(self)
-        self.chat_widget.setStyleSheet("background-color: #0a0a0a !important;")
         self.chat_widget.setMinimumWidth(400)  # 최소 너비 설정
         chat_layout.addWidget(self.chat_widget)
         
@@ -361,6 +344,9 @@ class MainWindow(QMainWindow):
             # 메뉴 체크 상태 업데이트
             self._update_theme_menu_checks(theme_key)
             
+            # 스플리터 테마 업데이트
+            self._apply_splitter_theme()
+            
         except Exception as e:
             print(f"테마 변경 오류: {e}")
     
@@ -370,6 +356,35 @@ class MainWindow(QMainWindow):
         """현재 테마 적용"""
         stylesheet = theme_manager.get_material_design_stylesheet()
         self.setStyleSheet(stylesheet)
+        
+        # 스플리터 스타일 동적 적용
+        self._apply_splitter_theme()
+    
+    def _apply_splitter_theme(self):
+        """스플리터 테마 적용"""
+        try:
+            colors = theme_manager.material_manager.get_theme_colors()
+            
+            splitter_style = f"""
+            QSplitter::handle {{
+                background-color: {colors.get('divider', '#333333')};
+                border: 1px solid {colors.get('surface', '#555555')};
+                border-radius: 3px;
+                margin: 2px;
+            }}
+            QSplitter::handle:hover {{
+                background-color: {colors.get('primary', '#444444')};
+                border-color: {colors.get('primary_variant', '#666666')};
+            }}
+            QSplitter::handle:pressed {{
+                background-color: {colors.get('primary_variant', '#555555')};
+            }}
+            """
+            
+            self.splitter.setStyleSheet(splitter_style)
+            
+        except Exception as e:
+            print(f"스플리터 테마 적용 오류: {e}")
     
     def _apply_saved_theme(self):
         """저장된 테마 적용"""

@@ -70,8 +70,9 @@ class MainWindow(QMainWindow):
         from ui.components.news_banner_simple import NewsBanner
         self.news_banner = NewsBanner(self)
         self.news_banner.setMaximumHeight(44)
-        self.news_banner.setContentsMargins(0, 0, 0, 2)
+        self.news_banner.setContentsMargins(0, 0, 0, 5)
         chat_layout.addWidget(self.news_banner)
+        chat_layout.addSpacing(3)  # 하단 영역과 간격 추가
         
         # Chat widget
         self.chat_widget = ChatWidget(self)

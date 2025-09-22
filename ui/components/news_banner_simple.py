@@ -412,7 +412,7 @@ class NewsBanner(QWidget):
         self.web_view.setFixedHeight(40)
 
         # 새로고침 버튼
-        self.refresh_btn = QPushButton("🔄")
+        self.refresh_btn = QPushButton("➤️")
         self.refresh_btn.setFixedSize(36, 36)
         self.refresh_btn.clicked.connect(self.refresh_news)
         self.refresh_btn.setToolTip("뉴스 새로고침")
@@ -535,8 +535,10 @@ class NewsBanner(QWidget):
         </html>
         """
         self.web_view.setHtml(html_template)
-        # 초기 테마 적용
-        QTimer.singleShot(100, self.apply_theme)
+        # 초기 테마 적용 - 즉시 적용 후 지연 적용
+        self.apply_theme()
+        QTimer.singleShot(200, self.apply_theme)
+        QTimer.singleShot(500, self.apply_theme)
     
     def _setup_web_channel(self):
         """웹채널 설정 - 링크 클릭 처리"""
@@ -740,7 +742,7 @@ class NewsBanner(QWidget):
                 primary_color = colors.get("primary", "#bb86fc")
                 secondary_color = colors.get("secondary", "#03dac6")
 
-                # 웹뷰 테마 업데이트
+                # 웹뷰 테마 업데이트 - 강화된 테마 적용
                 theme_js = f"""
                 try {{
                     // 기존 스타일 제거
@@ -750,9 +752,14 @@ class NewsBanner(QWidget):
                     const style = document.createElement('style');
                     style.id = 'news-theme-style';
                     style.textContent = `
-                        body {{
+                        * {{
+                            box-sizing: border-box !important;
+                        }}
+                        html, body {{
                             background-color: {bg_color} !important;
                             color: {text_color} !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
                         }}
                         .news-container {{
                             background-color: {bg_color} !important;
@@ -760,24 +767,42 @@ class NewsBanner(QWidget):
                             border: 1px solid {colors.get('divider', '#333333')} !important;
                             border-radius: 6px !important;
                             padding: 4px 6px !important;
+                            width: 100% !important;
+                            height: 100% !important;
                         }}
                         .news-text {{
                             color: {text_color} !important;
                             font-size: 12px !important;
+                            font-weight: 500 !important;
+                            text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
                         }}
                         .news-content {{
                             background-color: transparent !important;
+                            color: {text_color} !important;
+                        }}
+                        .news-image {{
+                            border: 1px solid {colors.get('divider', '#333333')} !important;
                         }}
                     `;
                     document.head.appendChild(style);
                     
                     // 배경색 직접 적용
-                    document.body.style.backgroundColor = '{bg_color}';
+                    document.body.style.setProperty('background-color', '{bg_color}', 'important');
+                    document.body.style.setProperty('color', '{text_color}', 'important');
+                    
                     const container = document.getElementById('news-display');
                     if (container) {{
-                        container.style.backgroundColor = '{bg_color}';
-                        container.style.color = '{text_color}';
+                        container.style.setProperty('background-color', '{bg_color}', 'important');
+                        container.style.setProperty('color', '{text_color}', 'important');
+                        container.style.setProperty('border', '1px solid {colors.get('divider', '#333333')}', 'important');
                     }}
+                    
+                    // 모든 텍스트 요소에 색상 강제 적용
+                    const textElements = document.querySelectorAll('.news-text, .news-content');
+                    textElements.forEach(el => {{
+                        el.style.setProperty('color', '{text_color}', 'important');
+                    }});
+                    
                 }} catch(e) {{
                     console.error('뉴스 배너 테마 업데이트 오류:', e);
                 }}
@@ -788,16 +813,19 @@ class NewsBanner(QWidget):
                     f"""
                     QPushButton {{
                         border: none;
-                        background-color: {primary_color};
+                        background-color: transparent;
                         border-radius: 18px;
-                        font-size: 14px;
-                        color: {colors.get('on_primary', '#000000')};
+                        font-size: 20px;
+                        color: {text_color};
+                        padding: 2px;
                     }}
                     QPushButton:hover {{
-                        background-color: {secondary_color};
+                        background-color: rgba(128, 128, 128, 0.2);
+                        transform: scale(1.1);
                     }}
                     QPushButton:pressed {{
-                        background-color: {colors.get('primary_variant', primary_color)};
+                        background-color: rgba(128, 128, 128, 0.3);
+                        transform: scale(0.95);
                     }}
                 """
                 )
@@ -816,13 +844,19 @@ class NewsBanner(QWidget):
                 """
                 QPushButton {
                     border: none;
-                    background-color: #007bff;
+                    background-color: transparent;
                     border-radius: 18px;
-                    font-size: 14px;
-                    color: white;
+                    font-size: 20px;
+                    color: #333333;
+                    padding: 2px;
                 }
                 QPushButton:hover {
-                    background-color: #0056b3;
+                    background-color: rgba(128, 128, 128, 0.2);
+                    transform: scale(1.1);
+                }
+                QPushButton:pressed {
+                    background-color: rgba(128, 128, 128, 0.3);
+                    transform: scale(0.95);
                 }
             """
             )

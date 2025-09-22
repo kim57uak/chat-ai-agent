@@ -12,6 +12,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QIcon, QAction
 from typing import Dict, List, Optional
 import logging
+import os
 from datetime import datetime
 
 from core.session import session_manager
@@ -312,21 +313,32 @@ class SessionPanel(QWidget):
         layout.setContentsMargins(8, 4, 4, 4)  # 좌측 여백 8px로 조정
         layout.setSpacing(6)  # 적절한 간격
         
-        # 헤더 - 더 큰 폰트와 명확한 아이콘
+        # 헤더 - 로고와 Sessions 라벨
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(4, 4, 4, 4)
-        header_label = QLabel("💬 Sessions")
-        header_font = QFont("SF Pro Display", 16, QFont.Weight.Bold)
-        header_label.setFont(header_font)
-        header_layout.addWidget(header_label)
+        header_layout.setSpacing(8)
         
-        # 새로고침 버튼 - 고급스러운 디자인
-        refresh_btn = QPushButton()
-        refresh_btn.setFixedSize(44, 44)
-        refresh_btn.setToolTip("세션 목록 새로고침")
-        refresh_btn.clicked.connect(self.load_sessions)
-        refresh_btn.setObjectName("refresh_button")
-        header_layout.addWidget(refresh_btn)
+        # 애플리케이션 로고
+        self.logo_label = QLabel()
+        if os.path.exists('image/app_icon_64.png'):
+            from PyQt6.QtGui import QPixmap
+            pixmap = QPixmap('image/app_icon_64.png')
+            self.logo_label.setPixmap(pixmap)
+            self.logo_label.setFixedSize(64, 64)
+        else:
+            self.logo_label.setText("🤖")
+            self.logo_label.setStyleSheet("font-size: 48px;")
+            self.logo_label.setFixedSize(64, 64)
+        self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(self.logo_label)
+        
+        # Sessions 라벨 (클릭 가능)
+        self.header_label = QLabel("Sessions")
+        header_font = QFont("SF Pro Display", 16, QFont.Weight.Bold)
+        self.header_label.setFont(header_font)
+        self.header_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.header_label.mousePressEvent = lambda e: self.load_sessions()
+        header_layout.addWidget(self.header_label, 1)
         
         layout.addLayout(header_layout)
         
@@ -996,17 +1008,11 @@ class SessionPanel(QWidget):
         # 스타일 적용
         self.setStyleSheet(panel_style)
         
-        # 헤더 라벨 찾아서 스타일 적용
-        for child in self.findChildren(QLabel):
-            if "Sessions" in child.text() or "세션" in child.text():
-                child.setStyleSheet(header_style)
-                break
+        # 헤더 라벨에 스타일 적용
+        if hasattr(self, 'header_label'):
+            self.header_label.setStyleSheet(header_style)
         
-        # 새로고침 버튼 찾아서 스타일 적용
-        for child in self.findChildren(QPushButton):
-            if child.objectName() == "refresh_button":
-                child.setStyleSheet(refresh_style)
-                break
+        # 새로고침 버튼은 제거됨
         
         self.search_edit.setStyleSheet(search_style)
         self.session_list.setStyleSheet(list_style)

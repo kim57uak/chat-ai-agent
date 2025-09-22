@@ -30,6 +30,14 @@ class MainWindow(QMainWindow):
         """Setup main window properties."""
         self._update_window_title()
         self.setGeometry(100, 100, 1400, 900)  # 창 크기 약간 증가
+        
+        # 애플리케이션 아이콘 설정
+        from PyQt6.QtGui import QIcon
+        if os.path.exists('image/app_icon_128.png'):
+            self.setWindowIcon(QIcon('image/app_icon_128.png'))
+        elif os.path.exists('image/Agentic_AI_transparent.png'):
+            self.setWindowIcon(QIcon('image/Agentic_AI_transparent.png'))
+        
         self._apply_current_theme()
     
     def _setup_ui(self) -> None:

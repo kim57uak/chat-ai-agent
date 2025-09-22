@@ -738,48 +738,62 @@ class SettingsDialog(QDialog):
             print(f"뉴스 설정 저장 오류: {e}")
     
     def _get_themed_dialog_style(self):
-        """테마 스타일 반환"""
+        """테마 스타일 반환 - Soft Shadow + Rounded Edge + Gradient Depth"""
         theme = material_theme_manager.get_current_theme()
         colors = theme.get('colors', {})
+        is_dark = colors.get('background', '#121212') in ['#121212', '#1e1e1e']
+        shadow_color = "rgba(0,0,0,0.3)" if is_dark else "rgba(0,0,0,0.15)"
         
         return f"""
             QDialog {{
-                background: {colors.get('background', '#121212')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('background', '#121212')}, 
+                    stop:1 {colors.get('surface', '#1e1e1e')});
                 color: {colors.get('text_primary', '#ffffff')};
                 font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                border-radius: 20px;
             }}
             QLabel {{
                 color: {colors.get('text_primary', '#ffffff')};
                 font-size: 14px;
                 font-weight: 600;
                 padding: 4px 0;
+                background: transparent;
             }}
             QComboBox, QLineEdit {{
-                background: {colors.get('surface', '#1e1e1e')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('surface', '#1e1e1e')}, 
+                    stop:1 {colors.get('background', '#121212')});
                 color: {colors.get('text_primary', '#ffffff')};
                 border: 2px solid {colors.get('primary', '#bb86fc')};
-                border-radius: 8px;
+                border-radius: 12px;
                 padding: 8px 12px;
                 font-size: 14px;
                 font-weight: 500;
                 min-height: 20px;
+                transition: all 0.3s ease;
             }}
             QComboBox:hover, QLineEdit:focus {{
                 border-color: {colors.get('secondary', '#03dac6')};
+                transform: translateY(-1px);
             }}
             QSpinBox {{
-                background: {colors.get('surface', '#1e1e1e')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('surface', '#1e1e1e')}, 
+                    stop:1 {colors.get('background', '#121212')});
                 color: {colors.get('text_primary', '#ffffff')};
                 border: 2px solid {colors.get('primary', '#bb86fc')};
-                border-radius: 8px;
+                border-radius: 12px;
                 padding: 8px 12px;
                 font-size: 14px;
                 font-weight: 500;
                 min-height: 20px;
                 padding-right: 40px;
+                transition: all 0.3s ease;
             }}
             QSpinBox:hover {{
                 border-color: {colors.get('secondary', '#03dac6')};
+                transform: translateY(-1px);
             }}
             QSpinBox::up-button {{
                 subcontrol-origin: border;
@@ -788,14 +802,21 @@ class SettingsDialog(QDialog):
                 height: 18px;
                 border-left: 2px solid {colors.get('divider', '#333333')};
                 border-bottom: 1px solid {colors.get('divider', '#333333')};
-                border-top-right-radius: 6px;
-                background: {colors.get('primary', '#bb86fc')};
+                border-top-right-radius: 10px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('primary', '#bb86fc')}, 
+                    stop:1 {colors.get('primary_variant', '#3700b3')});
+                transition: all 0.3s ease;
             }}
             QSpinBox::up-button:hover {{
-                background: {colors.get('secondary', '#03dac6')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('secondary', '#03dac6')}, 
+                    stop:1 {colors.get('primary', '#bb86fc')});
+                transform: translateY(-1px);
             }}
             QSpinBox::up-button:pressed {{
                 background: {colors.get('primary_variant', '#3700b3')};
+                transform: translateY(0px);
             }}
             QSpinBox::up-arrow {{
                 image: none;
@@ -812,14 +833,21 @@ class SettingsDialog(QDialog):
                 height: 18px;
                 border-left: 2px solid {colors.get('divider', '#333333')};
                 border-top: 1px solid {colors.get('divider', '#333333')};
-                border-bottom-right-radius: 6px;
-                background: {colors.get('primary', '#bb86fc')};
+                border-bottom-right-radius: 10px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('primary', '#bb86fc')}, 
+                    stop:1 {colors.get('primary_variant', '#3700b3')});
+                transition: all 0.3s ease;
             }}
             QSpinBox::down-button:hover {{
-                background: {colors.get('secondary', '#03dac6')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('secondary', '#03dac6')}, 
+                    stop:1 {colors.get('primary', '#bb86fc')});
+                transform: translateY(-1px);
             }}
             QSpinBox::down-button:pressed {{
                 background: {colors.get('primary_variant', '#3700b3')};
+                transform: translateY(0px);
             }}
             QSpinBox::down-arrow {{
                 image: none;
@@ -834,39 +862,56 @@ class SettingsDialog(QDialog):
                 font-size: 14px;
                 font-weight: 500;
                 spacing: 8px;
+                background: transparent;
             }}
             QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
                 border: 2px solid {colors.get('primary', '#bb86fc')};
-                border-radius: 4px;
-                background: {colors.get('surface', '#1e1e1e')};
+                border-radius: 6px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('surface', '#1e1e1e')}, 
+                    stop:1 {colors.get('background', '#121212')});
+                transition: all 0.3s ease;
             }}
             QCheckBox::indicator:checked {{
-                background: {colors.get('primary', '#bb86fc')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('primary', '#bb86fc')}, 
+                    stop:1 {colors.get('primary_variant', '#3700b3')});
                 border-color: {colors.get('secondary', '#03dac6')};
+                transform: translateY(-1px);
             }}
             QGroupBox {{
                 color: {colors.get('text_primary', '#ffffff')};
                 font-size: 16px;
                 font-weight: 700;
                 border: 2px solid {colors.get('divider', '#333333')};
-                border-radius: 12px;
+                border-radius: 16px;
                 margin-top: 15px;
                 padding-top: 20px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('surface', '#1e1e1e')}, 
+                    stop:1 {colors.get('background', '#121212')});
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 20px;
-                padding: 0 10px;
-                background: {colors.get('background', '#121212')};
+                padding: 4px 12px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('primary', '#bb86fc')}, 
+                    stop:1 {colors.get('primary_variant', '#3700b3')});
+                color: {colors.get('on_primary', '#000000')};
+                border-radius: 8px;
+                font-weight: 800;
             }}
         """
     
     def _get_tab_style(self):
-        """탭 스타일 반환"""
+        """탭 스타일 반환 - Soft Shadow + Rounded Edge + Gradient Depth"""
         theme = material_theme_manager.get_current_theme()
         colors = theme.get('colors', {})
+        is_dark = colors.get('background', '#121212') in ['#121212', '#1e1e1e']
+        shadow_color = "rgba(0,0,0,0.2)" if is_dark else "rgba(0,0,0,0.1)"
         
         return f"""
             QTabWidget {{
@@ -874,49 +919,69 @@ class SettingsDialog(QDialog):
                 border: none;
             }}
             QTabWidget::pane {{
-                background: {colors.get('surface', '#1e1e1e')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('surface', '#1e1e1e')}, 
+                    stop:1 {colors.get('background', '#121212')});
                 border: 2px solid {colors.get('divider', '#333333')};
-                border-radius: 12px;
+                border-radius: 16px;
                 margin-top: 5px;
+                transition: all 0.3s ease;
             }}
             QTabBar::tab {{
-                background: {colors.get('background', '#121212')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('background', '#121212')}, 
+                    stop:1 {colors.get('surface', '#1e1e1e')});
                 color: {colors.get('text_primary', '#ffffff')};
                 border: 2px solid {colors.get('divider', '#333333')};
                 padding: 12px 20px;
                 margin: 2px;
-                border-radius: 8px;
+                border-radius: 12px;
                 font-weight: 600;
                 font-size: 14px;
                 min-width: 80px;
+                transition: all 0.3s ease;
             }}
             QTabBar::tab:selected {{
-                background: {colors.get('primary', '#bb86fc')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('primary', '#bb86fc')}, 
+                    stop:1 {colors.get('primary_variant', '#3700b3')});
                 color: {colors.get('on_primary', '#000000')};
                 border-color: {colors.get('secondary', '#03dac6')};
                 font-weight: 700;
+                transform: translateY(-2px);
             }}
             QTabBar::tab:hover {{
-                background: {colors.get('primary_variant', '#3700b3')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('primary_variant', '#3700b3')}, 
+                    stop:1 {colors.get('primary', '#bb86fc')});
                 color: {colors.get('on_primary', '#ffffff')};
+                transform: translateY(-1px);
             }}
             QScrollArea {{
                 background: transparent;
                 border: none;
             }}
             QScrollBar:vertical {{
-                background: {colors.get('surface', '#1e1e1e')};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 {colors.get('surface', '#1e1e1e')}, 
+                    stop:1 {colors.get('background', '#121212')});
                 width: 12px;
                 border-radius: 6px;
                 margin: 0;
             }}
             QScrollBar::handle:vertical {{
-                background: {colors.get('primary', '#bb86fc')};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 {colors.get('primary', '#bb86fc')}, 
+                    stop:1 {colors.get('primary_variant', '#3700b3')});
                 border-radius: 6px;
                 min-height: 20px;
+                transition: all 0.3s ease;
             }}
             QScrollBar::handle:vertical:hover {{
-                background: {colors.get('secondary', '#03dac6')};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 {colors.get('secondary', '#03dac6')}, 
+                    stop:1 {colors.get('primary', '#bb86fc')});
+                transform: translateX(-1px);
             }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 height: 0px;
@@ -927,47 +992,62 @@ class SettingsDialog(QDialog):
         """
     
     def _get_save_button_style(self):
-        """저장 버튼 스타일"""
+        """저장 버튼 스타일 - 세션 패널 테마 버튼과 동일"""
         theme = material_theme_manager.get_current_theme()
         colors = theme.get('colors', {})
         
         return f"""
             QPushButton {{
-                background: {colors.get('primary', '#bb86fc')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('primary', '#bb86fc')}, 
+                    stop:1 {colors.get('primary_variant', '#3700b3')});
                 color: {colors.get('on_primary', '#000000')};
-                border: 2px solid {colors.get('secondary', '#03dac6')};
-                border-radius: 12px;
-                font-weight: 700;
+                border: none;
+                border-radius: 20px;
+                font-weight: 800;
                 font-size: 16px;
-                padding: 15px 30px;
-                min-width: 100px;
+                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                padding: 16px 20px;
+                margin: 6px;
+                transition: all 0.3s ease;
             }}
             QPushButton:hover {{
-                background: {colors.get('secondary', '#03dac6')};
-                color: {colors.get('on_secondary', '#000000')};
-                border-color: {colors.get('primary', '#bb86fc')};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('primary_variant', '#3700b3')}, 
+                    stop:1 {colors.get('primary', '#bb86fc')});
+                transform: translateY(-2px);
+            }}
+            QPushButton:pressed {{
+                background: {colors.get('primary_variant', '#3700b3')};
+                transform: translateY(0px);
             }}
         """
     
     def _get_cancel_button_style(self):
-        """취소 버튼 스타일"""
-        theme = material_theme_manager.get_current_theme()
-        colors = theme.get('colors', {})
-        
-        return f"""
-            QPushButton {{
-                background: {colors.get('surface', '#1e1e1e')};
-                color: {colors.get('text_primary', '#ffffff')};
-                border: 2px solid {colors.get('divider', '#333333')};
-                border-radius: 12px;
-                font-weight: 600;
+        """취소 버튼 스타일 - 빨간색 계열 고정 색상"""
+        return """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 #FF5252, 
+                    stop:1 #D32F2F);
+                color: #FFFFFF;
+                border: none;
+                border-radius: 20px;
+                font-weight: 800;
                 font-size: 16px;
-                padding: 15px 30px;
-                min-width: 100px;
-            }}
-            QPushButton:hover {{
-                background: {colors.get('error', '#cf6679')};
-                color: {colors.get('on_error', '#000000')};
-                border-color: {colors.get('error', '#cf6679')};
-            }}
+                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                padding: 16px 20px;
+                margin: 6px;
+                transition: all 0.3s ease;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 #D32F2F, 
+                    stop:1 #FF5252);
+                transform: translateY(-2px);
+            }
+            QPushButton:pressed {
+                background: #B71C1C;
+                transform: translateY(0px);
+            }
         """

@@ -138,9 +138,14 @@ class MaterialThemeManager:
         return theme.get("type", "dark") == "dark"
     
     def generate_qt_stylesheet(self) -> str:
-        """Qt 스타일시트 생성"""
+        """Qt 스타일시트 생성 - Soft Shadow + Rounded Edge + Gradient Depth 적용"""
         colors = self.get_theme_colors()
         loading_config = self.get_loading_bar_config()
+        is_dark = self.is_dark_theme()
+        
+        # 테마별 그림자 색상
+        shadow_color = "rgba(0,0,0,0.15)" if is_dark else "rgba(0,0,0,0.08)"
+        shadow_hover = "rgba(0,0,0,0.25)" if is_dark else "rgba(0,0,0,0.12)"
         
         return f"""
         QMainWindow {{
@@ -154,7 +159,9 @@ class MaterialThemeManager:
         }}
         
         QMenuBar {{
-            background-color: {colors.get('surface', '#1e1e1e')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('surface', '#1e1e1e')}, 
+                stop:1 {colors.get('background', '#121212')});
             color: {colors.get('text_primary', '#ffffff')};
             border: none;
             border-bottom: 1px solid {colors.get('divider', '#333333')};
@@ -167,64 +174,82 @@ class MaterialThemeManager:
         QMenuBar::item {{
             background: transparent;
             padding: 10px 16px;
-            border-radius: 6px;
+            border-radius: 12px;
             margin: 2px 4px;
+            transition: all 0.2s ease;
         }}
         
         QMenuBar::item:selected {{
-            background-color: {colors.get('primary', '#bb86fc')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('primary', '#bb86fc')}, 
+                stop:1 {colors.get('primary_variant', '#3700b3')});
             color: {colors.get('on_primary', '#000000')};
+            border-radius: 12px;
         }}
         
         QMenu {{
-            background-color: {colors.get('surface', '#1e1e1e')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('surface', '#1e1e1e')}, 
+                stop:1 {colors.get('background', '#121212')});
             color: {colors.get('text_primary', '#ffffff')};
             border: 1px solid {colors.get('divider', '#333333')};
-            border-radius: 8px;
-            padding: 8px;
+            border-radius: 16px;
+            padding: 12px;
         }}
         
         QMenu::item {{
             padding: 12px 20px;
-            border-radius: 6px;
+            border-radius: 10px;
             margin: 2px;
+            transition: all 0.2s ease;
         }}
         
         QMenu::item:selected {{
-            background-color: {colors.get('primary', '#bb86fc')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('primary', '#bb86fc')}, 
+                stop:1 {colors.get('primary_variant', '#3700b3')});
             color: {colors.get('on_primary', '#000000')};
         }}
         
         QPushButton {{
-            background-color: {colors.get('primary', '#bb86fc')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('primary', '#bb86fc')}, 
+                stop:1 {colors.get('primary_variant', '#3700b3')});
             color: {colors.get('on_primary', '#000000')};
             border: none;
-            border-radius: 8px;
+            border-radius: 16px;
             padding: 12px 24px;
             font-weight: 600;
             font-size: 14px;
+            transition: all 0.2s ease;
         }}
         
         QPushButton:hover {{
-            background-color: {colors.get('primary_variant', '#3700b3')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('primary_variant', '#3700b3')}, 
+                stop:1 {colors.get('primary', '#bb86fc')});
+            transform: translateY(-1px);
         }}
         
         QPushButton:pressed {{
-            background-color: {colors.get('primary_variant', '#3700b3')};
+            background: {colors.get('primary_variant', '#3700b3')};
+            transform: translateY(0px);
         }}
         
         QTextEdit {{
-            background-color: {colors.get('surface', '#1e1e1e')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('surface', '#1e1e1e')}, 
+                stop:1 {colors.get('background', '#121212')});
             color: {colors.get('text_primary', '#ffffff')};
             border: 1px solid {colors.get('divider', '#333333')};
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 16px;
+            padding: 16px;
             font-size: 14px;
             selection-background-color: {colors.get('primary', '#bb86fc')};
         }}
         
         QTextEdit:focus {{
-            border-color: {colors.get('primary', '#bb86fc')};
+            border: 2px solid {colors.get('primary', '#bb86fc')};
         }}
         
         QLabel {{
@@ -235,13 +260,13 @@ class MaterialThemeManager:
         QProgressBar {{
             border: none;
             background-color: {loading_config.get('background', 'rgba(187, 134, 252, 0.1)')};
-            border-radius: 8px;
+            border-radius: 12px;
             height: 8px;
         }}
         
         QProgressBar::chunk {{
             background: {loading_config.get('chunk', 'linear-gradient(90deg, #bb86fc 0%, #03dac6 100%)')};
-            border-radius: 6px;
+            border-radius: 10px;
         }}
         
         QScrollBar:vertical {{
@@ -252,7 +277,9 @@ class MaterialThemeManager:
         }}
         
         QScrollBar::handle:vertical {{
-            background: {colors.get('primary', '#bb86fc')};
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 {colors.get('primary', '#bb86fc')}, 
+                stop:1 {colors.get('primary_variant', '#3700b3')});
             border-radius: 6px;
             min-height: 20px;
         }}
@@ -359,35 +386,38 @@ class MaterialThemeManager:
         
         .message {{
             margin: 24px 0 !important;
-            padding: 16px 20px !important;
-            border-radius: 12px !important;
+            padding: 20px 24px !important;
+            border-radius: 20px !important;
             position: relative !important;
-            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
-            box-shadow: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12) !important;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1) !important;
         }}
         
         .message:hover {{
-            transform: translateY(-2px) !important;
-            box-shadow: 0px 3px 3px -2px rgba(0,0,0,0.2), 0px 3px 4px 0px rgba(0,0,0,0.14), 0px 1px 8px 0px rgba(0,0,0,0.12) !important;
+            transform: translateY(-4px) !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15) !important;
         }}
         
         .message.user {{
-            background: {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')} !important;
-            border-left: 3px solid {colors.get('user_border', '#bb86fc')} !important;
+            background: linear-gradient(135deg, {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')}, {colors.get('user_bg', 'rgba(187, 134, 252, 0.08)')}) !important;
+            border-left: 4px solid {colors.get('user_border', '#bb86fc')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
+            box-shadow: 0 4px 12px {colors.get('user_border', '#bb86fc')}20, 0 2px 4px rgba(0,0,0,0.1) !important;
         }}
         
         .message.ai {{
-            background: {colors.get('ai_bg', 'rgba(3, 218, 198, 0.12)')} !important;
-            border-left: 3px solid {colors.get('ai_border', '#03dac6')} !important;
+            background: linear-gradient(135deg, {colors.get('ai_bg', 'rgba(3, 218, 198, 0.12)')}, {colors.get('ai_bg', 'rgba(3, 218, 198, 0.08)')}) !important;
+            border-left: 4px solid {colors.get('ai_border', '#03dac6')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
+            box-shadow: 0 4px 12px {colors.get('ai_border', '#03dac6')}20, 0 2px 4px rgba(0,0,0,0.1) !important;
         }}
         
         .message.system {{
-            background: {colors.get('system_bg', 'rgba(179, 179, 179, 0.12)')} !important;
-            border-left: 3px solid {colors.get('system_border', '#b3b3b3')} !important;
+            background: linear-gradient(135deg, {colors.get('system_bg', 'rgba(179, 179, 179, 0.12)')}, {colors.get('system_bg', 'rgba(179, 179, 179, 0.08)')}) !important;
+            border-left: 4px solid {colors.get('system_border', '#b3b3b3')} !important;
             color: {colors.get('text_secondary', '#b3b3b3')} !important;
             font-size: 13px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
         }}
         
         .message-header {{
@@ -413,36 +443,39 @@ class MaterialThemeManager:
         
         .copy-message-btn {{
             position: absolute !important;
-            top: 12px !important;
-            right: 16px !important;
-            background-color: {colors.get('surface', '#1e1e1e')} !important;
+            top: 16px !important;
+            right: 20px !important;
+            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {colors.get('background', '#121212')}) !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
             border: 1px solid {colors.get('divider', '#333333')} !important;
-            padding: 6px 12px !important;
-            border-radius: 6px !important;
+            padding: 8px 16px !important;
+            border-radius: 12px !important;
             cursor: pointer !important;
             font-size: 12px !important;
             font-weight: 600 !important;
             opacity: 0 !important;
-            transition: all 0.2s ease !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
         }}
         
         .message:hover .copy-message-btn {{
             opacity: 1 !important;
+            transform: translateY(-1px) !important;
         }}
         
         .copy-message-btn:hover {{
-            background-color: {colors.get('primary', '#bb86fc')} !important;
+            background: linear-gradient(135deg, {colors.get('primary', '#bb86fc')}, {colors.get('primary_variant', '#3700b3')}) !important;
             color: {colors.get('on_primary', '#000000')} !important;
             border-color: {colors.get('primary', '#bb86fc')} !important;
+            box-shadow: 0 4px 12px {colors.get('primary', '#bb86fc')}40 !important;
         }}
         
         pre {{
-            background-color: {colors.get('code_bg', '#2d2d2d')} !important;
+            background: linear-gradient(135deg, {colors.get('code_bg', '#2d2d2d')}, {colors.get('surface', '#1e1e1e')}) !important;
             border: none !important;
-            border-radius: 8px !important;
-            padding: 16px !important;
-            margin: 16px 0 !important;
+            border-radius: 16px !important;
+            padding: 20px !important;
+            margin: 20px 0 !important;
             overflow-x: auto !important;
             font-family: 'Roboto Mono', 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace !important;
             font-size: 14px !important;
@@ -450,17 +483,18 @@ class MaterialThemeManager:
             line-height: 1.43 !important;
             letter-spacing: 0.25px !important;
             color: {code_text_color} !important;
-            box-shadow: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12) !important;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1) !important;
         }}
         
         code {{
-            background-color: {colors.get('code_bg', '#2d2d2d')} !important;
+            background: linear-gradient(135deg, {colors.get('code_bg', '#2d2d2d')}, {colors.get('surface', '#1e1e1e')}) !important;
             border: 1px solid {colors.get('code_border', '#404040')} !important;
-            border-radius: 4px !important;
-            padding: 2px 6px !important;
+            border-radius: 8px !important;
+            padding: 4px 8px !important;
             font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace !important;
             font-size: 12px !important;
             color: {code_text_color} !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         }}
         
         pre code {{
@@ -523,14 +557,15 @@ class MaterialThemeManager:
         }}
         
         blockquote {{
-            border-left: 3px solid {colors.get('primary', '#bb86fc')} !important;
-            padding-left: 16px !important;
-            margin: 12px 0 !important;
+            border-left: 4px solid {colors.get('primary', '#bb86fc')} !important;
+            padding-left: 20px !important;
+            margin: 16px 0 !important;
             color: {colors.get('text_secondary', '#b3b3b3')} !important;
             font-style: italic !important;
-            background: {colors.get('surface', '#1e1e1e')} !important;
-            padding: 12px 16px !important;
-            border-radius: 0 8px 8px 0 !important;
+            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {colors.get('background', '#121212')}) !important;
+            padding: 16px 20px !important;
+            border-radius: 0 16px 16px 0 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.05) !important;
         }}
         
         a {{
@@ -612,20 +647,22 @@ class MaterialThemeManager:
         table {{
             border-collapse: collapse !important;
             width: 100% !important;
-            margin: 12px 0 !important;
-            background-color: {colors.get('surface', '#1e1e1e')} !important;
+            margin: 16px 0 !important;
+            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {colors.get('background', '#121212')}) !important;
             border: 1px solid {colors.get('code_border', '#404040')} !important;
-            border-radius: 8px !important;
+            border-radius: 16px !important;
             overflow: hidden !important;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15) !important;
         }}
         
         th {{
-            background-color: {colors.get('primary', '#bb86fc')} !important;
+            background: linear-gradient(135deg, {colors.get('primary', '#bb86fc')}, {colors.get('primary_variant', '#3700b3')}) !important;
             color: {colors.get('on_primary', '#000000')} !important;
-            padding: 12px !important;
+            padding: 16px !important;
             text-align: left !important;
             font-weight: 600 !important;
             border-bottom: 2px solid {colors.get('primary_variant', '#3700b3')} !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.2) !important;
         }}
         
         td {{

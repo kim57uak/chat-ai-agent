@@ -1,5 +1,5 @@
 {
-  "current_theme": "eye_comfort",
+  "current_theme": "material_light",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -507,7 +507,7 @@
     },
     "deep_dark": {
       "name": "Deep Dark",
-      "type": "dark",
+      "type": "special",
       "colors": {
         "primary": "#1A1A1A",
         "primary_variant": "#0A0A0A",
@@ -543,7 +543,7 @@
     },
     "maga_theme": {
       "name": "MAGA",
-      "type": "light",
+      "type": "special",
       "colors": {
         "primary": "#DC143C",
         "primary_variant": "#B22222",
@@ -579,7 +579,7 @@
     },
     "mkga_theme": {
       "name": "MKGA - Make Korea Great Again",
-      "type": "dark",
+      "type": "special",
       "colors": {
         "primary": "#CD212A",
         "primary_variant": "#A01E28",
@@ -615,7 +615,7 @@
     },
     "ice_age": {
       "name": "Ice Age",
-      "type": "dark",
+      "type": "special",
       "colors": {
         "primary": "#87CEEB",
         "primary_variant": "#4682B4",
@@ -651,7 +651,7 @@
     },
     "crypto_bitcoin": {
       "name": "Bitcoin Gold",
-      "type": "dark",
+      "type": "special",
       "colors": {
         "primary": "#F7931A",
         "primary_variant": "#E8851C",
@@ -687,7 +687,7 @@
     },
     "crypto_ethereum": {
       "name": "Ethereum Blue",
-      "type": "dark",
+      "type": "special",
       "colors": {
         "primary": "#627EEA",
         "primary_variant": "#4B6CD6",
@@ -723,7 +723,7 @@
     },
     "eye_comfort": {
       "name": "Eye Comfort",
-      "type": "light",
+      "type": "special",
       "colors": {
         "primary": "#4A90A4",
         "primary_variant": "#357A8A",
@@ -759,7 +759,7 @@
     },
     "true_gray": {
       "name": "True Gray",
-      "type": "light",
+      "type": "special",
       "colors": {
         "primary": "#6B7280",
         "primary_variant": "#4B5563",

@@ -355,11 +355,13 @@ class TokenUsageDisplay(QWidget):
                     }}
                     
                     QGroupBox {{
-                        background-color: {surface_color};
-                        border: 1px solid {divider_color};
-                        border-radius: 12px;
-                        padding: 8px;
-                        margin: 4px;
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {surface_color}, 
+                            stop:1 {bg_color});
+                        border: 2px solid {divider_color};
+                        border-radius: 16px;
+                        padding: 12px;
+                        margin: 6px;
                         font-weight: 700;
                         font-size: 14px;
                         color: {text_color};
@@ -368,33 +370,43 @@ class TokenUsageDisplay(QWidget):
                     
                     QGroupBox::title {{
                         subcontrol-origin: margin;
-                        left: 8px;
-                        padding: 4px 8px;
-                        background: {primary_color};
+                        left: 12px;
+                        padding: 8px 16px;
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_color}, 
+                            stop:1 {primary_variant_color});
                         color: {on_primary_color};
-                        border-radius: 6px;
-                        font-weight: 700;
+                        border-radius: 12px;
+                        font-weight: 800;
                         font-size: 13px;
+                        border: 2px solid {primary_variant_color};
                     }}
                     
                     QPushButton {{
-                        background-color: {primary_color};
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_color}, 
+                            stop:1 {primary_variant_color});
                         color: {on_primary_color};
-                        border: 2px solid {primary_variant_color};
-                        padding: 12px 16px;
-                        border-radius: 14px;
-                        font-weight: 700;
-                        font-size: 14px;
+                        border: none;
+                        border-radius: 20px;
+                        font-weight: 800;
+                        font-size: 16px;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                        margin: 2px;
+                        padding: 16px 20px;
+                        margin: 6px;
+                        transition: all 0.3s ease;
                     }}
                     
                     QPushButton:hover {{
-                        background-color: {primary_variant_color};
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_variant_color}, 
+                            stop:1 {primary_color});
+                        transform: translateY(-2px);
                     }}
                     
                     QPushButton:pressed {{
-                        background-color: {primary_variant_color};
+                        background: {primary_variant_color};
+                        transform: translateY(0px);
                     }}
                     
                     QTabWidget {{
@@ -403,45 +415,59 @@ class TokenUsageDisplay(QWidget):
                     }}
                     
                     QTabWidget::pane {{
-                        background-color: {surface_color};
-                        border: 1px solid {divider_color};
-                        border-radius: 12px;
-                        margin: 2px;
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {surface_color}, 
+                            stop:1 {bg_color});
+                        border: 2px solid {divider_color};
+                        border-radius: 16px;
+                        margin: 4px;
+                        padding: 8px;
                     }}
                     
                     QTabBar::tab {{
-                        background-color: {bg_color};
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {bg_color}, 
+                            stop:1 {surface_color});
                         color: {text_color};
-                        border: 1px solid {divider_color};
-                        padding: 8px 16px;
-                        margin: 2px;
-                        border-radius: 6px;
-                        font-weight: 600;
+                        border: 2px solid {divider_color};
+                        padding: 10px 20px;
+                        margin: 3px;
+                        border-radius: 12px;
+                        font-weight: 700;
                         font-size: 13px;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
                     }}
                     
                     QTabBar::tab:selected {{
-                        background-color: {primary_color};
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_color}, 
+                            stop:1 {primary_variant_color});
                         color: {on_primary_color};
-                        border-color: {primary_variant_color};
-                        font-weight: 700;
+                        border: 3px solid {primary_variant_color};
+                        font-weight: 800;
+                        transform: translateY(-1px);
                     }}
                     
                     QTabBar::tab:hover {{
-                        background-color: {primary_variant_color};
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_variant_color}, 
+                            stop:1 {primary_color});
                         color: {on_primary_color};
+                        border: 2px solid {primary_color};
                     }}
                     
                     QTableWidget {{
-                        background-color: {surface_color};
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {surface_color}, 
+                            stop:1 {bg_color});
                         color: {text_color};
-                        border: 1px solid {divider_color};
-                        border-radius: 12px;
+                        border: 2px solid {divider_color};
+                        border-radius: 16px;
                         gridline-color: {divider_color};
                         font-size: 13px;
-                        font-weight: 500;
+                        font-weight: 600;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 4px;
                     }}
                     
                     QTableWidget::item {{
@@ -455,40 +481,51 @@ class TokenUsageDisplay(QWidget):
                     }}
                     
                     QHeaderView::section {{
-                        background-color: {primary_color};
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_color}, 
+                            stop:1 {primary_variant_color});
                         color: {on_primary_color};
-                        border: 1px solid {primary_variant_color};
-                        padding: 8px;
-                        font-weight: 700;
+                        border: 2px solid {primary_variant_color};
+                        padding: 12px;
+                        font-weight: 800;
                         font-size: 12px;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        border-radius: 8px;
                     }}
                     
                     QTextEdit {{
-                        background-color: {bg_color};
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {bg_color}, 
+                            stop:1 {surface_color});
                         color: {text_color};
-                        border: 1px solid {divider_color};
-                        border-radius: 12px;
-                        padding: 8px;
+                        border: 2px solid {divider_color};
+                        border-radius: 16px;
+                        padding: 12px;
                         font-size: 13px;
-                        font-weight: 500;
+                        font-weight: 600;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
                         selection-background-color: {primary_color};
                     }}
                     
                     QProgressBar {{
-                        background-color: {surface_color};
-                        border: 1px solid {divider_color};
-                        border-radius: 8px;
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {surface_color}, 
+                            stop:1 {bg_color});
+                        border: 2px solid {divider_color};
+                        border-radius: 12px;
                         text-align: center;
-                        font-weight: 600;
+                        font-weight: 700;
                         font-size: 12px;
                         color: {text_color};
+                        padding: 2px;
                     }}
                     
                     QProgressBar::chunk {{
-                        background-color: {primary_color};
-                        border-radius: 6px;
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_color}, 
+                            stop:1 {primary_variant_color});
+                        border-radius: 10px;
+                        margin: 1px;
                     }}
                 """)
         except Exception as e:

@@ -156,42 +156,26 @@ class ChatWidget(QWidget):
         button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.setSpacing(2)  # 버튼 간격 줄임
         
-        # 버튼들 - 투명한 이모지 버튼 (35% 증가)
-        transparent_button_style = """
-        QPushButton {
-            background: transparent;
-            border: none;
-            font-size: 28px;
-        }
-        QPushButton:hover {
-            background: transparent;
-            font-size: 38px;
-        }
-        QPushButton:pressed {
-            background: transparent;
-            font-size: 26px;
-        }
-        QPushButton:disabled {
-            background: transparent;
-        }
-        """
+        # 버튼들 - 테마 색상 적용된 이모지 버튼
+        themed_button_style = self._get_themed_button_style()
+        cancel_button_style = self._get_cancel_button_style()
         
         self.send_button = QPushButton('🚀', self)
-        self.send_button.setFixedSize(88, 55)
-        self.send_button.setStyleSheet(transparent_button_style)
+        self.send_button.setFixedSize(114, 114)
+        self.send_button.setStyleSheet(themed_button_style)
         self.send_button.setToolTip("전송")
         
         # 템플릿 버튼 삭제 - 좌측 패널로 이동
         
         self.upload_button = QPushButton('📎', self)
-        self.upload_button.setFixedSize(88, 55)
-        self.upload_button.setStyleSheet(transparent_button_style)
+        self.upload_button.setFixedSize(114, 114)
+        self.upload_button.setStyleSheet(themed_button_style)
         self.upload_button.setToolTip("파일")
         
         self.cancel_button = QPushButton('❌', self)
-        self.cancel_button.setFixedSize(88, 55)
+        self.cancel_button.setFixedSize(114, 114)
         self.cancel_button.setVisible(False)
-        self.cancel_button.setStyleSheet(transparent_button_style)
+        self.cancel_button.setStyleSheet(cancel_button_style)
         self.cancel_button.setToolTip("취소")
         
         # 버튼 순서: 전송 / 파일
@@ -886,10 +870,61 @@ class ChatWidget(QWidget):
             if hasattr(self, 'input_container'):
                 self.input_container.update()
             
+            # 버튼 스타일도 업데이트
+            self._update_button_styles()
+            
             print("테마 업데이트 완료")
             
         except Exception as e:
             print(f"테마 업데이트 오류: {e}")
+    
+    def _update_button_styles(self):
+        """버튼 스타일 업데이트"""
+        try:
+            themed_button_style = self._get_themed_button_style()
+            cancel_button_style = self._get_cancel_button_style()
+            
+            if hasattr(self, 'send_button'):
+                self.send_button.setStyleSheet(themed_button_style)
+            if hasattr(self, 'upload_button'):
+                self.upload_button.setStyleSheet(themed_button_style)
+            if hasattr(self, 'cancel_button'):
+                self.cancel_button.setStyleSheet(cancel_button_style)
+        except Exception as e:
+            print(f"버튼 스타일 업데이트 오류: {e}")
+    
+    def _get_cancel_button_style(self):
+        """취소 버튼 전용 빨간색 스타일"""
+        return """
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 #FF5252, 
+                stop:1 #D32F2F);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            transition: all 0.3s ease;
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 #D32F2F, 
+                stop:1 #FF5252);
+            transform: translateY(-2px);
+            font-size: 22px;
+        }
+        QPushButton:pressed {
+            background: #B71C1C;
+            transform: translateY(0px);
+            font-size: 18px;
+        }
+        QPushButton:disabled {
+            background: rgba(255, 82, 82, 0.5);
+            opacity: 0.5;
+        }
+        """
     
     def _apply_material_theme_styles(self):
         """재료 테마 스타일 적용"""
@@ -929,50 +964,91 @@ class ChatWidget(QWidget):
             self.loading_bar.setStyleSheet(loading_style)
     
     def _apply_material_input_styles(self, colors):
-        """재료 테마 입력 영역 스타일 적용"""
-        # 입력 컨테이너 스타일
+        """재료 테마 입력 영역 스타일 적용 - Soft Shadow + Rounded Edge + Gradient Depth"""
+        is_dark = theme_manager.is_material_dark_theme()
+        shadow_color = "rgba(0,0,0,0.15)" if is_dark else "rgba(0,0,0,0.08)"
+        
+        # 입력 컨테이너 스타일 - Gradient Depth + Soft Shadow
         container_style = f"""
         QWidget {{
-            background-color: {colors.get('surface', '#1e1e1e')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('surface', '#1e1e1e')}, 
+                stop:1 {colors.get('background', '#121212')});
             border: 2px solid {colors.get('primary', '#bb86fc')};
-            border-radius: 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }}
+        QWidget:focus-within {{
+            border: 3px solid {colors.get('primary', '#bb86fc')};
+            transform: translateY(-2px);
         }}
         """
         
-        # 투명한 버튼 스타일
-        transparent_button_style = """
-        QPushButton {
+        # 투명한 버튼 스타일 - 호버 시 그라데이션 효과
+        transparent_button_style = f"""
+        QPushButton {{
             background: transparent;
             border: none;
             font-size: 28px;
-        }
-        QPushButton:hover {
-            background: transparent;
+            border-radius: 14px;
+            transition: all 0.3s ease;
+        }}
+        QPushButton:hover {{
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('primary', '#bb86fc')}40, 
+                stop:1 {colors.get('primary_variant', '#3700b3')}20);
             font-size: 38px;
-        }
-        QPushButton:pressed {
-            background: transparent;
+            transform: translateY(-1px);
+        }}
+        QPushButton:pressed {{
+            background: {colors.get('primary', '#bb86fc')}60;
             font-size: 26px;
-        }
-        QPushButton:disabled {
+            transform: translateY(0px);
+        }}
+        QPushButton:disabled {{
             background: transparent;
-        }
+            opacity: 0.5;
+        }}
+        """
+        
+        # 드래그 핸들 스타일 - Rounded Edge + Gradient
+        drag_handle_style = f"""
+        QWidget {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 {colors.get('divider', '#666666')}, 
+                stop:1 {colors.get('text_secondary', '#888888')});
+            border-radius: 6px;
+            margin: 2px 20px;
+            transition: all 0.3s ease;
+        }}
+        QWidget:hover {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 {colors.get('text_secondary', '#888888')}, 
+                stop:1 {colors.get('primary', '#bb86fc')});
+            transform: translateY(-1px);
+        }}
         """
         
         # 스타일 적용
         if hasattr(self, 'input_container'):
             self.input_container.setStyleSheet(container_style)
         
+        if hasattr(self, 'drag_handle'):
+            self.drag_handle.setStyleSheet(drag_handle_style)
+        
         # 입력창 스타일 업데이트
         self._update_input_text_style(colors)
         
-        # 버튼 스타일 업데이트
+        # 버튼 스타일 업데이트 - 테마 색상 적용
+        themed_button_style = self._get_themed_button_style(colors)
+        cancel_button_style = self._get_cancel_button_style()
+        
         if hasattr(self, 'send_button'):
-            self.send_button.setStyleSheet(transparent_button_style)
-        if hasattr(self, 'cancel_button'):
-            self.cancel_button.setStyleSheet(transparent_button_style)
+            self.send_button.setStyleSheet(themed_button_style)
         if hasattr(self, 'upload_button'):
-            self.upload_button.setStyleSheet(transparent_button_style)
+            self.upload_button.setStyleSheet(themed_button_style)
+        if hasattr(self, 'cancel_button'):
+            self.cancel_button.setStyleSheet(cancel_button_style)
     
     def _on_conversation_completed(self, _):
         """대화 완료 시 토큰 누적기 종료"""
@@ -1236,6 +1312,94 @@ class ChatWidget(QWidget):
     def _end_drag(self, event):
         """드래그 종료"""
         self._dragging = False
+    
+    def _get_themed_button_style(self, colors=None):
+        """테마 색상을 적용한 버튼 스타일 생성 - 세션 패널과 동일한 스타일"""
+        try:
+            if theme_manager.use_material_theme:
+                if not colors:
+                    colors = theme_manager.material_manager.get_theme_colors()
+                
+                primary_color = colors.get('primary', '#bb86fc')
+                primary_variant = colors.get('primary_variant', '#3700b3')
+                on_primary = colors.get('on_primary', '#000000')
+                
+                # 세션 패널과 동일한 그라디언트 스타일
+                return f"""
+                QPushButton {{
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {primary_color}, 
+                        stop:1 {primary_variant});
+                    color: {on_primary};
+                    border: none;
+                    border-radius: 12px;
+                    font-weight: 800;
+                    font-size: 20px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    transition: all 0.3s ease;
+                }}
+                QPushButton:hover {{
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {primary_variant}, 
+                        stop:1 {primary_color});
+                    transform: translateY(-2px);
+                    font-size: 22px;
+                }}
+                QPushButton:pressed {{
+                    background: {primary_variant};
+                    transform: translateY(0px);
+                    font-size: 18px;
+                }}
+                QPushButton:disabled {{
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 #9E9E9E, 
+                        stop:1 #757575);
+                    color: #BDBDBD;
+                    opacity: 0.6;
+                }}
+                """
+            else:
+                # Flat 테마 기본 스타일
+                return """
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                    font-size: 20px;
+                }
+                QPushButton:hover {
+                    background: transparent;
+                    font-size: 22px;
+                }
+                QPushButton:pressed {
+                    background: transparent;
+                    font-size: 18px;
+                }
+                QPushButton:disabled {
+                    background: #E0E0E0;
+                    color: #9E9E9E;
+                    opacity: 0.6;
+                }
+                """
+        except Exception as e:
+            print(f"버튼 스타일 생성 오류: {e}")
+            return """
+            QPushButton {
+                background: transparent;
+                border: none;
+                font-size: 20px;
+            }
+            QPushButton:hover {
+                background: transparent;
+                font-size: 22px;
+            }
+            QPushButton:pressed {
+                background: transparent;
+                font-size: 18px;
+            }
+            QPushButton:disabled {
+                background: transparent;
+            }
+            """
     
     def _setup_scroll_listener(self):
         """스크롤 이벤트 리스너 설정"""

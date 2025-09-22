@@ -27,92 +27,172 @@ class TemplateDialog(QDialog):
         self._connect_signals()
     
     def _apply_modern_style(self):
-        """현대적 스타일 적용"""
+        """현대적 스타일 적용 - Soft Shadow + Rounded Edge + Gradient Depth"""
         if theme_manager.use_material_theme:
             colors = theme_manager.material_manager.get_theme_colors()
+            is_dark = colors.get('background', '#121212') in ['#121212', '#1e1e1e']
+            shadow_color = "rgba(0,0,0,0.3)" if is_dark else "rgba(0,0,0,0.15)"
+            
             self.setStyleSheet(f"""
                 QDialog {{
-                    background-color: {colors.get('background', '#121212')};
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('background', '#121212')}, 
+                        stop:1 {colors.get('surface', '#1e1e1e')});
                     color: {colors.get('text_primary', '#ffffff')};
+                    border-radius: 20px;
                 }}
                 QGroupBox {{
                     font-weight: 600;
                     font-size: 14px;
                     color: {colors.get('text_primary', '#ffffff')};
                     border: 2px solid {colors.get('divider', '#333333')};
-                    border-radius: 12px;
+                    border-radius: 16px;
                     margin-top: 12px;
                     padding-top: 8px;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('surface', '#1e1e1e')}, 
+                        stop:1 {colors.get('background', '#121212')});
                 }}
                 QGroupBox::title {{
                     subcontrol-origin: margin;
                     left: 16px;
-                    padding: 0 8px 0 8px;
-                    background-color: {colors.get('background', '#121212')};
+                    padding: 4px 12px;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('primary', '#bb86fc')}, 
+                        stop:1 {colors.get('primary_variant', '#3700b3')});
+                    color: {colors.get('on_primary', '#000000')};
+                    border-radius: 8px;
+                    font-weight: 800;
                 }}
                 QListWidget {{
-                    background-color: {colors.get('surface', '#1e1e1e')};
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('surface', '#1e1e1e')}, 
+                        stop:1 {colors.get('background', '#121212')});
                     border: 1px solid {colors.get('divider', '#333333')};
-                    border-radius: 8px;
+                    border-radius: 12px;
                     padding: 8px;
                     font-size: 14px;
                 }}
                 QListWidget::item {{
                     padding: 12px 16px;
                     margin: 2px 0;
-                    border-radius: 6px;
+                    border-radius: 10px;
                     border: none;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('background', '#121212')}, 
+                        stop:1 {colors.get('surface', '#1e1e1e')});
+                    transition: all 0.3s ease;
                 }}
                 QListWidget::item:selected {{
-                    background-color: {colors.get('primary', '#bb86fc')};
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('primary', '#bb86fc')}, 
+                        stop:1 {colors.get('primary_variant', '#3700b3')});
                     color: {colors.get('on_primary', '#000000')};
+                    transform: translateY(-1px);
                 }}
                 QListWidget::item:hover {{
-                    background-color: {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')};
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')}, 
+                        stop:1 {colors.get('surface', '#1e1e1e')});
+                    transform: translateY(-1px);
                 }}
                 QPushButton {{
-                    background-color: {colors.get('primary', '#bb86fc')};
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('primary', '#bb86fc')}, 
+                        stop:1 {colors.get('primary_variant', '#3700b3')});
                     color: {colors.get('on_primary', '#000000')};
                     border: none;
-                    border-radius: 8px;
+                    border-radius: 12px;
                     padding: 12px 20px;
                     font-weight: 600;
                     font-size: 14px;
                     min-height: 20px;
+                    transition: all 0.3s ease;
                 }}
                 QPushButton:hover {{
-                    background-color: {colors.get('primary_variant', '#3700b3')};
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('secondary', '#03dac6')}, 
+                        stop:1 {colors.get('primary', '#bb86fc')});
+                    transform: translateY(-2px);
+                }}
+                QPushButton:pressed {{
+                    background: {colors.get('primary_variant', '#3700b3')};
+                    transform: translateY(0px);
                 }}
                 QTextEdit, QLineEdit {{
-                    background-color: {colors.get('surface', '#1e1e1e')};
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('surface', '#1e1e1e')}, 
+                        stop:1 {colors.get('background', '#121212')});
                     color: {colors.get('text_primary', '#ffffff')};
                     border: 1px solid {colors.get('divider', '#333333')};
-                    border-radius: 8px;
+                    border-radius: 12px;
                     padding: 12px;
                     font-size: 14px;
+                    transition: all 0.3s ease;
                 }}
                 QTextEdit:focus, QLineEdit:focus {{
                     border-color: {colors.get('primary', '#bb86fc')};
                     border-width: 2px;
+                    transform: translateY(-1px);
                 }}
                 QComboBox {{
-                    background-color: {colors.get('surface', '#1e1e1e')};
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('surface', '#1e1e1e')}, 
+                        stop:1 {colors.get('background', '#121212')});
                     color: {colors.get('text_primary', '#ffffff')};
                     border: 1px solid {colors.get('divider', '#333333')};
-                    border-radius: 8px;
+                    border-radius: 12px;
                     padding: 8px 12px;
                     font-size: 14px;
                     min-height: 20px;
+                    transition: all 0.3s ease;
+                }}
+                QComboBox:hover {{
+                    border-color: {colors.get('primary', '#bb86fc')};
+                    transform: translateY(-1px);
                 }}
                 QCheckBox {{
                     color: {colors.get('text_primary', '#ffffff')};
                     font-size: 14px;
                     spacing: 8px;
+                    background: transparent;
+                }}
+                QCheckBox::indicator {{
+                    width: 18px;
+                    height: 18px;
+                    border: 2px solid {colors.get('primary', '#bb86fc')};
+                    border-radius: 6px;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('surface', '#1e1e1e')}, 
+                        stop:1 {colors.get('background', '#121212')});
+                    transition: all 0.3s ease;
+                }}
+                QCheckBox::indicator:checked {{
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {colors.get('primary', '#bb86fc')}, 
+                        stop:1 {colors.get('primary_variant', '#3700b3')});
+                    border-color: {colors.get('secondary', '#03dac6')};
+                    transform: translateY(-1px);
                 }}
                 QLabel {{
                     color: {colors.get('text_primary', '#ffffff')};
                     font-size: 14px;
                     font-weight: 500;
+                    background: transparent;
+                }}
+                QSplitter::handle {{
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                        stop:0 {colors.get('divider', '#333333')}, 
+                        stop:1 {colors.get('text_secondary', '#888888')});
+                    border-radius: 6px;
+                    margin: 2px;
+                    transition: all 0.3s ease;
+                }}
+                QSplitter::handle:hover {{
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                        stop:0 {colors.get('text_secondary', '#888888')}, 
+                        stop:1 {colors.get('primary', '#bb86fc')});
+                    transform: translateY(-1px);
                 }}
             """)
     
@@ -139,7 +219,7 @@ class TemplateDialog(QDialog):
         
         layout.addLayout(top_layout)
         
-        # 메인 스플리터
+        # 메인 스플리터 - Soft Shadow + Rounded Edge + Gradient Depth
         splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # 왼쪽: 템플릿 목록

@@ -1,7 +1,7 @@
 """Modern animated progress bar with neon effects and particles"""
 
 from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty, QRect
+from PyQt6.QtCore import QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty, QRect, QRectF
 from PyQt6.QtGui import QPainter, QLinearGradient, QColor, QPen, QBrush, QRadialGradient
 from PyQt6.QtCore import Qt
 import math
@@ -42,22 +42,38 @@ class ModernProgressBar(QWidget):
     
     def start_animation(self):
         """애니메이션 시작"""
-        if not self.animation_timer.isActive():
-            self.animation_timer.start()
-        if not self.particle_timer.isActive():
-            self.particle_timer.start()
+        from PyQt6.QtCore import QThread
+        
+        # 메인 스레드에서만 타이머 시작
+        if QThread.currentThread() == self.thread():
+            if not self.animation_timer.isActive():
+                self.animation_timer.start()
+            if not self.particle_timer.isActive():
+                self.particle_timer.start()
+        else:
+            # 메인 스레드가 아닌 경우 메타콜로 실행
+            from PyQt6.QtCore import QMetaObject, Qt
+            QMetaObject.invokeMethod(self, "start_animation", Qt.ConnectionType.QueuedConnection)
     
     def stop_animation(self):
         """애니메이션 중지"""
-        if self.animation_timer.isActive():
-            self.animation_timer.stop()
-        if self.particle_timer.isActive():
-            self.particle_timer.stop()
-        self.particles.clear()
-        # 애니메이션 상태 초기화
-        self._animation_offset = 0.0
-        self.color_phase = 0.0
-        self.update()
+        from PyQt6.QtCore import QThread
+        
+        # 메인 스레드에서만 타이머 중지
+        if QThread.currentThread() == self.thread():
+            if self.animation_timer.isActive():
+                self.animation_timer.stop()
+            if self.particle_timer.isActive():
+                self.particle_timer.stop()
+            self.particles.clear()
+            # 애니메이션 상태 초기화
+            self._animation_offset = 0.0
+            self.color_phase = 0.0
+            self.update()
+        else:
+            # 메인 스레드가 아닌 경우 메타콜로 실행
+            from PyQt6.QtCore import QMetaObject, Qt
+            QMetaObject.invokeMethod(self, "stop_animation", Qt.ConnectionType.QueuedConnection)
     
     def set_indeterminate(self, indeterminate: bool):
         """무한 로딩 모드 설정"""
@@ -214,11 +230,36 @@ class ModernProgressBar(QWidget):
         self._paint_particles(painter)
     
     def _paint_indeterminate(self, painter: QPainter, rect: QRect):
-        """넓고 자유로운 선형 움직임의 고급스러운 애니메이션"""
+        """넓고 자유로운 선형 움직임의 고급스러운 애니메이션 - Soft Shadow + Rounded Edge + Gradient Depth"""
         from PyQt6.QtGui import QPainterPath
         
         width = rect.width()
         height = rect.height()
+        
+        # 전체 로딩바 배경 - Rounded Edge + Gradient Depth
+        background_path = QPainterPath()
+        background_path.addRoundedRect(QRectF(rect), height/2, height/2)
+        
+        # 배경 그라디언트
+        bg_gradient = QLinearGradient(0, 0, 0, height)
+        try:
+            from ui.styles.theme_manager import theme_manager
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                bg_color1 = colors.get('surface', '#1e1e1e')
+                bg_color2 = colors.get('background', '#121212')
+            else:
+                bg_color1 = '#1e1e1e'
+                bg_color2 = '#121212'
+        except:
+            bg_color1 = '#1e1e1e'
+            bg_color2 = '#121212'
+            
+        bg_gradient.setColorAt(0, QColor(bg_color1))
+        bg_gradient.setColorAt(1, QColor(bg_color2))
+        painter.setBrush(QBrush(bg_gradient))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawPath(background_path)
         
         # 여러 개의 넓은 웨이브 레이어 생성
         for layer in range(5):
@@ -235,7 +276,7 @@ class ModernProgressBar(QWidget):
             wave_width = width * 0.8  # 전체 폭의 80%
             wave_height = height * 0.9
             
-            # 부드러운 웨이브 패스 생성
+            # 부드러운 웨이브 패스 생성 - Rounded Edge
             path = QPainterPath()
             
             # 웨이브의 시작과 끝 지점
@@ -286,12 +327,12 @@ class ModernProgressBar(QWidget):
                 
                 path.closeSubpath()
                 
-                # 고급스러운 그라디언트 색상
+                # 고급스러운 그라디언트 색상 - Gradient Depth
                 alpha = 0.7 - layer * 0.1
                 color_phase = self.color_phase + layer * math.pi / 4
                 wave_color = self._get_modern_color(color_phase, alpha)
                 
-                # 넓은 선형 그라디언트
+                # 넓은 선형 그라디언트 - Gradient Depth
                 gradient = QLinearGradient(start_x, 0, end_x, 0)
                 gradient.setColorAt(0, QColor(wave_color.red(), wave_color.green(), wave_color.blue(), 0))
                 gradient.setColorAt(0.1, QColor(wave_color.red(), wave_color.green(), wave_color.blue(), int(wave_color.alpha() * 0.3)))
@@ -303,25 +344,54 @@ class ModernProgressBar(QWidget):
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.drawPath(path)
         
-        # 전체적인 배경 글로우 효과
+        # 전체적인 배경 글로우 효과 - Soft Shadow
         glow_gradient = QLinearGradient(0, 0, width, 0)
         glow_color = self._get_modern_color(self.color_phase, 0.15)
         glow_gradient.setColorAt(0, QColor(glow_color.red(), glow_color.green(), glow_color.blue(), 0))
         glow_gradient.setColorAt(0.5, glow_color)
         glow_gradient.setColorAt(1, QColor(glow_color.red(), glow_color.green(), glow_color.blue(), 0))
         
+        # Rounded Edge 적용
+        glow_path = QPainterPath()
+        glow_path.addRoundedRect(QRectF(rect), height/2, height/2)
         painter.setBrush(QBrush(glow_gradient))
-        painter.drawRect(0, 0, width, height)
+        painter.drawPath(glow_path)
     
     def _paint_determinate(self, painter: QPainter, rect: QRect):
-        """진행률 표시 애니메이션 그리기"""
+        """진행률 표시 애니메이션 그리기 - Soft Shadow + Rounded Edge + Gradient Depth"""
+        from PyQt6.QtGui import QPainterPath
+        
         progress_width = int(rect.width() * self._progress)
         progress_rect = QRect(rect.x() + 2, rect.y() + 2, 
                             progress_width - 4, rect.height() - 4)
         
+        # 배경 - Rounded Edge + Gradient Depth
+        bg_path = QPainterPath()
+        bg_path.addRoundedRect(QRectF(rect), rect.height()/2, rect.height()/2)
+        
+        try:
+            from ui.styles.theme_manager import theme_manager
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                bg_color1 = colors.get('surface', '#1e1e1e')
+                bg_color2 = colors.get('background', '#121212')
+            else:
+                bg_color1 = '#1e1e1e'
+                bg_color2 = '#121212'
+        except:
+            bg_color1 = '#1e1e1e'
+            bg_color2 = '#121212'
+            
+        bg_gradient = QLinearGradient(0, 0, 0, rect.height())
+        bg_gradient.setColorAt(0, QColor(bg_color1))
+        bg_gradient.setColorAt(1, QColor(bg_color2))
+        painter.setBrush(QBrush(bg_gradient))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawPath(bg_path)
+        
         if progress_width > 4:
-            # Progress gradient
-            gradient = QLinearGradient(0, 0, progress_width, 0)
+            # Progress gradient - Gradient Depth
+            gradient = QLinearGradient(0, 0, 0, rect.height())
             
             # Animated colors based on progress
             base_phase = self.color_phase + self._progress * math.pi
@@ -333,18 +403,24 @@ class ModernProgressBar(QWidget):
             gradient.setColorAt(0.5, color2)
             gradient.setColorAt(1, color3)
             
+            # Progress path - Rounded Edge
+            progress_path = QPainterPath()
+            progress_path.addRoundedRect(QRectF(progress_rect), progress_rect.height()/2, progress_rect.height()/2)
+            
             painter.setBrush(QBrush(gradient))
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRoundedRect(progress_rect, 4, 4)
+            painter.drawPath(progress_path)
             
-            # Progress glow
+            # Progress glow - Soft Shadow
             glow_gradient = QRadialGradient(progress_width, rect.height() / 2, rect.height() * 1.5)
             glow_color = self._get_modern_color(base_phase, 0.4)
             glow_gradient.setColorAt(0, glow_color)
             glow_gradient.setColorAt(1, QColor(0, 0, 0, 0))
             
+            glow_path = QPainterPath()
+            glow_path.addRoundedRect(QRectF(rect), rect.height()/2, rect.height()/2)
             painter.setBrush(QBrush(glow_gradient))
-            painter.drawRoundedRect(rect, 6, 6)
+            painter.drawPath(glow_path)
     
     def _paint_particles(self, painter: QPainter):
         """파티클 그리기"""

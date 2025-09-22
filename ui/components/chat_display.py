@@ -349,14 +349,12 @@ class ChatDisplay:
                             copyBtn.style.background = 'rgba(40,167,69,0.5)';
                             copyBtn.style.borderColor = 'rgba(40,167,69,0.4)';
                             copyBtn.style.opacity = '0.75';
-                            copyBtn.style.transform = 'scale(1.05)';
                             
                             setTimeout(() => {
                                 copyBtn.innerHTML = originalText;
                                 copyBtn.style.background = 'rgba(95,95,100,0.45)';
                                 copyBtn.style.borderColor = 'rgba(160,160,165,0.3)';
                                 copyBtn.style.opacity = '0.5';
-                                copyBtn.style.transform = 'scale(1)';
                             }, 2000);
                         }
                     }
@@ -372,14 +370,12 @@ class ChatDisplay:
                             copyBtn.style.background = 'rgba(40,167,69,0.5)';
                             copyBtn.style.borderColor = 'rgba(40,167,69,0.4)';
                             copyBtn.style.opacity = '0.75';
-                            copyBtn.style.transform = 'scale(1.05)';
                             
                             setTimeout(() => {
                                 copyBtn.innerHTML = originalText;
                                 copyBtn.style.background = 'rgba(75,85,99,0.45)';
                                 copyBtn.style.borderColor = 'rgba(140,150,160,0.3)';
                                 copyBtn.style.opacity = '0.5';
-                                copyBtn.style.transform = 'scale(1)';
                             }, 2000);
                         }
                     }
@@ -503,7 +499,8 @@ class ChatDisplay:
                 
                 /* 실제 성능 최적화 */
                 * {{
-                    box-sizing: border-box;
+                    -webkit-box-sizing: border-box;
+                    -moz-box-sizing: border-box;
                 }}
                 
                 html, body {{
@@ -525,10 +522,8 @@ class ChatDisplay:
                 .message {{
                     /* GPU 레이어 생성 */
                     -webkit-transform: translate3d(0,0,0);
-                    transform: translate3d(0,0,0);
                     /* 렌더링 최적화 */
                     -webkit-backface-visibility: hidden;
-                    backface-visibility: hidden;
                     /* 레이아웃 최적화 */
                     contain: layout;
                 }}
@@ -752,15 +747,11 @@ class ChatDisplay:
                 this.style.background = 'rgba(220,53,69,0.8)';
                 this.style.borderColor = 'rgba(220,53,69,1.0)';
                 this.style.opacity = '1.0';
-                this.style.transform = 'scale(1.1)';
-                /*this.style.boxShadow = '0 4px 12px rgba(220,53,69,0.5)';*/
             }};
             deleteBtn.onmouseleave = function() {{ 
                 this.style.background = 'rgba(220,53,69,0.6)';
                 this.style.borderColor = 'rgba(220,53,69,0.8)';
                 this.style.opacity = '0.7';
-                this.style.transform = 'scale(1)';
-                /*this.style.boxShadow = '0 2px 8px rgba(220,53,69,0.3)';*/
             }};
             messageDiv.appendChild(deleteBtn);
             """
@@ -808,16 +799,12 @@ class ChatDisplay:
                 this.style.borderColor = 'rgba(180,180,185,0.4)';
                 this.style.color = 'rgba(240,240,240,0.85)';
                 this.style.opacity = '0.75';
-                this.style.transform = 'scale(1.05)';
-                /*this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';*/
             }};
             copyBtn.onmouseleave = function() {{ 
                 this.style.background = 'rgba(95,95,100,0.45)';
                 this.style.borderColor = 'rgba(160,160,165,0.3)';
                 this.style.color = 'rgba(208,208,208,0.7)';
                 this.style.opacity = '0.5';
-                this.style.transform = 'scale(1)';
-                /*this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';*/
             }};
             
             var copyHtmlBtn = document.createElement('button');
@@ -830,16 +817,12 @@ class ChatDisplay:
                 this.style.borderColor = 'rgba(160,170,180,0.4)';
                 this.style.color = 'rgba(200,210,220,0.85)';
                 this.style.opacity = '0.75';
-                this.style.transform = 'scale(1.05)';
-                /*this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.175)';*/
             }};
             copyHtmlBtn.onmouseleave = function() {{ 
                 this.style.background = 'rgba(75,85,99,0.45)';
                 this.style.borderColor = 'rgba(140,150,160,0.3)';
                 this.style.color = 'rgba(168,178,188,0.7)';
                 this.style.opacity = '0.5';
-                this.style.transform = 'scale(1)';
-                /*this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.125)';*/
             }};
             
             {delete_button_js}
@@ -1016,7 +999,7 @@ class ChatDisplay:
                 </div>
                 
                 <img id="{image_id}" src="{url}" alt="Generated Image" 
-                     style="display: none; max-width: 100%; height: auto; border-radius: 8px; /*box-shadow: 0 4px 8px rgba(0,0,0,0.3);*/" 
+                     style="display: none; max-width: 100%; height: auto; border-radius: 8px;" 
                      onload="if(typeof showLoadedImage === 'function') showLoadedImage('{image_id}', '{url}')" 
                      onerror="if(typeof showImageError === 'function') showImageError('{image_id}')" />
             </div>

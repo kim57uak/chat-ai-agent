@@ -80,214 +80,205 @@ class SessionListItem(QWidget):
         self.apply_theme()
     
     def setup_ui(self):
-        """UI 설정"""
+        """UI 설정 - 두 줄 효율적 배치"""
         layout = QVBoxLayout()
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(4)
         
-        # 상단: 제목과 삭제 버튼 - 정렬 개선
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(2, 2, 2, 2)
-        header_layout.setSpacing(8)
+        # 첫 번째 줄: 선택 표시, 제목
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(8)
         
-        # 제목
+        # 선택 표시 아이콘
+        self.selected_icon = QLabel("●")
+        self.selected_icon.setFixedSize(16, 16)
+        self.selected_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.selected_icon.hide()
+        top_layout.addWidget(self.selected_icon)
+        
         self.title_label = QLabel(self.session_data['title'])
-        self.title_label.setWordWrap(True)
+        self.title_label.setWordWrap(False)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        header_layout.addWidget(self.title_label, 1)
+        top_layout.addWidget(self.title_label, 1)
         
-        # 삭제 버튼 - 고급스러운 디자인
-        self.delete_btn = QPushButton()
-        self.delete_btn.setFixedSize(28, 28)
-        self.delete_btn.clicked.connect(lambda: self.delete_requested.emit(self.session_id))
-        self.delete_btn.hide()  # 기본적으로 숨김
-        self.delete_btn.setObjectName("delete_button")
-        header_layout.addWidget(self.delete_btn, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        layout.addLayout(top_layout)
         
-        layout.addLayout(header_layout)
+        # 두 번째 줄: 메시지 수와 날짜
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(8)
         
-        # 카테고리 표시 제거 (불필요한 하늘색 라인)
+        self.message_count_label = QLabel(f"{self.session_data['message_count']}")
+        self.message_count_label.setFixedSize(30, 30)
+        self.message_count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        bottom_layout.addWidget(self.message_count_label)
         
-        # 하단: 메시지 수와 시간 - 정렬 개선
-        footer_layout = QHBoxLayout()
-        footer_layout.setContentsMargins(2, 2, 2, 2)
-        footer_layout.setSpacing(12)
+        bottom_layout.addStretch()
         
-        # 메시지 수 - 아이콘 정렬
-        self.message_count_label = QLabel(f"💬 {self.session_data['message_count']}")
-        self.message_count_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.message_count_label.setStyleSheet("font-size: 16px;")
-        footer_layout.addWidget(self.message_count_label, 0, Qt.AlignmentFlag.AlignLeft)
-        
-        footer_layout.addStretch()
-        
-        # 마지막 사용 시간 - 정렬 개선
         last_used = self.session_data.get('last_used_at', '')
         if last_used:
             try:
                 dt = datetime.fromisoformat(last_used.replace('Z', '+00:00'))
-                time_str = dt.strftime("%m/%d %H:%M")
+                time_str = dt.strftime("%m/%d")
                 self.time_label = QLabel(time_str)
-                self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                footer_layout.addWidget(self.time_label, 0, Qt.AlignmentFlag.AlignRight)
+                self.time_label.setFixedSize(50, 24)
+                self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                bottom_layout.addWidget(self.time_label)
             except:
                 pass
         
-        layout.addLayout(footer_layout)
+        layout.addLayout(bottom_layout)
         self.setLayout(layout)
     
     def apply_theme(self):
-        """현대적인 Material Design 테마 적용 - 대비 개선"""
+        """깔끔한 테마 적용"""
         if theme_manager.use_material_theme:
             colors = theme_manager.material_manager.get_theme_colors()
             is_dark = theme_manager.is_material_dark_theme()
             
-            # 테마별 대비 색상 설정
-            if is_dark:
-                title_color = '#ffffff'
-                message_bg = '#4f46e5'
-                time_bg = '#374151'
-                shadow_color = 'rgba(0,0,0,1.0)'
-            else:
-                title_color = '#000000'
-                message_bg = '#1976d2'
-                time_bg = '#6b7280'
-                shadow_color = 'rgba(255,255,255,1.0)'
-            
-            # 제목 스타일 - 테마별 대비색 적용
+            # 제목 스타일
+            title_color = colors.get('text_primary', '#ffffff' if is_dark else '#000000')
             self.title_label.setStyleSheet(f"""
                 QLabel {{
                     color: {title_color};
-                    font-size: 16px;
-                    font-weight: 700;
-                    line-height: 1.2;
-                    background: transparent;
-                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                    padding: 0px;
-                    margin: 0px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    margin-bottom: 4px;
                 }}
             """)
             
-            # 메시지 수 스타일 - 테마별 배경색 적용
+            # 메시지 수 배지 - 테마 버튼과 동일한 스타일
+            primary_color = colors.get('primary', '#1976d2')
+            primary_variant = colors.get('primary_variant', '#1565c0')
+            on_primary = colors.get('on_primary', '#ffffff')
             self.message_count_label.setStyleSheet(f"""
                 QLabel {{
-                    color: #ffffff;
-                    font-size: 16px;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {primary_color}, 
+                        stop:1 {primary_variant});
+                    color: {on_primary};
+                    border: none;
+                    border-radius: 15px;
                     font-weight: 700;
-                    padding: 4px 8px;
-                    background: {message_bg};
-                    border-radius: 8px;
-                    border: 1px solid {colors.get('divider', '#333333')};
+                    font-size: 12px;
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    padding: 6px 12px;
+                    margin: 2px;
+                    min-width: 30px;
+                    min-height: 30px;
+                    text-align: center;
+                }}
+                QLabel:hover {{
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {primary_variant}, 
+                        stop:1 {primary_color});
+                    transform: scale(1.05);
                 }}
             """)
             
-            # 시간 스타일 - 테마별 배경색 적용
+            # 시간 배지 - 테마 버튼과 동일한 스타일
             if hasattr(self, 'time_label'):
+                secondary_color = colors.get('text_secondary', '#666666')
+                surface_color = colors.get('surface', '#f5f5f5')
                 self.time_label.setStyleSheet(f"""
                     QLabel {{
-                        color: #ffffff;
-                        font-size: 12px;
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {surface_color}, 
+                            stop:1 {secondary_color});
+                        color: {colors.get('text_primary', '#000000')};
+                        border: none;
+                        border-radius: 12px;
                         font-weight: 600;
-                        padding: 2px 6px;
-                        background: {time_bg};
-                        border-radius: 6px;
-                        border: 1px solid {colors.get('divider', '#333333')};
+                        font-size: 11px;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 5px 10px;
+                        margin: 2px;
+                        min-width: 50px;
+                        min-height: 24px;
+                        text-align: center;
+                    }}
+                    QLabel:hover {{
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {secondary_color}, 
+                            stop:1 {surface_color});
+                        transform: scale(1.05);
                     }}
                 """)
             
-            # 삭제 버튼 스타일 - 고급스러운 디자인
-            self.delete_btn.setStyleSheet(f"""
-                QPushButton#delete_button {{
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                        stop:0 #dc2626, stop:1 #b91c1c);
-                    color: #ffffff;
-                    border: 2px solid #b91c1c;
-                    border-radius: 14px;
-                    font-size: 20px;
-                    font-weight: 800;
-                    qproperty-text: "✖️";
-                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                }}
-                QPushButton#delete_button:hover {{
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                        stop:0 #b91c1c, stop:1 #dc2626);
-                    border: 2px solid #dc2626;
-                    transform: scale(1.1);
-                }}
-                QPushButton#delete_button:pressed {{
-                    background: #991b1b;
-                    transform: scale(0.9);
+
+            
+            # 선택 표시 아이콘 스타일
+            self.selected_icon.setStyleSheet(f"""
+                QLabel {{
+                    color: {primary_color};
+                    font-size: 12px;
+                    font-weight: bold;
                 }}
             """)
             
-            # 아이템 전체 스타일
             self.update_item_style(colors)
     
     def update_item_style(self, colors):
-        """테마별 대비색을 고려한 아이템 스타일"""
+        """깔끔한 아이템 스타일"""
         is_dark = theme_manager.is_material_dark_theme()
         
         if self.is_selected:
             # 선택된 상태
-            selected_bg = colors.get('primary', '#4f46e5')
-            selected_border = colors.get('primary_variant', '#3700b3')
+            primary_color = colors.get('primary', '#1976d2')
             self.setStyleSheet(f"""
                 SessionListItem {{
-                    background: {selected_bg};
-                    border: 2px solid {selected_border};
+                    background-color: {primary_color}20;
+                    border: 2px solid {primary_color};
                     border-radius: 8px;
                     margin: 2px;
                 }}
             """)
         else:
-            # 기본 상태 - 테마별 배경색
-            if is_dark:
-                item_bg = '#374151'
-                item_border = '#6b7280'
-                hover_bg = '#4b5563'
-                hover_border = '#9ca3af'
-            else:
-                item_bg = '#e5e7eb'
-                item_border = '#d1d5db'
-                hover_bg = '#d1d5db'
-                hover_border = '#9ca3af'
+            # 기본 상태
+            bg_color = colors.get('surface', '#f5f5f5' if not is_dark else '#2d2d2d')
+            border_color = colors.get('divider', '#e0e0e0' if not is_dark else '#404040')
             
             self.setStyleSheet(f"""
                 SessionListItem {{
-                    background: {item_bg};
-                    border: 1px solid {item_border};
+                    background-color: {bg_color};
+                    border: 1px solid {border_color};
                     border-radius: 8px;
                     margin: 2px;
                 }}
                 SessionListItem:hover {{
-                    background: {hover_bg};
-                    border: 2px solid {hover_border};
+                    background-color: {colors.get('primary', '#1976d2')}10;
+                    border-color: {colors.get('primary', '#1976d2')};
                 }}
             """)
     
     def set_selected(self, selected: bool):
         """선택 상태 설정"""
         self.is_selected = selected
+        if selected:
+            self.selected_icon.show()
+        else:
+            self.selected_icon.hide()
+        
         if theme_manager.use_material_theme:
             colors = theme_manager.material_manager.get_theme_colors()
             self.update_item_style(colors)
     
-    def enterEvent(self, event):
-        """마우스 진입 시 삭제 버튼 표시"""
-        self.delete_btn.show()
-        super().enterEvent(event)
-    
-    def leaveEvent(self, event):
-        """마우스 벗어날 시 삭제 버튼 숨김"""
-        self.delete_btn.hide()
-        super().leaveEvent(event)
+
     
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.session_id)
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.show_context_menu(event.globalPosition().toPoint())
         super().mousePressEvent(event)
+    
+    def show_context_menu(self, position):
+        """우클릭 컨텍스트 메뉴 표시"""
+        menu = QMenu(self)
+        delete_action = menu.addAction("🗑️ 세션 삭제")
+        delete_action.triggered.connect(lambda: self.delete_requested.emit(self.session_id))
+        menu.exec(position)
 
 
 class SessionPanel(QWidget):
@@ -340,6 +331,8 @@ class SessionPanel(QWidget):
         self.theme_button = QPushButton("🎨 Themes")
         self.theme_button.setMinimumHeight(44)
         self.theme_button.clicked.connect(self.show_theme_selector)
+        self.theme_button.setToolTip("테마 선택")
+        print("테마 버튼 생성 및 연결 완료")
         top_buttons_layout.addWidget(self.theme_button)
         
         layout.addLayout(top_buttons_layout)
@@ -352,7 +345,7 @@ class SessionPanel(QWidget):
         
         # 세션 검색 (세션 리스트 바로 위로 이동)
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("🔍 Search sessions...")
+        self.search_edit.setPlaceholderText("Search sessions...")
         self.search_edit.textChanged.connect(self.search_sessions)
         self.search_edit.setMinimumHeight(44)
         layout.addWidget(self.search_edit)
@@ -880,61 +873,58 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 검색 입력창 - True Gray 테마 특별 처리 (채팅창과 동일)
+        # 검색 입력창 - Soft Shadow + Rounded Edge + Gradient Depth
         is_dark = theme_manager.is_material_dark_theme()
+        shadow_color = "rgba(0,0,0,0.1)" if is_dark else "rgba(0,0,0,0.05)"
         
-        # True Gray 테마 감지 및 특별 처리
-        if colors.get('primary') == '#6B7280':  # True Gray 테마
-            input_bg_color = '#FFFFFF'
-            input_text_color = '#374151'
-            input_border_color = colors.get('divider', '#E5E7EB')
-            placeholder_color = '#9CA3AF'
-            selection_text_color = '#FFFFFF'
-        else:
-            input_bg_color = surface_color
-            input_text_color = text_color if is_dark else colors.get('text_primary', '#000000')
-            input_border_color = colors.get('divider', '#333333')
-            placeholder_color = colors.get('text_secondary', '#b3b3b3') if is_dark else '#999999'
-            selection_text_color = colors.get('on_primary', '#000000')
+        # 검색창 배경은 테마 배경색, 테두리만 버튼 테마색
         
         search_style = f"""
         QLineEdit {{
-            background-color: {input_bg_color};
-            color: {input_text_color};
-            border: 1px solid {input_border_color};
-            border-radius: 12px;
+            background: {bg_color};
+            color: {text_color};
+            border: 1px solid {colors.get('divider', '#333333')};
+            border-radius: 18px;
             font-size: 15px;
+            font-weight: 600;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 18px;
-            margin: 4px;
+            padding: 20px;
+            margin: 6px;
             selection-background-color: {primary_color};
-            selection-color: {selection_text_color};
+            selection-color: {colors.get('on_primary', '#ffffff')};
+            transition: all 0.3s ease;
         }}
         QLineEdit:focus {{
-            border-color: {primary_color};
-            border-width: 2px;
+            border: 1px solid {primary_color};
+            background: {surface_color};
+            transform: translateY(-1px);
         }}
         QLineEdit::placeholder {{
-            color: {placeholder_color};
+            color: {colors.get('text_secondary', '#b3b3b3')};
+            opacity: 0.8;
         }}
         """
         
-        # 리스트 위젯 - 채팅창과 동일한 배경 및 스크롤바
+        # 리스트 위젯 - Soft Shadow + Rounded Edge + Gradient Depth
+        shadow_color = "rgba(0,0,0,0.1)" if is_dark else "rgba(0,0,0,0.05)"
+        
         list_style = f"""
         QListWidget {{
-            background-color: {bg_color};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {bg_color}, 
+                stop:1 {surface_color});
             border: 1px solid {colors.get('divider', '#333333')};
-            border-radius: 12px;
-            padding: 8px;
-            margin: 4px;
+            border-radius: 16px;
+            padding: 12px;
+            margin: 6px;
             outline: none;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
         }}
         QListWidget::item {{
             border: none;
             padding: 0px;
-            margin: 2px;
-            border-radius: 8px;
+            margin: 4px;
+            border-radius: 12px;
             background: transparent;
         }}
         QListWidget::item:selected {{
@@ -950,7 +940,9 @@ class SessionPanel(QWidget):
             border-radius: 4px;
         }}
         QScrollBar::handle:vertical {{
-            background: {colors.get('scrollbar', colors.get('text_secondary', '#b3b3b3'))};
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 {colors.get('scrollbar', colors.get('text_secondary', '#b3b3b3'))}, 
+                stop:1 {primary_color});
             border-radius: 4px;
             min-height: 20px;
         }}
@@ -966,21 +958,35 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 모든 버튼 공통 스타일 - 동일한 look and feel
+        # 모든 버튼 공통 스타일 - Soft Shadow + Rounded Edge + Gradient Depth
+        is_dark = theme_manager.is_material_dark_theme()
+        shadow_color = "rgba(0,0,0,0.2)" if is_dark else "rgba(0,0,0,0.1)"
+        shadow_hover = "rgba(0,0,0,0.3)" if is_dark else "rgba(0,0,0,0.15)"
+        
         button_style = f"""
         QPushButton {{
-            background-color: {primary_color};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {primary_color}, 
+                stop:1 {colors.get('primary_variant', '#3700b3')});
             color: {colors.get('on_primary', '#000000')};
-            border: 2px solid {colors.get('primary_variant', '#3700b3')};
-            border-radius: 14px;
+            border: none;
+            border-radius: 20px;
             font-weight: 800;
             font-size: 16px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 12px 16px;
-            margin: 4px;
+            padding: 16px 20px;
+            margin: 6px;
+            transition: all 0.3s ease;
         }}
         QPushButton:hover {{
-            background-color: {colors.get('primary_variant', '#3700b3')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('primary_variant', '#3700b3')}, 
+                stop:1 {primary_color});
+            transform: translateY(-2px);
+        }}
+        QPushButton:pressed {{
+            background: {colors.get('primary_variant', '#3700b3')};
+            transform: translateY(0px);
         }}
         """
         
@@ -1005,7 +1011,7 @@ class SessionPanel(QWidget):
         }
         """
         
-        # 통계 라벨 스타일 - 테마별 대비색 적용
+        # 통계 라벨 스타일 - Soft Shadow + Rounded Edge + Gradient Depth
         is_dark = theme_manager.is_material_dark_theme()
         stats_text_color = colors.get('text_secondary', '#b3b3b3') if is_dark else colors.get('text_primary', '#333333')
         
@@ -1015,11 +1021,13 @@ class SessionPanel(QWidget):
             font-size: 12px;
             font-weight: 600;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 8px 16px;
-            background-color: {surface_color};
-            border: 2px solid {colors.get('divider', '#333333')};
-            border-radius: 10px;
-            margin: 4px;
+            padding: 12px 20px;
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {surface_color}, 
+                stop:1 {bg_color});
+            border: 1px solid {colors.get('divider', '#333333')};
+            border-radius: 16px;
+            margin: 6px;
         }}
         """
         
@@ -1172,40 +1180,104 @@ class SessionPanel(QWidget):
         try:
             from ui.template_dialog import TemplateDialog
             dialog = TemplateDialog(self)
+            dialog.template_selected.connect(self._on_template_selected)
             dialog.exec()
         except Exception as e:
             print(f"템플릿 관리자 표시 오류: {e}")
     
+    def _on_template_selected(self, content: str):
+        """템플릿 선택 시 채팅창 입력창에 내용 입력"""
+        try:
+            # 메인 윈도우에서 채팅 위젯 찾기
+            main_window = self._find_main_window()
+            if main_window and hasattr(main_window, 'chat_widget'):
+                chat_widget = main_window.chat_widget
+                if hasattr(chat_widget, 'input_text'):
+                    # 기존 내용에 추가하거나 대체
+                    current_text = chat_widget.input_text.toPlainText()
+                    if current_text.strip():
+                        # 기존 내용이 있으면 줄바꿈 후 추가
+                        chat_widget.input_text.setPlainText(current_text + "\n" + content)
+                    else:
+                        # 비어있으면 바로 입력
+                        chat_widget.input_text.setPlainText(content)
+                    
+                    # 커서를 끝으로 이동
+                    cursor = chat_widget.input_text.textCursor()
+                    cursor.movePosition(cursor.MoveOperation.End)
+                    chat_widget.input_text.setTextCursor(cursor)
+                    
+                    # 입력창에 포커스
+                    chat_widget.input_text.setFocus()
+                    
+                    print(f"템플릿 내용이 채팅창에 입력되었습니다: {content[:50]}...")
+                else:
+                    print("채팅 위젯에 input_text가 없습니다")
+            else:
+                print("메인 윈도우 또는 채팅 위젯을 찾을 수 없습니다")
+        except Exception as e:
+            print(f"템플릿 선택 처리 오류: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def show_theme_selector(self):
-        """테마 선택기 표시 - 계층구조"""
+        """테마 선택기 표시 - Light/Dark/Special 구분"""
         try:
             from PyQt6.QtWidgets import QMenu
             from PyQt6.QtCore import QPoint
             
             menu = QMenu(self)
-            available_themes = theme_manager.get_available_material_themes()
+            menu.setTitle("테마 선택")
+            
+            # 테마 데이터 가져오기
+            themes = theme_manager.material_manager.themes
             current_theme = theme_manager.material_manager.current_theme_key
             
-            # theme.json에서 테마 분류 정보 로드
-            theme_categories = theme_manager.material_manager.get_theme_categories()
+            # 타입별로 테마 분류
+            light_themes = {}
+            dark_themes = {}
+            special_themes = {}
             
-            # 각 분류별로 서브메뉴 생성
-            for category_key, category_data in theme_categories.items():
-                if not category_data.get('themes'):  # 빈 분류는 건너뛰기
-                    continue
-                    
-                category_menu = menu.addMenu(category_data.get('name', category_key.title()))
+            for theme_key, theme_data in themes.items():
+                theme_type = theme_data.get('type', 'dark')
+                theme_name = theme_data.get('name', theme_key)
                 
-                for theme_key in category_data['themes']:
-                    if theme_key in available_themes:
-                        theme_name = available_themes[theme_key]
-                        action = category_menu.addAction(f"🎨 {theme_name}")
-                        action.setCheckable(True)
-                        action.triggered.connect(lambda checked, key=theme_key: self._select_theme(key))
-                        
-                        # 현재 테마 체크 표시
-                        if theme_key == current_theme:
-                            action.setChecked(True)
+                if theme_type == 'light':
+                    light_themes[theme_key] = theme_name
+                elif theme_type == 'special':
+                    special_themes[theme_key] = theme_name
+                else:
+                    dark_themes[theme_key] = theme_name
+            
+            # Light 테마 서브메뉴
+            if light_themes:
+                light_menu = menu.addMenu("☀️ Light Themes")
+                for theme_key, theme_name in light_themes.items():
+                    action = light_menu.addAction(f"🎨 {theme_name}")
+                    action.setCheckable(True)
+                    action.triggered.connect(lambda checked, key=theme_key: self._select_theme(key))
+                    if theme_key == current_theme:
+                        action.setChecked(True)
+            
+            # Dark 테마 서브메뉴
+            if dark_themes:
+                dark_menu = menu.addMenu("🌙 Dark Themes")
+                for theme_key, theme_name in dark_themes.items():
+                    action = dark_menu.addAction(f"🎨 {theme_name}")
+                    action.setCheckable(True)
+                    action.triggered.connect(lambda checked, key=theme_key: self._select_theme(key))
+                    if theme_key == current_theme:
+                        action.setChecked(True)
+            
+            # Special 테마 서브메뉴
+            if special_themes:
+                special_menu = menu.addMenu("✨ Special Themes")
+                for theme_key, theme_name in special_themes.items():
+                    action = special_menu.addAction(f"🎨 {theme_name}")
+                    action.setCheckable(True)
+                    action.triggered.connect(lambda checked, key=theme_key: self._select_theme(key))
+                    if theme_key == current_theme:
+                        action.setChecked(True)
             
             # 버튼 위치에서 메뉴 표시
             button_pos = self.theme_button.mapToGlobal(QPoint(0, 0))
@@ -1213,20 +1285,48 @@ class SessionPanel(QWidget):
             
         except Exception as e:
             print(f"테마 선택기 표시 오류: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _select_theme(self, theme_key: str):
         """테마 선택"""
         try:
+            print(f"테마 선택 시도: {theme_key}")
+            
             # 테마 설정
             theme_manager.material_manager.set_theme(theme_key)
+            print(f"테마 매니저에 설정 완료: {theme_key}")
             
-            # 메인 윈도우에 테마 변경 알림
-            if hasattr(self, 'main_window') and self.main_window:
-                self.main_window._change_theme(theme_key)
+            # 메인 윈도우 찾기
+            main_window = self._find_main_window()
+            if main_window:
+                print(f"메인 윈도우 찾음, 테마 변경 알림")
+                if hasattr(main_window, '_change_theme'):
+                    main_window._change_theme(theme_key)
+                elif hasattr(main_window, 'update_theme'):
+                    main_window.update_theme()
+                else:
+                    print("메인 윈도우에 테마 변경 메서드가 없음")
+            else:
+                print("메인 윈도우를 찾을 수 없음")
             
-            print(f"테마 선택됨: {theme_key}")
+            # 현재 패널 테마도 업데이트
+            self.update_theme()
+            
+            print(f"테마 선택 완료: {theme_key}")
         except Exception as e:
             print(f"테마 선택 오류: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _find_main_window(self):
+        """메인 윈도우 찾기"""
+        widget = self
+        while widget:
+            if widget.__class__.__name__ == 'MainWindow':
+                return widget
+            widget = widget.parent()
+        return None
     
     def update_theme(self):
         """테마 업데이트"""

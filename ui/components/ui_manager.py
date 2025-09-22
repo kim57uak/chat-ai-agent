@@ -11,7 +11,7 @@ class UIManager:
         self.send_button = send_button
         self.cancel_button = cancel_button
         self.upload_button = upload_button
-        self.template_button = template_button
+        self.template_button = template_button  # None일 수 있음
         self.loading_bar = loading_bar
         
         # 애니메이션 관련 속성
@@ -29,7 +29,8 @@ class UIManager:
         self.send_button.setEnabled(enabled)
         self.cancel_button.setVisible(not enabled)
         self.upload_button.setEnabled(enabled)
-        self.template_button.setEnabled(enabled)
+        if self.template_button:  # None 체크
+            self.template_button.setEnabled(enabled)
     
     def show_loading(self, show):
         """로딩 상태 표시/숨김"""

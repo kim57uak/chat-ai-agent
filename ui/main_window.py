@@ -184,9 +184,7 @@ class MainWindow(QMainWindow):
         reset_layout_action.triggered.connect(self.reset_layout)
         settings_menu.addAction(reset_layout_action)
         
-        # Theme menu
-        theme_menu = menubar.addMenu('테마')
-        self._create_theme_menu(theme_menu)
+        # 테마 메뉴 삭제 - 좌측 패널로 이동
     
     def _initialize_mcp(self) -> None:
         """Initialize MCP servers."""
@@ -206,12 +204,12 @@ class MainWindow(QMainWindow):
                     if enabled_servers:
                         print(f"활성화된 MCP 서버 시작: {enabled_servers}")
                         start_mcp_servers()
-                        # MCP 서버 시작 후 충분한 시간을 두고 도구 라벨 업데이트
-                        QTimer.singleShot(1500, self._update_tools_with_retry)
+                        # MCP 서버 시작 후 충분한 시간을 두고 도구 라벨 업데이트 삭제
+                        print("도구 라벨 업데이트 삭제 - 좌측 패널로 이동")
                     else:
                         print("활성화된 MCP 서버가 없습니다")
-                        # 서버가 없을 때도 라벨 업데이트
-                        QTimer.singleShot(500, self.chat_widget.model_manager.update_tools_label)
+                        # 서버가 없을 때도 라벨 업데이트 삭제
+                        print("도구 라벨 업데이트 삭제 - 좌측 패널로 이동")
                 else:
                     print("MCP 서버 상태 파일이 없습니다")
             except Exception as e:
@@ -219,25 +217,13 @@ class MainWindow(QMainWindow):
         
         threading.Thread(target=start_servers, daemon=True).start()
     
-    def _update_tools_with_retry(self) -> None:
-        """도구 업데이트를 재시도와 함께 수행"""
-        def update_with_retry(attempt=1, max_attempts=3):
-            try:
-                self.chat_widget.model_manager.update_tools_label()
-                print(f"도구 라벨 업데이트 성공 (시도 {attempt})")
-            except Exception as e:
-                print(f"도구 라벨 업데이트 실패 (시도 {attempt}): {e}")
-                if attempt < max_attempts:
-                    QTimer.singleShot(800, lambda: update_with_retry(attempt + 1, max_attempts))
-        
-        update_with_retry()
+    # 도구 업데이트 삭제 - 좌측 패널로 이동
     
     def open_settings(self) -> None:
         """Open settings dialog."""
         dlg = SettingsDialog(self)
         dlg.exec()
-        self.chat_widget.model_manager.update_model_label()
-        self.chat_widget.model_manager.update_tools_label()
+        # 모델 매니저 업데이트 삭제 - 좌측 패널로 이동
     
     def open_mcp(self) -> None:
         """Open MCP import dialog."""
@@ -260,7 +246,7 @@ class MainWindow(QMainWindow):
         """Open MCP manager dialog."""
         dlg = MCPManagerDialog(self)
         dlg.exec()
-        self.chat_widget.model_manager.update_tools_label()
+        # 도구 라벨 업데이트 삭제 - 좌측 패널로 이동
     
     def clear_conversation_history(self) -> None:
         """Clear conversation history with confirmation."""
@@ -310,19 +296,7 @@ class MainWindow(QMainWindow):
         event.accept()
         print("애플리케이션 종료 완료")
     
-    def _create_theme_menu(self, theme_menu):
-        """테마 메뉴 생성"""
-        available_themes = theme_manager.get_available_material_themes()
-        
-        for theme_key, theme_name in available_themes.items():
-            action = QAction(theme_name, self)
-            action.setCheckable(True)
-            action.triggered.connect(lambda checked, key=theme_key: self._change_theme(key))
-            theme_menu.addAction(action)
-            
-            # 현재 테마 체크 표시
-            if theme_key == theme_manager.material_manager.current_theme_key:
-                action.setChecked(True)
+    # 테마 메뉴 생성 삭제 - 좌측 패널로 이동
     
     def _change_theme(self, theme_key: str):
         """테마 변경"""
@@ -351,14 +325,33 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'news_banner'):
                 self.news_banner.update_theme()
             
-            # 메뉴 체크 상태 업데이트
-            self._update_theme_menu_checks(theme_key)
+            # 메뉴 체크 상태 업데이트 삭제 - 좌측 패널로 이동
             
             # 스플리터 테마 업데이트
             self._apply_splitter_theme()
             
+            # 강제로 전체 위젯 다시 그리기
+            self.update()
+            
+            # 지연 시간을 두고 추가 업데이트
+            QTimer.singleShot(100, self._delayed_theme_update)
+            
         except Exception as e:
             print(f"테마 변경 오류: {e}")
+    
+    def _delayed_theme_update(self):
+        """지연된 테마 업데이트"""
+        try:
+            # 채팅 위젯 추가 업데이트
+            if hasattr(self, 'chat_widget'):
+                self.chat_widget.update_theme()
+                # 입력 영역 강제 업데이트
+                if hasattr(self.chat_widget, 'input_text'):
+                    self.chat_widget.input_text.update()
+                if hasattr(self.chat_widget, 'input_container'):
+                    self.chat_widget.input_container.update()
+        except Exception as e:
+            print(f"지연된 테마 업데이트 오류: {e}")
     
 
     
@@ -401,7 +394,6 @@ class MainWindow(QMainWindow):
         try:
             current_theme_key = theme_manager.material_manager.current_theme_key
             self._update_window_title()
-            self._update_theme_menu_checks(current_theme_key)
             
             if hasattr(self, 'chat_widget'):
                 self.chat_widget.update_theme()
@@ -411,26 +403,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"저장된 테마 적용 오류: {e}")
     
-    def _update_theme_menu_checks(self, selected_theme_key: str):
-        """테마 메뉴 체크 상태 업데이트"""
-        theme_menu = None
-        for action in self.menuBar().actions():
-            if action.text() == '테마':
-                theme_menu = action.menu()
-                break
-        
-        if theme_menu:
-            for action in theme_menu.actions():
-                action.setChecked(False)
-            
-            # 선택된 테마만 체크
-            available_themes = theme_manager.get_available_material_themes()
-            selected_theme_name = available_themes.get(selected_theme_key, "")
-            
-            for action in theme_menu.actions():
-                if action.text() == selected_theme_name:
-                    action.setChecked(True)
-                    break
+    # 테마 메뉴 체크 상태 업데이트 삭제 - 좌측 패널로 이동
     
     def _update_window_title(self):
         """창 제목을 현재 테마명과 함께 업데이트"""

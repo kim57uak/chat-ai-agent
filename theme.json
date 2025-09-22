@@ -1,5 +1,5 @@
 {
-  "current_theme": "material_forest",
+  "current_theme": "eye_comfort",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -433,78 +433,6 @@
         "glow": "rgba(121, 203, 96, 0.3)"
       }
     },
-    "material_github_dark": {
-      "name": "Github Dark",
-      "type": "dark",
-      "colors": {
-        "primary": "#f9826c",
-        "primary_variant": "#f97583",
-        "secondary": "#79b8ff",
-        "secondary_variant": "#0366d6",
-        "background": "#24292e",
-        "surface": "#39414a",
-        "error": "#f97583",
-        "on_primary": "#000000",
-        "on_secondary": "#000000",
-        "on_background": "#e1e4e8",
-        "on_surface": "#e1e4e8",
-        "on_error": "#000000",
-        "text_primary": "#d1d5da",
-        "text_secondary": "#959da5",
-        "divider": "#1b1f23",
-        "user_bg": "rgba(249, 130, 108, 0.15)",
-        "user_border": "#f9826c",
-        "ai_bg": "rgba(121, 184, 255, 0.15)",
-        "ai_border": "#79b8ff",
-        "system_bg": "rgba(149, 157, 165, 0.12)",
-        "system_border": "#959da5",
-        "code_bg": "#1e2428",
-        "code_border": "#444d56",
-        "scrollbar": "#6a737d",
-        "scrollbar_track": "#39414a"
-      },
-      "loading_bar": {
-        "background": "rgba(249, 130, 108, 0.15)",
-        "chunk": "linear-gradient(90deg, #f9826c 0%, #79b8ff 100%)",
-        "glow": "rgba(249, 130, 108, 0.4)"
-      }
-    },
-    "material_arc_dark": {
-      "name": "Arc Dark",
-      "type": "dark",
-      "colors": {
-        "primary": "#42A5F5",
-        "primary_variant": "#1976D2",
-        "secondary": "#7587a6",
-        "secondary_variant": "#3F51B5",
-        "background": "#2f343f",
-        "surface": "#383C4A",
-        "error": "#cf6a4c",
-        "on_primary": "#ffffff",
-        "on_secondary": "#ffffff",
-        "on_background": "#D3DAE3",
-        "on_surface": "#D3DAE3",
-        "on_error": "#ffffff",
-        "text_primary": "#d3dae3",
-        "text_secondary": "#8b9eb5",
-        "divider": "#404552",
-        "user_bg": "rgba(66, 165, 245, 0.15)",
-        "user_border": "#42A5F5",
-        "ai_bg": "rgba(117, 135, 166, 0.15)",
-        "ai_border": "#7587a6",
-        "system_bg": "rgba(139, 158, 181, 0.12)",
-        "system_border": "#8b9eb5",
-        "code_bg": "#262b33",
-        "code_border": "#393f4c",
-        "scrollbar": "#A7A7A7",
-        "scrollbar_track": "#383C4A"
-      },
-      "loading_bar": {
-        "background": "rgba(66, 165, 245, 0.15)",
-        "chunk": "linear-gradient(90deg, #42A5F5 0%, #7587a6 100%)",
-        "glow": "rgba(66, 165, 245, 0.4)"
-      }
-    },
     "material_one_dark": {
       "name": "One Dark",
       "type": "dark",
@@ -575,42 +503,6 @@
         "background": "rgba(126, 87, 194, 0.15)",
         "chunk": "linear-gradient(90deg, #7e57c2 0%, #82aaff 100%)",
         "glow": "rgba(126, 87, 194, 0.4)"
-      }
-    },
-    "iphone_dark": {
-      "name": "iPhone Dark",
-      "type": "dark",
-      "colors": {
-        "primary": "#007AFF",
-        "primary_variant": "#0051D5",
-        "secondary": "#FF9500",
-        "secondary_variant": "#FF6D00",
-        "background": "#000000",
-        "surface": "#1C1C1E",
-        "error": "#FF453A",
-        "on_primary": "#ffffff",
-        "on_secondary": "#ffffff",
-        "on_background": "#ffffff",
-        "on_surface": "#ffffff",
-        "on_error": "#ffffff",
-        "text_primary": "#ffffff",
-        "text_secondary": "#8E8E93",
-        "divider": "#38383A",
-        "user_bg": "rgba(0, 122, 255, 0.15)",
-        "user_border": "#007AFF",
-        "ai_bg": "rgba(255, 149, 0, 0.15)",
-        "ai_border": "#FF9500",
-        "system_bg": "rgba(142, 142, 147, 0.12)",
-        "system_border": "#8E8E93",
-        "code_bg": "#1C1C1E",
-        "code_border": "#38383A",
-        "scrollbar": "#48484A",
-        "scrollbar_track": "#1C1C1E"
-      },
-      "loading_bar": {
-        "background": "rgba(0, 122, 255, 0.15)",
-        "chunk": "linear-gradient(90deg, #007AFF 0%, #FF9500 100%)",
-        "glow": "rgba(0, 122, 255, 0.4)"
       }
     },
     "deep_dark": {

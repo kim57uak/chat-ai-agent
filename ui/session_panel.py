@@ -308,48 +308,56 @@ class SessionPanel(QWidget):
         self.refresh_timer.start(30000)  # 30초마다 새로고침
     
     def setup_ui(self):
-        """UI 설정 - 패딩/마진 최소화, 가독성 최우선"""
+        """UI 설정 - 로고와 Sessions 문구 삭제, 버튼 재정렬"""
         layout = QVBoxLayout()
-        layout.setContentsMargins(8, 4, 4, 4)  # 좌측 여백 8px로 조정
-        layout.setSpacing(6)  # 적절한 간격
+        layout.setContentsMargins(8, 4, 4, 4)
+        layout.setSpacing(6)
         
-        # 헤더 - 로고와 Sessions 라벨
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(4, 4, 4, 4)
-        header_layout.setSpacing(8)
+        # 상단 버튼들 - 새로운 구성
+        top_buttons_layout = QVBoxLayout()
+        top_buttons_layout.setContentsMargins(2, 2, 2, 2)
+        top_buttons_layout.setSpacing(6)
         
-        # 애플리케이션 로고
-        self.logo_label = QLabel()
-        if os.path.exists('image/app_icon_64.png'):
-            from PyQt6.QtGui import QPixmap
-            pixmap = QPixmap('image/app_icon_64.png')
-            self.logo_label.setPixmap(pixmap)
-            self.logo_label.setFixedSize(64, 64)
-        else:
-            self.logo_label.setText("🤖")
-            self.logo_label.setStyleSheet("font-size: 48px;")
-            self.logo_label.setFixedSize(64, 64)
-        self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_layout.addWidget(self.logo_label)
+        # +New Session 버튼
+        self.new_session_btn = QPushButton("➕ New Session")
+        self.new_session_btn.setMinimumHeight(44)
+        self.new_session_btn.clicked.connect(self.create_new_session)
+        top_buttons_layout.addWidget(self.new_session_btn)
         
-        # Sessions 라벨 (클릭 가능)
-        self.header_label = QLabel("Sessions")
-        header_font = QFont("SF Pro Display", 16, QFont.Weight.Bold)
-        self.header_label.setFont(header_font)
-        self.header_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.header_label.mousePressEvent = lambda e: self.load_sessions()
-        header_layout.addWidget(self.header_label, 1)
+        # 현재 모델 버튼 (가운데 창에서 이동)
+        self.model_button = QPushButton("🤖 Current Model")
+        self.model_button.setMinimumHeight(44)
+        self.model_button.clicked.connect(self.show_model_selector)
+        top_buttons_layout.addWidget(self.model_button)
         
-        layout.addLayout(header_layout)
+        # 템플릿 버튼 (가운데 채팅입력 창에서 이동)
+        self.template_button = QPushButton("📋 Templates")
+        self.template_button.setMinimumHeight(44)
+        self.template_button.clicked.connect(self.show_template_manager)
+        top_buttons_layout.addWidget(self.template_button)
         
-        # 검색 - 더 큰 입력창
+        # 테마 버튼 (클릭시 전체테마보고 선택하기)
+        self.theme_button = QPushButton("🎨 Themes")
+        self.theme_button.setMinimumHeight(44)
+        self.theme_button.clicked.connect(self.show_theme_selector)
+        top_buttons_layout.addWidget(self.theme_button)
+        
+        layout.addLayout(top_buttons_layout)
+        
+        # 구분선
+        separator = QLabel()
+        separator.setFixedHeight(2)
+        separator.setStyleSheet("background-color: #666666; margin: 8px 0px;")
+        layout.addWidget(separator)
+        
+        # 세션 검색 (세션 리스트 바로 위로 이동)
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("🔍 Search sessions...")
         self.search_edit.textChanged.connect(self.search_sessions)
-        self.search_edit.setMinimumHeight(44)  # 더 큰 입력창
+        self.search_edit.setMinimumHeight(44)
         layout.addWidget(self.search_edit)
         
-        # 세션 목록 - 더 큰 리스트
+        # 세션 목록
         self.session_list = QListWidget()
         self.session_list.setStyleSheet("""
             QListWidget {
@@ -365,19 +373,9 @@ class SessionPanel(QWidget):
         """)
         layout.addWidget(self.session_list)
         
-        # 하단 버튼들 - 더 큰 버튼들
-        button_layout = QVBoxLayout()
-        button_layout.setContentsMargins(2, 2, 2, 2)
-        button_layout.setSpacing(6)
-        
-        # 새 세션 버튼 - 더 큰 버튼
-        self.new_session_btn = QPushButton("➕ New Session")
-        self.new_session_btn.setMinimumHeight(44)
-        self.new_session_btn.clicked.connect(self.create_new_session)
-        button_layout.addWidget(self.new_session_btn)
-        
-        # 세션 관리 버튼들 - 더 큰 버튼들
+        # 세션 관리 버튼들 (수정, 익스포트, 삭제 유지)
         manage_layout = QHBoxLayout()
+        manage_layout.setContentsMargins(2, 2, 2, 2)
         manage_layout.setSpacing(4)
         
         # 투명한 이모지 버튼 스타일 (35% 증가)
@@ -425,15 +423,12 @@ class SessionPanel(QWidget):
         manage_layout.addWidget(self.rename_btn)
         manage_layout.addWidget(self.export_btn)
         manage_layout.addWidget(self.delete_btn)
-        button_layout.addLayout(manage_layout)
+        layout.addLayout(manage_layout)
         
-        layout.addLayout(button_layout)
-        
-        # 통계 정보 - 더 큰 박스
+        # 세션정보 (유지) - 통계 정보
         self.stats_label = QLabel()
-        # 통계 라벨 스타일은 apply_theme에서 설정
         self.stats_label.setMinimumHeight(36)
-        self.stats_label.setObjectName("stats_label")  # 스타일 적용을 위한 이름 설정
+        self.stats_label.setObjectName("stats_label")
         layout.addWidget(self.stats_label)
         
         self.setLayout(layout)
@@ -448,6 +443,29 @@ class SessionPanel(QWidget):
         
         # 앱 시작 시 세션 DB에서 로드
         QTimer.singleShot(100, self.load_sessions_from_db)
+        
+        # 현재 모델 표시 업데이트
+        QTimer.singleShot(200, self._update_current_model_display)
+    
+    def _update_current_model_display(self):
+        """현재 모델 표시 업데이트"""
+        try:
+            from core.file_utils import load_last_model
+            current_model = load_last_model()
+            if current_model:
+                # 모델명이 길면 줄임
+                display_name = current_model
+                if len(display_name) > 15:
+                    display_name = display_name[:12] + "..."
+                self.model_button.setText(f"🤖 {display_name}")
+                self.model_button.setToolTip(f"현재 모델: {current_model}")
+            else:
+                self.model_button.setText("🤖 Select Model")
+                self.model_button.setToolTip("모델을 선택하세요")
+        except Exception as e:
+            print(f"현재 모델 표시 업데이트 오류: {e}")
+            self.model_button.setText("🤖 Select Model")
+            self.model_button.setToolTip("모델을 선택하세요")
     
     def load_sessions_from_db(self):
         """앱 시작 시 세션 DB에서 로드"""
@@ -948,7 +966,7 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 새 세션 버튼 - 채팅창 전송 버튼과 동일
+        # 모든 버튼 공통 스타일 - 동일한 look and feel
         button_style = f"""
         QPushButton {{
             background-color: {primary_color};
@@ -956,7 +974,7 @@ class SessionPanel(QWidget):
             border: 2px solid {colors.get('primary_variant', '#3700b3')};
             border-radius: 14px;
             font-weight: 800;
-            font-size: 18px;
+            font-size: 16px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
             padding: 12px 16px;
             margin: 4px;
@@ -1016,7 +1034,15 @@ class SessionPanel(QWidget):
         
         self.search_edit.setStyleSheet(search_style)
         self.session_list.setStyleSheet(list_style)
-        self.new_session_btn.setStyleSheet(button_style)
+        # 모든 버튼에 동일한 스타일 적용
+        if hasattr(self, 'new_session_btn'):
+            self.new_session_btn.setStyleSheet(button_style)
+        if hasattr(self, 'model_button'):
+            self.model_button.setStyleSheet(button_style)
+        if hasattr(self, 'template_button'):
+            self.template_button.setStyleSheet(button_style)
+        if hasattr(self, 'theme_button'):
+            self.theme_button.setStyleSheet(button_style)
         self.rename_btn.setStyleSheet(manage_button_style)
         self.export_btn.setStyleSheet(manage_button_style)
         self.delete_btn.setStyleSheet(manage_button_style)
@@ -1042,6 +1068,17 @@ class SessionPanel(QWidget):
         }
         QLineEdit::placeholder {
             color: #999999;
+        }
+        QPushButton {
+            background-color: #007acc;
+            color: #ffffff;
+            border: 1px solid #005a9e;
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 8px 12px;
+        }
+        QPushButton:hover {
+            background-color: #005a9e;
         }
         """)
     
@@ -1080,6 +1117,116 @@ class SessionPanel(QWidget):
             except Exception as e:
                 logger.error(f"세션 삭제 오류: {e}")
                 QMessageBox.critical(self, "오류", f"세션 삭제 중 오류가 발생했습니다:\n{e}")
+    
+    def show_model_selector(self):
+        """모델 선택기 표시 - 계층형"""
+        try:
+            from PyQt6.QtWidgets import QMenu
+            from PyQt6.QtCore import QPoint
+            from core.file_utils import load_config
+            
+            menu = QMenu(self)
+            config = load_config()
+            models = config.get('models', {})
+            
+            # 계층형 메뉴 구성
+            providers = {}
+            for model_name, model_config in models.items():
+                provider = model_config.get('provider', 'unknown')
+                if provider not in providers:
+                    providers[provider] = []
+                providers[provider].append(model_name)
+            
+            # 각 제공자별로 서브메뉴 생성
+            for provider, model_list in providers.items():
+                provider_menu = menu.addMenu(f"🏢 {provider.title()}")
+                for model_name in model_list:
+                    action = provider_menu.addAction(f"🤖 {model_name}")
+                    action.triggered.connect(lambda checked, m=model_name: self._select_model(m))
+            
+            # 버튼 위치에서 메뉴 표시
+            button_pos = self.model_button.mapToGlobal(QPoint(0, 0))
+            menu.exec(QPoint(button_pos.x(), button_pos.y() + self.model_button.height()))
+            
+        except Exception as e:
+            print(f"모델 선택기 표시 오류: {e}")
+    
+    def _select_model(self, model_name: str):
+        """모델 선택"""
+        try:
+            from core.file_utils import save_last_model
+            save_last_model(model_name)
+            # 모델명이 길면 줄임
+            display_name = model_name
+            if len(display_name) > 15:
+                display_name = display_name[:12] + "..."
+            self.model_button.setText(f"🤖 {display_name}")
+            self.model_button.setToolTip(f"현재 모델: {model_name}")
+            
+            print(f"모델 선택됨: {model_name}")
+        except Exception as e:
+            print(f"모델 선택 오류: {e}")
+    
+    def show_template_manager(self):
+        """템플릿 관리자 표시"""
+        try:
+            from ui.template_dialog import TemplateDialog
+            dialog = TemplateDialog(self)
+            dialog.exec()
+        except Exception as e:
+            print(f"템플릿 관리자 표시 오류: {e}")
+    
+    def show_theme_selector(self):
+        """테마 선택기 표시 - 계층구조"""
+        try:
+            from PyQt6.QtWidgets import QMenu
+            from PyQt6.QtCore import QPoint
+            
+            menu = QMenu(self)
+            available_themes = theme_manager.get_available_material_themes()
+            current_theme = theme_manager.material_manager.current_theme_key
+            
+            # theme.json에서 테마 분류 정보 로드
+            theme_categories = theme_manager.material_manager.get_theme_categories()
+            
+            # 각 분류별로 서브메뉴 생성
+            for category_key, category_data in theme_categories.items():
+                if not category_data.get('themes'):  # 빈 분류는 건너뛰기
+                    continue
+                    
+                category_menu = menu.addMenu(category_data.get('name', category_key.title()))
+                
+                for theme_key in category_data['themes']:
+                    if theme_key in available_themes:
+                        theme_name = available_themes[theme_key]
+                        action = category_menu.addAction(f"🎨 {theme_name}")
+                        action.setCheckable(True)
+                        action.triggered.connect(lambda checked, key=theme_key: self._select_theme(key))
+                        
+                        # 현재 테마 체크 표시
+                        if theme_key == current_theme:
+                            action.setChecked(True)
+            
+            # 버튼 위치에서 메뉴 표시
+            button_pos = self.theme_button.mapToGlobal(QPoint(0, 0))
+            menu.exec(QPoint(button_pos.x(), button_pos.y() + self.theme_button.height()))
+            
+        except Exception as e:
+            print(f"테마 선택기 표시 오류: {e}")
+    
+    def _select_theme(self, theme_key: str):
+        """테마 선택"""
+        try:
+            # 테마 설정
+            theme_manager.material_manager.set_theme(theme_key)
+            
+            # 메인 윈도우에 테마 변경 알림
+            if hasattr(self, 'main_window') and self.main_window:
+                self.main_window._change_theme(theme_key)
+            
+            print(f"테마 선택됨: {theme_key}")
+        except Exception as e:
+            print(f"테마 선택 오류: {e}")
     
     def update_theme(self):
         """테마 업데이트"""

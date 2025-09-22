@@ -43,6 +43,7 @@ class MaterialThemeManager:
     def __init__(self, theme_file: str = "theme.json"):
         self.theme_file = theme_file
         self.themes = {}
+        self.theme_categories = {}
         self.current_theme_key = "material_dark"
         self._load_themes()
     
@@ -53,6 +54,7 @@ class MaterialThemeManager:
                 with open(self.theme_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.themes = data.get("themes", {})
+                    self.theme_categories = data.get("theme_categories", {})
                     # 현재 테마가 이미 설정되어 있지 않은 경우에만 업데이트
                     if not hasattr(self, '_theme_loaded'):
                         self.current_theme_key = data.get("current_theme", "material_dark")
@@ -692,6 +694,10 @@ class MaterialThemeManager:
         """사용 가능한 테마 목록 반환"""
         return {theme_key: theme_data.get("name", theme_key) 
                 for theme_key, theme_data in self.themes.items()}
+    
+    def get_theme_categories(self) -> Dict[str, Dict]:
+        """테마 분류 정보 반환"""
+        return self.theme_categories
 
 
 # 전역 Material Theme Manager 인스턴스

@@ -61,29 +61,9 @@ class ChatWidget(QWidget):
         QTimer.singleShot(500, self._apply_theme_if_needed)
     
     def _setup_ui(self):
-        """UI 구성"""
-        # 상단 정보 영역 - 4등분 균등 배치
-        info_layout = QHBoxLayout()
-        info_layout.setSpacing(4)
-        
-        self.model_label = QLabel(self)
-        self.session_info_label = QLabel("세션: 선택된 세션 없음", self)
-        self.tools_label = QLabel(self)
-        self.status_label = QLabel(self)
-        
-        # 새로운 플랫 스타일 적용
-        styles = FlatTheme.get_info_labels_style()
-        self.model_label.setStyleSheet(styles['model_label'])
-        self.session_info_label.setStyleSheet(styles['tools_label'])  # tools_label 스타일 재사용
-        self.tools_label.setStyleSheet(styles['tools_label'])
-        self.status_label.setStyleSheet(styles['status_label'])
-        
-        # 위치 변경 및 비율 조정: 모델(3) | 세션(3) | 대기중(3) | 도구(1)
-        info_layout.addWidget(self.model_label, 3)
-        info_layout.addWidget(self.session_info_label, 3)
-        info_layout.addWidget(self.status_label, 3)
-        info_layout.addWidget(self.tools_label, 1)
-        self.layout.addLayout(info_layout)
+        """UI 구성 - 상단 정보 영역 삭제"""
+        # 상단 정보 영역 삭제 - 좌측 패널로 이동
+        pass
         
         # 채팅 표시 영역
         self.chat_display_view = QWebEngineView(self)
@@ -201,10 +181,7 @@ class ChatWidget(QWidget):
         self.send_button.setStyleSheet(transparent_button_style)
         self.send_button.setToolTip("전송")
         
-        self.template_button = QPushButton('📋', self)
-        self.template_button.setFixedSize(88, 55)
-        self.template_button.setStyleSheet(transparent_button_style)
-        self.template_button.setToolTip("템플릿")
+        # 템플릿 버튼 삭제 - 좌측 패널로 이동
         
         self.upload_button = QPushButton('📎', self)
         self.upload_button.setFixedSize(88, 55)
@@ -217,9 +194,8 @@ class ChatWidget(QWidget):
         self.cancel_button.setStyleSheet(transparent_button_style)
         self.cancel_button.setToolTip("취소")
         
-        # 버튼 순서: 전송 / 템플릿 / 파일
+        # 버튼 순서: 전송 / 파일
         button_layout.addWidget(self.send_button)
-        button_layout.addWidget(self.template_button)
         button_layout.addWidget(self.upload_button)
         button_layout.addWidget(self.cancel_button)
         
@@ -252,12 +228,12 @@ class ChatWidget(QWidget):
             self.send_button, 
             self.cancel_button, 
             self.upload_button,
-            self.template_button,
+            None,  # template_button 제거
             self.loading_bar
         )
         
-        # 모델 매니저
-        self.model_manager = ModelManager(self.model_label, self.tools_label)
+        # 모델 매니저 삭제 - 좌측 패널로 이동
+        pass
     
     def _setup_connections(self):
         """시그널 연결"""
@@ -265,7 +241,6 @@ class ChatWidget(QWidget):
         self.send_button.clicked.connect(self.send_message)
         self.cancel_button.clicked.connect(self.cancel_request)
         self.upload_button.clicked.connect(self.upload_file)
-        self.template_button.clicked.connect(self.show_template_menu)
         self.mode_toggle.clicked.connect(self.toggle_mode)
         
         # AI 프로세서 시그널 연결
@@ -275,21 +250,16 @@ class ChatWidget(QWidget):
         self.ai_processor.streaming_complete.connect(self.on_streaming_complete)
         self.ai_processor.conversation_completed.connect(self._on_conversation_completed)
         
-        # 상태 표시 연결
-        status_display.status_updated.connect(self.update_status_display)
+        # 상태 표시 연결 삭제 - 좌측 패널로 이동
         
-        # 모델/도구 라벨 클릭 연결
-        self.model_label.mousePressEvent = self.model_manager.show_model_popup
-        self.tools_label.mousePressEvent = self.model_manager.show_tools_popup
+        # 모델/도구 라벨 클릭 연결 삭제 - 좌측 패널로 이동
         
         # 키보드 단축키
         self.input_text.keyPressEvent = self.handle_input_key_press
         send_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self.input_text)
         send_shortcut.activated.connect(self.send_message)
         
-        # 템플릿 단축키
-        template_shortcut = QShortcut(QKeySequence("Ctrl+T"), self)
-        template_shortcut.activated.connect(self._open_template_manager)
+        # 템플릿 단축키 삭제 - 좌측 패널로 이동
         
         # 웹뷰 로드 완료
         self.chat_display_view.loadFinished.connect(self._on_webview_loaded)
@@ -371,7 +341,7 @@ class ChatWidget(QWidget):
         
         model = load_last_model()
         api_key = load_model_api_key(model)
-        self.model_manager.update_model_label()
+        # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
         
         if not api_key:
             self.chat_display.append_message('시스템', 'API Key가 설정되어 있지 않습니다. 환경설정에서 입력해 주세요.')
@@ -469,54 +439,7 @@ class ChatWidget(QWidget):
             self.uploaded_file_name = None
             self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
     
-    def show_template_menu(self):
-        """템플릿 메뉴 표시"""
-        from PyQt6.QtWidgets import QMenu
-        from PyQt6.QtCore import QPoint
-        from ui.template_manager import template_manager
-        
-        menu = QMenu(self)
-        
-        # 즐겨찾기 템플릿
-        favorites = template_manager.get_favorite_templates()
-        if favorites:
-            for template in favorites[:5]:  # 상위 5개만
-                action = menu.addAction(f"⭐ {template.name}")
-                action.triggered.connect(lambda checked, t=template.content: self._apply_template(t))
-            menu.addSeparator()
-        
-        # 최근 사용 템플릿
-        recent = template_manager.get_recent_templates(3)
-        if recent:
-            for template in recent:
-                action = menu.addAction(f"🕰️ {template.name}")
-                action.triggered.connect(lambda checked, t=template.content: self._apply_template(t))
-            menu.addSeparator()
-        
-        # 템플릿 관리 메뉴
-        manage_action = menu.addAction("📋 템플릿 관리...")
-        manage_action.triggered.connect(self._open_template_manager)
-        
-        # 버튼 위치에서 메뉴 표시
-        button_pos = self.template_button.mapToGlobal(QPoint(0, 0))
-        menu.exec(QPoint(button_pos.x(), button_pos.y() - menu.sizeHint().height()))
-    
-    def _open_template_manager(self):
-        """템플릿 관리 대화상자 열기"""
-        from ui.template_dialog import TemplateDialog
-        
-        dialog = TemplateDialog(self)
-        dialog.template_selected.connect(self._apply_template)
-        dialog.exec()
-    
-    def _apply_template(self, template_text):
-        """템플릿 적용"""
-        current_text = self.input_text.toPlainText().strip()
-        if current_text:
-            self.input_text.setPlainText(f"{template_text} {current_text}")
-        else:
-            self.input_text.setPlainText(template_text)
-        self.input_text.setFocus()
+    # 템플릿 관련 메서드 삭제 - 좌측 패널로 이동
     
     def cancel_request(self):
         """요청 취소"""
@@ -612,8 +535,7 @@ class ChatWidget(QWidget):
         
         self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
         
-        # 모델 라벨 업데이트 (세션 토큰 정보 포함)
-        self.model_manager.update_model_label()
+        # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
         
         self.ui_manager.set_ui_enabled(True)
         self.ui_manager.show_loading(False)
@@ -693,40 +615,7 @@ class ChatWidget(QWidget):
             # 웹뷰 로드 실패 시에도 웰컴 메시지 표시
             QTimer.singleShot(1000, self._show_welcome_message)
     
-    def update_status_display(self, status_data):
-        """상태 표시 업데이트 - 동적 크기 조절"""
-        try:
-            html_status = status_display.get_status_html()
-            self.status_label.setText(html_status)
-            
-            # 상태에 따라 레이아웃 비율 동적 조절
-            state = status_data.get('state', 'idle')
-            self._adjust_info_layout_ratios(state)
-            
-        except Exception as e:
-            print(f"상태 표시 업데이트 오류: {e}")
-    
-    def _adjust_info_layout_ratios(self, state: str):
-        """상태에 따라 정보 영역 레이아웃 비율 조절"""
-        try:
-            # 레이아웃에서 위젯들의 stretch factor 조절
-            info_layout = self.layout.itemAt(0).layout()  # 첫 번째 레이아웃이 info_layout
-            
-            if state == 'idle':
-                # 대기중: 모델(3) | 세션(3) | 대기중(2) | 도구(1)
-                info_layout.setStretchFactor(self.model_label, 3)
-                info_layout.setStretchFactor(self.session_info_label, 3)
-                info_layout.setStretchFactor(self.status_label, 2)
-                info_layout.setStretchFactor(self.tools_label, 1)
-            else:
-                # 활성화: 모델(2) | 세션(2) | 대기중(4) | 도구(1)
-                info_layout.setStretchFactor(self.model_label, 2)
-                info_layout.setStretchFactor(self.session_info_label, 2)
-                info_layout.setStretchFactor(self.status_label, 4)
-                info_layout.setStretchFactor(self.tools_label, 1)
-                
-        except Exception as e:
-            print(f"레이아웃 비율 조절 오류: {e}")
+    # 상태 표시 업데이트 삭제 - 좌측 패널로 이동
     
     def _load_previous_conversations(self):
         """이전 대화 로드"""
@@ -894,8 +783,7 @@ class ChatWidget(QWidget):
             if hasattr(self, 'ai_processor'):
                 self.ai_processor.cancel()
             
-            if hasattr(self, 'model_manager'):
-                self.model_manager.stop_monitoring()
+            # 모델 매니저 중지 삭제 - 좌측 패널로 이동
             
             print("ChatWidget 종료 완료")
             
@@ -991,6 +879,13 @@ class ChatWidget(QWidget):
             if hasattr(self, 'loading_bar') and hasattr(self.loading_bar, 'update_theme'):
                 self.loading_bar.update_theme()
             
+            # 강제로 위젯 다시 그리기
+            self.update()
+            if hasattr(self, 'input_text'):
+                self.input_text.update()
+            if hasattr(self, 'input_container'):
+                self.input_container.update()
+            
             print("테마 업데이트 완료")
             
         except Exception as e:
@@ -1014,51 +909,6 @@ class ChatWidget(QWidget):
         """
         self.setStyleSheet(widget_style)
         
-        # 정보 라벨 스타일 업데이트
-        model_label_style = f"""
-        QLabel {{
-            color: {colors.get('on_primary', '#000000')};
-            font-size: 16px;
-            font-weight: 700;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 14px 18px;
-            background-color: {colors.get('primary', '#bb86fc')};
-            border: 2px solid {colors.get('primary_variant', '#3700b3')};
-            border-radius: 12px;
-        }}
-        """
-        
-        tools_label_style = f"""
-        QLabel {{
-            color: {colors.get('on_secondary', '#000000')};
-            font-size: 16px;
-            font-weight: 700;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 14px 18px;
-            background-color: {colors.get('secondary', '#03dac6')};
-            border: 2px solid {colors.get('secondary_variant', '#018786')};
-            border-radius: 12px;
-        }}
-        """
-        
-        status_label_style = f"""
-        QLabel {{
-            color: {colors.get('text_secondary', '#b3b3b3')};
-            font-size: 12px;
-            font-weight: 600;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 8px 16px;
-            background-color: {colors.get('surface', '#1e1e1e')};
-            border: 2px solid {colors.get('divider', '#333333')};
-            border-radius: 10px;
-        }}
-        """
-        
-        self.model_label.setStyleSheet(model_label_style)
-        self.session_info_label.setStyleSheet(tools_label_style)  # 동일한 스타일 사용
-        self.tools_label.setStyleSheet(tools_label_style)
-        self.status_label.setStyleSheet(status_label_style)
-        
         # 입력 영역 스타일 업데이트
         self._apply_material_input_styles(colors)
         
@@ -1080,55 +930,12 @@ class ChatWidget(QWidget):
     
     def _apply_material_input_styles(self, colors):
         """재료 테마 입력 영역 스타일 적용"""
-        # 입력 컸테이너 스타일
+        # 입력 컨테이너 스타일
         container_style = f"""
         QWidget {{
             background-color: {colors.get('surface', '#1e1e1e')};
             border: 2px solid {colors.get('primary', '#bb86fc')};
             border-radius: 16px;
-        }}
-        """
-        
-        # 모드 토글 버튼 스타일 - 입력창과 일치
-        mode_toggle_style = f"""
-        QPushButton {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_primary', '#ffffff')};
-            border: 1px solid {colors.get('divider', '#333333')};
-            border-radius: 12px;
-            padding: 6px 18px;
-            font-size: 48px;
-            font-weight: 700;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            min-width: 100px;
-            max-width: 100px;
-            margin-right: 8px;
-            margin-left: 12px;
-        }}
-        QPushButton:hover {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_primary', '#ffffff')};
-        }}
-        QPushButton:checked {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_primary', '#ffffff')};
-        }}
-        """
-        
-        # 입력창 스타일
-        input_text_style = f"""
-        QTextEdit {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_primary', '#ffffff')};
-            border: none;
-            border-radius: 12px;
-            font-size: 15px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 8px;
-            selection-background-color: {colors.get('primary', '#bb86fc')};
-        }}
-        QTextEdit:focus {{
-            border: none;
         }}
         """
         
@@ -1153,13 +960,19 @@ class ChatWidget(QWidget):
         """
         
         # 스타일 적용
-        self.input_container.setStyleSheet(container_style)
-        # 토글 버튼은 직접 설정한 호버 효과 스타일 유지
+        if hasattr(self, 'input_container'):
+            self.input_container.setStyleSheet(container_style)
+        
+        # 입력창 스타일 업데이트
         self._update_input_text_style(colors)
-        self.send_button.setStyleSheet(transparent_button_style)
-        self.cancel_button.setStyleSheet(transparent_button_style)
-        self.upload_button.setStyleSheet(transparent_button_style)
-        self.template_button.setStyleSheet(transparent_button_style)
+        
+        # 버튼 스타일 업데이트
+        if hasattr(self, 'send_button'):
+            self.send_button.setStyleSheet(transparent_button_style)
+        if hasattr(self, 'cancel_button'):
+            self.cancel_button.setStyleSheet(transparent_button_style)
+        if hasattr(self, 'upload_button'):
+            self.upload_button.setStyleSheet(transparent_button_style)
     
     def _on_conversation_completed(self, _):
         """대화 완료 시 토큰 누적기 종료"""
@@ -1249,26 +1062,7 @@ class ChatWidget(QWidget):
         except Exception as e:
             print(f"[LOAD_SESSION] 메시지 표시 오류: {e}")
     
-    def update_session_info(self, session_id=None):
-        """세션 정보 업데이트"""
-        try:
-            if not session_id:
-                self.session_info_label.setText("세션: 선택된 세션 없음")
-                return
-            
-            from core.session import session_manager
-            session = session_manager.get_session(session_id)
-            if session:
-                title = session['title']
-                if len(title) > 20:
-                    title = title[:17] + "..."
-                message_count = session_manager.get_message_count(session_id)
-                self.session_info_label.setText(f"세션: {title} (💬 {message_count}개)")
-            else:
-                self.session_info_label.setText("세션: 오류")
-        except Exception as e:
-            print(f"세션 정보 업데이트 오류: {e}")
-            self.session_info_label.setText("세션: 오류")
+    # 세션 정보 업데이트 삭제 - 좌측 패널로 이동
     
     def _update_input_text_style(self, colors=None):
         """입력창 스타일 동적 업데이트"""

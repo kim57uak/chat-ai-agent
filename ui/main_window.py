@@ -61,7 +61,8 @@ class MainWindow(QMainWindow):
         # News banner
         from ui.components.news_banner_simple import NewsBanner
         self.news_banner = NewsBanner(self)
-        self.news_banner.setMaximumHeight(35)
+        self.news_banner.setMaximumHeight(44)
+        self.news_banner.setContentsMargins(0, 0, 0, 2)
         chat_layout.addWidget(self.news_banner)
         
         # Chat widget

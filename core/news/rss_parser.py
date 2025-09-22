@@ -56,11 +56,15 @@ class RSSParser:
                         continue
                     
                     if title and link:
+                        # 이미지 URL 추출
+                        image_url = self._extract_image_url(item)
+                        
                         items.append({
                             'title': title.strip(),
                             'link': link.strip(),
                             'pubDate': parsed_date,
-                            'source': self._extract_domain(url)
+                            'source': self._extract_domain(url),
+                            'image_url': image_url
                         })
             
             # RDF 형식 (아사히신문 등)
@@ -82,11 +86,15 @@ class RSSParser:
                         continue
                     
                     if title and link:
+                        # 이미지 URL 추출
+                        image_url = self._extract_image_url(item)
+                        
                         items.append({
                             'title': title.strip(),
                             'link': link.strip(),
                             'pubDate': parsed_date,
-                            'source': self._extract_domain(url)
+                            'source': self._extract_domain(url),
+                            'image_url': image_url
                         })
             
             return sorted(items, key=lambda x: x['pubDate'] or datetime.min, reverse=True)
@@ -203,6 +211,46 @@ class RSSParser:
                     continue
         
         return None
+    
+    def _extract_image_url(self, item) -> Optional[str]:
+        """뉴스 아이템에서 이미지 URL 추출"""
+        try:
+            # enclosure 태그에서 이미지 찾기
+            enclosure = item.find('enclosure')
+            if enclosure is not None:
+                url = enclosure.get('url', '')
+                type_attr = enclosure.get('type', '')
+                if url and 'image' in type_attr.lower():
+                    return url
+            
+            # media:content 태그에서 이미지 찾기
+            media_content = item.find('.//{http://search.yahoo.com/mrss/}content')
+            if media_content is not None:
+                url = media_content.get('url', '')
+                type_attr = media_content.get('type', '')
+                if url and 'image' in type_attr.lower():
+                    return url
+            
+            # media:thumbnail 태그에서 이미지 찾기
+            media_thumbnail = item.find('.//{http://search.yahoo.com/mrss/}thumbnail')
+            if media_thumbnail is not None:
+                url = media_thumbnail.get('url', '')
+                if url:
+                    return url
+            
+            # description에서 img 태그 찾기
+            description = self._get_text(item, 'description')
+            if description:
+                import re
+                img_match = re.search(r'<img[^>]+src=["\']([^"\'>]+)["\']', description, re.IGNORECASE)
+                if img_match:
+                    return img_match.group(1)
+            
+            return None
+            
+        except Exception as e:
+            logger.debug(f"이미지 URL 추출 오류: {e}")
+            return None
 
 
 class NewsAnalyzer:

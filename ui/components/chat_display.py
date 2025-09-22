@@ -598,6 +598,8 @@ class ChatDisplay:
                 body_bg_color = colors.get("background", "#1a1a1a")
 
             # JavaScript로 실시간 테마 업데이트
+            # f-string에서 백슬래시 사용을 피하기 위해 변수로 분리
+            escaped_theme_css = theme_css.replace('`', r'\`')
             update_js = f"""
             try {{
                 console.log('테마 업데이트 시작');
@@ -615,7 +617,7 @@ class ChatDisplay:
                 // 새로운 테마 스타일 추가
                 var newStyle = document.createElement('style');
                 newStyle.id = 'theme-style';
-                newStyle.textContent = `{theme_css.replace('`', '\`')}`;
+                newStyle.textContent = `{escaped_theme_css}`;
                 document.head.appendChild(newStyle);
                 
                 // Mermaid 다이어그램 배경색 업데이트

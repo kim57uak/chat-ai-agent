@@ -850,25 +850,39 @@ class SessionPanel(QWidget):
         }}
         """
         
-        # 검색 입력창 - 테마별 대비색 적용
+        # 검색 입력창 - True Gray 테마 특별 처리 (채팅창과 동일)
         is_dark = theme_manager.is_material_dark_theme()
-        input_text_color = text_color if is_dark else colors.get('text_primary', '#000000')
-        placeholder_color = colors.get('text_secondary', '#b3b3b3') if is_dark else '#999999'
+        
+        # True Gray 테마 감지 및 특별 처리
+        if colors.get('primary') == '#6B7280':  # True Gray 테마
+            input_bg_color = '#FFFFFF'
+            input_text_color = '#374151'
+            input_border_color = colors.get('divider', '#E5E7EB')
+            placeholder_color = '#9CA3AF'
+            selection_text_color = '#FFFFFF'
+        else:
+            input_bg_color = surface_color
+            input_text_color = text_color if is_dark else colors.get('text_primary', '#000000')
+            input_border_color = colors.get('divider', '#333333')
+            placeholder_color = colors.get('text_secondary', '#b3b3b3') if is_dark else '#999999'
+            selection_text_color = colors.get('on_primary', '#000000')
         
         search_style = f"""
         QLineEdit {{
-            background-color: {surface_color};
+            background-color: {input_bg_color};
             color: {input_text_color};
-            border: 1px solid {colors.get('divider', '#333333')};
+            border: 1px solid {input_border_color};
             border-radius: 12px;
             font-size: 15px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
             padding: 18px;
             margin: 4px;
             selection-background-color: {primary_color};
+            selection-color: {selection_text_color};
         }}
         QLineEdit:focus {{
             border-color: {primary_color};
+            border-width: 2px;
         }}
         QLineEdit::placeholder {{
             color: {placeholder_color};

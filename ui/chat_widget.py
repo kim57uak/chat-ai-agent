@@ -1274,38 +1274,78 @@ class ChatWidget(QWidget):
         """입력창 스타일 동적 업데이트"""
         try:
             if theme_manager.use_material_theme and colors:
-                input_text_style = f"""
-                QTextEdit {{
-                    background-color: {colors.get('surface', '#1e1e1e')};
-                    color: {colors.get('text_primary', '#ffffff')};
-                    border: 1px solid {colors.get('divider', '#333333')};
-                    border-radius: 12px;
-                    font-size: 15px;
-                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                    padding: 8px;
-                    selection-background-color: {colors.get('primary', '#bb86fc')};
-                }}
-                QTextEdit:focus {{
-                    border-color: {colors.get('primary', '#bb86fc')};
-                }}
-                """
+                # True Gray 테마 특별 처리
+                if colors.get('primary') == '#6B7280':  # True Gray 테마 감지
+                    input_text_style = f"""
+                    QTextEdit {{
+                        background-color: #FFFFFF;
+                        color: #374151;
+                        border: 1px solid {colors.get('divider', '#E5E7EB')};
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 8px;
+                        selection-background-color: {colors.get('primary', '#6B7280')};
+                        selection-color: #FFFFFF;
+                    }}
+                    QTextEdit:focus {{
+                        border-color: {colors.get('primary', '#6B7280')};
+                        border-width: 2px;
+                    }}
+                    """
+                else:
+                    input_text_style = f"""
+                    QTextEdit {{
+                        background-color: {colors.get('surface', '#1e1e1e')};
+                        color: {colors.get('text_primary', '#ffffff')};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 8px;
+                        selection-background-color: {colors.get('primary', '#bb86fc')};
+                    }}
+                    QTextEdit:focus {{
+                        border-color: {colors.get('primary', '#bb86fc')};
+                    }}
+                    """
             elif theme_manager.use_material_theme:
                 colors = theme_manager.material_manager.get_theme_colors()
-                input_text_style = f"""
-                QTextEdit {{
-                    background-color: {colors.get('surface', '#1e1e1e')};
-                    color: {colors.get('text_primary', '#ffffff')};
-                    border: 1px solid {colors.get('divider', '#333333')};
-                    border-radius: 12px;
-                    font-size: 15px;
-                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                    padding: 8px;
-                    selection-background-color: {colors.get('primary', '#bb86fc')};
-                }}
-                QTextEdit:focus {{
-                    border-color: {colors.get('primary', '#bb86fc')};
-                }}
-                """
+                # True Gray 테마 특별 처리
+                if colors.get('primary') == '#6B7280':  # True Gray 테마 감지
+                    input_text_style = f"""
+                    QTextEdit {{
+                        background-color: #FFFFFF;
+                        color: #374151;
+                        border: 1px solid {colors.get('divider', '#E5E7EB')};
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 8px;
+                        selection-background-color: {colors.get('primary', '#6B7280')};
+                        selection-color: #FFFFFF;
+                    }}
+                    QTextEdit:focus {{
+                        border-color: {colors.get('primary', '#6B7280')};
+                        border-width: 2px;
+                    }}
+                    """
+                else:
+                    input_text_style = f"""
+                    QTextEdit {{
+                        background-color: {colors.get('surface', '#1e1e1e')};
+                        color: {colors.get('text_primary', '#ffffff')};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 8px;
+                        selection-background-color: {colors.get('primary', '#bb86fc')};
+                    }}
+                    QTextEdit:focus {{
+                        border-color: {colors.get('primary', '#bb86fc')};
+                    }}
+                    """
             else:
                 input_text_style = FlatTheme.get_input_area_style()['input_text']
             

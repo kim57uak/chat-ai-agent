@@ -1,5 +1,5 @@
 {
-  "current_theme": "material_forest",
+  "current_theme": "eye_comfort",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -577,42 +577,6 @@
         "glow": "rgba(126, 87, 194, 0.4)"
       }
     },
-    "zombie_dark": {
-      "name": "Zombie Dark",
-      "type": "dark",
-      "colors": {
-        "primary": "#8bc34a",
-        "primary_variant": "#689f38",
-        "secondary": "#ff5722",
-        "secondary_variant": "#d84315",
-        "background": "#0d1117",
-        "surface": "#161b22",
-        "error": "#ff6b6b",
-        "on_primary": "#000000",
-        "on_secondary": "#ffffff",
-        "on_background": "#c9d1d9",
-        "on_surface": "#c9d1d9",
-        "on_error": "#ffffff",
-        "text_primary": "#c9d1d9",
-        "text_secondary": "#8b949e",
-        "divider": "#21262d",
-        "user_bg": "rgba(139, 195, 74, 0.15)",
-        "user_border": "#8bc34a",
-        "ai_bg": "rgba(255, 87, 34, 0.15)",
-        "ai_border": "#ff5722",
-        "system_bg": "rgba(139, 148, 158, 0.12)",
-        "system_border": "#8b949e",
-        "code_bg": "#0d1117",
-        "code_border": "#30363d",
-        "scrollbar": "#484f58",
-        "scrollbar_track": "#161b22"
-      },
-      "loading_bar": {
-        "background": "rgba(139, 195, 74, 0.15)",
-        "chunk": "linear-gradient(90deg, #8bc34a 0%, #ff5722 100%)",
-        "glow": "rgba(139, 195, 74, 0.4)"
-      }
-    },
     "iphone_dark": {
       "name": "iPhone Dark",
       "type": "dark",
@@ -899,6 +863,42 @@
         "background": "rgba(74, 144, 164, 0.1)",
         "chunk": "linear-gradient(90deg, #4A90A4 0%, #7B9F35 100%)",
         "glow": "rgba(74, 144, 164, 0.25)"
+      }
+    },
+    "true_gray": {
+      "name": "True Gray",
+      "type": "light",
+      "colors": {
+        "primary": "#6B7280",
+        "primary_variant": "#4B5563",
+        "secondary": "#9CA3AF",
+        "secondary_variant": "#6B7280",
+        "background": "#F9FAFB",
+        "surface": "linear-gradient(135deg, #FFFFFF 0%, #F3F4F6 50%, #E5E7EB 100%)",
+        "error": "#EF4444",
+        "on_primary": "#FFFFFF",
+        "on_secondary": "#FFFFFF",
+        "on_background": "#374151",
+        "on_surface": "#374151",
+        "on_error": "#FFFFFF",
+        "text_primary": "#374151",
+        "text_secondary": "#6B7280",
+        "divider": "#E5E7EB",
+        "user_bg": "linear-gradient(135deg, rgba(107, 114, 128, 0.08) 0%, rgba(249, 250, 251, 0.5) 50%, rgba(156, 163, 175, 0.08) 100%)",
+        "user_border": "#6B7280",
+        "ai_bg": "linear-gradient(135deg, rgba(156, 163, 175, 0.08) 0%, rgba(249, 250, 251, 0.5) 50%, rgba(107, 114, 128, 0.08) 100%)",
+        "ai_border": "#9CA3AF",
+        "system_bg": "linear-gradient(135deg, rgba(75, 85, 99, 0.06) 0%, rgba(249, 250, 251, 0.3) 100%)",
+        "system_border": "#4B5563",
+        "code_bg": "linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)",
+        "code_border": "#D1D5DB",
+        "scrollbar": "linear-gradient(135deg, #9CA3AF 0%, #6B7280 100%)",
+        "scrollbar_track": "#F3F4F6"
+      },
+      "loading_bar": {
+        "background": "rgba(107, 114, 128, 0.1)",
+        "chunk": "linear-gradient(90deg, #6B7280 0%, #9CA3AF 25%, #4B5563 50%, #D1D5DB 75%, #6B7280 100%)",
+        "glow": "rgba(107, 114, 128, 0.4)"
       }
     }
   }

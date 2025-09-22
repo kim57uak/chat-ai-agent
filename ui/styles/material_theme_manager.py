@@ -271,21 +271,33 @@ class MaterialThemeManager:
     
     def _get_code_text_color(self) -> str:
         """코드 블록용 텍스트 색상 반환"""
-        if self.is_dark_theme():
+        colors = self.get_theme_colors()
+        # True Gray 테마 특별 처리
+        if colors.get('primary') == '#6B7280':
+            return "#1F2937"  # True Gray: 진한 회색
+        elif self.is_dark_theme():
             return "#e8e8e8"  # 다크 테마: 밝은 회색
         else:
             return "#2d3748"  # 라이트 테마: 어두운 회색
     
     def _get_mermaid_text_color(self) -> str:
         """Mermaid 다이어그램용 텍스트 색상 반환"""
-        if self.is_dark_theme():
+        colors = self.get_theme_colors()
+        # True Gray 테마 특별 처리
+        if colors.get('primary') == '#6B7280':
+            return "#1F2937"  # True Gray: 진한 회색
+        elif self.is_dark_theme():
             return "#ffffff"  # 다크 테마: 흰색
         else:
             return "#1a202c"  # 라이트 테마: 진한 회색
     
     def _get_mermaid_node_fill(self) -> str:
         """Mermaid 노드 배경색 반환"""
-        if self.is_dark_theme():
+        colors = self.get_theme_colors()
+        # True Gray 테마 특별 처리
+        if colors.get('primary') == '#6B7280':
+            return "#F3F4F6"  # True Gray: 밝은 회색
+        elif self.is_dark_theme():
             return "#4a5568"  # 다크 테마: 어두운 회색
         else:
             return "#f7fafc"  # 라이트 테마: 밝은 회색
@@ -392,6 +404,11 @@ class MaterialThemeManager:
             color: {colors.get('text_primary', '#ffffff')} !important;
         }}
         
+        /* True Gray 테마 특별 처리 */
+        .message.system .message-content {{
+            color: {colors.get('text_secondary', '#6B7280')} !important;
+        }}
+        
         .copy-message-btn {{
             position: absolute !important;
             top: 12px !important;
@@ -481,6 +498,15 @@ class MaterialThemeManager:
         p {{
             margin: 8px 0 !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
+        }}
+        
+        /* True Gray 테마에서 더 진한 텍스트 색상 사용 */
+        .message p {{
+            color: {colors.get('text_primary', '#ffffff')} !important;
+        }}
+        
+        .message.system p {{
+            color: {colors.get('text_secondary', '#6B7280')} !important;
         }}
         
         ul, ol {{

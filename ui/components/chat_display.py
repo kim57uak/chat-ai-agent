@@ -8,84 +8,100 @@ import uuid
 
 class ChatDisplay:
     """채팅 표시를 담당하는 클래스 (SRP)"""
-    
+
     def __init__(self, web_view: QWebEngineView):
         self.web_view = web_view
         self.progressive_display = ProgressiveDisplay(web_view)
         self._load_ui_settings()
         self._setup_link_handler()
         self.init_web_view()
-    
+
     def _load_ui_settings(self):
         """UI 설정 로드"""
         try:
             from core.file_utils import load_config
+
             config = load_config()
-            ui_settings = config.get('ui_settings', {})
-            progressive_settings = ui_settings.get('progressive_display', {})
-            
-            self.progressive_enabled = progressive_settings.get('enabled', True)
-            self.delay_per_line = progressive_settings.get('delay_per_line', 30)
-            self.initial_delay = progressive_settings.get('initial_delay', 100)
+            ui_settings = config.get("ui_settings", {})
+            progressive_settings = ui_settings.get("progressive_display", {})
+
+            self.progressive_enabled = progressive_settings.get("enabled", True)
+            self.delay_per_line = progressive_settings.get("delay_per_line", 30)
+            self.initial_delay = progressive_settings.get("initial_delay", 100)
         except Exception as e:
             # 설정 로드 실패 시 기본값 사용
             self.progressive_enabled = True
             self.delay_per_line = 30
             self.initial_delay = 100
-    
+
     def init_web_view(self):
         """웹 브라우저 초기화 - 고급 다크 테마"""
         from ui.styles.theme_manager import theme_manager
-        
+
         # 웹 보안 설정 완화 (PyQt6 호환)
         settings = self.web_view.settings()
-        settings.setAttribute(settings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        settings.setAttribute(
+            settings.WebAttribute.LocalContentCanAccessRemoteUrls, True
+        )
         settings.setAttribute(settings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
-        
+
         # PyQt6에서 지원하는 속성만 사용
         try:
-            settings.setAttribute(settings.WebAttribute.AllowRunningInsecureContent, True)
+            settings.setAttribute(
+                settings.WebAttribute.AllowRunningInsecureContent, True
+            )
         except AttributeError:
             pass
         try:
-            settings.setAttribute(settings.WebAttribute.PlaybackRequiresUserGesture, False)
+            settings.setAttribute(
+                settings.WebAttribute.PlaybackRequiresUserGesture, False
+            )
         except AttributeError:
             pass
-        
+
         # 웹뷰 배경 투명 설정 및 스크롤 최적화
-        self.web_view.page().setBackgroundColor(self.web_view.palette().color(self.web_view.palette().ColorRole.Window))
-        
+        self.web_view.page().setBackgroundColor(
+            self.web_view.palette().color(self.web_view.palette().ColorRole.Window)
+        )
+
         # 스크롤 성능 향상을 위한 추가 설정
         from PyQt6.QtCore import QUrl
-        self.web_view.page().profile().setHttpCacheType(self.web_view.page().profile().HttpCacheType.MemoryHttpCache)
-        self.web_view.page().profile().setHttpCacheMaximumSize(50 * 1024 * 1024)  # 50MB 캐시
-        
+
+        self.web_view.page().profile().setHttpCacheType(
+            self.web_view.page().profile().HttpCacheType.MemoryHttpCache
+        )
+        self.web_view.page().profile().setHttpCacheMaximumSize(
+            50 * 1024 * 1024
+        )  # 50MB 캐시
+
         # 콘솔 메시지 캡처
         self.web_view.page().javaScriptConsoleMessage = self.handle_console_message
-        
+
         # HTML 템플릿 로드
         self._load_html_template()
-    
+
     def handle_console_message(self, level, message, line_number, source_id):
         """자바스크립트 콘솔 메시지 처리"""
         print(f"[JS Console] {message} (line: {line_number})")
-    
+
     def _load_html_template(self):
         """HTML 템플릿 로드"""
         theme_css = self._get_current_theme_css()
         mermaid_theme = "dark" if self.is_dark_theme() else "default"
-        
+
         # 현재 테마의 배경색 가져오기
         from ui.styles.theme_manager import theme_manager
+
         if theme_manager.use_material_theme:
             colors = theme_manager.material_manager.get_theme_colors()
-            body_bg_color = colors.get('background', '#121212')
+            body_bg_color = colors.get("background", "#121212")
         else:
             from ui.styles.flat_theme import FlatTheme
+
             colors = FlatTheme.get_theme_colors()
-            body_bg_color = colors.get('background', '#1a1a1a')
-        
+            body_bg_color = colors.get("background", "#1a1a1a")
+
         # JavaScript 코드를 별도로 생성
         javascript_code = f"""
                 console.log('HTML 로드 시작');
@@ -178,7 +194,7 @@ class ChatDisplay:
                     setTimeout(rerenderMermaid, 100);
                 }});
         """
-        
+
         # 웹채널 JavaScript 코드 (중괄호 이스케이프 없이)
         webchannel_js = """
                 var pyqt_bridge = null;
@@ -363,8 +379,79 @@ class ChatDisplay:
                         console.error('DOM message removal failed:', error);
                     }
                 }
+                                
+                function copyCode(codeId) {
+                    try {
+                        const codeElement = document.getElementById(codeId);
+                        if (!codeElement) {
+                            console.error('Code element not found:', codeId);
+                            return;
+                        }
+                        
+                        const codeText = codeElement.innerText || codeElement.textContent;
+                        
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(codeText).then(() => {
+                                showCodeCopyFeedback(codeId);
+                            }).catch(() => {
+                                fallbackCopyCode(codeText, codeId);
+                            });
+                        } else {
+                            fallbackCopyCode(codeText, codeId);
+                        }
+                    } catch (error) {
+                        console.error('Code copy failed:', error);
+                    }
+                }
+                
+                function fallbackCopyCode(text, codeId) {
+                    try {
+                        const textArea = document.createElement('textarea');
+                        textArea.value = text;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        
+                        const successful = document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        
+                        if (successful) {
+                            showCodeCopyFeedback(codeId);
+                        }
+                    } catch (err) {
+                        console.error('Fallback code copy error:', err);
+                    }
+                }
+                
+                function showCodeCopyFeedback(codeId) {
+                    try {
+                        const codeElement = document.getElementById(codeId);
+                        if (codeElement) {
+                            const codeContainer = codeElement.closest('div');
+                            if (codeContainer) {
+                                const copyBtn = codeContainer.querySelector('button');
+                                if (copyBtn) {
+                                    const originalText = copyBtn.innerHTML;
+                                    copyBtn.innerHTML = '✓';
+                                    copyBtn.style.background = '#28a745';
+                                    copyBtn.style.opacity = '1';
+                                    
+                                    setTimeout(() => {
+                                        copyBtn.innerHTML = originalText;
+                                        copyBtn.style.background = '#444';
+                                        copyBtn.style.opacity = '0.7';
+                                    }, 2000);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Code copy feedback error:', error);
+                    }
+                }
+
         """
-        
+
         html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -462,47 +549,54 @@ class ChatDisplay:
             <div id="messages"></div>
         </body>
         </html>
-        """.replace('{webchannel_js}', webchannel_js)
+        """.replace(
+            "{webchannel_js}", webchannel_js
+        )
         self.web_view.setHtml(html_template)
         print("HTML 템플릿 로드 완료")
-    
+
     def _get_current_theme_css(self) -> str:
         """현재 테마 CSS 반환"""
         from ui.styles.theme_manager import theme_manager
-        
+
         if theme_manager.use_material_theme:
             return theme_manager.material_manager.generate_web_css()
         else:
             from ui.styles.flat_theme import FlatTheme
+
             return FlatTheme.get_chat_display_css()
-    
+
     def is_dark_theme(self) -> bool:
         """현재 테마가 다크 테마인지 확인"""
         from ui.styles.theme_manager import theme_manager
-        
+
         if theme_manager.use_material_theme:
             return theme_manager.material_manager.is_dark_theme()
         else:
             return True  # 기본 테마는 다크 테마로 간주
-    
+
     def update_theme(self):
         """테마 업데이트 - 실시간 CSS 업데이트"""
         try:
             from ui.styles.theme_manager import theme_manager
-            print(f"테마 업데이트 시작: {theme_manager.material_manager.current_theme_key}")
-            
+
+            print(
+                f"테마 업데이트 시작: {theme_manager.material_manager.current_theme_key}"
+            )
+
             # 새로운 테마 CSS 가져오기
             theme_css = self._get_current_theme_css()
-            
+
             # 배경색 가져오기
             if theme_manager.use_material_theme:
                 colors = theme_manager.material_manager.get_theme_colors()
-                body_bg_color = colors.get('background', '#121212')
+                body_bg_color = colors.get("background", "#121212")
             else:
                 from ui.styles.flat_theme import FlatTheme
+
                 colors = FlatTheme.get_theme_colors()
-                body_bg_color = colors.get('background', '#1a1a1a')
-            
+                body_bg_color = colors.get("background", "#1a1a1a")
+
             # JavaScript로 실시간 테마 업데이트
             update_js = f"""
             try {{
@@ -535,70 +629,83 @@ class ChatDisplay:
                 console.error('테마 업데이트 오류:', e);
             }}
             """
-            
+
             self.web_view.page().runJavaScript(update_js)
             print("채팅 디스플레이 테마 업데이트 완료")
-            
+
         except Exception as e:
             print(f"채팅 디스플레이 테마 업데이트 오류: {e}")
-    
+
     def _setup_link_handler(self):
         """링크 클릭 핸들러 설정"""
         from PyQt6.QtWebChannel import QWebChannel
-        
+
         # 웹 채널 설정
         self.channel = QWebChannel()
         self.link_handler = LinkHandler()
-        self.channel.registerObject('pyqt_bridge', self.link_handler)
+        self.channel.registerObject("pyqt_bridge", self.link_handler)
         self.web_view.page().setWebChannel(self.channel)
-    
+
     def set_chat_widget(self, chat_widget):
         """채팅 위젯 참조 설정"""
         self.link_handler.chat_widget = chat_widget
-    
-    def append_message(self, sender, text, original_sender=None, progressive=False, message_id=None, prepend=False):
+
+    def append_message(
+        self,
+        sender,
+        text,
+        original_sender=None,
+        progressive=False,
+        message_id=None,
+        prepend=False,
+    ):
         """메시지 추가 - progressive=True시 점진적 출력, prepend=True시 상단에 추가"""
         # 테마에 따른 색상 가져오기
         from ui.styles.theme_manager import theme_manager
-        colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
-        
+
+        colors = (
+            theme_manager.material_manager.get_theme_colors()
+            if theme_manager.use_material_theme
+            else {}
+        )
+
         # 발신자별 스타일
-        if sender == '사용자':
-            bg_color = colors.get('user_bg', 'rgba(26, 26, 26, 0.3)')
-            icon = '💬'
-            sender_color = colors.get('text_secondary', '#cccccc')
-            content_color = colors.get('text_primary', '#ffffff')
-        elif sender in ['AI', '에이전트'] or '에이전트' in sender:
-            bg_color = colors.get('ai_bg', 'rgba(26, 26, 26, 0.3)')
-            icon = '🤖'
-            sender_color = colors.get('text_secondary', '#cccccc')
-            content_color = colors.get('text_primary', '#ffffff')
+        if sender == "사용자":
+            bg_color = colors.get("user_bg", "rgba(26, 26, 26, 0.3)")
+            icon = "💬"
+            sender_color = colors.get("text_secondary", "#cccccc")
+            content_color = colors.get("text_primary", "#ffffff")
+        elif sender in ["AI", "에이전트"] or "에이전트" in sender:
+            bg_color = colors.get("ai_bg", "rgba(26, 26, 26, 0.3)")
+            icon = "🤖"
+            sender_color = colors.get("text_secondary", "#cccccc")
+            content_color = colors.get("text_primary", "#ffffff")
         else:
-            bg_color = colors.get('system_bg', 'rgba(26, 26, 26, 0.3)')
-            icon = '⚙️'
-            sender_color = colors.get('text_secondary', '#999999')
-            content_color = colors.get('text_secondary', '#b3b3b3')
-        
+            bg_color = colors.get("system_bg", "rgba(26, 26, 26, 0.3)")
+            icon = "⚙️"
+            sender_color = colors.get("text_secondary", "#999999")
+            content_color = colors.get("text_secondary", "#b3b3b3")
+
         # 렌더링 확실히 보장하는 포맷터 사용
         from ui.fixed_formatter import FixedFormatter
-        
+
         formatter = FixedFormatter()
         formatted_text = formatter.format_basic_markdown(text)
-        
+
         # 이미지 URL 감지 및 렌더링 처리
         formatted_text = self._process_image_urls(formatted_text)
-        
+
         display_message_id = message_id or f"msg_{uuid.uuid4().hex[:8]}"
-        
+
         # 메시지 컨테이너 생성과 콘텐츠 설정을 한 번에 처리
         safe_content = json.dumps(formatted_text, ensure_ascii=False)
-        
+
         # 삭제 버튼 HTML (시스템 메시지가 아닌 경우에만)
         delete_button_js = ""
-        if sender != '시스템':
+        if sender != "시스템":
             # message_id가 없으면 display_message_id 사용
             delete_id = message_id if message_id else display_message_id
-            delete_button_js = f'''
+            delete_button_js = f"""
             var deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '🗑️';
             deleteBtn.title = '메시지 삭제';
@@ -621,9 +728,9 @@ class ChatDisplay:
                 /*this.style.boxShadow = '0 2px 8px rgba(220,53,69,0.3)';*/
             }};
             messageDiv.appendChild(deleteBtn);
-            '''
-        
-        combined_js = f'''
+            """
+
+        combined_js = f"""
         try {{
             console.log('메시지 생성 및 콘텐츠 설정 시작: {display_message_id}');
             
@@ -773,57 +880,64 @@ class ChatDisplay:
         }} catch(e) {{
             console.error('메시지 생성 오류:', e);
         }}
-        '''
-        
+        """
+
         if progressive and self.progressive_enabled:
             # 점진적 출력 요청 시 - 먼저 빈 컨테이너 생성
-            empty_js = combined_js.replace(f'contentDiv.innerHTML = {safe_content};', 'contentDiv.innerHTML = "";')
+            empty_js = combined_js.replace(
+                f"contentDiv.innerHTML = {safe_content};", 'contentDiv.innerHTML = "";'
+            )
             self.web_view.page().runJavaScript(empty_js)
-            QTimer.singleShot(self.initial_delay, lambda: self.progressive_display.display_text_progressively(
-                display_message_id, formatted_text, delay_per_line=self.delay_per_line
-            ))
+            QTimer.singleShot(
+                self.initial_delay,
+                lambda: self.progressive_display.display_text_progressively(
+                    display_message_id,
+                    formatted_text,
+                    delay_per_line=self.delay_per_line,
+                ),
+            )
         else:
             # 일반 출력 - 한 번에 처리
             self.web_view.page().runJavaScript(combined_js)
-        
+
         return display_message_id
-    
+
     def clear_messages(self):
         """메시지 초기화"""
         self.progressive_display.cancel_current_display()
         self.init_web_view()
-    
+
     def cancel_progressive_display(self):
         """점진적 출력 취소"""
         self.progressive_display.cancel_current_display()
-    
+
     def _process_image_urls(self, text):
         """이미지 URL 및 유튜브 링크 감지 및 렌더링 처리"""
         import re
         import uuid
-        
+
         # Pollination 이미지 URL 패턴 감지
-        pollination_pattern = r'https://image\.pollinations\.ai/prompt/[^\s)]+'
-        
+        pollination_pattern = r"https://image\.pollinations\.ai/prompt/[^\s)]+"
+
         # 유튜브 URL 패턴 감지 (더 정확한 패턴)
         youtube_pattern = r'https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})(?:[^\s<>"]*)?'
-        
+
         def replace_image_url(match):
             url = match.group(0)
             image_id = f"img_{uuid.uuid4().hex[:8]}"
-            
+
             # CSS 애니메이션을 별도 문자열로 분리
-            css_animation = '''
+            css_animation = """
             <style>
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
                 }
             </style>
-            '''
-            
+            """
+
             # HTML 콘텐츠
-            html_content = f'''
+            html_content = f"""
             <div id="{image_id}_container" style="position: relative; display: inline-block; margin: 10px 0; min-height: 200px;">
                 <div id="{image_id}_loading" style="
                     display: flex; 
@@ -855,33 +969,33 @@ class ChatDisplay:
                      onload="if(typeof showLoadedImage === 'function') showLoadedImage('{image_id}', '{url}')" 
                      onerror="if(typeof showImageError === 'function') showImageError('{image_id}')" />
             </div>
-            '''
-            
+            """
+
             return css_animation + html_content
-        
+
         def replace_youtube_url(match):
             full_url = match.group(0)
             video_id = match.group(2)
-            
+
             # 전체화면 지원을 위한 완전한 iframe 설정
             return f'\n\n<div style="margin:10px 0;padding:10px;background:rgba(40,40,40,0.5);border-radius:8px;"><p style="color:#87CEEB;margin:0 0 10px 0;font-size:14px;">📺 YouTube: <a href="{full_url}" target="_blank" style="color:#87CEEB;">{video_id}</a></p><iframe width="560" height="315" src="https://www.youtube.com/embed/{video_id}?enablejsapi=1&fs=1&modestbranding=1&rel=0&showinfo=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe></div>\n\n'
-        
+
         # 유튜브 URL을 먼저 처리 (더 긴 패턴이므로)
         processed_text = re.sub(youtube_pattern, replace_youtube_url, text)
-        
+
         # 이미지 URL을 이미지 태그로 변환
         processed_text = re.sub(pollination_pattern, replace_image_url, processed_text)
-        
+
         return processed_text
 
 
 class LinkHandler(QObject):
     """링크 클릭 및 이미지 저장 처리를 위한 핸들러"""
-    
+
     def __init__(self, chat_widget=None):
         super().__init__()
         self.chat_widget = chat_widget
-    
+
     @pyqtSlot(str)
     def openUrl(self, url):
         """URL을 기본 브라우저에서 열기"""
@@ -889,7 +1003,7 @@ class LinkHandler(QObject):
             QDesktopServices.openUrl(QUrl(url))
         except Exception as e:
             print(f"URL 열기 오류: {e}")
-    
+
     @pyqtSlot(str)
     def saveImage(self, image_url):
         """이미지 저장"""
@@ -898,66 +1012,77 @@ class LinkHandler(QObject):
             from PyQt6.QtCore import QThread, pyqtSignal
             import requests
             import os
-            
+
             # 파일 저장 대화상자
             filename, _ = QFileDialog.getSaveFileName(
                 None,
                 "이미지 저장",
                 "pollination_image.png",
-                "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)"
+                "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)",
             )
-            
+
             if filename:
                 # 백그라운드에서 이미지 다운로드
                 self.download_thread = ImageDownloadThread(image_url, filename)
                 self.download_thread.finished.connect(self.on_download_finished)
                 self.download_thread.error.connect(self.on_download_error)
                 self.download_thread.start()
-                
+
         except Exception as e:
             print(f"이미지 저장 오류: {e}")
-    
+
     def on_download_finished(self, filename):
         """다운로드 완료 처리"""
         from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.information(None, "저장 완료", f"이미지가 저장되었습니다:\n{filename}")
-    
+
+        QMessageBox.information(
+            None, "저장 완료", f"이미지가 저장되었습니다:\n{filename}"
+        )
+
     def on_download_error(self, error_msg):
         """다운로드 오류 처리"""
         from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.warning(None, "저장 실패", f"이미지 저장 중 오류가 발생했습니다:\n{error_msg}")
-    
+
+        QMessageBox.warning(
+            None, "저장 실패", f"이미지 저장 중 오류가 발생했습니다:\n{error_msg}"
+        )
+
     @pyqtSlot(str)
     def deleteMessage(self, message_id):
         """메시지 삭제"""
         try:
             print(f"[DELETE] 삭제 요청: {message_id}")
-            
+
             # 먼저 DOM에서 제거 (즉시 시각적 피드백)
-            if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
+            if (
+                hasattr(self, "chat_widget")
+                and self.chat_widget
+                and hasattr(self.chat_widget, "chat_display")
+            ):
                 self.chat_widget.chat_display.web_view.page().runJavaScript(
                     f"removeMessageFromDOM('{message_id}')"
                 )
                 print(f"[DELETE] DOM에서 제거 완료: {message_id}")
-            
+
             # 데이터에서 삭제
-            if self.chat_widget and hasattr(self.chat_widget, 'delete_message'):
+            if self.chat_widget and hasattr(self.chat_widget, "delete_message"):
                 success = self.chat_widget.delete_message(message_id)
                 print(f"[DELETE] 데이터 삭제 결과: {success}")
             else:
                 print(f"[DELETE] delete_message 메소드 없음")
-                
+
         except Exception as e:
             print(f"[DELETE] 오류: {e}")
             import traceback
+
             traceback.print_exc()
-    
+
     @pyqtSlot()
     def onScrollToTop(self):
         """스크롤이 상단에 도달했을 때 호출"""
         try:
             print("[SCROLL] 상단 도달 - 더 많은 메시지 로드 시도")
-            if self.chat_widget and hasattr(self.chat_widget, 'load_more_messages'):
+            if self.chat_widget and hasattr(self.chat_widget, "load_more_messages"):
                 self.chat_widget.load_more_messages()
         except Exception as e:
             print(f"[SCROLL] 오류: {e}")
@@ -965,22 +1090,23 @@ class LinkHandler(QObject):
 
 class ImageDownloadThread(QThread):
     """이미지 다운로드 스레드"""
+
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
-    
+
     def __init__(self, url, filename):
         super().__init__()
         self.url = url
         self.filename = filename
-    
+
     def run(self):
         try:
             response = requests.get(self.url, timeout=30)
             response.raise_for_status()
-            
-            with open(self.filename, 'wb') as f:
+
+            with open(self.filename, "wb") as f:
                 f.write(response.content)
-            
+
             self.finished.emit(self.filename)
         except Exception as e:
             self.error.emit(str(e))

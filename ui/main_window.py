@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         
         # Main splitter for session panel, chat, and token usage
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.splitter.setHandleWidth(8)  # 핸들 너비 증가
+        self.splitter.setHandleWidth(1)  # 핸들 너비 최소화
         self.splitter.setChildrenCollapsible(False)  # 완전히 접히지 않도록
         
         # 스플리터 스타일은 테마 적용 시 설정됨

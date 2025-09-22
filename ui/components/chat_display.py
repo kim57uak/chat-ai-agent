@@ -134,7 +134,7 @@ class ChatDisplay:
                     if (typeof mermaid !== 'undefined') {{
                         mermaid.initialize({{
                             startOnLoad: true,
-                            theme: '{mermaid_theme}',
+                            theme: 'dark',
                             securityLevel: 'loose',
                             flowchart: {{ useMaxWidth: true, htmlLabels: true }},
                             sequence: {{ useMaxWidth: true, wrap: true }},
@@ -142,47 +142,80 @@ class ChatDisplay:
                             journey: {{ useMaxWidth: true }},
                             class: {{ useMaxWidth: true }},
                             state: {{ useMaxWidth: true }},
-                            er: {{ useMaxWidth: true }},
+                            er: {{ useMaxWidth: true, layoutDirection: 'TB' }},
                             pie: {{ useMaxWidth: true }},
                             requirement: {{ useMaxWidth: true }},
                             gitgraph: {{ useMaxWidth: true }},
                             c4: {{ useMaxWidth: true }},
                             mindmap: {{ useMaxWidth: true }},
                             timeline: {{ useMaxWidth: true }},
-                            sankey: {{ useMaxWidth: true }},
+                            sankey: {{ 
+                                useMaxWidth: true,
+                                config: {{
+                                    sankey: {{
+                                        width: 600,
+                                        height: 400,
+                                        nodeLabel: {{
+                                            fontSize: 12,
+                                            fontWeight: 'bold'
+                                        }}
+                                    }}
+                                }}
+                            }},
                             xyChart: {{ useMaxWidth: true }},
                             block: {{ useMaxWidth: true }},
                             packet: {{ useMaxWidth: true }},
                             architecture: {{ useMaxWidth: true }}
                         }});
-                        console.log('Mermaid v10 모든 다이어그램 유형 초기화 완료');
+                        console.log('Mermaid v11.12.0 모든 다이어그램 유형 초기화 완료');
                     }}
                 }});
                 
                 function rerenderMermaid() {{
                     if (typeof mermaid !== 'undefined') {{
                         try {{
-                            const mermaidElements = document.querySelectorAll('.mermaid');
+                            const mermaidElements = document.querySelectorAll('.mermaid:not([data-processed="true"])');
                             mermaidElements.forEach(element => {{
                                 let content = element.textContent || element.innerHTML;
                                 
-                                if (content.includes('erDiagram')) {{
-                                    content = content.replace(/: "([^"]+)"/g, ': $1');
-                                    content = content.replace(/: '([^']+)'/g, ': $1');
-                                    element.textContent = content;
+                                // HTML 엔티티 디코딩
+                                content = content.replace(/&amp;/g, '&')
+                                               .replace(/&lt;/g, '<')
+                                               .replace(/&gt;/g, '>')
+                                               .replace(/&quot;/g, '"')
+                                               .replace(/&#39;/g, "'")
+                                               .replace(/&#45;/g, '-');
+                                
+                                // Mermaid 구문 정리
+                                content = content.replace(/--&gt;/g, '-->')
+                                               .replace(/&#45;&#45;&#45;/g, '---')
+                                               .replace(/-&gt;&gt;/g, '->')
+                                               .trim();
+                                
+                                // Sankey 다이어그램 형식 자동 감지 및 변환
+                                if (content.includes('sankey-beta') || 
+                                    (content.includes(',') && content.split('\n').length > 1 && 
+                                     content.split('\n')[1].split(',').length === 3)) {{
+                                    // CSV 형식의 sankey-beta 다이어그램
+                                    if (!content.startsWith('sankey-beta')) {{
+                                        content = 'sankey-beta\n' + content;
+                                    }}
                                 }}
                                 
-                                content = content.replace(/--&gt;/g, '-->');
-                                content = content.replace(/&#45;&#45;&#45;/g, '---');
-                                content = content.replace(/-&gt;&gt;/g, '->');
-                                
-                                if (element.textContent !== content) {{
-                                    element.textContent = content;
+                                // 빈 내용이거나 유효하지 않은 구문 체크
+                                if (!content || content.length < 5) {{
+                                    console.warn('Empty or invalid mermaid content');
+                                    return;
                                 }}
+                                
+                                element.textContent = content;
+                                element.setAttribute('data-processed', 'false');
                             }});
                             
-                            mermaid.run();
-                            console.log('Mermaid 재렌더링 완료');
+                            if (mermaidElements.length > 0) {{
+                                mermaid.run();
+                                console.log('Mermaid 재렌더링 완료');
+                            }}
                         }} catch (error) {{
                             console.error('Mermaid 렌더링 오류:', error);
                         }}
@@ -461,7 +494,7 @@ class ChatDisplay:
             <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
             <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
             <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-            <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+            <script src="https://unpkg.com/mermaid@11.12.0/dist/mermaid.min.js"></script>
             <script>
             {javascript_code}
             </script>
@@ -835,17 +868,33 @@ class ChatDisplay:
             requestAnimationFrame(() => {{
                 console.log('렌더링 시작: {display_message_id}');
                 
-                // Mermaid 렌더링 (비동기)
+                // Mermaid 렌더링 (비동기) - ERD 전용 처리
                 if (typeof mermaid !== 'undefined') {{
                     setTimeout(() => {{
                         try {{
                             console.log('Mermaid 렌더링 시도');
+                            
+                            // ERD 전용 초기화
+                            const erdElements = contentDiv.querySelectorAll('.mermaid');
+                            erdElements.forEach(element => {{
+                                const content = element.textContent || element.innerHTML;
+                                if (content.includes('erDiagram')) {{
+                                    console.log('ERD 요소 발견, 재초기화');
+                                    mermaid.initialize({{
+                                        startOnLoad: false,
+                                        theme: 'dark',
+                                        securityLevel: 'loose',
+                                        er: {{ useMaxWidth: true, layoutDirection: 'TB' }}
+                                    }});
+                                }}
+                            }});
+                            
                             mermaid.run();
                             console.log('Mermaid 렌더링 완료');
                         }} catch (e) {{
                             console.error('Mermaid 렌더링 오류:', e);
                         }}
-                    }}, 50);
+                    }}, 100);
                 }}
                 
                 // MathJax 렌더링 (비동기)

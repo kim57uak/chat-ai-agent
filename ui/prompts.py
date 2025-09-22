@@ -86,7 +86,7 @@ class PromptManager:
                 ),
                 "formatting": "Use markdown formatting. Code blocks: plain text only. Organize with emojis.",
                 "code_rules": "Code blocks: plain text only, no HTML tags/entities.",
-                "mermaid_rules": "For diagrams: ```mermaid\n[code]\n``` format. Use English, plain arrows (-->).",
+                "mermaid_rules": "Diagrams: ```mermaid\n[code]\n```. English only, plain arrows (-->). Mindmap: use 'mindmap' + root((text)), NOT flowchart. ERD: UPPERCASE entities, crow's foot notation, essential attributes only (no FK).",
                 "agent_base": "Wait for tool results before final answer. MANDATORY: Use exact function names and parameter schemas as defined in tool descriptions.",
                 "ask_mode": "Provide comprehensive answers with examples and clear structure.",
                 "react_format": "Execute tools immediately. Show only final results to users.",

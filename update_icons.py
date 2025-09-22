@@ -40,9 +40,9 @@ if __name__ == "__main__":
         print(f"파일을 찾을 수 없습니다: {input_file}")
         exit(1)
     
-    # 투명 배경으로 변환
+    # 투명 배경으로 변환 (더 낮은 임계값 사용)
     print("배경을 투명하게 변환 중...")
-    transparent_img = make_background_transparent(input_file, threshold=240)
+    transparent_img = make_background_transparent(input_file, threshold=200)
     
     if transparent_img is None:
         print("투명화 실패")

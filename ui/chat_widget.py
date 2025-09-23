@@ -49,8 +49,10 @@ class ChatWidget(QWidget):
         self.current_session_id = None
         self.loaded_message_count = 0
         self.total_message_count = 0
-        self.page_size = 10
         self.is_loading_more = False
+        
+        # prompt_config.json에서 페이징 설정 로드
+        self._load_pagination_settings()
         
         self._setup_ui()
         self._setup_components()
@@ -769,7 +771,10 @@ class ChatWidget(QWidget):
             if hasattr(self, 'ai_processor'):
                 self.ai_processor.cancel()
             
-            # 모델 매니저 중지 삭제 - 좌측 패널로 이동
+            # 스크롤 체크 타이머 정리
+            if hasattr(self, 'scroll_check_timer'):
+                self.scroll_check_timer.stop()
+                self.scroll_check_timer.deleteLater()
             
             print("ChatWidget 종료 완료")
             
@@ -1088,8 +1093,8 @@ class ChatWidget(QWidget):
             # 채팅 화면 초기화
             self.chat_display.web_view.page().runJavaScript("document.getElementById('messages').innerHTML = '';")
             
-            # 최근 50개 메시지만 로드
-            initial_limit = min(50, self.total_message_count)
+            # 설정에서 초기 로드 개수 가져오기
+            initial_limit = min(self.initial_load_count, self.total_message_count)
             offset = max(0, self.total_message_count - initial_limit)
             
             context_messages = session_manager.get_session_messages(session_id, initial_limit, offset)
@@ -1107,8 +1112,8 @@ class ChatWidget(QWidget):
             # 세션 로드 완료 메시지
             if context_messages:
                 load_msg = f"💼 세션 로드 완료: {len(context_messages)}개 메시지"
-                if self.total_message_count > 50:
-                    load_msg += f" (최근 50개만 표시, 전체: {self.total_message_count}개)"
+                if self.total_message_count > self.initial_load_count:
+                    load_msg += f" (최근 {self.initial_load_count}개만 표시, 전체: {self.total_message_count}개)"
                     load_msg += "\n\n🔼 위로 스크롤하면 이전 메시지를 볼 수 있습니다."
                 self.chat_display.append_message('시스템', load_msg)
             
@@ -1121,6 +1126,52 @@ class ChatWidget(QWidget):
             print(f"세션 컨텍스트 로드 오류: {e}")
     
 
+    
+    def _load_pagination_settings(self):
+        """페이징 설정 로드"""
+        try:
+            import json
+            import os
+            
+            config_path = os.path.join(os.getcwd(), 'prompt_config.json')
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    
+                history_settings = config.get('history_settings', {})
+                self.initial_load_count = history_settings.get('initial_load_count', 20)
+                self.page_size = history_settings.get('page_size', 10)
+                
+                print(f"[PAGINATION] 설정 로드: initial_load_count={self.initial_load_count}, page_size={self.page_size}")
+            else:
+                # 기본값 사용
+                self.initial_load_count = 20
+                self.page_size = 10
+                print(f"[PAGINATION] 기본값 사용: initial_load_count={self.initial_load_count}, page_size={self.page_size}")
+                
+        except Exception as e:
+            print(f"[PAGINATION] 설정 로드 오류: {e}")
+            # 기본값 사용
+            self.initial_load_count = 20
+            self.page_size = 10
+    
+    def _check_scroll_position(self):
+        """스크롤 위치 체크"""
+        if not self.current_session_id or self.is_loading_more:
+            return
+            
+        # 웹뷰에서 스크롤 위치 확인
+        self.chat_display_view.page().runJavaScript(
+            "window.scrollY",
+            lambda scroll_y: self._handle_scroll_position(scroll_y)
+        )
+    
+    def _handle_scroll_position(self, scroll_y):
+        """스크롤 위치 처리"""
+        # 스크롤이 맨 위에 있고 더 로드할 메시지가 있을 때
+        if scroll_y <= 50 and self.loaded_message_count < self.total_message_count:
+            print(f"[SCROLL_CHECK] 스크롤 맨 위 감지: {scroll_y}, 더 로드 시도")
+            self.load_more_messages()
     
     def _find_main_window(self):
         """메인 윈도우 찾기"""
@@ -1423,18 +1474,51 @@ class ChatWidget(QWidget):
     
     def _setup_scroll_listener(self):
         """스크롤 이벤트 리스너 설정"""
+        # 웹뷰에 스크롤 이벤트 리스너 추가
         self.chat_display_view.page().runJavaScript("""
             if (!window.scrollListenerAdded) {
+                let isLoading = false;
+                
                 window.addEventListener('scroll', function() {
-                    if (window.scrollY <= 10) {
-                        if (window.pyqt_bridge && window.pyqt_bridge.onScrollToTop) {
-                            window.pyqt_bridge.onScrollToTop();
+                    // 스크롤이 맨 위에 도달했을 때
+                    if (window.scrollY <= 50 && !isLoading) {
+                        isLoading = true;
+                        console.log('스크롤 맨 위 도달 - 더 많은 메시지 로드 요청');
+                        
+                        // Python 측에 더 많은 메시지 로드 요청
+                        if (window.qt && window.qt.webChannelTransport) {
+                            // QWebChannel을 통한 통신
+                            window.qt.webChannelTransport.send(JSON.stringify({
+                                type: 'loadMoreMessages'
+                            }));
+                        } else {
+                            // 대안: 전역 함수 호출
+                            if (typeof loadMoreMessages === 'function') {
+                                loadMoreMessages();
+                            }
                         }
+                        
+                        // 로딩 상태 해제 (3초 후)
+                        setTimeout(() => {
+                            isLoading = false;
+                        }, 3000);
                     }
                 });
+                
+                // 전역 함수로 Python에서 호출 가능하게 설정
+                window.loadMoreMessages = function() {
+                    console.log('loadMoreMessages 함수 호출됨');
+                };
+                
                 window.scrollListenerAdded = true;
+                console.log('스크롤 리스너 설정 완료');
             }
         """)
+        
+        # Python 측에서 스크롤 이벤트 처리를 위한 타이머 설정
+        self.scroll_check_timer = QTimer()
+        self.scroll_check_timer.timeout.connect(self._check_scroll_position)
+        self.scroll_check_timer.start(1000)  # 1초마다 체크
     
     def load_more_messages(self):
         """더 많은 메시지 로드"""
@@ -1450,7 +1534,7 @@ class ChatWidget(QWidget):
         try:
             from core.session.session_manager import session_manager
             
-            # 이전 메시지 10개 로드
+            # 설정에서 페이지 크기 사용
             remaining_messages = self.total_message_count - self.loaded_message_count
             load_count = min(self.page_size, remaining_messages)
             offset = self.total_message_count - self.loaded_message_count - load_count

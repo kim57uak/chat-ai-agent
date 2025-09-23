@@ -196,23 +196,23 @@ class MaterialThemeManager:
         }}
         
         .message:hover {{
-            background: linear-gradient(135deg, {colors.get('surface_variant', 'rgba(255, 255, 255, 0.12)')}, {colors.get('primary', 'rgba(139, 92, 246, 0.08)')}) !important;
+            background: {colors.get('surface_variant', 'rgba(255, 255, 255, 0.03)')} !important;
         }}
         
         .message.user {{
-            background: linear-gradient(135deg, {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')}, {colors.get('user_bg', 'rgba(187, 134, 252, 0.08)')}) !important;
+            background: {colors.get('user_bg', 'rgba(187, 134, 252, 0.03)')} !important;
             border-left: 4px solid {colors.get('user_border', '#bb86fc')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
         }}
         
         .message.ai {{
-            background: linear-gradient(135deg, {colors.get('ai_bg', 'rgba(3, 218, 198, 0.12)')}, {colors.get('ai_bg', 'rgba(3, 218, 198, 0.08)')}) !important;
+            background: {colors.get('ai_bg', 'rgba(3, 218, 198, 0.03)')} !important;
             border-left: 4px solid {colors.get('ai_border', '#03dac6')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
         }}
         
         .message.system {{
-            background: linear-gradient(135deg, {colors.get('system_bg', 'rgba(179, 179, 179, 0.12)')}, {colors.get('system_bg', 'rgba(179, 179, 179, 0.08)')}) !important;
+            background: {colors.get('system_bg', 'rgba(179, 179, 179, 0.03)')} !important;
             border-left: 4px solid {colors.get('system_border', '#b3b3b3')} !important;
             color: {colors.get('text_secondary', '#b3b3b3')} !important;
             font-size: 13px !important;

@@ -198,16 +198,64 @@ class ChatDisplay:
                 function copyMessage(messageId) {{
                     try {{
                         var contentDiv = document.getElementById(messageId + '_content');
-                        if (!contentDiv) return;
+                        if (!contentDiv) {{
+                            return;
+                        }}
                         
                         var textContent = contentDiv.innerText || contentDiv.textContent;
                         
-                        if (navigator.clipboard && navigator.clipboard.writeText) {{
-                            navigator.clipboard.writeText(textContent);
+                        if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
+                            pyqt_bridge.copyToClipboard(textContent);
+                            showToast('텍스트가 복사되었습니다!');
+                        }} else if (navigator.clipboard && navigator.clipboard.writeText) {{
+                            navigator.clipboard.writeText(textContent).then(function() {{
+                                showToast('텍스트가 복사되었습니다!');
+                            }});
                         }}
                     }} catch (error) {{
                         console.error('Message copy failed:', error);
+                        showToast('복사에 실패했습니다.');
                     }}
+                }}
+                
+                function copyHtmlMessage(messageId) {{
+                    try {{
+                        var contentDiv = document.getElementById(messageId + '_content');
+                        if (!contentDiv) {{
+                            return;
+                        }}
+                        
+                        var htmlContent = contentDiv.innerHTML;
+                        
+                        if (pyqt_bridge && pyqt_bridge.copyHtmlToClipboard) {{
+                            pyqt_bridge.copyHtmlToClipboard(htmlContent);
+                            showToast('HTML이 복사되었습니다!');
+                        }} else {{
+                            var textArea = document.createElement('textarea');
+                            textArea.value = htmlContent;
+                            document.body.appendChild(textArea);
+                            textArea.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(textArea);
+                            showToast('HTML이 복사되었습니다!');
+                        }}
+                    }} catch (error) {{
+                        console.error('HTML copy failed:', error);
+                        showToast('HTML 복사에 실패했습니다.');
+                    }}
+                }}
+                
+                function showToast(message) {{
+                    var toast = document.createElement('div');
+                    toast.textContent = message;
+                    toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: rgba(139, 92, 246, 0.9); color: white; padding: 12px 20px; border-radius: 8px; z-index: 10000; font-size: 14px; font-weight: 600;';
+                    document.body.appendChild(toast);
+                    
+                    setTimeout(function() {{
+                        if (toast.parentNode) {{
+                            toast.parentNode.removeChild(toast);
+                        }}
+                    }}, 2000);
                 }}
                 
                 function deleteMessage(messageId) {{
@@ -409,18 +457,48 @@ class ChatDisplay:
             headerDiv.style.cssText = 'margin: 0 0 12px 0; font-weight: 600; color: {default_text_color} !important; font-size: 13px; display: flex; align-items: center; gap: 8px;';
             headerDiv.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
             
+            // 버튼 컨테이너 생성
+            var buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = 'position: absolute !important; top: 16px !important; right: 16px !important; display: flex !important; gap: 6px !important; opacity: 1 !important; z-index: 999999 !important; pointer-events: auto !important;';
+            
+            // 복사 버튼
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋';
-            copyBtn.title = '메시지 복사';
-            copyBtn.style.cssText = 'position: absolute; top: 18px; right: 18px; background: rgba(255, 255, 255, 0.1); color: {default_text_color}; border: 1px solid rgba(255, 255, 255, 0.2); padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px;';
+            copyBtn.title = '텍스트 복사';
+            copyBtn.style.cssText = 'background: {colors.get("primary", "#bb86fc")}; color: {colors.get("on_primary", "#000000")}; border: 1px solid {colors.get("primary", "#bb86fc")}; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s ease;';
             copyBtn.onclick = function() {{ copyMessage('{display_message_id}'); }};
+            
+            // HTML 복사 버튼
+            var htmlCopyBtn = document.createElement('button');
+            htmlCopyBtn.innerHTML = '🏷️';
+            htmlCopyBtn.title = 'HTML 복사';
+            htmlCopyBtn.style.cssText = 'background: {colors.get("secondary", "#03dac6")}; color: {colors.get("on_secondary", "#000000")}; border: 1px solid {colors.get("secondary", "#03dac6")}; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s ease;';
+            htmlCopyBtn.onclick = function() {{ copyHtmlMessage('{display_message_id}'); }};
+            
+            // 삭제 버튼
+            var deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.title = '메시지 삭제';
+            deleteBtn.style.cssText = 'background: {colors.get("error", "#cf6679")}; color: {colors.get("on_error", "#000000")}; border: 1px solid {colors.get("error", "#cf6679")}; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s ease;';
+            deleteBtn.onclick = function() {{ 
+                if (confirm('이 메시지를 삭제하시겠습니까?')) {{
+                    deleteMessage('{message_id or display_message_id}'); 
+                }}
+            }};
+            
+            // 버튼들을 컨테이너에 추가
+            buttonContainer.appendChild(copyBtn);
+            buttonContainer.appendChild(htmlCopyBtn);
+            buttonContainer.appendChild(deleteBtn);
+            
+            // 버튼 항상 표시 (호버 효과 제거)
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{display_message_id}_content';
-            contentDiv.style.cssText = 'margin: 0; padding-right: 60px; line-height: 1.6; color: {default_text_color} !important; font-size: 15px; word-wrap: break-word;';
+            contentDiv.style.cssText = 'margin: 0; padding-right: 180px; line-height: 1.6; color: {default_text_color} !important; font-size: 15px; word-wrap: break-word;';
             
             messageDiv.appendChild(headerDiv);
-            messageDiv.appendChild(copyBtn);
+            messageDiv.appendChild(buttonContainer);
             messageDiv.appendChild(contentDiv);
             
             if ({str(prepend).lower()}) {{
@@ -499,6 +577,32 @@ class LinkHandler(QObject):
             QDesktopServices.openUrl(QUrl(url))
         except Exception as e:
             print(f"URL 열기 오류: {e}")
+
+    @pyqtSlot(str)
+    def copyToClipboard(self, text):
+        """텍스트를 클립보드에 복사"""
+        try:
+            from PyQt6.QtWidgets import QApplication
+            clipboard = QApplication.clipboard()
+            clipboard.setText(text)
+            print(f"[COPY] 클립보드 복사 완료: {len(text)}자")
+        except Exception as e:
+            print(f"[COPY] 클립보드 복사 오류: {e}")
+    
+    @pyqtSlot(str)
+    def copyHtmlToClipboard(self, html):
+        """HTML을 클립보드에 복사"""
+        try:
+            from PyQt6.QtWidgets import QApplication
+            from PyQt6.QtCore import QMimeData
+            clipboard = QApplication.clipboard()
+            mime_data = QMimeData()
+            mime_data.setHtml(html)
+            mime_data.setText(html)  # 텍스트 버전도 함께 저장
+            clipboard.setMimeData(mime_data)
+            print(f"[COPY_HTML] HTML 클립보드 복사 완료: {len(html)}자")
+        except Exception as e:
+            print(f"[COPY_HTML] HTML 클립보드 복사 오류: {e}")
 
     @pyqtSlot(str)
     def deleteMessage(self, message_id):

@@ -12,7 +12,7 @@ from mcp.servers.mcp import start_mcp_servers, stop_mcp_servers
 from ui.components.status_display import status_display
 from ui.styles.flat_theme import FlatTheme
 from ui.styles.theme_manager import theme_manager
-from ui.styles.material_theme_manager import MaterialThemeType
+# MaterialThemeType 제거 - 하드코딩 금지
 from core.session import session_manager
 import os
 import json
@@ -20,10 +20,18 @@ import threading
 
 class MainWindow(QMainWindow):
     def __init__(self):
+        print("[DEBUG] MainWindow.__init__() 시작")
         super().__init__()
+        print("[DEBUG] super().__init__() 완료")
+        print("[DEBUG] _setup_window() 시작")
         self._setup_window()
+        print("[DEBUG] _setup_window() 완료")
+        print("[DEBUG] _setup_ui() 시작")
         self._setup_ui()
+        print("[DEBUG] _setup_ui() 완료")
+        print("[DEBUG] _initialize_mcp() 시작")
         self._initialize_mcp()
+        print("[DEBUG] _initialize_mcp() 완료")
         print("MainWindow 초기화 완료")
     
     def _setup_window(self) -> None:
@@ -42,55 +50,74 @@ class MainWindow(QMainWindow):
     
     def _setup_ui(self) -> None:
         """Setup UI components."""
+        print("[DEBUG] _setup_ui: Central widget 생성 시작")
         # Central widget with splitter
         central_widget = QWidget(self)
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
+        print("[DEBUG] _setup_ui: Central widget 생성 완료")
         
+        print("[DEBUG] _setup_ui: Splitter 생성 시작")
         # Main splitter for session panel, chat, and token usage
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setHandleWidth(1)  # 핸들 너비 최소화
         self.splitter.setChildrenCollapsible(False)  # 완전히 접히지 않도록
+        print("[DEBUG] _setup_ui: Splitter 생성 완료")
         
         # 스플리터 스타일은 테마 적용 시 설정됨
         
+        print("[DEBUG] _setup_ui: SessionPanel 생성 시작")
         # Session panel (left)
         self.session_panel = SessionPanel(self)
+        print("[DEBUG] _setup_ui: SessionPanel 생성 완료")
         self.session_panel.session_selected.connect(self._on_session_selected)
         self.session_panel.session_created.connect(self._on_session_created)
         self.splitter.addWidget(self.session_panel)
+        print("[DEBUG] _setup_ui: SessionPanel 스플리터에 추가 완료")
         
+        print("[DEBUG] _setup_ui: Chat container 생성 시작")
         # Chat widget with news banner (center)
         chat_container = QWidget()
         chat_layout = QVBoxLayout(chat_container)
         chat_layout.setContentsMargins(0, 0, 0, 0)
         chat_layout.setSpacing(0)
+        print("[DEBUG] _setup_ui: Chat container 생성 완료")
         
+        print("[DEBUG] _setup_ui: NewsBanner 생성 시작")
         # News banner
         from ui.components.news_banner_simple import NewsBanner
         self.news_banner = NewsBanner(self)
+        print("[DEBUG] _setup_ui: NewsBanner 생성 완료")
         self.news_banner.setMaximumHeight(44)
         self.news_banner.setContentsMargins(0, 0, 0, 5)
         chat_layout.addWidget(self.news_banner)
         chat_layout.addSpacing(3)  # 하단 영역과 간격 추가
+        print("[DEBUG] _setup_ui: NewsBanner 설정 완료")
         
+        print("[DEBUG] _setup_ui: ChatWidget 생성 시작")
         # Chat widget
         self.chat_widget = ChatWidget(self)
+        print("[DEBUG] _setup_ui: ChatWidget 생성 완료")
         self.chat_widget.setMinimumWidth(400)  # 최소 너비 설정
         chat_layout.addWidget(self.chat_widget)
+        print("[DEBUG] _setup_ui: ChatWidget 레이아웃 추가 완료")
         
         chat_container.setMinimumWidth(400)
         self.splitter.addWidget(chat_container)
+        print("[DEBUG] _setup_ui: Chat container 스플리터에 추가 완료")
         
+        print("[DEBUG] _setup_ui: TokenUsageDisplay 생성 시작")
         # Token usage display (right)
         self.token_display = TokenUsageDisplay(self)
+        print("[DEBUG] _setup_ui: TokenUsageDisplay 생성 완료")
         self.token_display.setVisible(True)  # 기본적으로 표시
         self.token_display.setMinimumWidth(250)  # 최소 너비 설정
         self.token_display.setMaximumWidth(600)  # 최대 너비 설정
         self.token_display.export_requested.connect(self._show_export_message)
         self.splitter.addWidget(self.token_display)
+        print("[DEBUG] _setup_ui: TokenUsageDisplay 스플리터에 추가 완료")
         
-        print("SessionPanel 및 TokenUsageDisplay 생성 완료")  # 디버깅
+        print("[DEBUG] _setup_ui: SessionPanel 및 TokenUsageDisplay 생성 완료")
         
         # Set splitter proportions (토큰 패널 기본 표시)
         self.splitter.setSizes([250, 700, 300])
@@ -117,11 +144,15 @@ class MainWindow(QMainWindow):
         # 상태 표시 초기화
         status_display.status_updated.emit(status_display.current_status.copy())
         
+        print("[DEBUG] _setup_ui: Menu 생성 시작")
         # Menu
         self._create_menu_bar()
+        print("[DEBUG] _setup_ui: Menu 생성 완료")
         
+        print("[DEBUG] _setup_ui: 저장된 테마 적용 시작")
         # 저장된 테마 적용
         self._apply_saved_theme()
+        print("[DEBUG] _setup_ui: 저장된 테마 적용 완료")
     
 
     
@@ -304,14 +335,27 @@ class MainWindow(QMainWindow):
             # 테마 설정
             theme_manager.material_manager.set_theme(theme_key)
             
+            # 전체 애플리케이션 스타일시트 업데이트
+            from PyQt6.QtWidgets import QApplication
+            app = QApplication.instance()
+            if app:
+                new_stylesheet = theme_manager.get_material_design_stylesheet()
+                app.setStyleSheet(new_stylesheet)
+                # 메인 윈도우에도 직접 적용
+                self.setStyleSheet(new_stylesheet)
+            
             self._apply_current_theme()
             
             # 창 제목 업데이트
             self._update_window_title()
             
-            # 채팅 위젯의 웹뷰 CSS 업데이트
+            # 채팅 위젯의 웹뷰 CSS 업데이트 - 강화된 업데이트
             if hasattr(self, 'chat_widget'):
+                print("채팅 위젯 테마 업데이트 시작")
                 self.chat_widget.update_theme()
+                # 추가 지연 업데이트
+                QTimer.singleShot(200, lambda: self.chat_widget.update_theme())
+                print("채팅 위젯 테마 업데이트 완료")
             
             # 세션 패널 테마 업데이트
             if hasattr(self, 'session_panel'):
@@ -325,12 +369,11 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'news_banner'):
                 self.news_banner.update_theme()
             
-            # 메뉴 체크 상태 업데이트 삭제 - 좌측 패널로 이동
-            
             # 스플리터 테마 업데이트
             self._apply_splitter_theme()
             
             # 강제로 전체 위젯 다시 그리기
+            self.repaint()
             self.update()
             
             # 지연 시간을 두고 추가 업데이트
@@ -357,8 +400,14 @@ class MainWindow(QMainWindow):
     
     def _apply_current_theme(self):
         """현재 테마 적용"""
-        stylesheet = theme_manager.get_material_design_stylesheet()
-        self.setStyleSheet(stylesheet)
+        # 전체 애플리케이션에 스타일시트 적용
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            stylesheet = theme_manager.get_material_design_stylesheet()
+            app.setStyleSheet(stylesheet)
+            # 메인 윈도우에도 직접 적용
+            self.setStyleSheet(stylesheet)
         
         # 스플리터 스타일 동적 적용
         self._apply_splitter_theme()

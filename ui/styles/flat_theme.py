@@ -67,8 +67,11 @@ class FlatTheme:
     @staticmethod
     def get_chat_widget_style():
         """채팅 위젯 스타일 - 고급 블랙 테마"""
+        print("[DEBUG] FlatTheme.get_chat_widget_style() 시작")
+        print("[DEBUG] FlatTheme.get_theme_colors() 호출")
         colors = FlatTheme.get_theme_colors()
-        return f"""
+        print(f"[DEBUG] FlatTheme.get_theme_colors() 완료: {colors}")
+        style = f"""
             QWidget {{
                 background-color: {colors.get('background', '#5a5a5f')};
                 color: #ffffff;
@@ -78,14 +81,24 @@ class FlatTheme:
                 background-color: {colors.get('background', '#5a5a5f')};
             }}
         """
+        print("[DEBUG] FlatTheme.get_chat_widget_style() 완료")
+        return style
     
     @staticmethod
     def get_theme_colors():
         """테마 색상 반환"""
+        print("[DEBUG] FlatTheme.get_theme_colors() 시작")
+        print("[DEBUG] theme_manager import 시작")
         from ui.styles.theme_manager import theme_manager
+        print("[DEBUG] theme_manager import 완료")
+        print(f"[DEBUG] theme_manager.use_material_theme: {theme_manager.use_material_theme}")
         if theme_manager.use_material_theme:
-            return theme_manager.material_manager.get_theme_colors()
+            print("[DEBUG] material theme 색상 가져오기")
+            colors = theme_manager.material_manager.get_theme_colors()
+            print(f"[DEBUG] material theme 색상: {colors}")
+            return colors
         else:
+            print("[DEBUG] 기본 Flat 테마 색상 사용")
             # 기본 Flat 테마 색상
             return {
                 'background': '#5a5a5f',

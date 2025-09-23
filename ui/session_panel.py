@@ -1293,25 +1293,17 @@ class SessionPanel(QWidget):
         try:
             print(f"테마 선택 시도: {theme_key}")
             
-            # 테마 설정
-            theme_manager.material_manager.set_theme(theme_key)
-            print(f"테마 매니저에 설정 완료: {theme_key}")
-            
             # 메인 윈도우 찾기
             main_window = self._find_main_window()
-            if main_window:
-                print(f"메인 윈도우 찾음, 테마 변경 알림")
-                if hasattr(main_window, '_change_theme'):
-                    main_window._change_theme(theme_key)
-                elif hasattr(main_window, 'update_theme'):
-                    main_window.update_theme()
-                else:
-                    print("메인 윈도우에 테마 변경 메서드가 없음")
+            if main_window and hasattr(main_window, '_change_theme'):
+                print(f"메인 윈도우에서 테마 변경 호출")
+                # QTimer를 사용해 즉시 실행
+                QTimer.singleShot(0, lambda: main_window._change_theme(theme_key))
             else:
-                print("메인 윈도우를 찾을 수 없음")
-            
-            # 현재 패널 테마도 업데이트
-            self.update_theme()
+                print("메인 윈도우를 찾을 수 없거나 _change_theme 메서드가 없음")
+                # 직접 테마 설정
+                theme_manager.material_manager.set_theme(theme_key)
+                self.update_theme()
             
             print(f"테마 선택 완료: {theme_key}")
         except Exception as e:

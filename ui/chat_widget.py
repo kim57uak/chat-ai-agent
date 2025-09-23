@@ -30,7 +30,7 @@ class ChatWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(FlatTheme.get_chat_widget_style())
+        # 하드코딩된 테마 제거 - 동적 테마 적용
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(8, 8, 8, 8)
         self.layout.setSpacing(4)
@@ -58,6 +58,7 @@ class ChatWidget(QWidget):
         self._load_previous_conversations()
         
         # 테마 적용 (지연 실행)
+        QTimer.singleShot(100, self._apply_initial_theme)
         QTimer.singleShot(500, self._apply_theme_if_needed)
     
     def _setup_ui(self):
@@ -845,14 +846,15 @@ class ChatWidget(QWidget):
     def update_theme(self):
         """테마 업데이트"""
         try:
+            # 기존 스타일시트 완전 제거
+            self.setStyleSheet("")
+            
             # Qt 스타일시트 업데이트
             if theme_manager.use_material_theme:
                 self._apply_material_theme_styles()
             else:
                 self.setStyleSheet(FlatTheme.get_chat_widget_style())
-                # Flat 테마일 때 모든 입력 스타일 업데이트
                 self._update_input_text_style()
-                # 입력 컨테이너 스타일도 업데이트
                 if hasattr(self, 'input_container'):
                     self._update_input_container_style(self.input_container)
             
@@ -864,15 +866,15 @@ class ChatWidget(QWidget):
             if hasattr(self, 'loading_bar') and hasattr(self.loading_bar, 'update_theme'):
                 self.loading_bar.update_theme()
             
-            # 강제로 위젯 다시 그리기
-            self.update()
-            if hasattr(self, 'input_text'):
-                self.input_text.update()
-            if hasattr(self, 'input_container'):
-                self.input_container.update()
-            
             # 버튼 스타일도 업데이트
             self._update_button_styles()
+            
+            # 강제로 전체 위젯 다시 그리기
+            self.repaint()
+            if hasattr(self, 'input_text'):
+                self.input_text.repaint()
+            if hasattr(self, 'input_container'):
+                self.input_container.repaint()
             
             print("테마 업데이트 완료")
             
@@ -932,15 +934,20 @@ class ChatWidget(QWidget):
         colors = theme_manager.material_manager.get_theme_colors()
         loading_config = theme_manager.material_manager.get_loading_bar_config()
         
-        # 채팅 위젯 전체 스타일
+        # 채팅 위젯 전체 스타일 - 강제 적용
         widget_style = f"""
+        ChatWidget {{
+            background-color: {colors.get('background', '#121212')} !important;
+            color: {colors.get('text_primary', '#ffffff')} !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        }}
         QWidget {{
             background-color: {colors.get('background', '#121212')};
             color: {colors.get('text_primary', '#ffffff')};
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
         }}
         QWebEngineView {{
-            background-color: {colors.get('background', '#121212')};
+            background-color: {colors.get('background', '#121212')} !important;
         }}
         """
         self.setStyleSheet(widget_style)
@@ -1220,6 +1227,7 @@ class ChatWidget(QWidget):
             else:
                 input_text_style = FlatTheme.get_input_area_style()['input_text']
             
+            self.input_text.setStyleSheet("")
             self.input_text.setStyleSheet(input_text_style)
             
         except Exception as e:
@@ -1286,6 +1294,17 @@ class ChatWidget(QWidget):
         except Exception as e:
             print(f"입력 컴테이너 스타일 업데이트 오류: {e}")
             container.setStyleSheet(FlatTheme.get_input_area_style()['container'])
+    
+    def _apply_initial_theme(self):
+        """초기 테마 적용"""
+        try:
+            if theme_manager.use_material_theme:
+                self._apply_material_theme_styles()
+            else:
+                self.setStyleSheet(FlatTheme.get_chat_widget_style())
+            print("초기 테마 적용 완료")
+        except Exception as e:
+            print(f"초기 테마 적용 오류: {e}")
     
     def _apply_theme_if_needed(self):
         """필요시 테마 적용"""

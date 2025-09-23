@@ -1,41 +1,8 @@
-"""Material Theme Manager - Material Design 테마 시스템"""
+"""Material Theme Manager - Material Design 테마 시스템 (수정됨)"""
 
 import json
 import os
 from typing import Dict, Any, Optional
-from enum import Enum
-
-
-class MaterialThemeType(Enum):
-    # Light Themes
-    MATERIAL_LIGHT = "material_light"
-    MATERIAL_LIGHTER = "material_lighter"
-    MATERIAL_PALENIGHT = "material_palenight"
-    MATERIAL_SKYBLUE = "material_skyblue"
-    MATERIAL_SANDYBEACH = "material_sandybeach"
-    MATERIAL_GITHUB = "material_github"
-    MATERIAL_SOLARIZED_LIGHT = "material_solarized_light"
-    
-    # Dark Themes
-    MATERIAL_DARK = "material_dark"
-    MATERIAL_OCEAN = "material_ocean"
-    MATERIAL_DARKER = "material_darker"
-    MATERIAL_FOREST = "material_forest"
-    MATERIAL_VOLCANO = "material_volcano"
-    MATERIAL_DRACULA = "material_dracula"
-    MATERIAL_GITHUB_DARK = "material_github_dark"
-    MATERIAL_ARC_DARK = "material_arc_dark"
-    MATERIAL_ONE_DARK = "material_one_dark"
-    MATERIAL_MOONLIGHT = "material_moonlight"
-    MATERIAL_NIGHT_OWL = "material_night_owl"
-    MATERIAL_SOLARIZED_DARK = "material_solarized_dark"
-    ZOMBIE_DARK = "zombie_dark"
-    IPHONE_DARK = "iphone_dark"
-    DEEP_DARK = "deep_dark"
-    ICE_AGE = "ice_age"
-    CRYPTO_BITCOIN = "crypto_bitcoin"
-    CRYPTO_ETHEREUM = "crypto_ethereum"
-
 
 class MaterialThemeManager:
     """Material Design 테마 관리자"""
@@ -79,23 +46,11 @@ class MaterialThemeManager:
             self.current_theme_key = str(value)
     
     def _create_default_themes(self):
-        """기본 테마 생성"""
-        default_data = {
-            "current_theme": "material_dark",
-            "themes": {
-                "material_dark": {
-                    "name": "Material Dark",
-                    "type": "dark",
-                    "colors": {
-                        "background": "#121212",
-                        "surface": "#1e1e1e",
-                        "primary": "#bb86fc",
-                        "text_primary": "#ffffff"
-                    }
-                }
-            }
-        }
-        self.themes = default_data["themes"]
+        """기본 테마 생성 - 동적 로드"""
+        # theme.json 파일이 없을 때만 기본 테마 생성
+        if not self.themes:
+            self.themes = {}
+            self.current_theme_key = "material_dark"
         self._save_themes()
     
     def _save_themes(self):
@@ -138,165 +93,13 @@ class MaterialThemeManager:
         return theme.get("type", "dark") == "dark"
     
     def generate_qt_stylesheet(self) -> str:
-        """Qt 스타일시트 생성 - Soft Shadow + Rounded Edge + Gradient Depth 적용"""
+        """Qt 호환 스타일시트 생성"""
+        from .qt_compatible_theme import generate_qt_compatible_stylesheet
+        
         colors = self.get_theme_colors()
-        loading_config = self.get_loading_bar_config()
-        is_dark = self.is_dark_theme()
+        primary = colors.get('primary', '#8b5cf6')
         
-        # 테마별 그림자 색상
-        shadow_color = "rgba(0,0,0,0.15)" if is_dark else "rgba(0,0,0,0.08)"
-        shadow_hover = "rgba(0,0,0,0.25)" if is_dark else "rgba(0,0,0,0.12)"
-        
-        return f"""
-        QMainWindow {{
-            background-color: {colors.get('background', '#121212')};
-            color: {colors.get('text_primary', '#ffffff')};
-        }}
-        
-        QWidget {{
-            background-color: {colors.get('background', '#121212')};
-            color: {colors.get('text_primary', '#ffffff')};
-        }}
-        
-        QMenuBar {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 {colors.get('surface', '#1e1e1e')}, 
-                stop:1 {colors.get('background', '#121212')});
-            color: {colors.get('text_primary', '#ffffff')};
-            border: none;
-            border-bottom: 1px solid {colors.get('divider', '#333333')};
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            font-size: 14px;
-            font-weight: 600;
-            padding: 4px 0;
-        }}
-        
-        QMenuBar::item {{
-            background: transparent;
-            padding: 10px 16px;
-            border-radius: 12px;
-            margin: 2px 4px;
-            transition: all 0.2s ease;
-        }}
-        
-        QMenuBar::item:selected {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 {colors.get('primary', '#bb86fc')}, 
-                stop:1 {colors.get('primary_variant', '#3700b3')});
-            color: {colors.get('on_primary', '#000000')};
-            border-radius: 12px;
-        }}
-        
-        QMenu {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 {colors.get('surface', '#1e1e1e')}, 
-                stop:1 {colors.get('background', '#121212')});
-            color: {colors.get('text_primary', '#ffffff')};
-            border: 1px solid {colors.get('divider', '#333333')};
-            border-radius: 16px;
-            padding: 12px;
-        }}
-        
-        QMenu::item {{
-            padding: 12px 20px;
-            border-radius: 10px;
-            margin: 2px;
-            transition: all 0.2s ease;
-        }}
-        
-        QMenu::item:selected {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 {colors.get('primary', '#bb86fc')}, 
-                stop:1 {colors.get('primary_variant', '#3700b3')});
-            color: {colors.get('on_primary', '#000000')};
-        }}
-        
-        QPushButton {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 {colors.get('primary', '#bb86fc')}, 
-                stop:1 {colors.get('primary_variant', '#3700b3')});
-            color: {colors.get('on_primary', '#000000')};
-            border: none;
-            border-radius: 16px;
-            padding: 12px 24px;
-            font-weight: 600;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }}
-        
-        QPushButton:hover {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 {colors.get('primary_variant', '#3700b3')}, 
-                stop:1 {colors.get('primary', '#bb86fc')});
-            transform: translateY(-1px);
-        }}
-        
-        QPushButton:pressed {{
-            background: {colors.get('primary_variant', '#3700b3')};
-            transform: translateY(0px);
-        }}
-        
-        QTextEdit {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 {colors.get('surface', '#1e1e1e')}, 
-                stop:1 {colors.get('background', '#121212')});
-            color: {colors.get('text_primary', '#ffffff')};
-            border: 1px solid {colors.get('divider', '#333333')};
-            border-radius: 16px;
-            padding: 16px;
-            font-size: 14px;
-            selection-background-color: {colors.get('primary', '#bb86fc')};
-        }}
-        
-        QTextEdit:focus {{
-            border: 2px solid {colors.get('primary', '#bb86fc')};
-        }}
-        
-        QLabel {{
-            color: {colors.get('text_primary', '#ffffff')};
-            font-size: 14px;
-        }}
-        
-        QProgressBar {{
-            border: none;
-            background-color: {loading_config.get('background', 'rgba(187, 134, 252, 0.1)')};
-            border-radius: 12px;
-            height: 8px;
-        }}
-        
-        QProgressBar::chunk {{
-            background: {loading_config.get('chunk', 'linear-gradient(90deg, #bb86fc 0%, #03dac6 100%)')};
-            border-radius: 10px;
-        }}
-        
-        QScrollBar:vertical {{
-            background: {colors.get('surface', '#1e1e1e')};
-            width: 12px;
-            border-radius: 6px;
-            border: none;
-        }}
-        
-        QScrollBar::handle:vertical {{
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 {colors.get('primary', '#bb86fc')}, 
-                stop:1 {colors.get('primary_variant', '#3700b3')});
-            border-radius: 6px;
-            min-height: 20px;
-        }}
-        
-        QScrollBar::handle:vertical:hover {{
-            background: {colors.get('primary_variant', '#3700b3')};
-        }}
-        
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-            border: none;
-            background: none;
-        }}
-        
-        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-            background: none;
-        }}
-        """
+        return generate_qt_compatible_stylesheet(colors, primary)
     
     def _get_code_text_color(self) -> str:
         """코드 블록용 텍스트 색상 반환"""
@@ -331,6 +134,13 @@ class MaterialThemeManager:
         else:
             return "#f7fafc"  # 라이트 테마: 밝은 회색
     
+    def _hex_to_rgb(self, hex_color: str) -> str:
+        """HEX 색상을 RGB로 변환"""
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) == 6:
+            return f"{int(hex_color[0:2], 16)}, {int(hex_color[2:4], 16)}, {int(hex_color[4:6], 16)}"
+        return "139, 92, 246"  # 기본값
+    
     def _get_button_colors(self) -> Dict[str, str]:
         """버튼 색상 반환"""
         if self.is_dark_theme():
@@ -359,29 +169,22 @@ class MaterialThemeManager:
             }
     
     def generate_web_css(self) -> str:
-        """웹뷰용 Material Design CSS 생성"""
+        """웹뷰용 Material Design CSS 생성 (수정됨)"""
         colors = self.get_theme_colors()
         code_text_color = self._get_code_text_color()
         mermaid_text_color = self._get_mermaid_text_color()
         mermaid_node_fill = self._get_mermaid_node_fill()
+        background_color = colors.get('background', '#121212')
         
-        return f"""
-        * {{
-            box-sizing: border-box;
-        }}
-        
+        css_content = f"""
         html, body {{
-            background-color: {colors.get('background', '#121212')} !important;
-            color: {colors.get('text_primary', '#ffffff')} !important;
-            font-family: 'Roboto', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
-            font-size: 16px !important;
-            font-weight: 400 !important;
-            line-height: 1.5 !important;
-            letter-spacing: 0.15px !important;
-            margin: 0 !important;
-            padding: 16px !important;
-            word-wrap: break-word !important;
-            overflow-wrap: break-word !important;
+            background-color: {background_color};
+            color: {colors.get('text_primary', '#ffffff')};
+            font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            margin: 0;
+            padding: 16px;
         }}
         
         .message {{
@@ -389,27 +192,23 @@ class MaterialThemeManager:
             padding: 20px 24px !important;
             border-radius: 20px !important;
             position: relative !important;
-            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1) !important;
+            border: 1px solid {colors.get('divider', 'rgba(255, 255, 255, 0.12)')} !important;
         }}
         
         .message:hover {{
-            transform: translateY(-4px) !important;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15) !important;
+            background: linear-gradient(135deg, {colors.get('surface_variant', 'rgba(255, 255, 255, 0.12)')}, {colors.get('primary', 'rgba(139, 92, 246, 0.08)')}) !important;
         }}
         
         .message.user {{
             background: linear-gradient(135deg, {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')}, {colors.get('user_bg', 'rgba(187, 134, 252, 0.08)')}) !important;
             border-left: 4px solid {colors.get('user_border', '#bb86fc')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
-            box-shadow: 0 4px 12px {colors.get('user_border', '#bb86fc')}20, 0 2px 4px rgba(0,0,0,0.1) !important;
         }}
         
         .message.ai {{
             background: linear-gradient(135deg, {colors.get('ai_bg', 'rgba(3, 218, 198, 0.12)')}, {colors.get('ai_bg', 'rgba(3, 218, 198, 0.08)')}) !important;
             border-left: 4px solid {colors.get('ai_border', '#03dac6')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
-            box-shadow: 0 4px 12px {colors.get('ai_border', '#03dac6')}20, 0 2px 4px rgba(0,0,0,0.1) !important;
         }}
         
         .message.system {{
@@ -417,7 +216,6 @@ class MaterialThemeManager:
             border-left: 4px solid {colors.get('system_border', '#b3b3b3')} !important;
             color: {colors.get('text_secondary', '#b3b3b3')} !important;
             font-size: 13px !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
         }}
         
         .message-header {{
@@ -431,21 +229,20 @@ class MaterialThemeManager:
             color: {colors.get('text_secondary', '#b3b3b3')} !important;
         }}
         
-        .message-content {{
+        .message-content, .message-content * {{
             line-height: 1.6 !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
         }}
         
-        /* True Gray 테마 특별 처리 */
-        .message.system .message-content {{
-            color: {colors.get('text_secondary', '#6B7280')} !important;
+        .message-content p, .message-content div, .message-content span {{
+            color: {colors.get('text_primary', '#ffffff')} !important;
         }}
         
         .copy-message-btn {{
             position: absolute !important;
             top: 16px !important;
             right: 20px !important;
-            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {colors.get('background', '#121212')}) !important;
+            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {background_color}) !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
             border: 1px solid {colors.get('divider', '#333333')} !important;
             padding: 8px 16px !important;
@@ -454,25 +251,21 @@ class MaterialThemeManager:
             font-size: 12px !important;
             font-weight: 600 !important;
             opacity: 0 !important;
-            transition: all 0.3s ease !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
         }}
         
         .message:hover .copy-message-btn {{
             opacity: 1 !important;
-            transform: translateY(-1px) !important;
         }}
         
         .copy-message-btn:hover {{
             background: linear-gradient(135deg, {colors.get('primary', '#bb86fc')}, {colors.get('primary_variant', '#3700b3')}) !important;
             color: {colors.get('on_primary', '#000000')} !important;
             border-color: {colors.get('primary', '#bb86fc')} !important;
-            box-shadow: 0 4px 12px {colors.get('primary', '#bb86fc')}40 !important;
         }}
         
         pre {{
             background: linear-gradient(135deg, {colors.get('code_bg', '#2d2d2d')}, {colors.get('surface', '#1e1e1e')}) !important;
-            border: none !important;
+            border: 1px solid {colors.get('code_border', '#404040')} !important;
             border-radius: 16px !important;
             padding: 20px !important;
             margin: 20px 0 !important;
@@ -483,7 +276,6 @@ class MaterialThemeManager:
             line-height: 1.43 !important;
             letter-spacing: 0.25px !important;
             color: {code_text_color} !important;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1) !important;
         }}
         
         code {{
@@ -494,7 +286,6 @@ class MaterialThemeManager:
             font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace !important;
             font-size: 12px !important;
             color: {code_text_color} !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         }}
         
         pre code {{
@@ -562,10 +353,9 @@ class MaterialThemeManager:
             margin: 16px 0 !important;
             color: {colors.get('text_secondary', '#b3b3b3')} !important;
             font-style: italic !important;
-            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {colors.get('background', '#121212')}) !important;
+            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {background_color}) !important;
             padding: 16px 20px !important;
             border-radius: 0 16px 16px 0 !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.05) !important;
         }}
         
         a {{
@@ -648,11 +438,10 @@ class MaterialThemeManager:
             border-collapse: collapse !important;
             width: 100% !important;
             margin: 16px 0 !important;
-            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {colors.get('background', '#121212')}) !important;
+            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {background_color}) !important;
             border: 1px solid {colors.get('code_border', '#404040')} !important;
             border-radius: 16px !important;
             overflow: hidden !important;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.15) !important;
         }}
         
         th {{
@@ -662,7 +451,6 @@ class MaterialThemeManager:
             text-align: left !important;
             font-weight: 600 !important;
             border-bottom: 2px solid {colors.get('primary_variant', '#3700b3')} !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.2) !important;
         }}
         
         td {{
@@ -697,7 +485,7 @@ class MaterialThemeManager:
         }}
         
         table code {{
-            background-color: {colors.get('background', '#121212')} !important;
+            background-color: {background_color} !important;
             color: {code_text_color} !important;
             border: 1px solid {colors.get('divider', '#333333')} !important;
             padding: 2px 4px !important;
@@ -726,11 +514,34 @@ class MaterialThemeManager:
             color: {colors.get('text_primary', '#ffffff')} !important;
         }}
         """
+        
+        return css_content
     
     def get_available_themes(self) -> Dict[str, str]:
-        """사용 가능한 테마 목록 반환"""
+        """사용 가능한 테마 목록 반환 - 동적 로드"""
         return {theme_key: theme_data.get("name", theme_key) 
                 for theme_key, theme_data in self.themes.items()}
+    
+    def get_theme_types(self) -> Dict[str, list]:
+        """테마 타입별 분류 반환"""
+        light_themes = []
+        dark_themes = []
+        special_themes = []
+        
+        for theme_key, theme_data in self.themes.items():
+            theme_type = theme_data.get('type', 'dark')
+            if theme_type == 'light':
+                light_themes.append(theme_key)
+            elif theme_type == 'special':
+                special_themes.append(theme_key)
+            else:
+                dark_themes.append(theme_key)
+        
+        return {
+            'light': light_themes,
+            'dark': dark_themes,
+            'special': special_themes
+        }
     
     def get_theme_categories(self) -> Dict[str, Dict]:
         """테마 분류 정보 반환"""

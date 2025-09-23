@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Dict, Any
 import json
 import os
-from .material_theme_manager import material_theme_manager, MaterialThemeType
+from .material_theme_manager import material_theme_manager
 from .material_design_system import material_design_system
 
 
@@ -109,9 +109,9 @@ class ThemeManager:
         """테마 설정"""
         self.current_theme = theme_type
     
-    def set_material_theme(self, theme_type: MaterialThemeType):
+    def set_material_theme(self, theme_key: str):
         """Material 테마 설정"""
-        self.material_manager.set_theme(theme_type)
+        self.material_manager.set_theme(theme_key)
         self.use_material_theme = True
     
     def get_material_stylesheet(self) -> str:

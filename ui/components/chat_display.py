@@ -258,6 +258,24 @@ class ChatDisplay:
                     }}, 2000);
                 }}
                 
+                function copyCode(codeElement) {{
+                    try {{
+                        var codeText = codeElement.textContent || codeElement.innerText;
+                        
+                        if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
+                            pyqt_bridge.copyToClipboard(codeText);
+                            showToast('코드가 복사되었습니다!');
+                        }} else if (navigator.clipboard && navigator.clipboard.writeText) {{
+                            navigator.clipboard.writeText(codeText).then(function() {{
+                                showToast('코드가 복사되었습니다!');
+                            }});
+                        }}
+                    }} catch (error) {{
+                        console.error('Code copy failed:', error);
+                        showToast('코드 복사에 실패했습니다.');
+                    }}
+                }}
+                
                 function deleteMessage(messageId) {{
                     try {{
                         if (pyqt_bridge && pyqt_bridge.deleteMessage) {{
@@ -583,26 +601,64 @@ class LinkHandler(QObject):
         """텍스트를 클립보드에 복사"""
         try:
             from PyQt6.QtWidgets import QApplication
-            clipboard = QApplication.clipboard()
-            clipboard.setText(text)
-            print(f"[COPY] 클립보드 복사 완료: {len(text)}자")
+            from PyQt6.QtCore import QTimer
+            
+            app = QApplication.instance()
+            if app:
+                clipboard = app.clipboard()
+                clipboard.clear()
+                clipboard.setText(text)
+                
+                # 복사 확인을 위해 잠시 후 다시 확인
+                def verify_copy():
+                    copied_text = clipboard.text()
+                    if copied_text == text:
+                        print(f"[COPY] 클립보드 복사 성공 확인: {len(text)}자")
+                    else:
+                        print(f"[COPY] 클립보드 복사 실패 - 예상: {len(text)}자, 실제: {len(copied_text)}자")
+                
+                QTimer.singleShot(100, verify_copy)
+                print(f"[COPY] 클립보드 복사 시도: {len(text)}자")
+            else:
+                print(f"[COPY] QApplication 인스턴스 없음")
         except Exception as e:
             print(f"[COPY] 클립보드 복사 오류: {e}")
+            import traceback
+            traceback.print_exc()
     
     @pyqtSlot(str)
     def copyHtmlToClipboard(self, html):
         """HTML을 클립보드에 복사"""
         try:
             from PyQt6.QtWidgets import QApplication
-            from PyQt6.QtCore import QMimeData
-            clipboard = QApplication.clipboard()
-            mime_data = QMimeData()
-            mime_data.setHtml(html)
-            mime_data.setText(html)  # 텍스트 버전도 함께 저장
-            clipboard.setMimeData(mime_data)
-            print(f"[COPY_HTML] HTML 클립보드 복사 완료: {len(html)}자")
+            from PyQt6.QtCore import QMimeData, QTimer
+            
+            app = QApplication.instance()
+            if app:
+                clipboard = app.clipboard()
+                clipboard.clear()
+                
+                mime_data = QMimeData()
+                mime_data.setHtml(html)
+                mime_data.setText(html)  # 텍스트 버전도 함께 저장
+                clipboard.setMimeData(mime_data)
+                
+                # 복사 확인
+                def verify_html_copy():
+                    copied_html = clipboard.mimeData().html()
+                    if copied_html:
+                        print(f"[COPY_HTML] HTML 클립보드 복사 성공 확인: {len(html)}자")
+                    else:
+                        print(f"[COPY_HTML] HTML 클립보드 복사 실패")
+                
+                QTimer.singleShot(100, verify_html_copy)
+                print(f"[COPY_HTML] HTML 클립보드 복사 시도: {len(html)}자")
+            else:
+                print(f"[COPY_HTML] QApplication 인스턴스 없음")
         except Exception as e:
             print(f"[COPY_HTML] HTML 클립보드 복사 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
     @pyqtSlot(str)
     def deleteMessage(self, message_id):

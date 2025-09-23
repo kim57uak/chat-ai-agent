@@ -348,7 +348,7 @@ class FixedFormatter:
                     result.append(f'<div style="position: relative;"><pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; margin: 8px 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{code_id}">')
                 else:
                     in_code_block = False
-                    result.append(f'</code></pre><button onclick="copyCode(\'{code_id}\')" style="position: absolute; top: 6px; right: 6px; background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; opacity: 0.7;">복사</button></div>')
+                    result.append(f'</code></pre><button onclick="copyCode(document.getElementById(\'{code_id}\'))" style="position: absolute; top: 6px; right: 6px; background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; opacity: 0.7;">복사</button></div>')
                 continue
             
             if in_code_block:

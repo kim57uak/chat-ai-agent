@@ -470,6 +470,29 @@ class TokenUsageDisplay(QWidget):
                         padding: 4px;
                     }}
                     
+                    QScrollBar:vertical {{
+                        background: {colors.get('scrollbar_track', surface_color)};
+                        width: 8px;
+                        border-radius: 4px;
+                    }}
+                    QScrollBar::handle:vertical {{
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                            stop:0 {colors.get('scrollbar', colors.get('text_secondary', '#b3b3b3'))}, 
+                            stop:1 {primary_color});
+                        border-radius: 4px;
+                        min-height: 20px;
+                    }}
+                    QScrollBar::handle:vertical:hover {{
+                        background: {primary_color};
+                    }}
+                    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                        border: none;
+                        background: none;
+                    }}
+                    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                        background: none;
+                    }}
+                    
                     QTableWidget::item {{
                         padding: 8px;
                         border: none;
@@ -505,6 +528,29 @@ class TokenUsageDisplay(QWidget):
                         font-weight: 600;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
                         selection-background-color: {primary_color};
+                    }}
+                    
+                    QTextEdit QScrollBar:vertical {{
+                        background: {colors.get('scrollbar_track', surface_color)};
+                        width: 8px;
+                        border-radius: 4px;
+                    }}
+                    QTextEdit QScrollBar::handle:vertical {{
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                            stop:0 {colors.get('scrollbar', colors.get('text_secondary', '#b3b3b3'))}, 
+                            stop:1 {primary_color});
+                        border-radius: 4px;
+                        min-height: 20px;
+                    }}
+                    QTextEdit QScrollBar::handle:vertical:hover {{
+                        background: {primary_color};
+                    }}
+                    QTextEdit QScrollBar::add-line:vertical, QTextEdit QScrollBar::sub-line:vertical {{
+                        border: none;
+                        background: none;
+                    }}
+                    QTextEdit QScrollBar::add-page:vertical, QTextEdit QScrollBar::sub-page:vertical {{
+                        background: none;
                     }}
                     
                     QProgressBar {{

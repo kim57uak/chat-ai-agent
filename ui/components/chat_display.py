@@ -64,6 +64,45 @@ class ChatDisplay:
         self.web_view.page().setBackgroundColor(
             self.web_view.palette().color(self.web_view.palette().ColorRole.Window)
         )
+        
+        # 스크롤바 스타일 적용
+        self._apply_scrollbar_style()
+    
+    def _apply_scrollbar_style(self):
+        """PyQt6 스크롤바 스타일 적용"""
+        from ui.styles.theme_manager import theme_manager
+        
+        if theme_manager.use_material_theme:
+            colors = theme_manager.material_manager.get_theme_colors()
+            primary_color = colors.get('primary', '#bb86fc')
+            surface_color = colors.get('surface', '#1e1e1e')
+            
+            scrollbar_style = f"""
+            QScrollBar:vertical {{
+                background: {surface_color};
+                width: 8px;
+                border-radius: 4px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 rgba(255,255,255,0.3), 
+                    stop:1 {primary_color});
+                border-radius: 4px;
+                min-height: 20px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {primary_color};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                border: none;
+                background: none;
+            }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
+            """
+            
+            self.web_view.setStyleSheet(scrollbar_style)
 
         # 스크롤 성능 향상을 위한 추가 설정
         from PyQt6.QtCore import QUrl
@@ -511,6 +550,24 @@ class ChatDisplay:
                     -moz-osx-font-smoothing: grayscale;
                     margin: 0;
                     padding: 0;
+                }}
+                
+                /* 스크롤바 스타일 */
+                ::-webkit-scrollbar {{
+                    width: 8px;
+                    background: transparent;
+                }}
+                ::-webkit-scrollbar-track {{
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 4px;
+                }}
+                ::-webkit-scrollbar-thumb {{
+                    background: linear-gradient(to right, rgba(255,255,255,0.3), rgba(187,134,252,0.6));
+                    border-radius: 4px;
+                    min-height: 20px;
+                }}
+                ::-webkit-scrollbar-thumb:hover {{
+                    background: rgba(187,134,252,0.8);
                 }}
                 
                 #messages {{

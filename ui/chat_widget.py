@@ -474,14 +474,15 @@ class ChatWidget(QWidget):
             output_tokens = current_output
             total_tokens = current_total
         
-        # 토큰 정보 표시 (기존 형태 유지)
+        # 토큰 정보 표시 - Material Design 스타일 적용
         if total_tokens > 0:
             if input_tokens > 0 and output_tokens > 0:
                 token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
             else:
                 token_info = f" | 📊 {total_tokens:,}토큰"
         
-        enhanced_text = f"{text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}{token_info}*\n\n⚠️ *AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.*"
+        # Material Design 스타일 적용된 하단 정보
+        enhanced_text = f"{text}{tools_info}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 {current_model}{response_time}{token_info}</div>\n<div class='ai-warning'>⚠️ AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</div>\n</div>"
         
         # 표시용 sender 결정
         display_sender = '에이전트' if '에이전트' in sender else 'AI'
@@ -651,11 +652,11 @@ class ChatWidget(QWidget):
                             
                             # 모델 정보가 있으면 표시하고 센더 정보로 모델명 전달
                             if model and model != 'unknown':
-                                enhanced_content = f"{content}\n\n---\n*🤖 {model}{token_info}*"
+                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 {model}{token_info}</div>\n</div>"
                                 # 모델명을 original_sender로 전달하여 포맷팅에 활용
                                 self.chat_display.append_message('AI', enhanced_content, original_sender=model, message_id=msg.get('id'))
                             else:
-                                enhanced_content = f"{content}\n\n---\n*🤖 AI{token_info}*" if token_info else content
+                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 AI{token_info}</div>\n</div>" if token_info else content
                                 self.chat_display.append_message('AI', enhanced_content, message_id=msg.get('id'))
                     
                     # 이전 대화 로드 후 웰컴 메시지 표시

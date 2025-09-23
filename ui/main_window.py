@@ -399,7 +399,7 @@ class MainWindow(QMainWindow):
 
     
     def _apply_current_theme(self):
-        """현재 테마 적용"""
+        """현재 테마 적용 - 스크롤바 포함"""
         # 전체 애플리케이션에 스타일시트 적용
         from PyQt6.QtWidgets import QApplication
         app = QApplication.instance()
@@ -409,27 +409,86 @@ class MainWindow(QMainWindow):
             # 메인 윈도우에도 직접 적용
             self.setStyleSheet(stylesheet)
         
-        # 스플리터 스타일 동적 적용
+        # 스플리터 및 스크롤바 스타일 동적 적용
         self._apply_splitter_theme()
     
     def _apply_splitter_theme(self):
-        """스플리터 테마 적용"""
+        """스플리터 테마 적용 - 세션 패널과 동일한 현대적인 디자인"""
         try:
             colors = theme_manager.material_manager.get_theme_colors()
+            primary_color = colors.get('primary', '#bb86fc')
+            primary_variant = colors.get('primary_variant', '#3700b3')
+            divider_color = colors.get('divider', '#333333')
+            surface_color = colors.get('surface', '#1e1e1e')
             
+            # 세션 패널과 동일한 스크롤바 및 스플리터 스타일
             splitter_style = f"""
             QSplitter::handle {{
-                background-color: {colors.get('divider', '#333333')};
-                border: 1px solid {colors.get('surface', '#555555')};
-                border-radius: 3px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 {divider_color}, 
+                    stop:1 {colors.get('text_secondary', '#888888')});
+                border: 1px solid {divider_color};
+                border-radius: 6px;
                 margin: 2px;
+                transition: all 0.3s ease;
             }}
             QSplitter::handle:hover {{
-                background-color: {colors.get('primary', '#444444')};
-                border-color: {colors.get('primary_variant', '#666666')};
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 {colors.get('text_secondary', '#888888')}, 
+                    stop:1 {primary_color});
+                border-color: {primary_color};
+                transform: translateY(-1px);
             }}
             QSplitter::handle:pressed {{
-                background-color: {colors.get('primary_variant', '#555555')};
+                background: {primary_variant};
+                border-color: {primary_variant};
+            }}
+            
+            /* 스크롤바 스타일 - 세션 패널과 동일 */
+            QScrollBar:vertical {{
+                background: {colors.get('scrollbar_track', surface_color)};
+                width: 8px;
+                border-radius: 4px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                    stop:0 {colors.get('scrollbar', colors.get('text_secondary', '#b3b3b3'))}, 
+                    stop:1 {primary_color});
+                border-radius: 4px;
+                min-height: 20px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {primary_color};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                border: none;
+                background: none;
+            }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
+            
+            QScrollBar:horizontal {{
+                background: {colors.get('scrollbar_track', surface_color)};
+                height: 8px;
+                border-radius: 4px;
+            }}
+            QScrollBar::handle:horizontal {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 {colors.get('scrollbar', colors.get('text_secondary', '#b3b3b3'))}, 
+                    stop:1 {primary_color});
+                border-radius: 4px;
+                min-width: 20px;
+            }}
+            QScrollBar::handle:horizontal:hover {{
+                background: {primary_color};
+            }}
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+                border: none;
+                background: none;
+            }}
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{
+                background: none;
             }}
             """
             

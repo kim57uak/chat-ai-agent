@@ -316,26 +316,24 @@ class TokenUsageDisplay(QWidget):
         layout.addLayout(button_layout)
     
     def apply_theme(self):
-        """채팅창과 동일한 Material Design 테마 적용 - 대비색 개선"""
+        """세션 패널과 동일한 현대적인 Material Design 테마 적용"""
         try:
             from ui.styles.theme_manager import theme_manager
             if theme_manager.use_material_theme:
                 colors = theme_manager.material_manager.get_theme_colors()
                 is_dark = theme_manager.is_material_dark_theme()
                 
-                # 테마별 대비색 설정
+                # 세션 패널과 동일한 색상 설정
                 bg_color = colors.get('background', '#121212')
                 text_color = colors.get('text_primary', '#ffffff' if is_dark else '#000000')
                 surface_color = colors.get('surface', '#1e1e1e')
                 primary_color = colors.get('primary', '#bb86fc')
                 secondary_color = colors.get('secondary', '#03dac6')
-                
-                # 테마별 추가 색상 설정
                 on_primary_color = colors.get('on_primary', '#000000' if is_dark else '#ffffff')
                 divider_color = colors.get('divider', '#333333' if is_dark else '#e0e0e0')
                 primary_variant_color = colors.get('primary_variant', '#3700b3')
                 
-                # 전체 패널 스타일 - 채팅창과 동일한 배경
+                # 세션 패널과 동일한 스타일 적용
                 self.setStyleSheet(f"""
                     TokenUsageDisplay {{
                         background-color: {bg_color};
@@ -456,18 +454,77 @@ class TokenUsageDisplay(QWidget):
                         border: 2px solid {primary_color};
                     }}
                     
-                    QTableWidget {{
+                    TokenUsageDisplay QTableWidget {{
                         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                             stop:0 {surface_color}, 
-                            stop:1 {bg_color});
+                            stop:1 {bg_color}) !important;
+                        color: {text_color} !important;
+                        border: 2px solid {divider_color} !important;
+                        border-radius: 16px !important;
+                        gridline-color: {divider_color} !important;
+                        font-size: 13px !important;
+                        font-weight: 600 !important;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif !important;
+                        padding: 8px !important;
+                        margin: 6px !important;
+                    }}
+                    
+                    TokenUsageDisplay QTableWidget::item {{
+                        padding: 8px 12px !important;
+                        border: none !important;
+                        background: transparent !important;
+                        border-radius: 8px !important;
+                        margin: 2px !important;
+                    }}
+                    
+                    TokenUsageDisplay QTableWidget::item:selected {{
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_color}, 
+                            stop:1 {primary_variant_color}) !important;
+                        color: {on_primary_color} !important;
+                        border-radius: 8px !important;
+                    }}
+                    
+                    TokenUsageDisplay QTableWidget::item:hover {{
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_color}20, 
+                            stop:1 {primary_variant_color}20) !important;
+                        border-radius: 8px !important;
+                    }}
+                    
+                    TokenUsageDisplay QHeaderView::section {{
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_color}, 
+                            stop:1 {primary_variant_color}) !important;
+                        color: {on_primary_color} !important;
+                        border: 2px solid {primary_variant_color} !important;
+                        padding: 12px 16px !important;
+                        font-weight: 800 !important;
+                        font-size: 12px !important;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif !important;
+                        border-radius: 12px !important;
+                        margin: 2px !important;
+                    }}
+                    
+                    TokenUsageDisplay QHeaderView::section:hover {{
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {primary_variant_color}, 
+                            stop:1 {primary_color}) !important;
+                        transform: translateY(-1px) !important;
+                    }}
+                    
+                    QTextEdit {{
+                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                            stop:0 {bg_color}, 
+                            stop:1 {surface_color});
                         color: {text_color};
                         border: 2px solid {divider_color};
                         border-radius: 16px;
-                        gridline-color: {divider_color};
+                        padding: 12px;
                         font-size: 13px;
                         font-weight: 600;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                        padding: 4px;
+                        selection-background-color: {primary_color};
                     }}
                     
                     QScrollBar:vertical {{
@@ -491,43 +548,6 @@ class TokenUsageDisplay(QWidget):
                     }}
                     QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
                         background: none;
-                    }}
-                    
-                    QTableWidget::item {{
-                        padding: 8px;
-                        border: none;
-                    }}
-                    
-                    QTableWidget::item:selected {{
-                        background-color: {primary_color};
-                        color: {on_primary_color};
-                    }}
-                    
-                    QHeaderView::section {{
-                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                            stop:0 {primary_color}, 
-                            stop:1 {primary_variant_color});
-                        color: {on_primary_color};
-                        border: 2px solid {primary_variant_color};
-                        padding: 12px;
-                        font-weight: 800;
-                        font-size: 12px;
-                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                        border-radius: 8px;
-                    }}
-                    
-                    QTextEdit {{
-                        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                            stop:0 {bg_color}, 
-                            stop:1 {surface_color});
-                        color: {text_color};
-                        border: 2px solid {divider_color};
-                        border-radius: 16px;
-                        padding: 12px;
-                        font-size: 13px;
-                        font-weight: 600;
-                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                        selection-background-color: {primary_color};
                     }}
                     
                     QTextEdit QScrollBar:vertical {{

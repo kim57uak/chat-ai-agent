@@ -258,6 +258,34 @@ class ChatDisplay:
                     }}, 2000);
                 }}
                 
+                function searchInDictionary(word) {{
+                    try {{
+                        if (pyqt_bridge && pyqt_bridge.searchDictionary) {{
+                            pyqt_bridge.searchDictionary(word);
+                        }}
+                    }} catch (error) {{
+                        console.error('Dictionary search failed:', error);
+                    }}
+                }}
+                
+                function getSelectedText() {{
+                    var selection = window.getSelection();
+                    return selection.toString().trim();
+                }}
+                
+                // 텍스트 선택 및 더블클릭 이벤트 처리
+                document.addEventListener('dblclick', function(event) {{
+                    var selectedText = getSelectedText();
+                    if (selectedText && selectedText.length > 0 && selectedText.length < 50) {{
+                        // 단어만 추출 (공백, 숫자, 특수문자 제거)
+                        var cleanWord = selectedText.replace(/[^a-zA-Z가-힣]/g, '');
+                        if (cleanWord.length >= 2) {{
+                            searchInDictionary(cleanWord);
+                            showToast('찾는 단어: ' + cleanWord);
+                        }}
+                    }}
+                }});
+                
                 function copyCode(codeElement) {{
                     try {{
                         var codeText = codeElement.textContent || codeElement.innerText;
@@ -660,6 +688,21 @@ class LinkHandler(QObject):
             import traceback
             traceback.print_exc()
 
+    @pyqtSlot(str)
+    def searchDictionary(self, word):
+        """구글에서 단어 검색"""
+        try:
+            import urllib.parse
+            
+            encoded_word = urllib.parse.quote(word)
+            url = f"https://www.google.com/search?q={encoded_word}+meaning"
+            
+            print(f"[사전검색] 단어: {word}, URL: {url}")
+            QDesktopServices.openUrl(QUrl(url))
+            
+        except Exception as e:
+            print(f"[사전검색] 오류: {e}")
+    
     @pyqtSlot(str)
     def deleteMessage(self, message_id):
         """메시지 삭제"""

@@ -81,96 +81,73 @@ class MCPDialog(QDialog):
             self.tools_box.setText(f'도구 정보 로드 실패: {e}')
     
     def _get_themed_dialog_style(self):
-        theme = material_theme_manager.get_current_theme()
-        colors = theme.get('colors', {})
-        is_dark = colors.get('background', '#121212') in ['#121212', '#1e1e1e']
-        shadow_color = "rgba(0,0,0,0.3)" if is_dark else "rgba(0,0,0,0.15)"
+        from ui.styles.theme_manager import theme_manager
+        colors = theme_manager.material_manager.get_theme_colors()
         
         return f"""
             QDialog {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('background', '#121212')}, 
-                    stop:1 {colors.get('surface', '#1e1e1e')});
-                color: {colors.get('text_primary', '#ffffff')};
-                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
-                border-radius: 20px;
+                background-color: {colors.get('background', '#1e293b')};
+                color: {colors.get('text_primary', '#f1f5f9')};
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                border: none;
             }}
             QLabel {{
-                color: {colors.get('text_primary', '#ffffff')};
+                color: {colors.get('text_primary', '#f1f5f9')};
                 font-size: 14px;
-                font-weight: 600;
+                font-weight: 500;
                 padding: 4px 0;
                 background: transparent;
             }}
             QTextEdit {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('surface', '#1e1e1e')}, 
-                    stop:1 {colors.get('background', '#121212')});
-                color: {colors.get('text_primary', '#ffffff')};
-                border: 2px solid {colors.get('divider', '#333333')};
-                border-radius: 12px;
-                padding: 10px;
+                background-color: {colors.get('surface', '#334155')};
+                color: {colors.get('text_primary', '#f1f5f9')};
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 8px;
+                padding: 12px;
                 font-size: 13px;
                 font-family: 'JetBrains Mono', 'Consolas', monospace;
-                transition: all 0.3s ease;
             }}
             QTextEdit:focus {{
-                border-color: {colors.get('primary', '#bb86fc')};
-                transform: translateY(-1px);
+                border-color: {colors.get('primary', '#6366f1')};
             }}
             QGroupBox {{
-                color: {colors.get('text_primary', '#ffffff')};
-                font-size: 15px;
-                font-weight: 700;
-                border: 2px solid {colors.get('divider', '#333333')};
-                border-radius: 16px;
-                margin-top: 10px;
-                padding-top: 15px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('surface', '#1e1e1e')}, 
-                    stop:1 {colors.get('background', '#121212')});
+                color: {colors.get('text_primary', '#f1f5f9')};
+                font-size: 16px;
+                font-weight: 600;
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 16px;
+                background-color: {colors.get('surface', 'rgba(51, 65, 85, 0.5)')};
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 15px;
+                left: 16px;
                 padding: 4px 12px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('primary', '#bb86fc')}, 
-                    stop:1 {colors.get('primary_variant', '#3700b3')});
-                color: {colors.get('on_primary', '#000000')};
-                border-radius: 8px;
-                font-weight: 800;
+                background-color: {colors.get('primary', '#6366f1')};
+                color: {colors.get('on_primary', '#ffffff')};
+                border-radius: 4px;
+                font-weight: 600;
+                font-size: 14px;
             }}
             QPushButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('primary', '#bb86fc')}, 
-                    stop:1 {colors.get('primary_variant', '#3700b3')});
-                color: {colors.get('on_primary', '#000000')};
-                border: 2px solid {colors.get('primary_variant', '#3700b3')};
-                border-radius: 14px;
-                font-weight: 700;
-                font-size: 16px;
-                padding: 12px 24px;
-                transition: all 0.3s ease;
+                background-color: {colors.get('primary', '#6366f1')};
+                color: {colors.get('on_primary', '#ffffff')};
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 14px;
+                padding: 10px 20px;
+                margin: 4px;
             }}
             QPushButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('secondary', '#03dac6')}, 
-                    stop:1 {colors.get('primary', '#bb86fc')});
-                color: {colors.get('on_secondary', '#000000')};
-                border-color: {colors.get('secondary_variant', '#018786')};
-                transform: translateY(-2px);
+                background-color: {colors.get('primary_variant', '#4f46e5')};
             }}
             QPushButton:pressed {{
-                background: {colors.get('primary_variant', '#3700b3')};
-                transform: translateY(0px);
+                background-color: {colors.get('primary_dark', '#3730a3')};
             }}
             QPushButton:disabled {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('text_secondary', '#b3b3b3')}, 
-                    stop:1 {colors.get('divider', '#333333')});
-                color: {colors.get('divider', '#333333')};
-                border-color: {colors.get('divider', '#333333')};
-                opacity: 0.6;
+                background-color: {colors.get('surface_variant', '#475569')};
+                color: {colors.get('text_secondary', '#94a3b8')};
             }}
         """ 

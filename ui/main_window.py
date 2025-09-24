@@ -253,7 +253,9 @@ class MainWindow(QMainWindow):
     def open_settings(self) -> None:
         """Open settings dialog."""
         dlg = SettingsDialog(self)
-        dlg.exec()
+        if dlg.exec() == SettingsDialog.DialogCode.Accepted:
+            # 설정 저장 후 테마 업데이트
+            self._apply_current_theme()
         # 모델 매니저 업데이트 삭제 - 좌측 패널로 이동
     
     def open_mcp(self) -> None:

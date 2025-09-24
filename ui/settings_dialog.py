@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QLine
 from PyQt6.QtCore import Qt
 from core.file_utils import save_model_api_key, load_model_api_key, load_last_model, load_prompt_config, save_prompt_config
 from core.config.ai_model_manager import AIModelManager
-from ui.styles.material_theme_manager import material_theme_manager
+from ui.styles.theme_manager import theme_manager
 import json
 import os
 
@@ -12,7 +12,8 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle('🔧 환경설정')
-        self.setMinimumSize(600, 700)
+        self.setMinimumSize(700, 720)
+        self.resize(800, 810)
         self.setStyleSheet(self._get_themed_dialog_style())
         
         # AI 모델 매니저 초기화
@@ -25,13 +26,15 @@ class SettingsDialog(QDialog):
         
         # 제목
         title_label = QLabel('⚙️ 환경설정')
-        title_label.setStyleSheet("""
-            QLabel {
-                font-size: 24px;
-                font-weight: 800;
-                padding: 10px 0;
+        title_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 20px;
+                font-weight: 700;
+                padding: 16px 0;
                 text-align: center;
-            }
+                color: {theme_manager.material_manager.get_theme_colors().get('text_primary', '#f1f5f9')};
+                background: transparent;
+            }}
         """)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title_label)
@@ -66,6 +69,17 @@ class SettingsDialog(QDialog):
         
         # 설정 로드
         self.load_settings()
+        
+        # 테마 변경 감지 (시그널이 있는 경우에만)
+        if hasattr(theme_manager, 'theme_changed'):
+            theme_manager.theme_changed.connect(self.update_theme)
+    
+    def update_theme(self):
+        """테마 업데이트"""
+        self.setStyleSheet(self._get_themed_dialog_style())
+        self.tab_widget.setStyleSheet(self._get_tab_style())
+        self.save_button.setStyleSheet(self._get_save_button_style())
+        self.cancel_button.setStyleSheet(self._get_cancel_button_style())
     
     def create_ai_settings_tab(self):
         """AI 설정 탭"""
@@ -738,121 +752,85 @@ class SettingsDialog(QDialog):
             print(f"뉴스 설정 저장 오류: {e}")
     
     def _get_themed_dialog_style(self):
-        """Glass Morphism 스타일 적용"""
-        theme = material_theme_manager.get_current_theme()
-        colors = theme.get('colors', {})
+        """현대적 테마 스타일 적용"""
+        colors = theme_manager.material_manager.get_theme_colors()
         
         return f"""
             QDialog {{
-                background: rgba(15, 15, 23, 0.95);
-                backdrop-filter: blur(20px);
-                color: #ffffff;
-                font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 20px;
+                background-color: {colors.get('background', '#1e293b')};
+                color: {colors.get('text_primary', '#f1f5f9')};
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                border: none;
             }}
             QLabel {{
-                color: {colors.get('text_primary', '#ffffff')};
+                color: {colors.get('text_primary', '#f1f5f9')};
                 font-size: 14px;
-                font-weight: 600;
+                font-weight: 500;
                 padding: 4px 0;
                 background: transparent;
             }}
-            QComboBox, QLineEdit {{
-                background: rgba(255, 255, 255, 0.1);
-                backdrop-filter: blur(10px);
-                color: #ffffff;
-                border: 1px solid rgba(139, 92, 246, 0.3);
-                border-radius: 12px;
+            QComboBox {{
+                background-color: {colors.get('surface', '#334155')};
+                color: {colors.get('text_primary', '#f1f5f9')};
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 6px;
                 padding: 8px 12px;
                 font-size: 14px;
-                font-weight: 500;
                 min-height: 20px;
             }}
-            QComboBox:hover, QLineEdit:focus {{
-                background: rgba(255, 255, 255, 0.15);
-                border-color: rgba(139, 92, 246, 0.5);
+            QComboBox:hover {{
+                background-color: {colors.get('surface_variant', '#475569')};
+                border-color: {colors.get('primary', '#6366f1')};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 20px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid {colors.get('text_primary', '#f1f5f9')};
+                width: 0;
+                height: 0;
+            }}
+            QLineEdit {{
+                background-color: {colors.get('surface', '#334155')};
+                color: {colors.get('text_primary', '#f1f5f9')};
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 14px;
+                min-height: 20px;
+            }}
+            QLineEdit:focus {{
+                border-color: {colors.get('primary', '#6366f1')};
+                background-color: {colors.get('surface_variant', '#475569')};
             }}
             QSpinBox {{
-                background: rgba(255, 255, 255, 0.1);
-                backdrop-filter: blur(10px);
-                color: #ffffff;
-                border: 1px solid rgba(139, 92, 246, 0.3);
-                border-radius: 12px;
+                background-color: {colors.get('surface', '#334155')};
+                color: {colors.get('text_primary', '#f1f5f9')};
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 6px;
                 padding: 8px 12px;
                 font-size: 14px;
-                font-weight: 500;
                 min-height: 20px;
-                padding-right: 40px;
             }}
             QSpinBox:hover {{
-                background: rgba(255, 255, 255, 0.15);
-                border-color: rgba(139, 92, 246, 0.5);
+                background-color: {colors.get('surface_variant', '#475569')};
+                border-color: {colors.get('primary', '#6366f1')};
             }}
-            QSpinBox::up-button {{
-                subcontrol-origin: border;
-                subcontrol-position: top right;
-                width: 32px;
-                height: 18px;
-                border-left: 2px solid {colors.get('divider', '#333333')};
-                border-bottom: 1px solid {colors.get('divider', '#333333')};
-                border-top-right-radius: 10px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('primary', '#bb86fc')}, 
-                    stop:1 {colors.get('primary_variant', '#3700b3')});
-                transition: all 0.3s ease;
+            QSpinBox::up-button, QSpinBox::down-button {{
+                background-color: {colors.get('primary', '#6366f1')};
+                border: none;
+                width: 16px;
+                border-radius: 3px;
             }}
-            QSpinBox::up-button:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('secondary', '#03dac6')}, 
-                    stop:1 {colors.get('primary', '#bb86fc')});
-                transform: translateY(-1px);
-            }}
-            QSpinBox::up-button:pressed {{
-                background: {colors.get('primary_variant', '#3700b3')};
-                transform: translateY(0px);
-            }}
-            QSpinBox::up-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 6px solid {colors.get('on_primary', '#000000')};
-                width: 0px;
-                height: 0px;
-            }}
-            QSpinBox::down-button {{
-                subcontrol-origin: border;
-                subcontrol-position: bottom right;
-                width: 32px;
-                height: 18px;
-                border-left: 2px solid {colors.get('divider', '#333333')};
-                border-top: 1px solid {colors.get('divider', '#333333')};
-                border-bottom-right-radius: 10px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('primary', '#bb86fc')}, 
-                    stop:1 {colors.get('primary_variant', '#3700b3')});
-                transition: all 0.3s ease;
-            }}
-            QSpinBox::down-button:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {colors.get('secondary', '#03dac6')}, 
-                    stop:1 {colors.get('primary', '#bb86fc')});
-                transform: translateY(-1px);
-            }}
-            QSpinBox::down-button:pressed {{
-                background: {colors.get('primary_variant', '#3700b3')};
-                transform: translateY(0px);
-            }}
-            QSpinBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 6px solid {colors.get('on_primary', '#000000')};
-                width: 0px;
-                height: 0px;
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+                background-color: {colors.get('primary_variant', '#4f46e5')};
             }}
             QCheckBox {{
-                color: {colors.get('text_primary', '#ffffff')};
+                color: {colors.get('text_primary', '#f1f5f9')};
                 font-size: 14px;
                 font-weight: 500;
                 spacing: 8px;
@@ -861,43 +839,42 @@ class SettingsDialog(QDialog):
             QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border: 1px solid rgba(139, 92, 246, 0.5);
-                border-radius: 6px;
-                background: rgba(255, 255, 255, 0.1);
-                backdrop-filter: blur(5px);
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 3px;
+                background-color: {colors.get('surface', '#334155')};
             }}
             QCheckBox::indicator:checked {{
-                background: rgba(139, 92, 246, 0.8);
-                border-color: rgba(139, 92, 246, 0.8);
+                background-color: {colors.get('primary', '#6366f1')};
+                border-color: {colors.get('primary', '#6366f1')};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {colors.get('primary', '#6366f1')};
             }}
             QGroupBox {{
-                color: #ffffff;
+                color: {colors.get('text_primary', '#f1f5f9')};
                 font-size: 16px;
-                font-weight: 700;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 16px;
-                margin-top: 15px;
-                padding-top: 20px;
-                background: rgba(255, 255, 255, 0.05);
-                backdrop-filter: blur(15px);
+                font-weight: 600;
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 16px;
+                background-color: {colors.get('surface', 'rgba(51, 65, 85, 0.5)')};
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 20px;
+                left: 16px;
                 padding: 4px 12px;
-                background: rgba(139, 92, 246, 0.8);
-                color: #ffffff;
-                border-radius: 8px;
-                font-weight: 800;
+                background-color: {colors.get('primary', '#6366f1')};
+                color: {colors.get('on_primary', '#ffffff')};
+                border-radius: 4px;
+                font-weight: 600;
+                font-size: 14px;
             }}
         """
     
     def _get_tab_style(self):
-        """탭 스타일 반환 - Soft Shadow + Rounded Edge + Gradient Depth"""
-        theme = material_theme_manager.get_current_theme()
-        colors = theme.get('colors', {})
-        is_dark = colors.get('background', '#121212') in ['#121212', '#1e1e1e']
-        shadow_color = "rgba(0,0,0,0.2)" if is_dark else "rgba(0,0,0,0.1)"
+        """현대적 탭 스타일"""
+        colors = theme_manager.material_manager.get_theme_colors()
         
         return f"""
             QTabWidget {{
@@ -905,53 +882,49 @@ class SettingsDialog(QDialog):
                 border: none;
             }}
             QTabWidget::pane {{
-                background: rgba(255, 255, 255, 0.05);
-                backdrop-filter: blur(15px);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 16px;
-                margin-top: 5px;
+                background-color: {colors.get('surface', '#334155')};
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 8px;
+                margin-top: 2px;
             }}
             QTabBar::tab {{
-                background: rgba(255, 255, 255, 0.1);
-                backdrop-filter: blur(10px);
+                background-color: {colors.get('surface_variant', '#475569')};
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                padding: 12px 20px;
-                margin: 2px;
-                border-radius: 12px;
+                border: 1px solid {colors.get('border', '#64748b')};
+                padding: 10px 16px;
+                margin: 1px;
+                border-radius: 6px;
                 font-weight: 600;
                 font-size: 14px;
                 min-width: 80px;
             }}
             QTabBar::tab:selected {{
-                background: rgba(139, 92, 246, 0.8);
-                color: #ffffff;
-                border-color: rgba(139, 92, 246, 0.8);
-                font-weight: 700;
+                background-color: {colors.get('primary', '#6366f1')};
+                color: {colors.get('on_primary', '#ffffff')};
+                border-color: {colors.get('primary', '#6366f1')};
+                font-weight: 600;
             }}
             QTabBar::tab:hover {{
-                background: rgba(139, 92, 246, 0.4);
-                color: #ffffff;
+                background-color: {colors.get('primary_variant', '#4f46e5')};
+                color: {colors.get('on_primary', '#ffffff')};
             }}
             QScrollArea {{
                 background: transparent;
                 border: none;
             }}
             QScrollBar:vertical {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 {colors.get('surface', '#1e1e1e')}, 
-                    stop:1 {colors.get('background', '#121212')});
-                width: 12px;
-                border-radius: 6px;
+                background-color: {colors.get('surface', '#334155')};
+                width: 8px;
+                border-radius: 4px;
                 margin: 0;
             }}
             QScrollBar::handle:vertical {{
-                background: rgba(139, 92, 246, 0.6);
-                border-radius: 6px;
+                background-color: {colors.get('primary', '#6366f1')};
+                border-radius: 4px;
                 min-height: 20px;
             }}
             QScrollBar::handle:vertical:hover {{
-                background: rgba(139, 92, 246, 0.8);
+                background-color: {colors.get('primary_variant', '#4f46e5')};
             }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 height: 0px;
@@ -962,57 +935,49 @@ class SettingsDialog(QDialog):
         """
     
     def _get_save_button_style(self):
-        """저장 버튼 스타일 - 세션 패널 테마 버튼과 동일"""
-        theme = material_theme_manager.get_current_theme()
-        colors = theme.get('colors', {})
+        """저장 버튼 스타일"""
+        colors = theme_manager.material_manager.get_theme_colors()
         
         return f"""
             QPushButton {{
-                background: rgba(139, 92, 246, 0.8);
-                backdrop-filter: blur(10px);
-                color: #ffffff;
-                border: 1px solid rgba(139, 92, 246, 0.5);
-                border-radius: 20px;
-                font-weight: 800;
-                font-size: 16px;
-                font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-                padding: 16px 20px;
-                margin: 6px;
+                background-color: {colors.get('primary', '#6366f1')};
+                color: {colors.get('on_primary', '#ffffff')};
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 14px;
+                padding: 10px 20px;
+                margin: 4px;
             }}
             QPushButton:hover {{
-                background: rgba(139, 92, 246, 1.0);
-                border-color: rgba(139, 92, 246, 0.8);
+                background-color: {colors.get('primary_variant', '#4f46e5')};
             }}
             QPushButton:pressed {{
-                background: rgba(124, 58, 237, 0.9);
+                background-color: {colors.get('primary_dark', '#3730a3')};
             }}
         """
     
     def _get_cancel_button_style(self):
-        """취소 버튼 스타일 - 빨간색 계열 고정 색상"""
-        return """
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #FF5252, 
-                    stop:1 #D32F2F);
-                color: #FFFFFF;
-                border: none;
-                border-radius: 20px;
-                font-weight: 800;
-                font-size: 16px;
-                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                padding: 16px 20px;
-                margin: 6px;
-                transition: all 0.3s ease;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #D32F2F, 
-                    stop:1 #FF5252);
-                transform: translateY(-2px);
-            }
-            QPushButton:pressed {
-                background: #B71C1C;
-                transform: translateY(0px);
-            }
+        """취소 버튼 스타일"""
+        colors = theme_manager.material_manager.get_theme_colors()
+        
+        return f"""
+            QPushButton {{
+                background-color: {colors.get('surface_variant', '#475569')};
+                color: #ffffff;
+                border: 1px solid {colors.get('border', '#64748b')};
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 14px;
+                padding: 10px 20px;
+                margin: 4px;
+            }}
+            QPushButton:hover {{
+                background-color: {colors.get('error', '#ef4444')};
+                color: {colors.get('on_error', '#ffffff')};
+                border-color: {colors.get('error', '#ef4444')};
+            }}
+            QPushButton:pressed {{
+                background-color: {colors.get('error_dark', '#dc2626')};
+            }}
         """

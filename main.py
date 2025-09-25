@@ -1,11 +1,20 @@
 import sys
 import threading
 import logging
+import os
 from core.application import SignalHandler, AppInitializer, AppRunner
 
 
 def main() -> int:
     """Main application entry point."""
+    # Remove problematic proxy environment variable for Google API
+    if 'EXPERIMENTAL_HTTP_PROXY_SUPPORT' in os.environ:
+        del os.environ['EXPERIMENTAL_HTTP_PROXY_SUPPORT']
+    
+    # Set DNS for tethering environment
+    os.environ['GRPC_DNS_RESOLVER'] = 'native'
+    os.environ['GRPC_VERBOSITY'] = 'ERROR'
+    
     # Setup logging
     logging.basicConfig(
         level=logging.INFO,
@@ -19,7 +28,6 @@ def main() -> int:
 
     # Set application icon
     from PyQt6.QtGui import QIcon
-    import os
 
     if os.path.exists("image/app_icon_128.png"):
         app.setWindowIcon(QIcon("image/app_icon_128.png"))

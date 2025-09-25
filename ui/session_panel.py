@@ -1127,30 +1127,70 @@ class SessionPanel(QWidget):
                 QMessageBox.critical(self, "오류", f"세션 삭제 중 오류가 발생했습니다:\n{e}")
     
     def show_model_selector(self):
-        """모델 선택기 표시 - 계층형"""
+        """모델 선택기 표시 - 직접 구현"""
         try:
             from PyQt6.QtWidgets import QMenu
             from PyQt6.QtCore import QPoint
-            from core.file_utils import load_config
+            from core.file_utils import load_config, save_last_model, load_last_model
             
-            menu = QMenu(self)
             config = load_config()
             models = config.get('models', {})
             
-            # 계층형 메뉴 구성
-            providers = {}
-            for model_name, model_config in models.items():
-                provider = model_config.get('provider', 'unknown')
-                if provider not in providers:
-                    providers[provider] = []
-                providers[provider].append(model_name)
+            if not models:
+                return
             
-            # 각 제공자별로 서브메뉴 생성
-            for provider, model_list in providers.items():
-                provider_menu = menu.addMenu(f"🏢 {provider.title()}")
-                for model_name in model_list:
-                    action = provider_menu.addAction(f"🤖 {model_name}")
-                    action.triggered.connect(lambda checked, m=model_name: self._select_model(m))
+            menu = QMenu(self)
+            menu.setStyleSheet("""
+                QMenu {
+                    background-color: #2a2a2a;
+                    color: #ffffff;
+                    border: 1px solid #444444;
+                    border-radius: 4px;
+                    padding: 4px;
+                }
+                QMenu::item {
+                    padding: 8px 16px;
+                    border-radius: 2px;
+                }
+                QMenu::item:selected {
+                    background-color: rgb(163,135,215);
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #444444;
+                    margin: 4px 0px;
+                }
+            """)
+            
+            current_model = load_last_model()
+            
+            # 모델을 카테고리별로 분류
+            categorized_models = self._categorize_models(models)
+            
+            # 카테고리별로 서브메뉴 생성
+            for category, category_models in categorized_models.items():
+                if not category_models:
+                    continue
+                    
+                category_info = self._get_category_info(category)
+                submenu = menu.addMenu(f"{category_info['emoji']} {category_info['name']} ({len(category_models)}개)")
+                submenu.setStyleSheet(menu.styleSheet())
+                
+                # OpenRouter 카테고리는 카테고리별로 세분화
+                if category == 'openrouter':
+                    self._add_openrouter_category_submenus(submenu, category_models, current_model)
+                else:
+                    # 일반 카테고리는 그대로 표시
+                    for model_name, model_config in sorted(category_models.items()):
+                        model_emoji = self._get_model_emoji(model_name, model_config)
+                        display_name = self._get_model_display_name(model_name, model_config)
+                        
+                        action = submenu.addAction(f"{model_emoji} {display_name}")
+                        if model_name == current_model:
+                            action.setText(f"✅ {display_name} (현재)")
+                        def make_handler(model):
+                            return lambda: self._select_model(model)
+                        action.triggered.connect(make_handler(model_name))
             
             # 버튼 위치에서 메뉴 표시
             button_pos = self.model_button.mapToGlobal(QPoint(0, 0))
@@ -1310,6 +1350,136 @@ class SessionPanel(QWidget):
             print(f"테마 선택 오류: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _categorize_models(self, models):
+        """모델을 카테고리별로 분류"""
+        categories = {
+            'openrouter': {},
+            'google': {},
+            'perplexity': {},
+            'pollinations': {},
+            'other': {}
+        }
+        
+        for model_name, model_config in models.items():
+            api_key = model_config.get('api_key', '')
+            if not (api_key and api_key != 'none'):
+                continue
+                
+            provider = model_config.get('provider', '')
+            
+            if provider == 'openrouter':
+                categories['openrouter'][model_name] = model_config
+            elif provider == 'google':
+                categories['google'][model_name] = model_config
+            elif provider == 'perplexity':
+                categories['perplexity'][model_name] = model_config
+            elif provider == 'pollinations':
+                categories['pollinations'][model_name] = model_config
+            else:
+                categories['other'][model_name] = model_config
+        
+        return categories
+    
+    def _get_category_info(self, category):
+        """카테고리 정보 반환"""
+        category_map = {
+            'openrouter': {'emoji': '🔀', 'name': 'OpenRouter'},
+            'google': {'emoji': '🔍', 'name': 'Google Gemini'},
+            'perplexity': {'emoji': '🔬', 'name': 'Perplexity'},
+            'pollinations': {'emoji': '🌸', 'name': 'Pollinations'},
+            'other': {'emoji': '🤖', 'name': '기타 모델'}
+        }
+        return category_map.get(category, {'emoji': '🤖', 'name': category})
+    
+    def _get_model_emoji(self, model_name, model_config):
+        """모델별 이모지 반환"""
+        if 'image' in model_name.lower():
+            return '🎨'
+        elif model_config.get('category') == 'reasoning':
+            return '🧠'
+        elif model_config.get('category') == 'coding':
+            return '💻'
+        elif model_config.get('category') == 'multimodal':
+            return '🖼️'
+        elif model_config.get('category') == 'meta_llama':
+            return '🦙'
+        elif 'gemini' in model_name.lower():
+            return '💎'
+        elif 'sonar' in model_name.lower():
+            return '🔬'
+        elif 'pollinations' in model_name.lower():
+            return '🌸'
+        else:
+            return '🤖'
+    
+    def _get_model_display_name(self, model_name, model_config):
+        """모델 표시명 생성"""
+        description = model_config.get('description', '')
+        if description:
+            # 이모지 제거하고 간단한 설명만 추출
+            clean_desc = description.split(' - ')[-1] if ' - ' in description else description
+            clean_desc = ''.join(char for char in clean_desc if not char.startswith(''))
+            return f"{model_name.split('/')[-1]} - {clean_desc[:30]}..."
+        return model_name
+    
+    def _add_openrouter_category_submenus(self, parent_menu, models, current_model):
+        """오픈라우터 모델을 카테고리별로 세분화"""
+        # 모델을 카테고리별로 그룹화
+        category_groups = {
+            'reasoning': {},
+            'coding': {},
+            'multimodal': {},
+            'meta_llama': {}
+        }
+        
+        for model_name, model_config in models.items():
+            category = model_config.get('category', 'other')
+            if category in category_groups:
+                category_groups[category][model_name] = model_config
+        
+        # 카테고리별 서브메뉴 생성
+        category_info = {
+            'reasoning': {'emoji': '🧠', 'name': '추론 특화'},
+            'coding': {'emoji': '💻', 'name': '코딩 특화'},
+            'multimodal': {'emoji': '🖼️', 'name': '멀티모달'},
+            'meta_llama': {'emoji': '🦙', 'name': 'Meta Llama'}
+        }
+        
+        for category, category_models in category_groups.items():
+            if not category_models:
+                continue
+                
+            info = category_info[category]
+            category_submenu = parent_menu.addMenu(f"{info['emoji']} {info['name']} ({len(category_models)}개)")
+            category_submenu.setStyleSheet(parent_menu.styleSheet())
+            
+            for model_name, model_config in sorted(category_models.items()):
+                display_name = self._get_improved_display_name(model_name, model_config)
+                action = category_submenu.addAction(f"🤖 {display_name}")
+                if model_name == current_model:
+                    action.setText(f"✅ {display_name} (현재)")
+                def make_handler(model):
+                    return lambda: self._select_model(model)
+                action.triggered.connect(make_handler(model_name))
+    
+    def _get_improved_display_name(self, model_name, model_config):
+        """개선된 모델 표시명 생성"""
+        description = model_config.get('description', '')
+        if description:
+            # 이모지 제거하고 간단한 설명만 추출
+            clean_desc = description.split(' - ')[-1] if ' - ' in description else description
+            import re
+            clean_desc = re.sub(r'[🎨💻🧠🖼️🦙🔍🔬🌸🤖⚡🥉💎🎯]', '', clean_desc).strip()
+            
+            # 모델명 단순화
+            simple_name = model_name.split('/')[-1].replace(':free', '').replace('-instruct', '')
+            
+            # 무료 모델 표시
+            free_indicator = ' 🆓' if ':free' in model_name else ''
+            
+            return f"{simple_name}{free_indicator} - {clean_desc[:25]}..."
+        return model_name.split('/')[-1]
     
     def _find_main_window(self):
         """메인 윈도우 찾기"""

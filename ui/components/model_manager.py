@@ -93,6 +93,7 @@ class ModelManager:
     
     def show_model_popup(self, event):
         """모델 선택 팝업 표시 - 계층 구조"""
+        print("DEBUG: show_model_popup 호출됨!")
         try:
             from core.file_utils import load_config, save_last_model, load_last_model
             
@@ -139,14 +140,23 @@ class ModelManager:
                 submenu = menu.addMenu(f"{category_info['emoji']} {category_info['name']} ({len(category_models)}개)")
                 submenu.setStyleSheet(menu.styleSheet())
                 
-                for model_name, model_config in category_models.items():
-                    model_emoji = self._get_model_emoji(model_name, model_config)
-                    display_name = self._get_model_display_name(model_name, model_config)
-                    
-                    action = submenu.addAction(f"{model_emoji} {display_name}")
-                    if model_name == current_model:
-                        action.setText(f"✅ {display_name} (현재)")
-                    action.triggered.connect(lambda checked, m=model_name: self.change_model(m))
+                # OpenRouter 카테고리는 카테고리별로 세분화
+                if category == 'openrouter':
+                    print(f"DEBUG: OpenRouter 발견! {len(category_models)}개 모델")
+                    self._add_openrouter_category_submenus(submenu, category_models, current_model)
+                    print(f"DEBUG: OpenRouter 2차 분류 완료")
+                else:
+                    # 일반 카테고리는 그대로 표시
+                    for model_name, model_config in sorted(category_models.items()):
+                        model_emoji = self._get_model_emoji(model_name, model_config)
+                        display_name = self._get_model_display_name(model_name, model_config)
+                        
+                        action = submenu.addAction(f"{model_emoji} {display_name}")
+                        if model_name == current_model:
+                            action.setText(f"✅ {display_name} (현재)")
+                        def make_handler(model):
+                            return lambda: self.change_model(model)
+                        action.triggered.connect(make_handler(model_name))
             
             menu.exec(self.model_label.mapToGlobal(event.pos()))
             
@@ -156,10 +166,7 @@ class ModelManager:
     def _categorize_models(self, models):
         """모델을 카테고리별로 분류"""
         categories = {
-            'openrouter_reasoning': {},
-            'openrouter_coding': {},
-            'openrouter_multimodal': {},
-            'openrouter_meta_llama': {},
+            'openrouter': {},
             'google': {},
             'perplexity': {},
             'pollinations': {},
@@ -172,19 +179,9 @@ class ModelManager:
                 continue
                 
             provider = model_config.get('provider', '')
-            category = model_config.get('category', '')
             
             if provider == 'openrouter':
-                if category == 'reasoning':
-                    categories['openrouter_reasoning'][model_name] = model_config
-                elif category == 'coding':
-                    categories['openrouter_coding'][model_name] = model_config
-                elif category == 'multimodal':
-                    categories['openrouter_multimodal'][model_name] = model_config
-                elif category == 'meta_llama':
-                    categories['openrouter_meta_llama'][model_name] = model_config
-                else:
-                    categories['other'][model_name] = model_config
+                categories['openrouter'][model_name] = model_config
             elif provider == 'google':
                 categories['google'][model_name] = model_config
             elif provider == 'perplexity':
@@ -199,10 +196,7 @@ class ModelManager:
     def _get_category_info(self, category):
         """카테고리 정보 반환"""
         category_map = {
-            'openrouter_reasoning': {'emoji': '🧠', 'name': 'OpenRouter 추론 특화'},
-            'openrouter_coding': {'emoji': '💻', 'name': 'OpenRouter 코딩 특화'},
-            'openrouter_multimodal': {'emoji': '🖼️', 'name': 'OpenRouter 멀티모달'},
-            'openrouter_meta_llama': {'emoji': '🦙', 'name': 'OpenRouter Meta Llama'},
+            'openrouter': {'emoji': '🔀', 'name': 'OpenRouter'},
             'google': {'emoji': '🔍', 'name': 'Google Gemini'},
             'perplexity': {'emoji': '🔬', 'name': 'Perplexity'},
             'pollinations': {'emoji': '🌸', 'name': 'Pollinations'},
@@ -321,6 +315,65 @@ class ModelManager:
             
         except Exception as e:
             print(f"도구 메뉴 표시 오류: {e}")
+    
+    def _add_openrouter_category_submenus(self, parent_menu, models, current_model):
+        """OpenRouter 모델을 카테고리별로 세분화"""
+        print(f"DEBUG: _add_openrouter_category_submenus 시작 - {len(models)}개 모델")
+        # 모델을 카테고리별로 그룹화
+        category_groups = {
+            'reasoning': {},
+            'coding': {},
+            'multimodal': {},
+            'meta_llama': {}
+        }
+        
+        for model_name, model_config in models.items():
+            category = model_config.get('category', 'other')
+            if category in category_groups:
+                category_groups[category][model_name] = model_config
+        
+        # 카테고리별 서브메뉴 생성
+        category_info = {
+            'reasoning': {'emoji': '🧠', 'name': '추론 특화'},
+            'coding': {'emoji': '💻', 'name': '코딩 특화'},
+            'multimodal': {'emoji': '🖼️', 'name': '멀티모달'},
+            'meta_llama': {'emoji': '🦙', 'name': 'Meta Llama'}
+        }
+        
+        for category, category_models in category_groups.items():
+            if not category_models:
+                continue
+                
+            info = category_info[category]
+            category_submenu = parent_menu.addMenu(f"{info['emoji']} {info['name']} ({len(category_models)}개)")
+            category_submenu.setStyleSheet(parent_menu.styleSheet())
+            
+            for model_name, model_config in sorted(category_models.items()):
+                display_name = self._get_improved_display_name(model_name, model_config)
+                action = category_submenu.addAction(f"🤖 {display_name}")
+                if model_name == current_model:
+                    action.setText(f"✅ {display_name} (현재)")
+                def make_handler(model):
+                    return lambda: self.change_model(model)
+                action.triggered.connect(make_handler(model_name))
+    
+    def _get_improved_display_name(self, model_name, model_config):
+        """개선된 모델 표시명 생성"""
+        description = model_config.get('description', '')
+        if description:
+            # 이모지 제거하고 간단한 설명만 추출
+            clean_desc = description.split(' - ')[-1] if ' - ' in description else description
+            import re
+            clean_desc = re.sub(r'[🎨💻🧠🖼️🦙🔍🔬🌸🤖⚡🥉💎🎯]', '', clean_desc).strip()
+            
+            # 모델명 단순화
+            simple_name = model_name.split('/')[-1].replace(':free', '').replace('-instruct', '')
+            
+            # 무료 모델 표시
+            free_indicator = ' 🆓' if ':free' in model_name else ''
+            
+            return f"{simple_name}{free_indicator} - {clean_desc[:25]}..."
+        return model_name.split('/')[-1]
     
     def stop_monitoring(self):
         """모니터링 중지"""

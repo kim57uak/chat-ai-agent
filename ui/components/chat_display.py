@@ -151,6 +151,53 @@ class ChatDisplay:
             <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
             <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
             <script src="https://unpkg.com/mermaid@11.12.0/dist/mermaid.min.js"></script>
+            <script>
+                // 간단한 Mermaid 초기화
+                function initMermaid() {{
+                    if (typeof mermaid !== 'undefined') {{
+                        mermaid.initialize({{
+                            startOnLoad: false,
+                            theme: '{mermaid_theme}',
+                            securityLevel: 'loose'
+                        }});
+                        console.log('Mermaid 초기화 완료');
+                        renderMermaidDiagrams();
+                    }} else {{
+                        setTimeout(initMermaid, 100);
+                    }}
+                }}
+                
+                // Mermaid 다이어그램 렌더링
+                function renderMermaidDiagrams() {{
+                    try {{
+                        var elements = document.querySelectorAll('.mermaid:not([data-processed])');
+                        elements.forEach(function(element, index) {{
+                            var code = element.textContent.trim();
+                            // 빈 코드나 잘못된 구문 필터링
+                            if (code && code.length > 10 && (code.includes('graph') || code.includes('sequenceDiagram') || code.includes('flowchart') || code.includes('classDiagram') || code.includes('gitgraph') || code.includes('pie') || code.includes('journey') || code.includes('gantt'))) {{
+                                var id = 'mermaid-' + Date.now() + '-' + index;
+                                mermaid.render(id, code).then(function(result) {{
+                                    element.innerHTML = result.svg;
+                                    element.setAttribute('data-processed', 'true');
+                                }}).catch(function(error) {{
+                                    console.error('Mermaid 렌더링 오류:', error);
+                                    element.style.display = 'none'; // 오류 시 숨김
+                                }});
+                            }} else {{
+                                // 빈 요소나 잘못된 구문은 숨김
+                                element.style.display = 'none';
+                                element.setAttribute('data-processed', 'true');
+                            }}
+                        }});
+                    }} catch (error) {{
+                        console.error('Mermaid 처리 오류:', error);
+                    }}
+                }}
+                
+                // 초기화
+                document.addEventListener('DOMContentLoaded', initMermaid);
+                window.addEventListener('load', function() {{ setTimeout(initMermaid, 200); }});
+            </script>
             <style id="theme-style">
                 {theme_css}
                 
@@ -188,6 +235,13 @@ class ChatDisplay:
             <div id="messages"></div>
             <script>
                 console.log('HTML 로드 완료');
+                
+                // Mermaid 초기화 (HTML 로드 후)
+                setTimeout(function() {{
+                    if (typeof initMermaid === 'function') {{
+                        initMermaid();
+                    }}
+                }}, 300);
                 
                 var pyqt_bridge = null;
                 
@@ -567,12 +621,19 @@ class ChatDisplay:
             
             console.log('메시지 생성 완료: {display_message_id}');
             
+            // Mermaid 다이어그램 렌더링
+            setTimeout(function() {{
+                if (typeof renderMermaidDiagrams === 'function') {{
+                    renderMermaidDiagrams();
+                }}
+            }}, 50);
+            
             // 스크롤 조정
             setTimeout(function() {{
                 if (!{str(prepend).lower()}) {{
                     window.scrollTo(0, document.body.scrollHeight);
                 }}
-            }}, 10);
+            }}, 100);
             
         }} catch(e) {{
             console.error('메시지 생성 오류:', e);

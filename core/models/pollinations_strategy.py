@@ -119,16 +119,13 @@ class PollinationsLLM(LLM):
             raise Exception(f"이미지 생성 중 오류가 발생했습니다: {str(e)[:100]}")
     
     def _extract_clean_prompt(self, prompt: str) -> str:
-        """깨끗한 프롬프트 추출"""
+        """깨끗한 프롬프트 추출 - 시스템 프롬프트 유지"""
         # 메시지 형식인지 확인
         if '[SystemMessage(' in prompt or 'HumanMessage(' in prompt:
-            # 마지막 HumanMessage에서 content 추출
-            import re
-            matches = re.findall(r"HumanMessage\(content='([^']+)'", prompt)
-            if matches:
-                return matches[-1]  # 마지막 사용자 메시지
+            # 전체 메시지 구조를 유지하여 반환
+            return prompt.strip()
         
-        # 일반 텍스트면 그대로 반환 (길이 제한 제거)
+        # 일반 텍스트면 그대로 반환
         return prompt.strip()
     
     def _parse_conversation_history(self, prompt: str) -> List[Dict[str, str]]:
@@ -205,6 +202,15 @@ class PollinationsLLM(LLM):
 class PollinationsStrategy(BaseModelStrategy):
     """Pollinations AI 전략 - 텍스트 및 이미지 생성 지원"""
     
+    def __init__(self, api_key: str, model_name: str):
+        super().__init__(api_key, model_name)
+        self.tools = []  # 도구 리스트 초기화
+    
+    def set_tools(self, tools: List):
+        """도구 설정"""
+        self.tools = tools or []
+        logger.info(f"Pollinations 도구 설정: {len(self.tools)}개")
+    
     def create_llm(self):
         """Pollinations LLM 생성"""
         # 모델별 timeout 설정
@@ -266,53 +272,48 @@ class PollinationsStrategy(BaseModelStrategy):
             return HumanMessage(content=cleaned_input.strip() or "Please describe what you see in the image.")
     
     def should_use_tools(self, user_input: str) -> bool:
-        """도구 사용 여부 결정 - 문맥 기반 판단"""
+        """도구 사용 여부 결정 - Pollinations 전용 적극적 판단"""
         if self.llm.is_image_model:
             return self._is_image_generation_request(user_input)
         
-        if not hasattr(self, 'tools') or not self.tools:
+        # 도구가 없으면 사용 불가
+        if not self.tools:
+            logger.warning(f"Pollinations: 도구가 없어 도구 사용 불가")
             return False
         
         try:
-            # 휴리스틱 기반 판단 (API 호출 없음)
-            has_question = '?' in user_input or any(user_input.strip().endswith(word) for word in ['요?', '까?', '나?', '지?'])
-            has_request = any(user_input.endswith(word) for word in ['줘', '해줘', '보여줘', '알려줘', '찾아줘', '해', '요', '세요'])
-            has_specific_info = any([
-                any(char.isdigit() for char in user_input),
-                len([w for w in user_input.split() if w.isupper()]) > 0,
-                '@' in user_input or 'http' in user_input,
-                len(user_input.split()) > 5
-            ])
+            input_length = len(user_input.split())
+            logger.info(f"Pollinations 도구 사용 판단: '{user_input}' ({input_length}단어) -> 도구 {len(self.tools)}개 사용 가능")
             
-            is_greeting = any(word in user_input.lower() for word in ['안녕', '고마워', '감사', 'hello', 'hi', 'thanks'])
-            is_simple_chat = len(user_input.split()) <= 3 and not has_question and not has_request
+            # 1단어만 도구 불필요
+            if input_length <= 1:
+                return False
             
-            if is_greeting or is_simple_chat:
-                result = False
-            elif has_question or has_request or has_specific_info:
-                result = True
-            else:
-                result = len(user_input.split()) > 4
-            
-            logger.info(f"Pollinations 휴리스틱 판단: '{user_input}' -> Q:{has_question}, R:{has_request}, S:{has_specific_info} -> {result}")
-            return result
+            # 2단어 이상이면 도구 사용
+            return True
             
         except Exception as e:
             logger.error(f"Pollinations 판단 오류: {e}")
-            return len(user_input.split()) > 4
+            return True
     
     def create_agent_executor(self, tools: List) -> Optional[AgentExecutor]:
         """에이전트 실행기 생성 - Pollinations 전용 파싱 오류 처리"""
         if self.llm.is_image_model or not tools:
             return None
         
-        # 중앙관리 시스템에서 에이전트 시스템 프롬프트 가져오기
+        # 중앙관리 시스템에서 에이전트 시스템 프롬프트 가져오기 + 도구 사용 강화
         system_message = prompt_manager.get_agent_system_prompt(ModelType.POLLINATIONS.value)
+        if not system_message:
+            system_message = "You are an AI agent with access to external tools. Use them when needed to provide accurate information."
         
-        # ReAct 프롬프트 템플릿
+        # ReAct 프롬프트 템플릿 + 도구 사용 강화
         react_template = prompt_manager.get_react_template(ModelType.POLLINATIONS.value)
         if not react_template:
-            react_template = prompt_manager.get_prompt(ModelType.COMMON.value, "react_format")
+            react_template = "MANDATORY: Use tools for real-time information requests including weather, news, current events.\n\nThought: [analyze what information is needed]\nAction: [exact_tool_name]\nAction Input: {{\"parameter\": \"value\"}}\nObservation: [result]\nFinal Answer: [comprehensive response]\n\nQuestion: {input}\nThought:{agent_scratchpad}"
+        
+        # 템플릿에 필요한 변수들이 있는지 확인하고 추가
+        if "{tools}" not in react_template:
+            react_template = f"Available tools: {{tools}}\nTool names: {{tool_names}}\n\n{react_template}"
         
         react_prompt = PromptTemplate.from_template(react_template)
         
@@ -387,7 +388,7 @@ class PollinationsStrategy(BaseModelStrategy):
         # 사용자 입력에서 언어 감지 (원본 텍스트만 사용)
         user_language = self.detect_user_language(user_input)
         
-        # 중앙 프롬프트 시스템에서 ASK 모드 프롬프트 가져오기
+        # 중앙 프롬프트 시스템에서 ASK 모드 프롬프트 가져오기 (도구 사용 없음)
         ask_mode_prompt = prompt_manager.get_system_prompt(ModelType.POLLINATIONS.value, use_tools=False)
         
         # 언어별 응답 지침 추가

@@ -15,11 +15,18 @@ class AppRunner:
     def run(self) -> int:
         """Run the application with error handling."""
         try:
+            print("[DEBUG] AppRunner.run() 시작")
             # 테마 미리 로드
+            print("[DEBUG] 테마 로드 시작")
             self._load_saved_theme()
+            print("[DEBUG] 테마 로드 완료")
             
+            print("[DEBUG] MainWindow 생성 시작")
             self._window = MainWindow()
+            print("[DEBUG] MainWindow 생성 완료")
+            print("[DEBUG] MainWindow.show() 호출")
             self._window.show()
+            print("[DEBUG] app.exec() 호출")
             return self._app.exec()
         except KeyboardInterrupt:
             print("Keyboard interrupt detected, shutting down...")

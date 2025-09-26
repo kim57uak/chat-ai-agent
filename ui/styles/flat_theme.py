@@ -6,16 +6,17 @@ class FlatTheme:
     @staticmethod
     def get_main_window_style():
         """메인 윈도우 스타일 - 고급 블랙 테마"""
-        return """
-            QMainWindow {
-                background: #5a5a5f;
+        colors = FlatTheme.get_theme_colors()
+        return f"""
+            QMainWindow {{
+                background: {colors.get('background', '#5a5a5f')};
                 color: #ffffff;
-            }
-            QWidget {
-                background: #5a5a5f;
+            }}
+            QWidget {{
+                background: {colors.get('background', '#5a5a5f')};
                 color: #ffffff;
-            }
-            QMenuBar {
+            }}
+            QMenuBar {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                     stop:0 rgba(15, 15, 15, 0.95), 
                     stop:1 rgba(10, 10, 10, 0.95));
@@ -26,20 +27,20 @@ class FlatTheme:
                 font-size: 14px;
                 font-weight: 600;
                 padding: 4px 0;
-            }
-            QMenuBar::item {
+            }}
+            QMenuBar::item {{
                 background: transparent;
                 padding: 10px 16px;
                 border-radius: 6px;
                 margin: 2px 4px;
-            }
-            QMenuBar::item:selected {
+            }}
+            QMenuBar::item:selected {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                     stop:0 rgba(99, 102, 241, 0.2), 
                     stop:1 rgba(139, 92, 246, 0.2));
                 color: #ffffff;
-            }
-            QMenu {
+            }}
+            QMenu {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                     stop:0 rgba(31, 41, 55, 0.95), 
                     stop:1 rgba(17, 24, 39, 0.95));
@@ -48,38 +49,70 @@ class FlatTheme:
                 border-radius: 10px;
                 font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
                 padding: 8px;
-            }
-            QMenu::item {
+            }}
+            QMenu::item {{
                 padding: 12px 20px;
                 border-radius: 6px;
                 margin: 2px;
                 font-weight: 500;
-            }
-            QMenu::item:selected {
+            }}
+            QMenu::item:selected {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                     stop:0 rgba(99, 102, 241, 0.3), 
                     stop:1 rgba(139, 92, 246, 0.3));
                 color: #ffffff;
-            }
+            }}
         """
     
     @staticmethod
     def get_chat_widget_style():
         """채팅 위젯 스타일 - 고급 블랙 테마"""
-        return """
-            QWidget {
-                background: #5a5a5f !important;
-                color: #ffffff !important;
+        print("[DEBUG] FlatTheme.get_chat_widget_style() 시작")
+        print("[DEBUG] FlatTheme.get_theme_colors() 호출")
+        colors = FlatTheme.get_theme_colors()
+        print(f"[DEBUG] FlatTheme.get_theme_colors() 완료: {colors}")
+        style = f"""
+            QWidget {{
+                background-color: {colors.get('background', '#5a5a5f')};
+                color: #ffffff;
                 font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            }
-            QWebEngineView {
-                background: #5a5a5f !important;
-            }
+            }}
+            QWebEngineView {{
+                background-color: {colors.get('background', '#5a5a5f')};
+            }}
         """
+        print("[DEBUG] FlatTheme.get_chat_widget_style() 완료")
+        return style
+    
+    @staticmethod
+    def get_theme_colors():
+        """테마 색상 반환"""
+        print("[DEBUG] FlatTheme.get_theme_colors() 시작")
+        print("[DEBUG] theme_manager import 시작")
+        from ui.styles.theme_manager import theme_manager
+        print("[DEBUG] theme_manager import 완료")
+        print(f"[DEBUG] theme_manager.use_material_theme: {theme_manager.use_material_theme}")
+        if theme_manager.use_material_theme:
+            print("[DEBUG] material theme 색상 가져오기")
+            colors = theme_manager.material_manager.get_theme_colors()
+            print(f"[DEBUG] material theme 색상: {colors}")
+            return colors
+        else:
+            print("[DEBUG] 기본 Flat 테마 색상 사용")
+            # 기본 Flat 테마 색상
+            return {
+                'background': '#5a5a5f',
+                'surface': '#4a4a4f',
+                'primary': '#64c8ff',
+                'text_primary': '#ffffff'
+            }
     
     @staticmethod
     def get_input_area_style():
         """입력 영역 스타일 - 고급 다크 테마"""
+        colors = FlatTheme.get_theme_colors()
+        background_color = colors.get('background', '#5a5a5f')
+        
         return {
             'container': """
                 QWidget {
@@ -91,16 +124,14 @@ class FlatTheme:
 
                 }
             """,
-            'mode_toggle': """
-                QPushButton {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                        stop:0 rgba(100, 200, 255, 0.1), 
-                        stop:1 rgba(150, 100, 255, 0.1));
-                    color: #b0c4de;
-                    border: 1px solid rgba(100, 200, 255, 0.2);
+            'mode_toggle': f"""
+                QPushButton {{
+                    background-color: {background_color};
+                    color: #e8e8e8;
+                    border: 1px solid {background_color};
                     border-radius: 12px;
-                    padding: 14px 18px;
-                    font-size: 16px;
+                    padding: 6px 18px;
+                    font-size: 40px;
                     font-weight: 700;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
                     min-width: 100px;
@@ -109,42 +140,35 @@ class FlatTheme:
                     letter-spacing: 1px;
                     margin-right: 8px;
                     margin-left: 12px;
-                }
-                QPushButton:hover {
+                }}
+                QPushButton:hover {{
+                    background-color: {background_color};
                     color: #ffffff;
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                        stop:0 rgba(100, 200, 255, 0.2), 
-                        stop:1 rgba(150, 100, 255, 0.2));
-                    border-color: rgba(100, 200, 255, 0.4);
-                    transform: scale(1.02);
-                }
-                QPushButton:checked {
+                    font-size: 44px;
+                }}
+                QPushButton:checked {{
+                    background-color: {background_color};
                     color: #ffffff;
-                    font-weight: 800;
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                        stop:0 rgba(100, 200, 255, 0.3), 
-                        stop:1 rgba(150, 100, 255, 0.3));
-                    border-color: rgba(100, 200, 255, 0.6);
-                }
+                }}
             """,
-            'input_text': """
-                QTextEdit {
-                    background: rgba(0, 0, 0, 0.2);
+            'input_text': f"""
+                QTextEdit {{
+                    background: {background_color};
                     color: #e8e8e8;
-                    border: 1px solid rgba(100, 200, 255, 0.1);
+                    border: none;
                     border-radius: 12px;
                     font-size: 15px;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
-                    padding: 18px;
+                    padding: 8px;
                     selection-background-color: rgba(100, 200, 255, 0.3);
                     line-height: 1.6;
-                }
-                QTextEdit::placeholder {
+                }}
+                QTextEdit::placeholder {{
                     color: #8a8a8a;
-                }
-                QTextEdit:focus {
-                    border-color: rgba(100, 200, 255, 0.5);
-                }
+                }}
+                QTextEdit:focus {{
+                    border: none;
+                }}
             """,
             'send_button': """
                 QPushButton {
@@ -155,11 +179,11 @@ class FlatTheme:
                     border: 2px solid rgba(100, 200, 255, 0.4);
                     border-radius: 14px;
                     font-weight: 800;
-                    font-size: 18px;
+                    font-size: 16px;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
-                    padding: 0px;
+                    padding: 2px;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 0.5px;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
@@ -189,10 +213,11 @@ class FlatTheme:
                     border: 2px solid rgba(255, 100, 100, 0.4);
                     border-radius: 14px;
                     font-weight: 800;
-                    font-size: 18px;
+                    font-size: 16px;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                    padding: 2px;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 0.5px;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
@@ -217,10 +242,11 @@ class FlatTheme:
                     border: 2px solid rgba(150, 255, 150, 0.3);
                     border-radius: 14px;
                     font-weight: 700;
-                    font-size: 16px;
+                    font-size: 13px;
                     font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                    padding: 2px;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 0.5px;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
@@ -234,6 +260,41 @@ class FlatTheme:
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
                         stop:0 rgba(130, 235, 130, 0.2), 
                         stop:1 rgba(80, 235, 180, 0.2));
+                    transform: scale(0.98);
+                }
+                QPushButton:disabled {
+                    background: rgba(50, 50, 50, 0.5);
+                    color: #6b7280;
+                    border-color: rgba(100, 100, 100, 0.2);
+                }
+            """,
+            'template_button': """
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                        stop:0 rgba(255, 200, 100, 0.2), 
+                        stop:1 rgba(255, 150, 200, 0.2));
+                    color: #e0c0b0;
+                    border: 2px solid rgba(255, 200, 100, 0.3);
+                    border-radius: 14px;
+                    font-weight: 700;
+                    font-size: 12px;
+                    font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                    padding: 2px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                        stop:0 rgba(255, 220, 120, 0.3), 
+                        stop:1 rgba(255, 170, 220, 0.3));
+                    color: #ffffff;
+                    border-color: rgba(255, 200, 100, 0.5);
+                    transform: scale(1.05);
+                }
+                QPushButton:pressed {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                        stop:0 rgba(235, 180, 80, 0.2), 
+                        stop:1 rgba(235, 130, 180, 0.2));
                     transform: scale(0.98);
                 }
                 QPushButton:disabled {
@@ -301,87 +362,88 @@ class FlatTheme:
     @staticmethod
     def get_chat_display_css():
         """채팅 표시 영역 CSS - 첨부 이미지 디자인 매칭"""
-        return """
-        * { 
+        colors = FlatTheme.get_theme_colors()
+        bg_color = colors.get('background', '#5a5a5f')
+        return f"""
+        * {{ 
             box-sizing: border-box !important;
             margin: 0 !important;
             padding: 0 !important;
-        }
+        }}
         
-        html, body {
-            background: #5a5a5f !important;
+        html, body {{
+            background: {bg_color} !important;
             color: #ffffff !important;
             font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif !important;
             font-size: 14px !important;
             line-height: 1.5 !important;
             margin: 0 !important;
-            padding: 12px !important;
+            padding: 6px !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
             min-height: 100vh !important;
-        }
+        }}
         
-        .message {
-            margin: 12px 0 !important;
-            padding: 16px 20px !important;
+        .message {{
+            margin: 6px 0 !important;
+            padding: 10px 14px !important;
             position: relative !important;
             border-radius: 4px !important;
             border: none !important;
             transition: none !important;
             transform: none !important;
-        }
+        }}
         
-        .message:hover {
+        .message:hover {{
             transform: none !important;
-            box-shadow: none !important;
-        }
+        }}
         
-        .message.user {
-            background: rgba(26, 26, 26, 0.6) !important;
+        .message.user {{
+            background: transparent !important;
             color: #ffffff !important;
-        }
+        }}
         
-        .message.ai {
-            background: rgba(26, 26, 26, 0.6) !important;
+        .message.ai {{
+            background: transparent !important;
             color: #ffffff !important;
-        }
+        }}
         
-        .message.system {
-            background: rgba(26, 26, 26, 0.6) !important;
+        .message.system {{
+            background: transparent !important;
             color: #e0e0e0 !important;
             font-size: 13px !important;
-        }
+        }}
         
-        .message-header {
+        .message-header {{
             display: flex !important;
             align-items: center !important;
             gap: 8px !important;
-            margin-bottom: 8px !important;
+            margin-bottom: 4px !important;
             font-weight: 600 !important;
             font-size: 13px !important;
             opacity: 0.9 !important;
-        }
+        }}
         
-        .message.user .message-header {
+        .message.user .message-header {{
             color: #cccccc !important;
-        }
+        }}
         
-        .message.ai .message-header {
+        .message.ai .message-header {{
             color: #cccccc !important;
-        }
+        }}
         
-        .message.system .message-header {
+        .message.system .message-header {{
             color: #999999 !important;
-        }
+        }}
         
-        .message-content {
+        .message-content {{
             line-height: 1.5 !important;
             font-weight: 400 !important;
             color: #c0c0c0 !important;
             font-size: 14px !important;
-        }
+        }}
         
-        .copy-message-btn {
+        .copy-message-btn {{
             position: absolute !important;
             top: 14px !important;
             right: 18px !important;
@@ -397,39 +459,34 @@ class FlatTheme:
             opacity: 1 !important;
             transition: all 0.25s ease !important;
             z-index: 15 !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.25) !important;
-        }
+        }}
         
-
-        
-        .copy-message-btn:hover {
+        .copy-message-btn:hover {{
             background: rgba(105,105,110,0.95) !important;
             border-color: rgba(180,180,185,0.8) !important;
             color: #f0f0f0 !important;
             transform: scale(1.05) !important;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.35) !important;
-        }
+        }}
         
-        .copy-message-btn:active {
+        .copy-message-btn:active {{
             background: rgba(115,115,120,0.85) !important;
             transform: scale(0.98) !important;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
-        }
+        }}
         
-        .message.user .copy-message-btn {
+        .message.user .copy-message-btn {{
             background: rgba(100,100,105,0.9) !important;
             border-color: rgba(170,170,175,0.7) !important;
             color: #e8e8e8 !important;
-        }
+        }}
         
-        .message.user .copy-message-btn:hover {
+        .message.user .copy-message-btn:hover {{
             background: rgba(110,110,115,0.95) !important;
             border-color: rgba(190,190,195,0.8) !important;
             color: #f0f0f0 !important;
-        }
+        }}
         
-        pre {
-            background: #1e1e1e !important;
+        pre {{
+            background: {bg_color} !important;
             border: none !important;
             border-radius: 6px !important;
             padding: 16px !important;
@@ -439,63 +496,61 @@ class FlatTheme:
             font-size: 13px !important;
             color: #d4d4d4 !important;
             line-height: 1.4 !important;
-            box-shadow: none !important;
             position: relative !important;
-        }
+        }}
         
         pre::before,
-        pre::after {
+        pre::after {{
             display: none !important;
-        }
+        }}
         
-        code {
-            background: #2a2a2a !important;
+        code {{
+            background: {bg_color} !important;
             border: none !important;
             border-radius: 3px !important;
             padding: 2px 6px !important;
             font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', Consolas, monospace !important;
             font-size: 12px !important;
             color: #ce9178 !important;
-            box-shadow: none !important;
-        }
+        }}
         
-        pre code {
+        pre code {{
             background: transparent !important;
             border: none !important;
             padding: 0 !important;
             color: #d4d4d4 !important;
-        }
+        }}
         
-        h1, h2, h3, h4, h5, h6 {
+        h1, h2, h3, h4, h5, h6 {{
             font-weight: 600 !important;
-            margin: 16px 0 8px 0 !important;
+            margin: 8px 0 4px 0 !important;
             color: #c0c0c0 !important;
-        }
+        }}
         
-        h1 { font-size: 24px !important; }
-        h2 { font-size: 20px !important; }
-        h3 { font-size: 18px !important; }
-        h4 { font-size: 16px !important; }
-        h5 { font-size: 15px !important; }
-        h6 { font-size: 14px !important; }
+        h1 {{ font-size: 24px !important; }}
+        h2 {{ font-size: 20px !important; }}
+        h3 {{ font-size: 18px !important; }}
+        h4 {{ font-size: 16px !important; }}
+        h5 {{ font-size: 15px !important; }}
+        h6 {{ font-size: 14px !important; }}
         
-        p {
-            margin: 8px 0 !important;
+        p {{
+            margin: 4px 0 !important;
             color: #c0c0c0 !important;
-        }
+        }}
         
-        ul, ol {
-            margin: 8px 0 !important;
+        ul, ol {{
+            margin: 4px 0 !important;
             padding-left: 20px !important;
             color: #c0c0c0 !important;
-        }
+        }}
         
-        li {
-            margin: 4px 0 !important;
+        li {{
+            margin: 2px 0 !important;
             line-height: 1.5 !important;
-        }
+        }}
         
-        blockquote {
+        blockquote {{
             border-left: 3px solid #666666 !important;
             padding-left: 16px !important;
             margin: 12px 0 !important;
@@ -504,48 +559,48 @@ class FlatTheme:
             background: rgba(255,255,255,0.02) !important;
             padding: 12px 16px !important;
             border-radius: 0 4px 4px 0 !important;
-        }
+        }}
         
-        a {
+        a {{
             color: #87ceeb !important;
             text-decoration: none !important;
-        }
+        }}
         
-        a:hover {
+        a:hover {{
             color: #add8e6 !important;
             text-decoration: underline !important;
-        }
+        }}
         
-        strong {
+        strong {{
             color: #c0c0c0 !important;
             font-weight: 600 !important;
-        }
+        }}
         
-        em {
+        em {{
             color: #e0e0e0 !important;
             font-style: italic !important;
-        }
+        }}
         
-        ::-webkit-scrollbar {
+        ::-webkit-scrollbar {{
             width: 6px !important;
             height: 6px !important;
-        }
+        }}
         
-        ::-webkit-scrollbar-track {
+        ::-webkit-scrollbar-track {{
             background: transparent !important;
-        }
+        }}
         
-        ::-webkit-scrollbar-thumb {
+        ::-webkit-scrollbar-thumb {{
             background: #555555 !important;
             border-radius: 3px !important;
-        }
+        }}
         
-        ::-webkit-scrollbar-thumb:hover {
+        ::-webkit-scrollbar-thumb:hover {{
             background: #666666 !important;
-        }
+        }}
         
-        .file-attachment {
-            background: rgba(255,255,255,0.05) !important;
+        .file-attachment {{
+            background: transparent !important;
             border: 1px solid rgba(255,255,255,0.1) !important;
             border-radius: 4px !important;
             padding: 12px 16px !important;
@@ -553,36 +608,36 @@ class FlatTheme:
             display: flex !important;
             align-items: center !important;
             gap: 12px !important;
-        }
+        }}
         
-        .file-icon {
+        .file-icon {{
             font-size: 18px !important;
             width: 32px !important;
             height: 32px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            background: rgba(255,255,255,0.1) !important;
+            background: transparent !important;
             border-radius: 4px !important;
-        }
+        }}
         
-        .file-info {
+        .file-info {{
             flex: 1 !important;
-        }
+        }}
         
-        .file-name {
+        .file-name {{
             font-weight: 500 !important;
             color: #ffffff !important;
             font-size: 13px !important;
             margin-bottom: 2px !important;
-        }
+        }}
         
-        .file-size {
+        .file-size {{
             font-size: 11px !important;
             color: #999999 !important;
-        }
+        }}
         
-        .file-remove {
+        .file-remove {{
             background: rgba(255,0,0,0.2) !important;
             color: #ff6b6b !important;
             border: none !important;
@@ -590,7 +645,7 @@ class FlatTheme:
             padding: 4px 8px !important;
             font-size: 11px !important;
             cursor: pointer !important;
-        }
+        }}
         """
     
     @staticmethod
@@ -605,7 +660,6 @@ class FlatTheme:
                     stop:1 rgba(15, 25, 35, 0.9));
                 border-radius: 8px;
                 border: 2px solid rgba(100, 200, 255, 0.3);
-                box-shadow: 0 0 20px rgba(100, 200, 255, 0.2);
                 height: 8px;
             }
             QProgressBar::chunk {
@@ -618,43 +672,5 @@ class FlatTheme:
                     stop:1 rgba(150, 0, 255, 0.9));
                 border-radius: 6px;
                 border: none;
-                box-shadow: 
-                    0 0 15px rgba(255, 100, 200, 0.6),
-                    0 0 30px rgba(100, 200, 255, 0.4),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-                animation: rainbow-pulse 2s ease-in-out infinite alternate;
-            }
-            
-            @keyframes rainbow-pulse {
-                0% {
-                    box-shadow: 
-                        0 0 15px rgba(255, 0, 150, 0.8),
-                        0 0 30px rgba(255, 0, 150, 0.4),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-                }
-                25% {
-                    box-shadow: 
-                        0 0 15px rgba(255, 255, 0, 0.8),
-                        0 0 30px rgba(255, 255, 0, 0.4),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-                }
-                50% {
-                    box-shadow: 
-                        0 0 15px rgba(0, 255, 150, 0.8),
-                        0 0 30px rgba(0, 255, 150, 0.4),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-                }
-                75% {
-                    box-shadow: 
-                        0 0 15px rgba(0, 150, 255, 0.8),
-                        0 0 30px rgba(0, 150, 255, 0.4),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-                }
-                100% {
-                    box-shadow: 
-                        0 0 15px rgba(150, 0, 255, 0.8),
-                        0 0 30px rgba(150, 0, 255, 0.4),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-                }
             }
         """

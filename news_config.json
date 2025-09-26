@@ -1,0 +1,74 @@
+{
+  "news_sources": {
+    "domestic": [
+      {
+        "name": "연합뉴스",
+        "url": "https://www.yna.co.kr/rss/news.xml",
+        "enabled": true
+      },
+      {
+        "name": "트래블데일리",
+        "url": "https://www.traveldaily.co.kr/rss/clickTop.xml",
+        "enabled": true
+      },
+      {
+        "name": "동아일보-여행",
+        "url": "http://rss.donga.com/travel.xml",
+        "enabled": true
+      }
+    ],
+    "international": [
+      {
+        "name": "아사히신문",
+        "url": "https://www.asahi.com/rss/asahi/newsheadlines.rdf",
+        "enabled": true
+      },
+      {
+        "name": "CBS News",
+        "url": "https://www.cbsnews.com/latest/rss/world",
+        "enabled": true
+      },
+      {
+        "name": "Fox News",
+        "url": "https://moxie.foxnews.com/google-publisher/latest.xml",
+        "enabled": true
+      },
+      {
+        "name": "Gizmodo",
+        "url": "https://gizmodo.com/feed",
+        "enabled": true
+      },
+      {
+        "name": "BBC News",
+        "url": "http://feeds.bbci.co.uk/news/world/rss.xml",
+        "enabled": true
+      }
+    ],
+    "earthquake": [
+      {
+        "name": "BGS 지진 정보",
+        "url": "https://quakes.bgs.ac.uk/feeds/WorldSeismology.xml",
+        "enabled": true
+      }
+    ]
+  },
+  "news_settings": {
+    "show_domestic": true,
+    "show_international": true,
+    "show_earthquake": true,
+    "domestic_count": 5,
+    "international_count": 5,
+    "earthquake_count": 3
+  },
+  "display_settings": {
+    "domestic_news_count": 5,
+    "international_news_count": 5,
+    "earthquake_count": 3,
+    "display_duration": 4000,
+    "auto_refresh_interval": 300000
+  },
+  "date_filter": {
+    "news_days": 3,
+    "earthquake_days": 2
+  }
+}

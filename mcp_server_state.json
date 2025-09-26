@@ -1,6 +1,6 @@
 {
   "osm-mcp-server": false,
-  "hanatourApi": true,
+  "hanatourApi": false,
   "mysql": false,
   "bitbucket": false,
   "mcp-atlassian": false,
@@ -9,12 +9,13 @@
   "excel-stdio": false,
   "gmail": true,
   "json-mcp-server": false,
-  "search-mcp-server": false,
+  "search-mcp-server": true,
   "github": false,
   "filesystem": false,
   "youtube_transcript": false,
   "wikipedia-mcp": false,
   "duckduckgo": false,
   "sale-product-search": false,
-  "pollinations": false
+  "pollinations": false,
+  "taskmaster-ai": false
 }

@@ -407,107 +407,117 @@ class MCPManagerDialog(QDialog):
             QMessageBox.warning(self, "오류", f"서버 재시작 실패: {str(e)}")
     
     def _get_themed_dialog_style(self):
-        theme = material_theme_manager.get_current_theme()
-        colors = theme.get('colors', {})
+        from ui.styles.theme_manager import theme_manager
+        colors = theme_manager.material_manager.get_theme_colors()
         
         return f"""
             QDialog {{
-                background: {colors.get('background', '#121212')};
-                color: {colors.get('text_primary', '#ffffff')};
-                font-family: 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
+                background-color: {colors.get('background', '#1e293b')};
+                color: {colors.get('text_primary', '#f1f5f9')};
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                border: none;
             }}
             QLabel {{
-                color: {colors.get('text_primary', '#ffffff')};
+                color: {colors.get('text_primary', '#f1f5f9')};
                 font-size: 14px;
-                font-weight: 600;
+                font-weight: 500;
                 padding: 4px 0;
+                background: transparent;
             }}
             QListWidget {{
-                background: {colors.get('surface', '#1e1e1e')};
-                border: 2px solid {colors.get('divider', '#333333')};
-                border-radius: 10px;
-                padding: 12px;
+                background-color: {colors.get('surface', '#334155')};
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 8px;
+                padding: 8px;
                 font-size: 14px;
-                color: {colors.get('text_primary', '#ffffff')};
+                color: {colors.get('text_primary', '#f1f5f9')};
             }}
             QListWidget::item {{
-                padding: 12px;
-                border-radius: 8px;
-                margin: 4px 0;
-                background: {colors.get('code_bg', '#2d2d2d')};
+                padding: 8px;
+                border-radius: 6px;
+                margin: 2px 0;
+                background-color: {colors.get('surface_variant', '#475569')};
             }}
             QListWidget::item:selected {{
-                background: {colors.get('primary', '#bb86fc')};
-                color: {colors.get('on_primary', '#000000')};
+                background-color: {colors.get('primary', '#6366f1')};
+                color: {colors.get('on_primary', '#ffffff')};
             }}
             QListWidget::item:hover {{
-                background: {colors.get('user_bg', 'rgba(187, 134, 252, 0.12)')};
+                background-color: {colors.get('primary_variant', '#4f46e5')};
+                color: {colors.get('on_primary', '#ffffff')};
             }}
             QPushButton {{
-                background: {colors.get('primary', '#bb86fc')};
-                color: {colors.get('on_primary', '#000000')};
-                border: 2px solid {colors.get('primary_variant', '#3700b3')};
-                border-radius: 10px;
-                font-weight: 700;
+                background-color: {colors.get('primary', '#6366f1')};
+                color: {colors.get('on_primary', '#ffffff')};
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
                 font-size: 14px;
                 padding: 10px 20px;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-                min-height: 20px;
+                margin: 4px;
             }}
             QPushButton:hover {{
-                background: {colors.get('secondary', '#03dac6')};
-                color: {colors.get('on_secondary', '#000000')};
-                border-color: {colors.get('secondary_variant', '#018786')};
+                background-color: {colors.get('primary_variant', '#4f46e5')};
             }}
             QPushButton:pressed {{
-                background: {colors.get('primary_variant', '#3700b3')};
+                background-color: {colors.get('primary_dark', '#3730a3')};
             }}
             QPushButton:disabled {{
-                background: {colors.get('text_secondary', '#b3b3b3')};
-                color: {colors.get('divider', '#333333')};
-                border-color: {colors.get('divider', '#333333')};
+                background-color: {colors.get('surface_variant', '#475569')};
+                color: {colors.get('text_secondary', '#94a3b8')};
             }}
             QTextEdit {{
-                background: {colors.get('surface', '#1e1e1e')};
-                border: 2px solid {colors.get('divider', '#333333')};
+                background-color: {colors.get('surface', '#334155')};
+                border: 1px solid {colors.get('border', '#475569')};
                 border-radius: 8px;
                 padding: 12px;
                 font-family: 'JetBrains Mono', 'Consolas', monospace;
                 font-size: 13px;
-                color: {colors.get('text_primary', '#ffffff')};
+                color: {colors.get('text_primary', '#f1f5f9')};
+            }}
+            QTextEdit:focus {{
+                border-color: {colors.get('primary', '#6366f1')};
             }}
             QGroupBox {{
-                color: {colors.get('text_primary', '#ffffff')};
-                font-size: 15px;
-                font-weight: 700;
-                border: 2px solid {colors.get('divider', '#333333')};
-                border-radius: 10px;
-                margin-top: 10px;
-                padding-top: 15px;
+                color: {colors.get('text_primary', '#f1f5f9')};
+                font-size: 16px;
+                font-weight: 600;
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 16px;
+                background-color: {colors.get('surface', 'rgba(51, 65, 85, 0.5)')};
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 8px;
-                background: {colors.get('background', '#121212')};
+                left: 16px;
+                padding: 4px 12px;
+                background-color: {colors.get('primary', '#6366f1')};
+                color: {colors.get('on_primary', '#ffffff')};
+                border-radius: 4px;
+                font-weight: 600;
+                font-size: 14px;
             }}
             QCheckBox {{
-                color: {colors.get('text_primary', '#ffffff')};
+                color: {colors.get('text_primary', '#f1f5f9')};
                 font-size: 14px;
                 font-weight: 500;
                 spacing: 8px;
+                background: transparent;
             }}
             QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border: 2px solid {colors.get('divider', '#333333')};
-                border-radius: 4px;
-                background: {colors.get('surface', '#1e1e1e')};
+                border: 1px solid {colors.get('border', '#475569')};
+                border-radius: 3px;
+                background-color: {colors.get('surface', '#334155')};
             }}
             QCheckBox::indicator:checked {{
-                background: {colors.get('primary', '#bb86fc')};
-                border-color: {colors.get('primary_variant', '#3700b3')};
+                background-color: {colors.get('primary', '#6366f1')};
+                border-color: {colors.get('primary', '#6366f1')};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {colors.get('primary', '#6366f1')};
             }}
         """
     

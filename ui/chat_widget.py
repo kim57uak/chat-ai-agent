@@ -30,10 +30,10 @@ class ChatWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(FlatTheme.get_chat_widget_style())
+        # 하드코딩된 테마 제거 - 동적 테마 적용
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(20, 20, 20, 20)
-        self.layout.setSpacing(16)
+        self.layout.setContentsMargins(8, 8, 8, 8)
+        self.layout.setSpacing(4)
         
         # 대화 히스토리 관리
         self.conversation_history = ConversationHistory()
@@ -45,33 +45,28 @@ class ChatWidget(QWidget):
         self.messages = []
         self.request_start_time = None
         
+        # 페이징 관련 변수
+        self.current_session_id = None
+        self.loaded_message_count = 0
+        self.total_message_count = 0
+        self.is_loading_more = False
+        
+        # prompt_config.json에서 페이징 설정 로드
+        self._load_pagination_settings()
+        
         self._setup_ui()
         self._setup_components()
         self._setup_connections()
         self._load_previous_conversations()
         
         # 테마 적용 (지연 실행)
+        QTimer.singleShot(100, self._apply_initial_theme)
         QTimer.singleShot(500, self._apply_theme_if_needed)
     
     def _setup_ui(self):
-        """UI 구성"""
-        # 상단 정보 영역
-        info_layout = QHBoxLayout()
-        
-        self.model_label = QLabel(self)
-        self.tools_label = QLabel(self)
-        self.status_label = QLabel(self)
-        
-        # 새로운 플랫 스타일 적용
-        styles = FlatTheme.get_info_labels_style()
-        self.model_label.setStyleSheet(styles['model_label'])
-        self.tools_label.setStyleSheet(styles['tools_label'])
-        self.status_label.setStyleSheet(styles['status_label'])
-        
-        info_layout.addWidget(self.model_label, 1)
-        info_layout.addWidget(self.status_label, 0)
-        info_layout.addWidget(self.tools_label, 0)
-        self.layout.addLayout(info_layout)
+        """UI 구성 - 상단 정보 영역 삭제"""
+        # 상단 정보 영역 삭제 - 좌측 패널로 이동
+        pass
         
         # 채팅 표시 영역
         self.chat_display_view = QWebEngineView(self)
@@ -89,53 +84,122 @@ class ChatWidget(QWidget):
     def _setup_input_area(self):
         """입력 영역 설정"""
         input_layout = QHBoxLayout()
+        input_layout.setSpacing(4)  # 전체 간격 줄임
         
         # 입력 컨테이너
-        input_container = QWidget(self)
-        input_container_layout = QHBoxLayout(input_container)
-        input_container_layout.setContentsMargins(0, 0, 0, 0)
-        input_container_layout.setSpacing(0)
+        self.input_container = QWidget(self)
+        input_container_layout = QHBoxLayout(self.input_container)
+        input_container_layout.setContentsMargins(8, 8, 8, 8)
+        input_container_layout.setSpacing(8)
         
         # 모드 토글 버튼
-        self.mode_toggle = QPushButton("💬 Ask", self)
+        self.mode_toggle = QPushButton("🧠", self)
         self.mode_toggle.setCheckable(True)
         self.mode_toggle.setChecked(False)
-        self.mode_toggle.setStyleSheet(FlatTheme.get_input_area_style()['mode_toggle'])
+        self.mode_toggle.setFixedHeight(48)  # 5% 더 줄임
+        
+        # 토글 버튼 호버 효과 스타일 (35% 증가)
+        toggle_style = """
+        QPushButton {
+            background: transparent;
+            border: none;
+            font-size: 32px;
+        }
+        QPushButton:hover {
+            background: transparent;
+            font-size: 43px;
+        }
+        QPushButton:pressed {
+            background: transparent;
+            font-size: 30px;
+        }
+        QPushButton:checked {
+            background: transparent;
+        }
+        """
+        self.mode_toggle.setStyleSheet(toggle_style)
+        self.mode_toggle.setToolTip("Ask 모드 - 뇌")
+        
+        # 드래그 핸들
+        self.drag_handle = QWidget(self)
+        self.drag_handle.setFixedHeight(8)
+        self.drag_handle.setCursor(Qt.CursorShape.SizeVerCursor)
+        self.drag_handle.setStyleSheet("""
+            QWidget {
+                background-color: #666666;
+                border-radius: 4px;
+                margin: 2px 20px;
+            }
+            QWidget:hover {
+                background-color: #888888;
+            }
+        """)
+        self.drag_handle.mousePressEvent = self._start_drag
+        self.drag_handle.mouseMoveEvent = self._handle_drag
+        self.drag_handle.mouseReleaseEvent = self._end_drag
+        self._dragging = False
+        self._drag_start_y = 0
+        self._original_height = 57
         
         # 입력창
         self.input_text = QTextEdit(self)
-        self.input_text.setMaximumHeight(80)
+        self.input_text.setFixedHeight(57)
         self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
-        self.input_text.setStyleSheet(FlatTheme.get_input_area_style()['input_text'])
+        self._update_input_text_style()
         
         # 컨테이너 스타일
-        input_container.setStyleSheet(FlatTheme.get_input_area_style()['container'])
+        self._update_input_container_style(self.input_container)
         
-        input_container_layout.addWidget(self.mode_toggle, 0)
+        input_container_layout.addWidget(self.mode_toggle, 0, Qt.AlignmentFlag.AlignVCenter)
         input_container_layout.addWidget(self.input_text, 1)
         
-        # 버튼들
-        self.send_button = QPushButton('전송', self)
-        self.send_button.setMinimumHeight(80)
-        self.send_button.setStyleSheet(FlatTheme.get_input_area_style()['send_button'])
+        # 오른쪽 버튼 컨테이너
+        button_container = QWidget(self)
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(2)  # 버튼 간격 줄임
         
-        self.cancel_button = QPushButton('취소', self)
-        self.cancel_button.setMinimumHeight(80)
+        # 버튼들 - 테마 색상 적용된 이모지 버튼
+        themed_button_style = self._get_themed_button_style()
+        cancel_button_style = self._get_cancel_button_style()
+        
+        self.send_button = QPushButton('🚀', self)
+        self.send_button.setFixedSize(114, 114)
+        self.send_button.setStyleSheet(themed_button_style)
+        self.send_button.setToolTip("전송")
+        
+        # 템플릿 버튼 삭제 - 좌측 패널로 이동
+        
+        self.upload_button = QPushButton('📎', self)
+        self.upload_button.setFixedSize(114, 114)
+        self.upload_button.setStyleSheet(themed_button_style)
+        self.upload_button.setToolTip("파일")
+        
+        self.cancel_button = QPushButton('❌', self)
+        self.cancel_button.setFixedSize(114, 114)
         self.cancel_button.setVisible(False)
-        self.cancel_button.setStyleSheet(FlatTheme.get_input_area_style()['cancel_button'])
+        self.cancel_button.setStyleSheet(cancel_button_style)
+        self.cancel_button.setToolTip("취소")
         
-        self.upload_button = QPushButton('파일\n업로드', self)
-        self.upload_button.setMinimumHeight(80)
-        self.upload_button.setStyleSheet(FlatTheme.get_input_area_style()['upload_button'])
+        # 버튼 순서: 전송 / 파일
+        button_layout.addWidget(self.send_button)
+        button_layout.addWidget(self.upload_button)
+        button_layout.addWidget(self.cancel_button)
         
-        input_layout.addSpacing(12)  # 왼쪽 간격
-        input_layout.addWidget(input_container, 5)
-        input_layout.addWidget(self.send_button, 1)
-        input_layout.addWidget(self.cancel_button, 1)
-        input_layout.addWidget(self.upload_button, 1)
-        input_layout.addSpacing(12)  # 오른쪽 간격
+        # 메인 레이아웃에 추가
+        input_layout.addSpacing(0)  # 왼쪽 간격 제거
+        input_layout.addWidget(self.input_container, 1)  # 입력창이 대부분 차지
+        input_layout.addWidget(button_container, 0)  # 버튼은 고정 크기
+        input_layout.addSpacing(0)  # 오른쪽 간격 제거
         
-        self.layout.addLayout(input_layout, 0)
+        # 드래그 핸들과 입력 영역을 수직 레이아웃으로 배치
+        input_with_handle = QVBoxLayout()
+        input_with_handle.setContentsMargins(0, 0, 0, 0)
+        input_with_handle.setSpacing(0)
+        input_with_handle.addWidget(self.drag_handle)
+        input_with_handle.addLayout(input_layout)
+        
+        self.layout.addLayout(input_with_handle, 0)
     
     def _setup_components(self):
         """컴포넌트 초기화"""
@@ -150,12 +214,13 @@ class ChatWidget(QWidget):
         self.ui_manager = UIManager(
             self.send_button, 
             self.cancel_button, 
-            self.upload_button, 
+            self.upload_button,
+            None,  # template_button 제거
             self.loading_bar
         )
         
-        # 모델 매니저
-        self.model_manager = ModelManager(self.model_label, self.tools_label)
+        # 모델 매니저 삭제 - 좌측 패널로 이동
+        pass
     
     def _setup_connections(self):
         """시그널 연결"""
@@ -172,17 +237,16 @@ class ChatWidget(QWidget):
         self.ai_processor.streaming_complete.connect(self.on_streaming_complete)
         self.ai_processor.conversation_completed.connect(self._on_conversation_completed)
         
-        # 상태 표시 연결
-        status_display.status_updated.connect(self.update_status_display)
+        # 상태 표시 연결 삭제 - 좌측 패널로 이동
         
-        # 모델/도구 라벨 클릭 연결
-        self.model_label.mousePressEvent = self.model_manager.show_model_popup
-        self.tools_label.mousePressEvent = self.model_manager.show_tools_popup
+        # 모델/도구 라벨 클릭 연결 삭제 - 좌측 패널로 이동
         
         # 키보드 단축키
         self.input_text.keyPressEvent = self.handle_input_key_press
         send_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self.input_text)
         send_shortcut.activated.connect(self.send_message)
+        
+        # 템플릿 단축키 삭제 - 좌측 패널로 이동
         
         # 웹뷰 로드 완료
         self.chat_display_view.loadFinished.connect(self._on_webview_loaded)
@@ -209,10 +273,12 @@ class ChatWidget(QWidget):
         try:
             is_agent_mode = self.mode_toggle.isChecked()
             if is_agent_mode:
-                self.mode_toggle.setText("🔧 Agent")
+                self.mode_toggle.setText("🤖")
+                self.mode_toggle.setToolTip("Agent 모드 - 로봇이 도구를 사용합니다")
                 self.input_text.setPlaceholderText("도구를 사용한 메시지 입력... (Enter로 전송, Shift+Enter로 줄바꿈)")
             else:
-                self.mode_toggle.setText("💬 Ask")
+                self.mode_toggle.setText("🧠")
+                self.mode_toggle.setToolTip("Ask 모드 - 뇌로 생각합니다")
                 self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
         except Exception as e:
             print(f"토글 UI 업데이트 오류: {e}")
@@ -249,12 +315,20 @@ class ChatWidget(QWidget):
         message_id = self.conversation_history.add_message('user', user_text)
         self.messages.append({'role': 'user', 'content': user_text})
         
+        # 메인 윈도우에 사용자 메시지 저장 알림
+        print(f"[CHAT_WIDGET] 사용자 메시지 저장 시도: {user_text[:50]}...")
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, 'save_message_to_session'):
+            main_window.save_message_to_session('user', user_text, 0)
+        else:
+            print(f"[CHAT_WIDGET] MainWindow를 찾을 수 없거나 save_message_to_session 메소드 없음")
+        
         self.chat_display.append_message('사용자', user_text, message_id=message_id)
         self.input_text.clear()
         
         model = load_last_model()
         api_key = load_model_api_key(model)
-        self.model_manager.update_model_label()
+        # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
         
         if not api_key:
             self.chat_display.append_message('시스템', 'API Key가 설정되어 있지 않습니다. 환경설정에서 입력해 주세요.')
@@ -352,6 +426,8 @@ class ChatWidget(QWidget):
             self.uploaded_file_name = None
             self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
     
+    # 템플릿 관련 메서드 삭제 - 좌측 패널로 이동
+    
     def cancel_request(self):
         """요청 취소"""
         print("취소 요청 시작")
@@ -401,14 +477,15 @@ class ChatWidget(QWidget):
             output_tokens = current_output
             total_tokens = current_total
         
-        # 토큰 정보 표시 (기존 형태 유지)
+        # 토큰 정보 표시 - Material Design 스타일 적용
         if total_tokens > 0:
             if input_tokens > 0 and output_tokens > 0:
                 token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
             else:
                 token_info = f" | 📊 {total_tokens:,}토큰"
         
-        enhanced_text = f"{text}{tools_info}\n\n---\n*🤖 {current_model}{response_time}{token_info}*"
+        # Material Design 스타일 적용된 하단 정보
+        enhanced_text = f"{text}{tools_info}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 {current_model}{response_time}{token_info}</div>\n<div class='ai-warning'>⚠️ AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</div>\n</div>"
         
         # 표시용 sender 결정
         display_sender = '에이전트' if '에이전트' in sender else 'AI'
@@ -432,13 +509,21 @@ class ChatWidget(QWidget):
             output_tokens=output_tokens if output_tokens > 0 else None,
             total_tokens=total_tokens if total_tokens > 0 else None
         )
-        self.conversation_history.save_to_file()
+        # self.conversation_history.save_to_file()  # JSON 저장 비활성화
         self.messages.append({'role': 'assistant', 'content': text})
+        
+        # 메인 윈도우에 AI 메시지 저장 알림 (HTML 포함)
+        print(f"[CHAT_WIDGET] AI 메시지 저장 시도: {text[:50]}...")
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, 'save_message_to_session'):
+            # AI 메시지는 원본 텍스트를 저장하고 enhanced_text를 HTML로 저장
+            main_window.save_message_to_session('assistant', text, total_tokens, enhanced_text)
+        else:
+            print(f"[CHAT_WIDGET] MainWindow를 찾을 수 없거나 save_message_to_session 메소드 없음")
         
         self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
         
-        # 모델 라벨 업데이트 (세션 토큰 정보 포함)
-        self.model_manager.update_model_label()
+        # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
         
         self.ui_manager.set_ui_enabled(True)
         self.ui_manager.show_loading(False)
@@ -471,7 +556,7 @@ class ChatWidget(QWidget):
                 token_info = f" | 📊 {total_tokens:,}토큰"
         
         current_model = load_last_model()
-        enhanced_msg = f"{msg}{error_time}\n\n---\n*🤖 {current_model}{token_info}*" if token_info else f"{msg}{error_time}"
+        enhanced_msg = f"{msg}{error_time}\n\n---\n*🤖 {current_model}{token_info}*\n⚠️ *AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.*" if token_info else f"{msg}{error_time}"
         
         self.chat_display.append_message('시스템', enhanced_msg)
         self.ui_manager.set_ui_enabled(True)
@@ -518,13 +603,7 @@ class ChatWidget(QWidget):
             # 웹뷰 로드 실패 시에도 웰컴 메시지 표시
             QTimer.singleShot(1000, self._show_welcome_message)
     
-    def update_status_display(self, status_data):
-        """상태 표시 업데이트"""
-        try:
-            html_status = status_display.get_status_html()
-            self.status_label.setText(html_status)
-        except Exception as e:
-            print(f"상태 표시 업데이트 오류: {e}")
+    # 상태 표시 업데이트 삭제 - 좌측 패널로 이동
     
     def _load_previous_conversations(self):
         """이전 대화 로드"""
@@ -576,11 +655,11 @@ class ChatWidget(QWidget):
                             
                             # 모델 정보가 있으면 표시하고 센더 정보로 모델명 전달
                             if model and model != 'unknown':
-                                enhanced_content = f"{content}\n\n---\n*🤖 {model}{token_info}*"
+                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 {model}{token_info}</div>\n</div>"
                                 # 모델명을 original_sender로 전달하여 포맷팅에 활용
                                 self.chat_display.append_message('AI', enhanced_content, original_sender=model, message_id=msg.get('id'))
                             else:
-                                enhanced_content = f"{content}\n\n---\n*🤖 AI{token_info}*" if token_info else content
+                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 AI{token_info}</div>\n</div>" if token_info else content
                                 self.chat_display.append_message('AI', enhanced_content, message_id=msg.get('id'))
                     
                     # 이전 대화 로드 후 웰컴 메시지 표시
@@ -597,7 +676,7 @@ class ChatWidget(QWidget):
                         if model_breakdown:
                             token_summary += f" ({', '.join(model_breakdown)})"
                     
-                    welcome_msg = f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🔄 **이전 대화**: {len(unique_messages)}개 메시지 로드됨\n{token_summary}\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!'
+                    welcome_msg = f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🔄 **이전 대화**: {len(unique_messages)}개 메시지 로드됨\n{token_summary}\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!'
                     self.chat_display.append_message('시스템', welcome_msg)
                 else:
                     # 빈 히스토리일 때도 토큰 통계 표시
@@ -612,9 +691,9 @@ class ChatWidget(QWidget):
                 stats = self.conversation_history.get_stats()
                 total_tokens = stats.get('total_tokens', 0)
                 if total_tokens > 0:
-                    self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                    self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
                 else:
-                    self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                    self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
                 
         except Exception as e:
             print(f"대화 기록 로드 오류: {e}")
@@ -635,9 +714,9 @@ class ChatWidget(QWidget):
             stats = self.conversation_history.get_stats()
             total_tokens = stats.get('total_tokens', 0)
             if total_tokens > 0:
-                self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
             else:
-                self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
         except Exception as e:
             print(f"웰컴 메시지 표시 오류: {e}")
             self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖')
@@ -653,8 +732,11 @@ class ChatWidget(QWidget):
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""
-        self.conversation_history.clear_session()
-        self.conversation_history.save_to_file()
+        if hasattr(self.conversation_history, 'clear_session'):
+            self.conversation_history.clear_session()
+        else:
+            self.conversation_history.current_session = []
+        # self.conversation_history.save_to_file()  # JSON 저장 비활성화
         self.messages = []
         
         # 세션 통계도 초기화
@@ -671,6 +753,12 @@ class ChatWidget(QWidget):
         if hasattr(token_tracker, 'conversation_history'):
             token_tracker.conversation_history.clear()
         
+        # 메인 윈도우의 현재 세션 ID도 초기화
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, 'current_session_id'):
+            main_window.current_session_id = None
+            main_window._auto_session_created = False
+        
         print("대화 히스토리가 초기화되었습니다.")
         
         self.chat_display.clear_messages()
@@ -683,8 +771,10 @@ class ChatWidget(QWidget):
             if hasattr(self, 'ai_processor'):
                 self.ai_processor.cancel()
             
-            if hasattr(self, 'model_manager'):
-                self.model_manager.stop_monitoring()
+            # 스크롤 체크 타이머 정리
+            if hasattr(self, 'scroll_check_timer'):
+                self.scroll_check_timer.stop()
+                self.scroll_check_timer.deleteLater()
             
             print("ChatWidget 종료 완료")
             
@@ -694,97 +784,178 @@ class ChatWidget(QWidget):
     def delete_message(self, message_id: str) -> bool:
         """메시지 삭제"""
         try:
-            success = self.conversation_history.delete_message(message_id)
+            print(f"[CHAT_DELETE] 삭제 시작: {message_id}")
+            
+            # 메인 윈도우에서 세션 ID 가져오기
+            main_window = self._find_main_window()
+            session_id = None
+            
+            # 현재 세션 ID 확인 (여러 방법으로 시도)
+            if main_window and hasattr(main_window, 'current_session_id') and main_window.current_session_id:
+                session_id = main_window.current_session_id
+            elif hasattr(self, 'current_session_id') and self.current_session_id:
+                session_id = self.current_session_id
+            
+            # 세션 ID가 없으면 메시지 ID로부터 세션 찾기
+            if not session_id:
+                from core.session.message_manager import message_manager
+                try:
+                    db_message_id = int(message_id)
+                    session_id = message_manager.find_session_by_message_id(db_message_id)
+                    print(f"[CHAT_DELETE] 메시지로부터 세션 ID 찾음: {session_id}")
+                except (ValueError, AttributeError):
+                    print(f"[CHAT_DELETE] 메시지 ID로부터 세션을 찾을 수 없음")
+            
+            if not session_id:
+                print(f"[CHAT_DELETE] 세션 ID를 찾을 수 없음")
+                return False
+            
+            print(f"[CHAT_DELETE] 사용할 세션 ID: {session_id}")
+            
+            # DB에서 삭제
+            from core.session.message_manager import message_manager
+            
+            # message_id를 정수로 변환
+            try:
+                db_message_id = int(message_id)
+                print(f"[CHAT_DELETE] DB 메시지 ID: {db_message_id}")
+            except ValueError:
+                print(f"[CHAT_DELETE] 잘못된 메시지 ID 형식: {message_id}")
+                return False
+            
+            # DB에서 삭제 실행
+            success = message_manager.delete_message(session_id, db_message_id)
+            print(f"[CHAT_DELETE] DB 삭제 결과: {success}")
+            
             if success:
-                print(f"메시지 삭제 성공: {message_id}")
+                # 메모리에서도 삭제
+                try:
+                    self.conversation_history.delete_message(message_id)
+                    print(f"[CHAT_DELETE] 메모리 삭제 완료")
+                except Exception as e:
+                    print(f"[CHAT_DELETE] 메모리 삭제 오류: {e}")
+                
+                # 세션 패널 새로고침
+                if main_window and hasattr(main_window, 'session_panel'):
+                    main_window.session_panel.load_sessions()
+                    print(f"[CHAT_DELETE] 세션 패널 새로고침 완료")
+            
             return success
+            
         except Exception as e:
-            print(f"메시지 삭제 오류: {e}")
+            print(f"[CHAT_DELETE] 오류: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def update_theme(self):
         """테마 업데이트"""
         try:
+            # 기존 스타일시트 완전 제거
+            self.setStyleSheet("")
+            
             # Qt 스타일시트 업데이트
             if theme_manager.use_material_theme:
                 self._apply_material_theme_styles()
             else:
                 self.setStyleSheet(FlatTheme.get_chat_widget_style())
+                self._update_input_text_style()
+                if hasattr(self, 'input_container'):
+                    self._update_input_container_style(self.input_container)
             
-            # 웹뷰 완전히 다시 로드
+            # 채팅 표시 영역 실시간 업데이트
             if hasattr(self, 'chat_display'):
-                self.chat_display.init_web_view()
+                self.chat_display.update_theme()
             
             # 로딩바 테마 업데이트
             if hasattr(self, 'loading_bar') and hasattr(self.loading_bar, 'update_theme'):
                 self.loading_bar.update_theme()
+            
+            # 버튼 스타일도 업데이트
+            self._update_button_styles()
+            
+            # 강제로 전체 위젯 다시 그리기
+            self.repaint()
+            if hasattr(self, 'input_text'):
+                self.input_text.repaint()
+            if hasattr(self, 'input_container'):
+                self.input_container.repaint()
             
             print("테마 업데이트 완료")
             
         except Exception as e:
             print(f"테마 업데이트 오류: {e}")
     
+    def _update_button_styles(self):
+        """버튼 스타일 업데이트"""
+        try:
+            themed_button_style = self._get_themed_button_style()
+            cancel_button_style = self._get_cancel_button_style()
+            
+            if hasattr(self, 'send_button'):
+                self.send_button.setStyleSheet(themed_button_style)
+            if hasattr(self, 'upload_button'):
+                self.upload_button.setStyleSheet(themed_button_style)
+            if hasattr(self, 'cancel_button'):
+                self.cancel_button.setStyleSheet(cancel_button_style)
+        except Exception as e:
+            print(f"버튼 스타일 업데이트 오류: {e}")
+    
+    def _get_cancel_button_style(self):
+        """취소 버튼 전용 빨간색 스타일"""
+        return """
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 #FF5252, 
+                stop:1 #D32F2F);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            transition: all 0.3s ease;
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 #D32F2F, 
+                stop:1 #FF5252);
+            transform: translateY(-2px);
+            font-size: 22px;
+        }
+        QPushButton:pressed {
+            background: #B71C1C;
+            transform: translateY(0px);
+            font-size: 18px;
+        }
+        QPushButton:disabled {
+            background: rgba(255, 82, 82, 0.5);
+            opacity: 0.5;
+        }
+        """
+    
     def _apply_material_theme_styles(self):
         """재료 테마 스타일 적용"""
         colors = theme_manager.material_manager.get_theme_colors()
         loading_config = theme_manager.material_manager.get_loading_bar_config()
         
-        # 채팅 위젯 전체 스타일
+        # 채팅 위젯 전체 스타일 - 강제 적용
         widget_style = f"""
+        ChatWidget {{
+            background-color: {colors.get('background', '#121212')} !important;
+            color: {colors.get('text_primary', '#ffffff')} !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        }}
         QWidget {{
             background-color: {colors.get('background', '#121212')};
             color: {colors.get('text_primary', '#ffffff')};
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
         }}
         QWebEngineView {{
-            background-color: {colors.get('background', '#121212')};
+            background-color: {colors.get('background', '#121212')} !important;
         }}
         """
         self.setStyleSheet(widget_style)
-        
-        # 정보 라벨 스타일 업데이트
-        model_label_style = f"""
-        QLabel {{
-            color: {colors.get('on_primary', '#000000')};
-            font-size: 16px;
-            font-weight: 700;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 14px 18px;
-            background-color: {colors.get('primary', '#bb86fc')};
-            border: 2px solid {colors.get('primary_variant', '#3700b3')};
-            border-radius: 12px;
-        }}
-        """
-        
-        tools_label_style = f"""
-        QLabel {{
-            color: {colors.get('on_secondary', '#000000')};
-            font-size: 16px;
-            font-weight: 700;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 14px 18px;
-            background-color: {colors.get('secondary', '#03dac6')};
-            border: 2px solid {colors.get('secondary_variant', '#018786')};
-            border-radius: 12px;
-        }}
-        """
-        
-        status_label_style = f"""
-        QLabel {{
-            color: {colors.get('text_secondary', '#b3b3b3')};
-            font-size: 12px;
-            font-weight: 600;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 8px 16px;
-            background-color: {colors.get('surface', '#1e1e1e')};
-            border: 2px solid {colors.get('divider', '#333333')};
-            border-radius: 10px;
-        }}
-        """
-        
-        self.model_label.setStyleSheet(model_label_style)
-        self.tools_label.setStyleSheet(tools_label_style)
-        self.status_label.setStyleSheet(status_label_style)
         
         # 입력 영역 스타일 업데이트
         self._apply_material_input_styles(colors)
@@ -806,123 +977,91 @@ class ChatWidget(QWidget):
             self.loading_bar.setStyleSheet(loading_style)
     
     def _apply_material_input_styles(self, colors):
-        """재료 테마 입력 영역 스타일 적용"""
-        # 입력 컸테이너 스타일
+        """재료 테마 입력 영역 스타일 적용 - Soft Shadow + Rounded Edge + Gradient Depth"""
+        is_dark = theme_manager.is_material_dark_theme()
+        shadow_color = "rgba(0,0,0,0.15)" if is_dark else "rgba(0,0,0,0.08)"
+        
+        # 입력 컨테이너 스타일 - Gradient Depth + Soft Shadow
         container_style = f"""
         QWidget {{
-            background-color: {colors.get('surface', '#1e1e1e')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('surface', '#1e1e1e')}, 
+                stop:1 {colors.get('background', '#121212')});
             border: 2px solid {colors.get('primary', '#bb86fc')};
-            border-radius: 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }}
+        QWidget:focus-within {{
+            border: 3px solid {colors.get('primary', '#bb86fc')};
+            transform: translateY(-2px);
         }}
         """
         
-        # 모드 토글 버튼 스타일
-        mode_toggle_style = f"""
+        # 투명한 버튼 스타일 - 호버 시 그라데이션 효과
+        transparent_button_style = f"""
         QPushButton {{
-            background-color: {colors.get('primary', '#bb86fc')};
-            color: {colors.get('on_primary', '#000000')};
-            border: 1px solid {colors.get('primary_variant', '#3700b3')};
-            border-radius: 12px;
-            padding: 14px 18px;
-            font-size: 16px;
-            font-weight: 700;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            min-width: 100px;
-            max-width: 100px;
-            margin-right: 8px;
-            margin-left: 12px;
-        }}
-        QPushButton:hover {{
-            background-color: {colors.get('primary_variant', '#3700b3')};
-            color: {colors.get('on_primary', '#000000')};
-        }}
-        QPushButton:checked {{
-            background-color: {colors.get('secondary', '#03dac6')};
-            color: {colors.get('on_secondary', '#000000')};
-            border-color: {colors.get('secondary_variant', '#018786')};
-        }}
-        """
-        
-        # 입력창 스타일
-        input_text_style = f"""
-        QTextEdit {{
-            background-color: {colors.get('background', '#121212')};
-            color: {colors.get('text_primary', '#ffffff')};
-            border: 1px solid {colors.get('divider', '#333333')};
-            border-radius: 12px;
-            font-size: 15px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            padding: 18px;
-            selection-background-color: {colors.get('primary', '#bb86fc')};
-        }}
-        QTextEdit:focus {{
-            border-color: {colors.get('primary', '#bb86fc')};
-        }}
-        """
-        
-        # 버튼 스타일
-        send_button_style = f"""
-        QPushButton {{
-            background-color: {colors.get('primary', '#bb86fc')};
-            color: {colors.get('on_primary', '#000000')};
-            border: 2px solid {colors.get('primary_variant', '#3700b3')};
+            background: transparent;
+            border: none;
+            font-size: 28px;
             border-radius: 14px;
-            font-weight: 800;
-            font-size: 18px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+            transition: all 0.3s ease;
         }}
         QPushButton:hover {{
-            background-color: {colors.get('primary_variant', '#3700b3')};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                stop:0 {colors.get('primary', '#bb86fc')}40, 
+                stop:1 {colors.get('primary_variant', '#3700b3')}20);
+            font-size: 38px;
+            transform: translateY(-1px);
+        }}
+        QPushButton:pressed {{
+            background: {colors.get('primary', '#bb86fc')}60;
+            font-size: 26px;
+            transform: translateY(0px);
         }}
         QPushButton:disabled {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_secondary', '#b3b3b3')};
-            border-color: {colors.get('divider', '#333333')};
+            background: transparent;
+            opacity: 0.5;
         }}
         """
         
-        cancel_button_style = f"""
-        QPushButton {{
-            background-color: {colors.get('error', '#cf6679')};
-            color: {colors.get('on_error', '#000000')};
-            border: 2px solid {colors.get('error', '#cf6679')};
-            border-radius: 14px;
-            font-weight: 800;
-            font-size: 18px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        # 드래그 핸들 스타일 - Rounded Edge + Gradient
+        drag_handle_style = f"""
+        QWidget {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 {colors.get('divider', '#666666')}, 
+                stop:1 {colors.get('text_secondary', '#888888')});
+            border-radius: 6px;
+            margin: 2px 20px;
+            transition: all 0.3s ease;
         }}
-        QPushButton:hover {{
-            background-color: {colors.get('error', '#cf6679')};
-            filter: brightness(1.1);
-        }}
-        """
-        
-        upload_button_style = f"""
-        QPushButton {{
-            background-color: {colors.get('secondary', '#03dac6')};
-            color: {colors.get('on_secondary', '#000000')};
-            border: 2px solid {colors.get('secondary_variant', '#018786')};
-            border-radius: 14px;
-            font-weight: 700;
-            font-size: 16px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-        }}
-        QPushButton:hover {{
-            background-color: {colors.get('secondary_variant', '#018786')};
-        }}
-        QPushButton:disabled {{
-            background-color: {colors.get('surface', '#1e1e1e')};
-            color: {colors.get('text_secondary', '#b3b3b3')};
-            border-color: {colors.get('divider', '#333333')};
+        QWidget:hover {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 {colors.get('text_secondary', '#888888')}, 
+                stop:1 {colors.get('primary', '#bb86fc')});
+            transform: translateY(-1px);
         }}
         """
         
         # 스타일 적용
-        self.mode_toggle.setStyleSheet(mode_toggle_style)
-        self.input_text.setStyleSheet(input_text_style)
-        self.send_button.setStyleSheet(send_button_style)
-        self.cancel_button.setStyleSheet(cancel_button_style)
-        self.upload_button.setStyleSheet(upload_button_style)
+        if hasattr(self, 'input_container'):
+            self.input_container.setStyleSheet(container_style)
+        
+        if hasattr(self, 'drag_handle'):
+            self.drag_handle.setStyleSheet(drag_handle_style)
+        
+        # 입력창 스타일 업데이트
+        self._update_input_text_style(colors)
+        
+        # 버튼 스타일 업데이트 - 테마 색상 적용
+        themed_button_style = self._get_themed_button_style(colors)
+        cancel_button_style = self._get_cancel_button_style()
+        
+        if hasattr(self, 'send_button'):
+            self.send_button.setStyleSheet(themed_button_style)
+        if hasattr(self, 'upload_button'):
+            self.upload_button.setStyleSheet(themed_button_style)
+        if hasattr(self, 'cancel_button'):
+            self.cancel_button.setStyleSheet(cancel_button_style)
     
     def _on_conversation_completed(self, _):
         """대화 완료 시 토큰 누적기 종료"""
@@ -930,12 +1069,293 @@ class ChatWidget(QWidget):
             # 대화 종료만 처리 (토큰 박스는 표시하지 않음)
             if token_accumulator.end_conversation():
                 input_tokens, output_tokens, total_tokens = token_accumulator.get_total()
-                print(f"[ChatWidget] 대화 완료 - 토큰: {total_tokens:,}개")
+                print(f"[ChatWidget] 대화 완룮 - 토큰: {total_tokens:,}개")
             
         except Exception as e:
-            print(f"대화 완료 처리 오류: {e}")
+            print(f"대화 완룮 처리 오류: {e}")
+    
+    def load_session_context(self, session_id: int):
+        """세션 컨텍스트 로드 (페이징 지원)"""
+        try:
+            self.current_session_id = session_id
+            
+            # 전체 메시지 수 조회
+            from core.session.session_manager import session_manager
+            self.total_message_count = session_manager.get_message_count(session_id)
+            
+            # 기존 대화 히스토리 초기화
+            if hasattr(self.conversation_history, 'clear_session'):
+                self.conversation_history.clear_session()
+            else:
+                self.conversation_history.current_session = []
+            self.messages = []
+            
+            # 채팅 화면 초기화
+            self.chat_display.web_view.page().runJavaScript("document.getElementById('messages').innerHTML = '';")
+            
+            # 설정에서 초기 로드 개수 가져오기
+            initial_limit = min(self.initial_load_count, self.total_message_count)
+            offset = max(0, self.total_message_count - initial_limit)
+            
+            context_messages = session_manager.get_session_messages(session_id, initial_limit, offset)
+            self.loaded_message_count = len(context_messages)
+            
+            # 세션 컨텍스트를 대화 히스토리에 로드
+            for msg in context_messages:
+                if hasattr(self.conversation_history, 'add_message'):
+                    self.conversation_history.add_message(msg['role'], msg['content'])
+                self.messages.append(msg)
+            
+            # 메시지 표시
+            QTimer.singleShot(100, lambda: self._display_session_messages(context_messages))
+            
+            # 세션 로드 완료 메시지
+            if context_messages:
+                load_msg = f"💼 세션 로드 완료: {len(context_messages)}개 메시지"
+                if self.total_message_count > self.initial_load_count:
+                    load_msg += f" (최근 {self.initial_load_count}개만 표시, 전체: {self.total_message_count}개)"
+                    load_msg += "\n\n🔼 위로 스크롤하면 이전 메시지를 볼 수 있습니다."
+                self.chat_display.append_message('시스템', load_msg)
+            
+            # 스크롤 이벤트 리스너 추가
+            self._setup_scroll_listener()
+            
+            print(f"[LOAD_SESSION] 세션 컨텍스트 로드 시작: {self.total_message_count}개 메시지 (표시: {len(context_messages)}개)")
+            
+        except Exception as e:
+            print(f"세션 컨텍스트 로드 오류: {e}")
     
 
+    
+    def _load_pagination_settings(self):
+        """페이징 설정 로드"""
+        try:
+            import json
+            import os
+            
+            config_path = os.path.join(os.getcwd(), 'prompt_config.json')
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    
+                history_settings = config.get('history_settings', {})
+                self.initial_load_count = history_settings.get('initial_load_count', 20)
+                self.page_size = history_settings.get('page_size', 10)
+                
+                print(f"[PAGINATION] 설정 로드: initial_load_count={self.initial_load_count}, page_size={self.page_size}")
+            else:
+                # 기본값 사용
+                self.initial_load_count = 20
+                self.page_size = 10
+                print(f"[PAGINATION] 기본값 사용: initial_load_count={self.initial_load_count}, page_size={self.page_size}")
+                
+        except Exception as e:
+            print(f"[PAGINATION] 설정 로드 오류: {e}")
+            # 기본값 사용
+            self.initial_load_count = 20
+            self.page_size = 10
+    
+    def _check_scroll_position(self):
+        """스크롤 위치 체크"""
+        if not self.current_session_id or self.is_loading_more:
+            return
+            
+        # 웹뷰에서 스크롤 위치 확인
+        self.chat_display_view.page().runJavaScript(
+            "window.scrollY",
+            lambda scroll_y: self._handle_scroll_position(scroll_y)
+        )
+    
+    def _handle_scroll_position(self, scroll_y):
+        """스크롤 위치 처리"""
+        # 스크롤이 맨 위에 있고 더 로드할 메시지가 있을 때
+        if scroll_y <= 50 and self.loaded_message_count < self.total_message_count:
+            print(f"[SCROLL_CHECK] 스크롤 맨 위 감지: {scroll_y}, 더 로드 시도")
+            self.load_more_messages()
+    
+    def _find_main_window(self):
+        """메인 윈도우 찾기"""
+        widget = self
+        while widget:
+            if widget.__class__.__name__ == 'MainWindow':
+                return widget
+            widget = widget.parent()
+        return None
+    
+    def _display_session_messages(self, messages, prepend=False):
+        """세션 메시지들을 화면에 표시"""
+        try:
+            for i, msg in enumerate(messages):
+                print(f"[LOAD_SESSION] 메시지 {i+1} 표시: role={msg['role']}, content={msg['content'][:30]}...")
+                msg_id = str(msg.get('id', f"session_msg_{i}"))
+                if msg['role'] == 'user':
+                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id, prepend=prepend)
+                elif msg['role'] == 'assistant':
+                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id, prepend=prepend)
+            
+            print(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
+        except Exception as e:
+            print(f"[LOAD_SESSION] 메시지 표시 오류: {e}")
+    
+    # 세션 정보 업데이트 삭제 - 좌측 패널로 이동
+    
+    def _update_input_text_style(self, colors=None):
+        """입력창 스타일 동적 업데이트"""
+        try:
+            if theme_manager.use_material_theme and colors:
+                # True Gray 테마 특별 처리
+                if colors.get('primary') == '#6B7280':  # True Gray 테마 감지
+                    input_text_style = f"""
+                    QTextEdit {{
+                        background-color: #FFFFFF;
+                        color: #374151;
+                        border: 1px solid {colors.get('divider', '#E5E7EB')};
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 8px;
+                        selection-background-color: {colors.get('primary', '#6B7280')};
+                        selection-color: #FFFFFF;
+                    }}
+                    QTextEdit:focus {{
+                        border-color: {colors.get('primary', '#6B7280')};
+                        border-width: 2px;
+                    }}
+                    """
+                else:
+                    input_text_style = f"""
+                    QTextEdit {{
+                        background-color: {colors.get('surface', '#1e1e1e')};
+                        color: {colors.get('text_primary', '#ffffff')};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 8px;
+                        selection-background-color: {colors.get('primary', '#bb86fc')};
+                    }}
+                    QTextEdit:focus {{
+                        border-color: {colors.get('primary', '#bb86fc')};
+                    }}
+                    """
+            elif theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                # True Gray 테마 특별 처리
+                if colors.get('primary') == '#6B7280':  # True Gray 테마 감지
+                    input_text_style = f"""
+                    QTextEdit {{
+                        background-color: #FFFFFF;
+                        color: #374151;
+                        border: 1px solid {colors.get('divider', '#E5E7EB')};
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 8px;
+                        selection-background-color: {colors.get('primary', '#6B7280')};
+                        selection-color: #FFFFFF;
+                    }}
+                    QTextEdit:focus {{
+                        border-color: {colors.get('primary', '#6B7280')};
+                        border-width: 2px;
+                    }}
+                    """
+                else:
+                    input_text_style = f"""
+                    QTextEdit {{
+                        background-color: {colors.get('surface', '#1e1e1e')};
+                        color: {colors.get('text_primary', '#ffffff')};
+                        border: 1px solid {colors.get('divider', '#333333')};
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                        padding: 8px;
+                        selection-background-color: {colors.get('primary', '#bb86fc')};
+                    }}
+                    QTextEdit:focus {{
+                        border-color: {colors.get('primary', '#bb86fc')};
+                    }}
+                    """
+            else:
+                input_text_style = FlatTheme.get_input_area_style()['input_text']
+            
+            self.input_text.setStyleSheet("")
+            self.input_text.setStyleSheet(input_text_style)
+            
+        except Exception as e:
+            print(f"입력창 스타일 업데이트 오류: {e}")
+            self.input_text.setStyleSheet(FlatTheme.get_input_area_style()['input_text'])
+    
+    def _update_mode_toggle_style(self):
+        """모드 토글 스타일 동적 업데이트"""
+        try:
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                style = f"""
+                QPushButton {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                    border: 1px solid {colors.get('divider', '#333333')};
+                    border-radius: 12px;
+                    padding: 6px 18px;
+                    font-size: 40px;
+                    font-weight: 700;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    min-width: 100px;
+                    max-width: 100px;
+                    margin-right: 8px;
+                    margin-left: 12px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                    font-size: 44px;
+                }}
+                QPushButton:checked {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    color: {colors.get('text_primary', '#ffffff')};
+                }}
+                """
+            else:
+                style = FlatTheme.get_input_area_style()['mode_toggle']
+            
+            # 호버 효과 유지를 위해 스타일 업데이트 비활성화
+            pass
+            
+        except Exception as e:
+            print(f"모드 토글 스타일 업데이트 오류: {e}")
+            self.mode_toggle.setStyleSheet(FlatTheme.get_input_area_style()['mode_toggle'] + "font-size: 48px;")
+    
+    def _update_input_container_style(self, container):
+        """입력 컴테이너 스타일 동적 업데이트"""
+        try:
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                style = f"""
+                QWidget {{
+                    background-color: {colors.get('surface', '#1e1e1e')};
+                    border: 2px solid {colors.get('primary', '#bb86fc')};
+                    border-radius: 16px;
+                }}
+                """
+            else:
+                style = FlatTheme.get_input_area_style()['container']
+            
+            container.setStyleSheet(style)
+            
+        except Exception as e:
+            print(f"입력 컴테이너 스타일 업데이트 오류: {e}")
+            container.setStyleSheet(FlatTheme.get_input_area_style()['container'])
+    
+    def _apply_initial_theme(self):
+        """초기 테마 적용"""
+        try:
+            if theme_manager.use_material_theme:
+                self._apply_material_theme_styles()
+            else:
+                self.setStyleSheet(FlatTheme.get_chat_widget_style())
+            print("초기 테마 적용 완료")
+        except Exception as e:
+            print(f"초기 테마 적용 오류: {e}")
     
     def _apply_theme_if_needed(self):
         """필요시 테마 적용"""
@@ -946,3 +1366,207 @@ class ChatWidget(QWidget):
                     self.chat_display.update_theme()
         except Exception as e:
             print(f"테마 적용 오류: {e}")
+    
+    def _start_drag(self, event):
+        """드래그 시작"""
+        self._dragging = True
+        self._drag_start_y = event.globalPosition().y()
+        self._original_height = self.input_text.height()
+    
+    def _handle_drag(self, event):
+        """드래그 처리"""
+        if self._dragging:
+            delta_y = self._drag_start_y - event.globalPosition().y()
+            new_height = int(max(57, min(300, self._original_height + delta_y)))
+            self.input_text.setFixedHeight(new_height)
+    
+    def _end_drag(self, event):
+        """드래그 종료"""
+        self._dragging = False
+    
+    def _get_themed_button_style(self, colors=None):
+        """테마 색상을 적용한 버튼 스타일 생성 - 세션 패널과 동일한 스타일"""
+        try:
+            if theme_manager.use_material_theme:
+                if not colors:
+                    colors = theme_manager.material_manager.get_theme_colors()
+                
+                primary_color = colors.get('primary', '#bb86fc')
+                primary_variant = colors.get('primary_variant', '#3700b3')
+                on_primary = colors.get('on_primary', '#000000')
+                
+                # 세션 패널과 동일한 그라디언트 스타일
+                return f"""
+                QPushButton {{
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {primary_color}, 
+                        stop:1 {primary_variant});
+                    color: {on_primary};
+                    border: none;
+                    border-radius: 12px;
+                    font-weight: 800;
+                    font-size: 20px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                    transition: all 0.3s ease;
+                }}
+                QPushButton:hover {{
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 {primary_variant}, 
+                        stop:1 {primary_color});
+                    transform: translateY(-2px);
+                    font-size: 22px;
+                }}
+                QPushButton:pressed {{
+                    background: {primary_variant};
+                    transform: translateY(0px);
+                    font-size: 18px;
+                }}
+                QPushButton:disabled {{
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                        stop:0 #9E9E9E, 
+                        stop:1 #757575);
+                    color: #BDBDBD;
+                    opacity: 0.6;
+                }}
+                """
+            else:
+                # Flat 테마 기본 스타일
+                return """
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                    font-size: 20px;
+                }
+                QPushButton:hover {
+                    background: transparent;
+                    font-size: 22px;
+                }
+                QPushButton:pressed {
+                    background: transparent;
+                    font-size: 18px;
+                }
+                QPushButton:disabled {
+                    background: #E0E0E0;
+                    color: #9E9E9E;
+                    opacity: 0.6;
+                }
+                """
+        except Exception as e:
+            print(f"버튼 스타일 생성 오류: {e}")
+            return """
+            QPushButton {
+                background: transparent;
+                border: none;
+                font-size: 20px;
+            }
+            QPushButton:hover {
+                background: transparent;
+                font-size: 22px;
+            }
+            QPushButton:pressed {
+                background: transparent;
+                font-size: 18px;
+            }
+            QPushButton:disabled {
+                background: transparent;
+            }
+            """
+    
+    def _setup_scroll_listener(self):
+        """스크롤 이벤트 리스너 설정"""
+        # 웹뷰에 스크롤 이벤트 리스너 추가
+        self.chat_display_view.page().runJavaScript("""
+            if (!window.scrollListenerAdded) {
+                let isLoading = false;
+                
+                window.addEventListener('scroll', function() {
+                    // 스크롤이 맨 위에 도달했을 때
+                    if (window.scrollY <= 50 && !isLoading) {
+                        isLoading = true;
+                        console.log('스크롤 맨 위 도달 - 더 많은 메시지 로드 요청');
+                        
+                        // Python 측에 더 많은 메시지 로드 요청
+                        if (window.qt && window.qt.webChannelTransport) {
+                            // QWebChannel을 통한 통신
+                            window.qt.webChannelTransport.send(JSON.stringify({
+                                type: 'loadMoreMessages'
+                            }));
+                        } else {
+                            // 대안: 전역 함수 호출
+                            if (typeof loadMoreMessages === 'function') {
+                                loadMoreMessages();
+                            }
+                        }
+                        
+                        // 로딩 상태 해제 (3초 후)
+                        setTimeout(() => {
+                            isLoading = false;
+                        }, 3000);
+                    }
+                });
+                
+                // 전역 함수로 Python에서 호출 가능하게 설정
+                window.loadMoreMessages = function() {
+                    console.log('loadMoreMessages 함수 호출됨');
+                };
+                
+                window.scrollListenerAdded = true;
+                console.log('스크롤 리스너 설정 완료');
+            }
+        """)
+        
+        # Python 측에서 스크롤 이벤트 처리를 위한 타이머 설정
+        self.scroll_check_timer = QTimer()
+        self.scroll_check_timer.timeout.connect(self._check_scroll_position)
+        self.scroll_check_timer.start(1000)  # 1초마다 체크
+    
+    def load_more_messages(self):
+        """더 많은 메시지 로드"""
+        if self.is_loading_more or not self.current_session_id:
+            return
+        
+        if self.loaded_message_count >= self.total_message_count:
+            print("[LOAD_MORE] 모든 메시지가 이미 로드됨")
+            return
+        
+        self.is_loading_more = True
+        
+        try:
+            from core.session.session_manager import session_manager
+            
+            # 설정에서 페이지 크기 사용
+            remaining_messages = self.total_message_count - self.loaded_message_count
+            load_count = min(self.page_size, remaining_messages)
+            offset = self.total_message_count - self.loaded_message_count - load_count
+            
+            print(f"[LOAD_MORE] 로드 시도: offset={offset}, limit={load_count}")
+            
+            older_messages = session_manager.get_session_messages(
+                self.current_session_id, load_count, offset
+            )
+            
+            if older_messages:
+                # 이전 메시지들을 대화 히스토리에 추가
+                for msg in older_messages:
+                    if hasattr(self.conversation_history, 'add_message'):
+                        self.conversation_history.add_message(msg['role'], msg['content'])
+                    self.messages.insert(0, msg)
+                
+                # 화면 상단에 메시지 추가
+                self._display_session_messages(older_messages, prepend=True)
+                self.loaded_message_count += len(older_messages)
+                
+                print(f"[LOAD_MORE] {len(older_messages)}개 메시지 추가 로드 (전체: {self.loaded_message_count}/{self.total_message_count})")
+                
+                # 로드 완료 메시지
+                if self.loaded_message_count < self.total_message_count:
+                    load_msg = f"🔼 {len(older_messages)}개 이전 메시지 로드 완료. 더 보려면 위로 스크롤하세요."
+                else:
+                    load_msg = f"🎉 모든 메시지를 로드했습니다! (전체 {self.total_message_count}개)"
+                
+                self.chat_display.append_message('시스템', load_msg, prepend=True)
+            
+        except Exception as e:
+            print(f"[LOAD_MORE] 오류: {e}")
+        finally:
+            self.is_loading_more = False

@@ -6,6 +6,7 @@ from .config import ConfigManager
 from core.streaming_processor import StreamingChatProcessor, ChunkedResponseProcessor
 from core.llm_factory import LLMFactoryProvider
 from core.message_validator import MessageValidator
+from core.token_accumulator import token_accumulator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -136,7 +137,10 @@ class AIClient:
             if hasattr(self.agent, '_last_response'):
                 self._last_response = self.agent._last_response
                 
-                # 정확한 토큰 정보 추출
+                # 토큰 누적기에 응답 추가
+                token_accumulator.add_response_tokens(self._last_response, self.model_name, "채팅")
+                
+                # 정확한 토큰 정보 추출 (기존 로깅용)
                 from core.token_logger import TokenLogger
                 input_tokens, output_tokens = TokenLogger.extract_actual_tokens(self._last_response)
                 total_tokens = input_tokens + output_tokens if input_tokens > 0 or output_tokens > 0 else None

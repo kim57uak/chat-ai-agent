@@ -86,14 +86,8 @@ class FixedFormatter:
                 if len(sankey_lines) > 1:
                     content = '\n'.join(sankey_lines)
             
-            # ERD 문법 수정 - datetime? 등 지원되지 않는 문법 수정
-            if 'erDiagram' in content:
-                # datetime? 를 datetime 으로 변환
-                content = re.sub(r'datetime\?', 'datetime', content)
-                # 기타 지원되지 않는 타입 수정
-                content = re.sub(r'string\?', 'string', content)
-                content = re.sub(r'int\?', 'int', content)
-                content = re.sub(r'boolean\?', 'boolean', content)
+            # ERD 문법 - v11.12.0 네이티브 지원 활용
+            # ERD 전처리 비활성화 (Mermaid v11.12.0에서 모든 타입 지원)
             
             # C4 다이어그램을 flowchart로 변환 (v10에서 지원 제한)
             if 'C4Context' in content or 'C4Container' in content:
@@ -216,52 +210,8 @@ class FixedFormatter:
                 if len(fixed_lines) > 1:
                     content = '\n    '.join(fixed_lines)
             
-            # Mindmap을 flowchart로 변환 (v10에서 지원 제한)
-            if 'mindmap' in content:
-                lines = content.split('\n')
-                flowchart_lines = ['flowchart TD']
-                node_counter = 0
-                node_stack = []  # (level, node_id) 스택
-                
-                for line in lines:
-                    if not line.strip() or line.strip() == 'mindmap':
-                        continue
-                    
-                    # 이모지 제거
-                    clean_line = re.sub(r'[\U0001F300-\U0001F9FF\U0001F600-\U0001F64F\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\u2600-\u26FF\u2700-\u27BF]', '', line)
-                    clean_line = clean_line.strip()
-                    
-                    if not clean_line:
-                        continue
-                    
-                    # 들여쓰기 레벨 계산
-                    indent_level = len(line) - len(line.lstrip())
-                    
-                    # 루트 노드 처리
-                    if 'root((' in clean_line:
-                        root_text = clean_line.replace('root((', '').replace('))', '')
-                        node_id = f'N{node_counter}'
-                        flowchart_lines.append(f'    {node_id}["{root_text}"]')
-                        node_stack = [(indent_level, node_id)]
-                        node_counter += 1
-                    else:
-                        # 일반 노드
-                        node_id = f'N{node_counter}'
-                        flowchart_lines.append(f'    {node_id}["{clean_line}"]')
-                        
-                        # 부모 노드 찾기
-                        while node_stack and node_stack[-1][0] >= indent_level:
-                            node_stack.pop()
-                        
-                        if node_stack:
-                            parent_id = node_stack[-1][1]
-                            flowchart_lines.append(f'    {parent_id} --> {node_id}')
-                        
-                        node_stack.append((indent_level, node_id))
-                        node_counter += 1
-                
-                if len(flowchart_lines) > 1:
-                    content = '\n'.join(flowchart_lines)
+            # Mindmap 구문은 그대로 유지 (Mermaid v10 네이티브 지원)
+            # mindmap 변환 로직 제거됨
             
             
             return content
@@ -398,7 +348,7 @@ class FixedFormatter:
                     result.append(f'<div style="position: relative;"><pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; margin: 8px 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{code_id}">')
                 else:
                     in_code_block = False
-                    result.append(f'</code></pre><button onclick="copyCode(\'{code_id}\')" style="position: absolute; top: 6px; right: 6px; background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; opacity: 0.7;">복사</button></div>')
+                    result.append(f'</code></pre><button onclick="copyCode(document.getElementById(\'{code_id}\'))" style="position: absolute; top: 6px; right: 6px; background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; opacity: 0.7;">복사</button></div>')
                 continue
             
             if in_code_block:

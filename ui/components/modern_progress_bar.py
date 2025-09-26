@@ -1,7 +1,7 @@
 """Modern animated progress bar with neon effects and particles"""
 
 from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty, QRect
+from PyQt6.QtCore import QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty, QRect, QRectF
 from PyQt6.QtGui import QPainter, QLinearGradient, QColor, QPen, QBrush, QRadialGradient
 from PyQt6.QtCore import Qt
 import math
@@ -42,22 +42,38 @@ class ModernProgressBar(QWidget):
     
     def start_animation(self):
         """애니메이션 시작"""
-        if not self.animation_timer.isActive():
-            self.animation_timer.start()
-        if not self.particle_timer.isActive():
-            self.particle_timer.start()
+        from PyQt6.QtCore import QThread
+        
+        # 메인 스레드에서만 타이머 시작
+        if QThread.currentThread() == self.thread():
+            if not self.animation_timer.isActive():
+                self.animation_timer.start()
+            if not self.particle_timer.isActive():
+                self.particle_timer.start()
+        else:
+            # 메인 스레드가 아닌 경우 메타콜로 실행
+            from PyQt6.QtCore import QMetaObject, Qt
+            QMetaObject.invokeMethod(self, "start_animation", Qt.ConnectionType.QueuedConnection)
     
     def stop_animation(self):
         """애니메이션 중지"""
-        if self.animation_timer.isActive():
-            self.animation_timer.stop()
-        if self.particle_timer.isActive():
-            self.particle_timer.stop()
-        self.particles.clear()
-        # 애니메이션 상태 초기화
-        self._animation_offset = 0.0
-        self.color_phase = 0.0
-        self.update()
+        from PyQt6.QtCore import QThread
+        
+        # 메인 스레드에서만 타이머 중지
+        if QThread.currentThread() == self.thread():
+            if self.animation_timer.isActive():
+                self.animation_timer.stop()
+            if self.particle_timer.isActive():
+                self.particle_timer.stop()
+            self.particles.clear()
+            # 애니메이션 상태 초기화
+            self._animation_offset = 0.0
+            self.color_phase = 0.0
+            self.update()
+        else:
+            # 메인 스레드가 아닌 경우 메타콜로 실행
+            from PyQt6.QtCore import QMetaObject, Qt
+            QMetaObject.invokeMethod(self, "stop_animation", Qt.ConnectionType.QueuedConnection)
     
     def set_indeterminate(self, indeterminate: bool):
         """무한 로딩 모드 설정"""
@@ -158,26 +174,80 @@ class ModernProgressBar(QWidget):
             from ui.styles.theme_manager import theme_manager
             
             if theme_manager.use_material_theme:
-                loading_config = theme_manager.material_manager.get_loading_bar_config()
-                chunk_color = loading_config.get('chunk', '')
+                colors = theme_manager.material_manager.get_theme_colors()
+                primary = colors.get('primary', '#1976d2')
+                secondary = colors.get('secondary', '#03dac6')
                 
-                # 그라디언트에서 색상 추출
-                if 'linear-gradient' in chunk_color:
-                    # 간단한 색상 추출 (예: #bb86fc, #03dac6)
-                    import re
-                    hex_colors = re.findall(r'#[0-9a-fA-F]{6}', chunk_color)
-                    if len(hex_colors) >= 2:
-                        colors = []
-                        for hex_color in hex_colors:
-                            r = int(hex_color[1:3], 16)
-                            g = int(hex_color[3:5], 16)
-                            b = int(hex_color[5:7], 16)
-                            colors.append((r, g, b))
-                        return colors
+                # Material Design 색상을 RGB로 변환
+                def hex_to_rgb(hex_color):
+                    hex_color = hex_color.lstrip('#')
+                    if len(hex_color) == 6:
+                        return (
+                            int(hex_color[0:2], 16),
+                            int(hex_color[2:4], 16), 
+                            int(hex_color[4:6], 16)
+                        )
+                    return (25, 118, 210)  # 기본 Material Blue
+                
+                return [
+                    hex_to_rgb(primary),
+                    hex_to_rgb(secondary),
+                    # 추가 색상 변화를 위한 중간 색상
+                    tuple(int((a + b) / 2) for a, b in zip(hex_to_rgb(primary), hex_to_rgb(secondary)))
+                ]
             
             return None
         except Exception:
             return None
+    
+    def _draw_glassmorphism_background(self, painter: QPainter, rect: QRect):
+        """글래스모피즘 배경 그리기"""
+        from PyQt6.QtGui import QPainterPath
+        
+        # 글래스모피즘 활성화 상태 확인
+        glassmorphism_enabled = self._is_glassmorphism_enabled()
+        
+        if glassmorphism_enabled:
+            # 반투명 배경
+            bg_path = QPainterPath()
+            bg_path.addRoundedRect(QRectF(rect), rect.height()/2, rect.height()/2)
+            
+            # 글래스 효과를 위한 반투명 색상
+            glass_color = self._get_glass_background_color()
+            painter.setBrush(QBrush(glass_color))
+            painter.setPen(QPen(QColor(255, 255, 255, 30), 1))
+            painter.drawPath(bg_path)
+            
+            # 내부 하이라이트
+            highlight_path = QPainterPath()
+            highlight_rect = QRectF(rect.x() + 1, rect.y() + 1, rect.width() - 2, rect.height()/3)
+            highlight_path.addRoundedRect(highlight_rect, rect.height()/4, rect.height()/4)
+            painter.setBrush(QBrush(QColor(255, 255, 255, 20)))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawPath(highlight_path)
+    
+    def _is_glassmorphism_enabled(self) -> bool:
+        """글래스모피즘 활성화 상태 확인"""
+        try:
+            from ui.styles.theme_manager import theme_manager
+            return theme_manager.material_manager.is_glassmorphism_enabled()
+        except:
+            return True
+    
+    def _get_glass_background_color(self) -> QColor:
+        """글래스 배경 색상 반환"""
+        try:
+            from ui.styles.theme_manager import theme_manager
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                is_dark = theme_manager.material_manager.is_dark_theme()
+                
+                if is_dark:
+                    return QColor(255, 255, 255, 15)  # 어두운 테마: 밝은 반투명
+                else:
+                    return QColor(0, 0, 0, 10)  # 밝은 테마: 어두운 반투명
+        except:
+            return QColor(255, 255, 255, 15)
     
     def update_theme(self):
         """테마 업데이트"""
@@ -209,11 +279,14 @@ class ModernProgressBar(QWidget):
         self._paint_particles(painter)
     
     def _paint_indeterminate(self, painter: QPainter, rect: QRect):
-        """넓고 자유로운 선형 움직임의 고급스러운 애니메이션"""
+        """넓고 자유로운 선형 움직임의 고급스러운 애니메이션 - Soft Shadow + Rounded Edge + Gradient Depth"""
         from PyQt6.QtGui import QPainterPath
         
         width = rect.width()
         height = rect.height()
+        
+        # 글래스모피즘 배경
+        self._draw_glassmorphism_background(painter, rect)
         
         # 여러 개의 넓은 웨이브 레이어 생성
         for layer in range(5):
@@ -230,7 +303,7 @@ class ModernProgressBar(QWidget):
             wave_width = width * 0.8  # 전체 폭의 80%
             wave_height = height * 0.9
             
-            # 부드러운 웨이브 패스 생성
+            # 부드러운 웨이브 패스 생성 - Rounded Edge
             path = QPainterPath()
             
             # 웨이브의 시작과 끝 지점
@@ -281,65 +354,93 @@ class ModernProgressBar(QWidget):
                 
                 path.closeSubpath()
                 
-                # 고급스러운 그라디언트 색상
-                alpha = 0.7 - layer * 0.1
-                color_phase = self.color_phase + layer * math.pi / 4
-                wave_color = self._get_modern_color(color_phase, alpha)
+                # 테마 primary 색상 사용
+                alpha = 0.8 - layer * 0.1
+                try:
+                    from ui.styles.theme_manager import theme_manager
+                    if theme_manager.use_material_theme:
+                        colors = theme_manager.material_manager.get_theme_colors()
+                        primary = colors.get('primary', '#bb86fc')
+                        hex_color = primary.lstrip('#')
+                        if len(hex_color) == 6:
+                            r = int(hex_color[0:2], 16)
+                            g = int(hex_color[2:4], 16)
+                            b = int(hex_color[4:6], 16)
+                            wave_color = QColor(r, g, b, int(255 * alpha))
+                        else:
+                            wave_color = QColor(187, 134, 252, int(255 * alpha))
+                    else:
+                        wave_color = QColor(187, 134, 252, int(255 * alpha))
+                except:
+                    wave_color = QColor(187, 134, 252, int(255 * alpha))
                 
-                # 넓은 선형 그라디언트
-                gradient = QLinearGradient(start_x, 0, end_x, 0)
-                gradient.setColorAt(0, QColor(wave_color.red(), wave_color.green(), wave_color.blue(), 0))
-                gradient.setColorAt(0.1, QColor(wave_color.red(), wave_color.green(), wave_color.blue(), int(wave_color.alpha() * 0.3)))
-                gradient.setColorAt(0.5, wave_color)
-                gradient.setColorAt(0.9, QColor(wave_color.red(), wave_color.green(), wave_color.blue(), int(wave_color.alpha() * 0.3)))
-                gradient.setColorAt(1, QColor(wave_color.red(), wave_color.green(), wave_color.blue(), 0))
-                
-                painter.setBrush(QBrush(gradient))
-                painter.setPen(Qt.PenStyle.NoPen)
+                # 글래스모피즘 웨이브
+                if self._is_glassmorphism_enabled():
+                    # 반투명 웨이브에 미세한 테두리 추가
+                    painter.setBrush(QBrush(wave_color))
+                    painter.setPen(QPen(QColor(255, 255, 255, 20), 0.5))
+                else:
+                    painter.setBrush(QBrush(wave_color))
+                    painter.setPen(Qt.PenStyle.NoPen)
                 painter.drawPath(path)
         
-        # 전체적인 배경 글로우 효과
-        glow_gradient = QLinearGradient(0, 0, width, 0)
-        glow_color = self._get_modern_color(self.color_phase, 0.15)
-        glow_gradient.setColorAt(0, QColor(glow_color.red(), glow_color.green(), glow_color.blue(), 0))
-        glow_gradient.setColorAt(0.5, glow_color)
-        glow_gradient.setColorAt(1, QColor(glow_color.red(), glow_color.green(), glow_color.blue(), 0))
-        
-        painter.setBrush(QBrush(glow_gradient))
-        painter.drawRect(0, 0, width, height)
+        # 글로우 효과 제거
     
     def _paint_determinate(self, painter: QPainter, rect: QRect):
-        """진행률 표시 애니메이션 그리기"""
+        """진행률 표시 애니메이션 그리기 - Soft Shadow + Rounded Edge + Gradient Depth"""
+        from PyQt6.QtGui import QPainterPath
+        
         progress_width = int(rect.width() * self._progress)
         progress_rect = QRect(rect.x() + 2, rect.y() + 2, 
                             progress_width - 4, rect.height() - 4)
         
+        # 글래스모피즘 배경
+        self._draw_glassmorphism_background(painter, rect)
+        
         if progress_width > 4:
-            # Progress gradient
-            gradient = QLinearGradient(0, 0, progress_width, 0)
+            # 테마 primary 색상 사용
+            try:
+                from ui.styles.theme_manager import theme_manager
+                if theme_manager.use_material_theme:
+                    colors = theme_manager.material_manager.get_theme_colors()
+                    primary = colors.get('primary', '#bb86fc')
+                    hex_color = primary.lstrip('#')
+                    if len(hex_color) == 6:
+                        r = int(hex_color[0:2], 16)
+                        g = int(hex_color[2:4], 16)
+                        b = int(hex_color[4:6], 16)
+                        progress_color = QColor(r, g, b, 230)
+                    else:
+                        progress_color = QColor(187, 134, 252, 230)
+                else:
+                    progress_color = QColor(187, 134, 252, 230)
+            except:
+                progress_color = QColor(187, 134, 252, 230)
             
-            # Animated colors based on progress
-            base_phase = self.color_phase + self._progress * math.pi
-            color1 = self._get_modern_color(base_phase, 0.9)
-            color2 = self._get_modern_color(base_phase + math.pi / 2, 0.9)
-            color3 = self._get_modern_color(base_phase + math.pi, 0.9)
+            # Progress path - Rounded Edge with Glassmorphism
+            progress_path = QPainterPath()
+            progress_path.addRoundedRect(QRectF(progress_rect), progress_rect.height()/2, progress_rect.height()/2)
             
-            gradient.setColorAt(0, color1)
-            gradient.setColorAt(0.5, color2)
-            gradient.setColorAt(1, color3)
+            if self._is_glassmorphism_enabled():
+                # 글래스모피즘 진행바
+                painter.setBrush(QBrush(progress_color))
+                painter.setPen(QPen(QColor(255, 255, 255, 40), 1))
+                painter.drawPath(progress_path)
+                
+                # 내부 하이라이트
+                inner_rect = QRectF(progress_rect.x() + 1, progress_rect.y() + 1, 
+                                   progress_rect.width() - 2, progress_rect.height()/3)
+                inner_path = QPainterPath()
+                inner_path.addRoundedRect(inner_rect, progress_rect.height()/4, progress_rect.height()/4)
+                painter.setBrush(QBrush(QColor(255, 255, 255, 30)))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawPath(inner_path)
+            else:
+                painter.setBrush(QBrush(progress_color))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawPath(progress_path)
             
-            painter.setBrush(QBrush(gradient))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRoundedRect(progress_rect, 4, 4)
-            
-            # Progress glow
-            glow_gradient = QRadialGradient(progress_width, rect.height() / 2, rect.height() * 1.5)
-            glow_color = self._get_modern_color(base_phase, 0.4)
-            glow_gradient.setColorAt(0, glow_color)
-            glow_gradient.setColorAt(1, QColor(0, 0, 0, 0))
-            
-            painter.setBrush(QBrush(glow_gradient))
-            painter.drawRoundedRect(rect, 6, 6)
+            # 글로우 효과 제거
     
     def _paint_particles(self, painter: QPainter):
         """파티클 그리기"""
@@ -353,14 +454,31 @@ class ModernProgressBar(QWidget):
             size = particle['size'] * alpha
             
             if size > 0.5:
-                color_phase = self.color_phase + particle['color_offset']
-                color = self._get_modern_color(color_phase, alpha * 0.8)
+                try:
+                    from ui.styles.theme_manager import theme_manager
+                    if theme_manager.use_material_theme:
+                        colors = theme_manager.material_manager.get_theme_colors()
+                        primary = colors.get('primary', '#bb86fc')
+                        hex_color = primary.lstrip('#')
+                        if len(hex_color) == 6:
+                            r = int(hex_color[0:2], 16)
+                            g = int(hex_color[2:4], 16)
+                            b = int(hex_color[4:6], 16)
+                            color = QColor(r, g, b, int(255 * alpha * 0.8))
+                        else:
+                            color = QColor(187, 134, 252, int(255 * alpha * 0.8))
+                    else:
+                        color = QColor(187, 134, 252, int(255 * alpha * 0.8))
+                except:
+                    color = QColor(187, 134, 252, int(255 * alpha * 0.8))
                 
-                # Particle glow
-                glow_gradient = QRadialGradient(particle['x'], particle['y'], size * 3)
-                glow_gradient.setColorAt(0, color)
-                glow_gradient.setColorAt(1, QColor(0, 0, 0, 0))
+                # 글래스모피즘 파티클
+                if self._is_glassmorphism_enabled():
+                    painter.setBrush(QBrush(color))
+                    painter.setPen(QPen(QColor(255, 255, 255, 60), 0.5))
+                else:
+                    painter.setBrush(QBrush(color))
+                    painter.setPen(Qt.PenStyle.NoPen)
                 
-                painter.setBrush(QBrush(glow_gradient))
-                painter.drawEllipse(int(particle['x'] - size), int(particle['y'] - size),
-                                  int(size * 2), int(size * 2))
+                painter.drawEllipse(int(particle['x'] - size/2), int(particle['y'] - size/2),
+                                  int(size), int(size))

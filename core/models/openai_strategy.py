@@ -7,6 +7,7 @@ from .base_model_strategy import BaseModelStrategy
 from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
 from core.token_tracker import token_tracker, StepType
+from core.token_accumulator import token_accumulator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -150,6 +151,9 @@ class OpenAIStrategy(BaseModelStrategy):
             
             # 응답 객체 저장 (토큰 추출용)
             self._last_response = response
+            
+            # 토큰 누적
+            token_accumulator.add_response_tokens(response, self.model_name, "도구 결정")
             
             # 도구 결정 단계 종료
             input_text = "\n".join([str(msg.content) for msg in messages])

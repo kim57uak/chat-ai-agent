@@ -206,7 +206,13 @@ class MainWindow(QMainWindow):
         self.token_usage_action.triggered.connect(self.toggle_token_display)
         settings_menu.addAction(self.token_usage_action)
         
-
+        # Glassmorphism toggle
+        self.glassmorphism_action = QAction('글래스모피즘 효과', self)
+        self.glassmorphism_action.setCheckable(True)
+        self.glassmorphism_action.setChecked(theme_manager.material_manager.is_glassmorphism_enabled())
+        self.glassmorphism_action.setShortcut('Ctrl+G')
+        self.glassmorphism_action.triggered.connect(self.toggle_glassmorphism)
+        settings_menu.addAction(self.glassmorphism_action)
         
         settings_menu.addSeparator()
         
@@ -280,6 +286,10 @@ class MainWindow(QMainWindow):
         dlg = MCPManagerDialog(self)
         dlg.exec()
         # 도구 라벨 업데이트 삭제 - 좌측 패널로 이동
+    
+    def show_mcp_dialog(self) -> None:
+        """MCP 서버 관리 대화상자 표시"""
+        self.open_mcp_manager()
     
     def clear_conversation_history(self) -> None:
         """Clear conversation history with confirmation."""
@@ -567,6 +577,17 @@ class MainWindow(QMainWindow):
             self.splitter.setSizes([session_width, total_width - session_width, 0])
         
         self._save_splitter_state()
+    
+    def toggle_glassmorphism(self):
+        """글래스모피즘 효과 토글"""
+        new_state = theme_manager.material_manager.toggle_glassmorphism()
+        self.glassmorphism_action.setChecked(new_state)
+        
+        # 테마 업데이트
+        if hasattr(self, 'chat_widget'):
+            self.chat_widget.update_theme()
+        
+        print(f"글래스모피즘 {'ON' if new_state else 'OFF'}")
     
     def _load_splitter_state(self):
         """스플리터 상태 로드"""

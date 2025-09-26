@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QLabel, QLineEdit, QDialog, QDialogButtonBox,
     QMessageBox, QMenu, QInputDialog, QSplitter
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, pyqtSlot
 from PyQt6.QtGui import QFont, QIcon, QAction
 from typing import Dict, List, Optional
 import logging
@@ -293,9 +293,9 @@ class SessionPanel(QWidget):
         self.setup_ui()
         self.load_sessions()
         
-        # 자동 새로고침 타이머
+        # 자동 새로고침 타이머 - 비동기 처리
         self.refresh_timer = QTimer()
-        self.refresh_timer.timeout.connect(self.load_sessions)
+        self.refresh_timer.timeout.connect(lambda: QTimer.singleShot(0, self.refresh_all_data))
         self.refresh_timer.start(30000)  # 30초마다 새로고침
     
     def setup_ui(self):
@@ -422,6 +422,8 @@ class SessionPanel(QWidget):
         self.stats_label = QLabel()
         self.stats_label.setMinimumHeight(36)
         self.stats_label.setObjectName("stats_label")
+        self.stats_label.setToolTip("세션 수 | 메시지 수 | DB 용량 | 도구 수 (마지막 숫자 클릭시 상세보기)")
+        self.stats_label.mousePressEvent = self.on_stats_label_click
         layout.addWidget(self.stats_label)
         
         self.setLayout(layout)
@@ -433,6 +435,10 @@ class SessionPanel(QWidget):
         
         # 메인 윈도우 참조 초기화
         self.main_window = None
+        
+        # 마우스 추적 활성화 (도구 영역 감지용)
+        self.setMouseTracking(True)
+        self.stats_label.setMouseTracking(True)
         
         # 앱 시작 시 세션 DB에서 로드
         QTimer.singleShot(100, self.load_sessions_from_db)
@@ -471,6 +477,18 @@ class SessionPanel(QWidget):
                 logger.info("세션 DB가 비어있음")
         except Exception as e:
             logger.error(f"세션 DB 로드 오류: {e}")
+    
+    def refresh_all_data(self):
+        """모든 데이터 새로고침 - 비동기 처리"""
+        QTimer.singleShot(0, self._async_refresh)
+    
+    def _async_refresh(self):
+        """비동기 데이터 새로고침"""
+        try:
+            self.load_sessions()
+            QTimer.singleShot(100, self.update_stats)
+        except Exception as e:
+            logger.error(f"비동기 새로고침 오류: {e}")
     
     def load_sessions(self):
         """세션 목록 로드"""
@@ -562,7 +580,7 @@ class SessionPanel(QWidget):
                     self.main_window.current_session_id = session_id
                     self.main_window._auto_session_created = True
                 
-                self.load_sessions()
+                self.refresh_all_data()
                 self.select_session(session_id)
                 self.session_created.emit(session_id)
                 
@@ -593,7 +611,7 @@ class SessionPanel(QWidget):
                 )
                 
                 if success:
-                    self.load_sessions()
+                    self.refresh_all_data()
                     QMessageBox.information(self, "성공", "세션 이름이 변경되었습니다.")
                 else:
                     QMessageBox.warning(self, "실패", "세션 이름 변경에 실패했습니다.")
@@ -633,7 +651,7 @@ class SessionPanel(QWidget):
                     self.rename_btn.setEnabled(False)
                     self.export_btn.setEnabled(False)
                     self.delete_btn.setEnabled(False)
-                    self.load_sessions()
+                    self.refresh_all_data()
                     QMessageBox.information(self, "성공", "세션이 삭제되었습니다.")
                 else:
                     QMessageBox.warning(self, "실패", "세션 삭제에 실패했습니다.")
@@ -782,16 +800,22 @@ class SessionPanel(QWidget):
             QMessageBox.critical(self, '오류', f'PDF 내보내기 실패: {str(e)}')
     
     def update_stats(self):
-        """통계 정보 업데이트"""
+        """통계 정보 업데이트 - 비동기 처리"""
+        QTimer.singleShot(0, self._update_stats_async)
+    
+    def _update_stats_async(self):
+        """비동기 통계 업데이트"""
         try:
             stats = session_manager.get_session_stats()
             self.stats_label.setText(
-                f"📊 세션 {stats['total_sessions']}개 | "
-                f"메시지 {stats['total_messages']}개"
+                f"세션 {stats['total_sessions']}개 | "
+                f"메시지 {stats['total_messages']}개 | "
+                f"{stats['db_size_mb']} MB | "
+                f"{stats['available_tools']}개"
             )
         except Exception as e:
             logger.error(f"통계 업데이트 오류: {e}")
-            self.stats_label.setText("📊 통계 로드 실패")
+            self.stats_label.setText("통계 로드 실패")
     
     def get_current_session_id(self) -> Optional[int]:
         """현재 선택된 세션 ID 반환"""
@@ -1011,7 +1035,7 @@ class SessionPanel(QWidget):
         }
         """
         
-        # 통계 라벨 스타일 - Soft Shadow + Rounded Edge + Gradient Depth
+        # 통계 라벨 스타일
         is_dark = theme_manager.is_material_dark_theme()
         stats_text_color = colors.get('text_secondary', '#b3b3b3') if is_dark else colors.get('text_primary', '#333333')
         
@@ -1118,7 +1142,7 @@ class SessionPanel(QWidget):
                         self.rename_btn.setEnabled(False)
                         self.export_btn.setEnabled(False)
                         self.delete_btn.setEnabled(False)
-                    self.load_sessions()
+                    self.refresh_all_data()
                     QMessageBox.information(self, "성공", "세션이 삭제되었습니다.")
                 else:
                     QMessageBox.warning(self, "실패", "세션 삭제에 실패했습니다.")
@@ -1489,6 +1513,57 @@ class SessionPanel(QWidget):
                 return widget
             widget = widget.parent()
         return None
+    
+
+    
+    def on_stats_label_click(self, event):
+        """통계 라벨 클릭 처리 - 마지막 숫자 영역만 반응"""
+        text = self.stats_label.text()
+        if "개" in text:
+            label_width = self.stats_label.width()
+            click_x = event.position().x()
+            
+            # 텍스트의 마지막 1/4 영역에서 클릭한 경우만 반응
+            if click_x > label_width * 0.75:
+                self.show_tools_detail()
+    
+    def show_tools_detail(self):
+        """MCP 서버 관리 화면 열기"""
+        try:
+            # 메인 윈도우 찾기
+            main_window = self._find_main_window()
+            if main_window and hasattr(main_window, 'show_mcp_dialog'):
+                main_window.show_mcp_dialog()
+            else:
+                # 직접 MCP 대화상자 열기
+                from ui.mcp_dialog import MCPDialog
+                dialog = MCPDialog(self)
+                dialog.exec()
+            
+        except Exception as e:
+            logger.error(f"MCP 서버 관리 화면 열기 오류: {e}")
+            QMessageBox.warning(self, "오류", f"MCP 서버 관리 화면을 열 수 없습니다:\n{e}")
+    
+
+    
+    def mouseMoveEvent(self, event):
+        """마우스 이동 시 도구 영역에서만 손모양 커서"""
+        if hasattr(self, 'stats_label'):
+            stats_rect = self.stats_label.geometry()
+            if stats_rect.contains(event.position().toPoint()):
+                text = self.stats_label.text()
+                if "개" in text:
+                    # 텍스트의 마지막 1/4 영역에서만 손모양 커서
+                    relative_x = event.position().x() - stats_rect.x()
+                    if relative_x > stats_rect.width() * 0.75:
+                        self.setCursor(Qt.CursorShape.PointingHandCursor)
+                    else:
+                        self.setCursor(Qt.CursorShape.ArrowCursor)
+                else:
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+        super().mouseMoveEvent(event)
     
     def update_theme(self):
         """테마 업데이트"""

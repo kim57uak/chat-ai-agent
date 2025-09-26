@@ -168,23 +168,111 @@ class MaterialThemeManager:
                 "delete_hover_bg": "rgba(239,68,68,0.25)"
             }
     
+    def is_glassmorphism_enabled(self) -> bool:
+        """글래스모피즘 활성화 상태 확인"""
+        try:
+            if os.path.exists(self.theme_file):
+                with open(self.theme_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get("glassmorphism_enabled", True)
+        except Exception:
+            pass
+        return True  # 기본값은 활성화
+    
+    def toggle_glassmorphism(self) -> bool:
+        """글래스모피즘 활성화/비활성화 토글"""
+        try:
+            if os.path.exists(self.theme_file):
+                with open(self.theme_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                current_state = data.get("glassmorphism_enabled", True)
+                new_state = not current_state
+                data["glassmorphism_enabled"] = new_state
+                
+                with open(self.theme_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                
+                return new_state
+        except Exception as e:
+            print(f"글래스모피즘 토글 오류: {e}")
+        return True
+    
+    def get_glassmorphism_config(self) -> Dict[str, Any]:
+        """글래스모피즘 설정 반환"""
+        theme = self.get_current_theme()
+        return theme.get("glassmorphism", {
+            "blur_intensity": "20px",
+            "saturation": "180%",
+            "border_opacity": 0.15,
+            "shadow_opacity": 0.1,
+            "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        })
+    
+    def _generate_glassmorphism_background(self) -> str:
+        """글래스모피즘 배경 생성"""
+        colors = self.get_theme_colors()
+        primary = colors.get('primary', '#bb86fc')
+        secondary = colors.get('secondary', '#03dac6')
+        background = colors.get('background', '#121212')
+        
+        if self.is_dark_theme():
+            return f"linear-gradient(135deg, {background} 0%, rgba({self._hex_to_rgb(primary)}, 0.05) 25%, rgba({self._hex_to_rgb(secondary)}, 0.03) 50%, {background} 75%, rgba({self._hex_to_rgb(primary)}, 0.02) 100%)"
+        else:
+            return f"linear-gradient(135deg, {background} 0%, rgba({self._hex_to_rgb(primary)}, 0.03) 25%, rgba({self._hex_to_rgb(secondary)}, 0.02) 50%, {background} 75%, rgba({self._hex_to_rgb(primary)}, 0.01) 100%)"
+    
+    def _get_glassmorphism_surface(self, base_color: str) -> str:
+        """글래스모피즘 표면 색상 생성"""
+        colors = self.get_theme_colors()
+        primary = colors.get('primary', '#bb86fc')
+        glass_config = self.get_glassmorphism_config()
+        
+        if self.is_dark_theme():
+            return f"linear-gradient(135deg, {base_color}, rgba({self._hex_to_rgb(primary)}, 0.08), rgba(255, 255, 255, 0.02))"
+        else:
+            return f"linear-gradient(135deg, {base_color}, rgba({self._hex_to_rgb(primary)}, 0.05), rgba(255, 255, 255, 0.4))"
+    
     def generate_web_css(self) -> str:
-        """웹뷰용 Material Design CSS 생성 (수정됨)"""
+        """웹뷰용 Material Design CSS 생성 (글래스모피즘 적용)"""
         colors = self.get_theme_colors()
         code_text_color = self._get_code_text_color()
         mermaid_text_color = self._get_mermaid_text_color()
         mermaid_node_fill = self._get_mermaid_node_fill()
         background_color = colors.get('background', '#121212')
         
+        # 글래스모피즘 효과 설정
+        glassmorphism_enabled = self.is_glassmorphism_enabled()
+        
+        if glassmorphism_enabled:
+            glassmorphism_bg = self._generate_glassmorphism_background()
+            glass_config = self.get_glassmorphism_config()
+            blur_intensity = glass_config.get('blur_intensity', '20px')
+            saturation = glass_config.get('saturation', '180%')
+            border_opacity = 0.25
+            shadow_opacity = 0.15
+            inset_highlight = 'rgba(255, 255, 255, 0.15)'
+            # 배경에만 블러 효과 적용, 텍스트는 선명하게 유지
+            backdrop_filter = f"backdrop-filter: blur({blur_intensity}) saturate({saturation});"
+            webkit_backdrop_filter = f"-webkit-backdrop-filter: blur({blur_intensity}) saturate({saturation});"
+            box_shadow = f"box-shadow: 0 12px 40px rgba(0, 0, 0, {shadow_opacity}), inset 0 1px 0 {inset_highlight};"
+        else:
+            glassmorphism_bg = background_color
+            border_opacity = 0.12
+            backdrop_filter = ""
+            webkit_backdrop_filter = ""
+            box_shadow = "box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);"
+        
         css_content = f"""
         html, body {{
-            background-color: {background_color};
+            background: {glassmorphism_bg};
             color: {colors.get('text_primary', '#ffffff')};
             font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             font-size: 15px;
             line-height: 1.6;
             margin: 0;
             padding: 16px;
+            {backdrop_filter}
+            {webkit_backdrop_filter}
         }}
         
         .message {{
@@ -192,7 +280,10 @@ class MaterialThemeManager:
             padding: 20px 24px !important;
             border-radius: 20px !important;
             position: relative !important;
-            border: 1px solid {colors.get('divider', 'rgba(255, 255, 255, 0.12)')} !important;
+            border: 1px solid rgba(255, 255, 255, {border_opacity}) !important;
+            {backdrop_filter if glassmorphism_enabled else ''}
+            {webkit_backdrop_filter if glassmorphism_enabled else ''}
+            {box_shadow}
         }}
         
         .message:hover {{
@@ -200,22 +291,28 @@ class MaterialThemeManager:
         }}
         
         .message.user {{
-            background: {colors.get('user_bg', 'rgba(187, 134, 252, 0.03)')} !important;
+            background: {self._get_glassmorphism_surface(colors.get('user_bg', 'rgba(187, 134, 252, 0.03)')) if glassmorphism_enabled else colors.get('user_bg', 'rgba(187, 134, 252, 0.03)')} !important;
             border-left: 4px solid {colors.get('user_border', '#bb86fc')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
+            {backdrop_filter if glassmorphism_enabled else ''}
+            {webkit_backdrop_filter if glassmorphism_enabled else ''}
         }}
         
         .message.ai {{
-            background: {colors.get('ai_bg', 'rgba(3, 218, 198, 0.03)')} !important;
+            background: {self._get_glassmorphism_surface(colors.get('ai_bg', 'rgba(3, 218, 198, 0.03)')) if glassmorphism_enabled else colors.get('ai_bg', 'rgba(3, 218, 198, 0.03)')} !important;
             border-left: 4px solid {colors.get('ai_border', '#03dac6')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
+            {backdrop_filter if glassmorphism_enabled else ''}
+            {webkit_backdrop_filter if glassmorphism_enabled else ''}
         }}
         
         .message.system {{
-            background: {colors.get('system_bg', 'rgba(179, 179, 179, 0.03)')} !important;
+            background: {self._get_glassmorphism_surface(colors.get('system_bg', 'rgba(179, 179, 179, 0.03)')) if glassmorphism_enabled else colors.get('system_bg', 'rgba(179, 179, 179, 0.03)')} !important;
             border-left: 4px solid {colors.get('system_border', '#b3b3b3')} !important;
             color: {colors.get('text_secondary', '#b3b3b3')} !important;
             font-size: 13px !important;
+            {backdrop_filter if glassmorphism_enabled else ''}
+            {webkit_backdrop_filter if glassmorphism_enabled else ''}
         }}
         
         .message-header {{
@@ -242,15 +339,18 @@ class MaterialThemeManager:
             position: absolute !important;
             top: 16px !important;
             right: 20px !important;
-            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {background_color}) !important;
+            background: {self._get_glassmorphism_surface('rgba(255, 255, 255, 0.1)')} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
-            border: 1px solid {colors.get('divider', '#333333')} !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
             padding: 8px 16px !important;
             border-radius: 12px !important;
             cursor: pointer !important;
             font-size: 12px !important;
             font-weight: 600 !important;
             opacity: 0 !important;
+            backdrop-filter: blur(10px) saturate(180%);
+            -webkit-backdrop-filter: blur(10px) saturate(180%);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
         }}
         
         .message:hover .copy-message-btn {{
@@ -264,8 +364,8 @@ class MaterialThemeManager:
         }}
         
         pre {{
-            background: linear-gradient(135deg, {colors.get('code_bg', '#2d2d2d')}, {colors.get('surface', '#1e1e1e')}) !important;
-            border: 1px solid {colors.get('code_border', '#404040')} !important;
+            background: {self._get_glassmorphism_surface(colors.get('code_bg', '#2d2d2d'))} !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
             border-radius: 16px !important;
             padding: 20px !important;
             margin: 20px 0 !important;
@@ -276,16 +376,21 @@ class MaterialThemeManager:
             line-height: 1.43 !important;
             letter-spacing: 0.25px !important;
             color: {code_text_color} !important;
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }}
         
         code {{
-            background: linear-gradient(135deg, {colors.get('code_bg', '#2d2d2d')}, {colors.get('surface', '#1e1e1e')}) !important;
-            border: 1px solid {colors.get('code_border', '#404040')} !important;
+            background: {self._get_glassmorphism_surface(colors.get('code_bg', '#2d2d2d'))} !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
             border-radius: 8px !important;
             padding: 4px 8px !important;
             font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace !important;
             font-size: 12px !important;
             color: {code_text_color} !important;
+            backdrop-filter: blur(10px) saturate(150%);
+            -webkit-backdrop-filter: blur(10px) saturate(150%);
         }}
         
         pre code {{
@@ -353,9 +458,12 @@ class MaterialThemeManager:
             margin: 16px 0 !important;
             color: {colors.get('text_secondary', '#b3b3b3')} !important;
             font-style: italic !important;
-            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {background_color}) !important;
+            background: {self._get_glassmorphism_surface(colors.get('surface', '#1e1e1e'))} !important;
             padding: 16px 20px !important;
             border-radius: 0 16px 16px 0 !important;
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
         }}
         
         a {{
@@ -399,14 +507,17 @@ class MaterialThemeManager:
         
         /* Mermaid 다이어그램 테마별 스타일 */
         .mermaid {{
-            background-color: {colors.get('code_bg', '#2d2d2d')} !important;
-            border: 1px solid {colors.get('code_border', '#404040')} !important;
-            border-radius: 8px !important;
+            background: {self._get_glassmorphism_surface(colors.get('code_bg', '#2d2d2d'))} !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            border-radius: 16px !important;
             padding: 20px !important;
             margin: 16px 0 !important;
             text-align: center !important;
             overflow-x: auto !important;
             min-height: 100px !important;
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }}
         
         .mermaid .node rect,
@@ -438,10 +549,13 @@ class MaterialThemeManager:
             border-collapse: collapse !important;
             width: 100% !important;
             margin: 16px 0 !important;
-            background: linear-gradient(135deg, {colors.get('surface', '#1e1e1e')}, {background_color}) !important;
-            border: 1px solid {colors.get('code_border', '#404040')} !important;
+            background: {self._get_glassmorphism_surface(colors.get('surface', '#1e1e1e'))} !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
             border-radius: 16px !important;
             overflow: hidden !important;
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }}
         
         th {{

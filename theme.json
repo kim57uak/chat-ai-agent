@@ -1,5 +1,5 @@
 {
-  "current_theme": "modern_neutral",
+  "current_theme": "midnight_blue",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -36,6 +36,13 @@
         "background": "rgba(124, 127, 184, 0.1)",
         "chunk": "linear-gradient(90deg, #7c7fb8 0%, #8aa1c4 100%)",
         "glow": "rgba(124, 127, 184, 0.3)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.1,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "material_lighter": {
@@ -73,6 +80,13 @@
         "background": "rgba(155, 141, 184, 0.1)",
         "chunk": "linear-gradient(90deg, #9b8db8 0%, #7fb5a3 100%)",
         "glow": "rgba(155, 141, 184, 0.3)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "material_palenight": {
@@ -110,6 +124,13 @@
         "background": "rgba(160, 141, 184, 0.1)",
         "chunk": "linear-gradient(90deg, #a08db8 0%, #8bb5c4 100%)",
         "glow": "rgba(160, 141, 184, 0.3)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "material_dark": {
@@ -147,6 +168,13 @@
         "background": "rgba(139, 127, 184, 0.15)",
         "chunk": "linear-gradient(90deg, #8b7fb8 0%, #7fb5c4 100%)",
         "glow": "rgba(139, 127, 184, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.2,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "material_ocean": {
@@ -184,6 +212,13 @@
         "background": "rgba(107, 141, 181, 0.15)",
         "chunk": "linear-gradient(90deg, #6b8db5 0%, #7fb5a3 100%)",
         "glow": "rgba(107, 141, 181, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "material_darker": {
@@ -221,6 +256,13 @@
         "background": "rgba(196, 166, 124, 0.15)",
         "chunk": "linear-gradient(90deg, #c4a67c 0%, #8aa1c4 100%)",
         "glow": "rgba(196, 166, 124, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "material_forest": {
@@ -258,6 +300,13 @@
         "background": "rgba(127, 181, 163, 0.15)",
         "chunk": "linear-gradient(90deg, #7fb5a3 0%, #a0b875 100%)",
         "glow": "rgba(127, 181, 163, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "material_skyblue": {
@@ -295,6 +344,13 @@
         "background": "rgba(0, 198, 224, 0.15)",
         "chunk": "linear-gradient(90deg, #00c6e0 0%, #6182b8 100%)",
         "glow": "rgba(0, 198, 224, 0.3)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "material_sandybeach": {
@@ -332,6 +388,13 @@
         "background": "rgba(83, 199, 240, 0.15)",
         "chunk": "linear-gradient(90deg, #53c7f0 0%, #f6a434 100%)",
         "glow": "rgba(83, 199, 240, 0.3)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "material_volcano": {
@@ -369,6 +432,13 @@
         "background": "rgba(0, 188, 212, 0.15)",
         "chunk": "linear-gradient(90deg, #00bcd4 0%, #f78c6c 100%)",
         "glow": "rgba(0, 188, 212, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "material_dracula": {
@@ -406,6 +476,13 @@
         "background": "rgba(255, 121, 197, 0.15)",
         "chunk": "linear-gradient(90deg, #FF79C5 0%, #8aff80 100%)",
         "glow": "rgba(255, 121, 197, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "material_github": {
@@ -443,6 +520,13 @@
         "background": "rgba(121, 203, 96, 0.15)",
         "chunk": "linear-gradient(90deg, #79CB60 0%, #005cc5 100%)",
         "glow": "rgba(121, 203, 96, 0.3)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "material_one_dark": {
@@ -480,6 +564,13 @@
         "background": "rgba(41, 121, 255, 0.15)",
         "chunk": "linear-gradient(90deg, #2979ff 0%, #61aeef 100%)",
         "glow": "rgba(41, 121, 255, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "material_night_owl": {
@@ -517,6 +608,13 @@
         "background": "rgba(126, 87, 194, 0.15)",
         "chunk": "linear-gradient(90deg, #7e57c2 0%, #82aaff 100%)",
         "glow": "rgba(126, 87, 194, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "deep_dark": {
@@ -554,6 +652,13 @@
         "background": "rgba(26, 26, 26, 0.3)",
         "chunk": "linear-gradient(90deg, #1A1A1A 0%, #2D2D2D 50%, #0F0F0F 100%)",
         "glow": "rgba(45, 45, 45, 0.6)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "maga_theme": {
@@ -591,6 +696,13 @@
         "background": "rgba(220, 20, 60, 0.1)",
         "chunk": "linear-gradient(90deg, #DC143C 0%, #FFFFFF 25%, #002868 50%, #FFFFFF 75%, #DC143C 100%)",
         "glow": "rgba(220, 20, 60, 0.6)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "mkga_theme": {
@@ -628,6 +740,13 @@
         "background": "rgba(205, 33, 42, 0.15)",
         "chunk": "linear-gradient(90deg, #CD212A 0%, #000000 25%, #003478 50%, #000000 75%, #CD212A 100%)",
         "glow": "rgba(205, 33, 42, 0.8)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "ice_age": {
@@ -665,6 +784,13 @@
         "background": "rgba(135, 206, 235, 0.15)",
         "chunk": "linear-gradient(90deg, #87CEEB 0%, #B0E0E6 25%, #4682B4 50%, #5F9EA0 75%, #87CEEB 100%)",
         "glow": "rgba(135, 206, 235, 0.6)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "crypto_bitcoin": {
@@ -702,6 +828,13 @@
         "background": "rgba(247, 147, 26, 0.15)",
         "chunk": "linear-gradient(90deg, #F7931A 0%, #FFD700 25%, #FFA500 50%, #E8851C 75%, #F7931A 100%)",
         "glow": "rgba(247, 147, 26, 0.8)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "crypto_ethereum": {
@@ -739,6 +872,13 @@
         "background": "rgba(98, 126, 234, 0.15)",
         "chunk": "linear-gradient(90deg, #627EEA 0%, #8A92B2 25%, #4B6CD6 50%, #6B73A3 75%, #627EEA 100%)",
         "glow": "rgba(98, 126, 234, 0.8)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "eye_comfort": {
@@ -776,6 +916,13 @@
         "background": "rgba(74, 144, 164, 0.1)",
         "chunk": "linear-gradient(90deg, #4A90A4 0%, #7B9F35 100%)",
         "glow": "rgba(74, 144, 164, 0.25)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "true_gray": {
@@ -813,6 +960,13 @@
         "background": "rgba(107, 114, 128, 0.1)",
         "chunk": "linear-gradient(90deg, #6B7280 0%, #9CA3AF 25%, #4B5563 50%, #D1D5DB 75%, #6B7280 100%)",
         "glow": "rgba(107, 114, 128, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "25px",
+        "saturation": "200%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)"
       }
     },
     "sage_whisper": {
@@ -850,6 +1004,13 @@
         "background": "rgba(107, 124, 110, 0.08)",
         "chunk": "linear-gradient(90deg, #6b7c6e 0%, #8b9a8c 100%)",
         "glow": "rgba(107, 124, 110, 0.2)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "lavender_mist": {
@@ -887,6 +1048,13 @@
         "background": "rgba(139, 127, 184, 0.08)",
         "chunk": "linear-gradient(90deg, #8b7fb8 0%, #a69bc7 100%)",
         "glow": "rgba(139, 127, 184, 0.2)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "warm_stone": {
@@ -924,6 +1092,13 @@
         "background": "rgba(160, 136, 117, 0.15)",
         "chunk": "linear-gradient(90deg, #a08875 0%, #b59d8a 100%)",
         "glow": "rgba(160, 136, 117, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "dusty_rose": {
@@ -961,6 +1136,13 @@
         "background": "rgba(184, 134, 154, 0.08)",
         "chunk": "linear-gradient(90deg, #b8869a 0%, #c79aab 100%)",
         "glow": "rgba(184, 134, 154, 0.2)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "midnight_blue": {
@@ -998,6 +1180,13 @@
         "background": "rgba(107, 141, 181, 0.15)",
         "chunk": "linear-gradient(90deg, #6b8db5 0%, #8aa1c4 100%)",
         "glow": "rgba(107, 141, 181, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     },
     "soft_amber": {
@@ -1035,6 +1224,13 @@
         "background": "rgba(181, 149, 107, 0.08)",
         "chunk": "linear-gradient(90deg, #b5956b 0%, #c4a67c 100%)",
         "glow": "rgba(181, 149, 107, 0.2)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "15px",
+        "saturation": "150%",
+        "border_opacity": 0.12,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)"
       }
     },
     "modern_neutral": {
@@ -1072,6 +1268,13 @@
         "background": "rgba(99, 102, 241, 0.15)",
         "chunk": "linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%)",
         "glow": "rgba(99, 102, 241, 0.4)"
+      },
+      "glassmorphism": {
+        "blur_intensity": "20px",
+        "saturation": "180%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.08)"
       }
     }
   }

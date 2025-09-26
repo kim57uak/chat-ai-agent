@@ -289,8 +289,68 @@ class SessionManager:
             return {
                 'total_sessions': row[0] or 0,
                 'total_messages': row[1] or 0,
-                'avg_messages_per_session': round(row[2] or 0, 1)
+                'avg_messages_per_session': round(row[2] or 0, 1),
+                'db_size_mb': self.get_db_size_mb(),
+                'available_tools': self.get_available_tools_count()
             }
+    
+    def get_db_size_mb(self) -> float:
+        """DB 파일 크기를 MB 단위로 반환"""
+        try:
+            import os
+            if os.path.exists(self.db.db_path):
+                size_bytes = os.path.getsize(self.db.db_path)
+                size_mb = size_bytes / (1024 * 1024)
+                return round(size_mb, 1)
+            return 0.0
+        except Exception as e:
+            logger.error(f"DB 크기 조회 오류: {e}")
+            return 0.0
+    
+    def get_available_tools_count(self) -> int:
+        """사용 가능한 MCP 서버 개수 반환 - ON 상태 서버만"""
+        try:
+            from mcp.client.mcp_client import mcp_manager
+            server_status = mcp_manager.get_server_status()
+            
+            running_servers = 0
+            for server_name, status_info in server_status.items():
+                if status_info['status'] == 'running':
+                    running_servers += 1
+            
+            return running_servers
+        except Exception as e:
+            logger.error(f"MCP 서버 개수 조회 오류: {e}")
+            return 0
+    
+    def get_available_tools_detail(self) -> Dict:
+        """사용 가능한 도구 상세 정보 반환 - ON 상태 서버만"""
+        try:
+            from mcp.client.mcp_client import mcp_manager
+            server_status = mcp_manager.get_server_status()
+            
+            tools_by_server = {}
+            total_count = 0
+            
+            for server_name, status_info in server_status.items():
+                tools = status_info.get('tools', [])
+                tool_names = [tool.get('name', 'Unknown') for tool in tools]
+                
+                tools_by_server[server_name] = {
+                    'count': len(tools) if status_info['status'] == 'running' else 0,
+                    'tools': tool_names if status_info['status'] == 'running' else []
+                }
+                
+                if status_info['status'] == 'running':
+                    total_count += len(tools)
+            
+            return {
+                'total_count': total_count,
+                'servers': tools_by_server
+            }
+        except Exception as e:
+            logger.error(f"도구 상세 정보 조회 오류: {e}")
+            return {'total_count': 0, 'servers': {}}
 
 
 # 전역 세션 매니저 인스턴스

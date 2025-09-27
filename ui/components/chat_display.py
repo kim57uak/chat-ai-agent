@@ -340,6 +340,76 @@ class ChatDisplay:
                     }}
                 }});
                 
+                // 우클릭 컨텍스트 메뉴 처리
+                document.addEventListener('contextmenu', function(event) {{
+                    event.preventDefault();
+                    
+                    var selectedText = getSelectedText();
+                    if (selectedText && selectedText.length > 0) {{
+                        showContextMenu(event.pageX, event.pageY, selectedText);
+                    }}
+                }});
+                
+                function showContextMenu(x, y, selectedText) {{
+                    // 기존 컨텍스트 메뉴 제거
+                    var existingMenu = document.getElementById('context-menu');
+                    if (existingMenu) {{
+                        existingMenu.remove();
+                    }}
+                    
+                    var menu = document.createElement('div');
+                    menu.id = 'context-menu';
+                    menu.style.cssText = 'position: absolute; background: rgba(45, 45, 45, 0.95); border: 1px solid #444444; border-radius: 8px; padding: 8px 0; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-width: 120px; backdrop-filter: blur(10px);';
+                    menu.style.left = x + 'px';
+                    menu.style.top = y + 'px';
+                    
+                    // 복사 메뉴 항목
+                    var copyItem = document.createElement('div');
+                    copyItem.textContent = '📋 복사';
+                    copyItem.style.cssText = 'padding: 8px 16px; cursor: pointer; color: #ffffff; font-size: 14px; transition: background 0.2s;';
+                    copyItem.onmouseover = function() {{ this.style.background = 'rgba(187, 134, 252, 0.3)'; }};
+                    copyItem.onmouseout = function() {{ this.style.background = 'transparent'; }};
+                    copyItem.onclick = function() {{
+                        if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
+                            pyqt_bridge.copyToClipboard(selectedText);
+                            showToast('텍스트가 복사되었습니다!');
+                        }}
+                        menu.remove();
+                    }};
+                    
+                    // 찾기 메뉴 항목
+                    var searchItem = document.createElement('div');
+                    searchItem.textContent = '🔍 찾기';
+                    searchItem.style.cssText = 'padding: 8px 16px; cursor: pointer; color: #ffffff; font-size: 14px; transition: background 0.2s;';
+                    searchItem.onmouseover = function() {{ this.style.background = 'rgba(187, 134, 252, 0.3)'; }};
+                    searchItem.onmouseout = function() {{ this.style.background = 'transparent'; }};
+                    searchItem.onclick = function() {{
+                        var cleanWord = selectedText.replace(/[^a-zA-Z가-힣]/g, '');
+                        if (cleanWord.length >= 2) {{
+                            searchInDictionary(cleanWord);
+                            showToast('찾는 단어: ' + cleanWord);
+                        }} else {{
+                            searchInDictionary(selectedText);
+                            showToast('찾는 단어: ' + selectedText);
+                        }}
+                        menu.remove();
+                    }};
+                    
+                    menu.appendChild(copyItem);
+                    menu.appendChild(searchItem);
+                    document.body.appendChild(menu);
+                    
+                    // 메뉴 외부 클릭 시 닫기
+                    setTimeout(function() {{
+                        document.addEventListener('click', function closeMenu(e) {{
+                            if (!menu.contains(e.target)) {{
+                                menu.remove();
+                                document.removeEventListener('click', closeMenu);
+                            }}
+                        }});
+                    }}, 10);
+                }}
+                
                 function copyCode(codeElement) {{
                     try {{
                         var codeText = codeElement.textContent || codeElement.innerText;

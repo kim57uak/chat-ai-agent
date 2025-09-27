@@ -4,7 +4,7 @@
       {
         "name": "연합뉴스",
         "url": "https://www.yna.co.kr/rss/news.xml",
-        "enabled": true
+        "enabled": false
       },
       {
         "name": "트래블데일리",
@@ -68,7 +68,7 @@
     "auto_refresh_interval": 300000
   },
   "date_filter": {
-    "news_days": 3,
-    "earthquake_days": 2
+    "news_days": 1,
+    "earthquake_days": 4
   }
 }

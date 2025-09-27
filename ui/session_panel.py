@@ -267,11 +267,17 @@ class SessionListItem(QWidget):
 
     
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit(self.session_id)
-        elif event.button() == Qt.MouseButton.RightButton:
-            self.show_context_menu(event.globalPosition().toPoint())
-        super().mousePressEvent(event)
+        try:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.clicked.emit(self.session_id)
+            elif event.button() == Qt.MouseButton.RightButton:
+                self.show_context_menu(event.globalPosition().toPoint())
+            super().mousePressEvent(event)
+        except RuntimeError as e:
+            if "wrapped C/C++ object" in str(e):
+                print(f"SessionListItem이 이미 삭제됨: {e}")
+                return
+            raise
     
     def show_context_menu(self, position):
         """우클릭 컨텍스트 메뉴 표시"""
@@ -638,6 +644,9 @@ class SessionPanel(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
+                # 먼저 UI에서 해당 아이템 제거
+                self._remove_session_item(self.current_session_id)
+                
                 success = session_manager.delete_session(self.current_session_id)
                 
                 if success:
@@ -651,14 +660,20 @@ class SessionPanel(QWidget):
                     self.rename_btn.setEnabled(False)
                     self.export_btn.setEnabled(False)
                     self.delete_btn.setEnabled(False)
-                    self.refresh_all_data()
+                    
+                    # 지연 새로고침
+                    QTimer.singleShot(100, self.refresh_all_data)
                     QMessageBox.information(self, "성공", "세션이 삭제되었습니다.")
                 else:
                     QMessageBox.warning(self, "실패", "세션 삭제에 실패했습니다.")
+                    # 실패 시 다시 로드
+                    self.load_sessions()
                     
             except Exception as e:
                 logger.error(f"세션 삭제 오류: {e}")
                 QMessageBox.critical(self, "오류", f"세션 삭제 중 오류가 발생했습니다:\n{e}")
+                # 오류 시 다시 로드
+                self.load_sessions()
     
     def export_session(self):
         """세션 내보내기"""
@@ -1129,6 +1144,9 @@ class SessionPanel(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
+                # 먼저 UI에서 해당 아이템 제거
+                self._remove_session_item(session_id)
+                
                 success = session_manager.delete_session(session_id)
                 if success:
                     # 메인 윈도우의 현재 세션 ID도 초기화
@@ -1142,13 +1160,38 @@ class SessionPanel(QWidget):
                         self.rename_btn.setEnabled(False)
                         self.export_btn.setEnabled(False)
                         self.delete_btn.setEnabled(False)
-                    self.refresh_all_data()
+                    
+                    # 지연 새로고침
+                    QTimer.singleShot(100, self.refresh_all_data)
                     QMessageBox.information(self, "성공", "세션이 삭제되었습니다.")
                 else:
                     QMessageBox.warning(self, "실패", "세션 삭제에 실패했습니다.")
+                    # 실패 시 다시 로드
+                    self.load_sessions()
             except Exception as e:
                 logger.error(f"세션 삭제 오류: {e}")
                 QMessageBox.critical(self, "오류", f"세션 삭제 중 오류가 발생했습니다:\n{e}")
+                # 오류 시 다시 로드
+                self.load_sessions()
+    
+    def _remove_session_item(self, session_id: int):
+        """안전하게 세션 아이템 제거"""
+        try:
+            for i in range(self.session_list.count()):
+                item = self.session_list.item(i)
+                if item:
+                    widget = self.session_list.itemWidget(item)
+                    if widget and hasattr(widget, 'session_id') and widget.session_id == session_id:
+                        # 위젯 연결 해제
+                        widget.clicked.disconnect()
+                        widget.delete_requested.disconnect()
+                        # 아이템 제거
+                        self.session_list.takeItem(i)
+                        # 위젯 삭제
+                        widget.deleteLater()
+                        break
+        except Exception as e:
+            logger.error(f"세션 아이템 제거 오류: {e}")
     
     def show_model_selector(self):
         """모델 선택기 표시 - 직접 구현"""
@@ -1574,3 +1617,24 @@ class SessionPanel(QWidget):
             widget = self.session_list.itemWidget(item)
             if hasattr(widget, 'apply_theme'):
                 widget.apply_theme()
+    def _remove_session_item(self, session_id: int):
+        """안전하게 세션 아이템 제거"""
+        try:
+            for i in range(self.session_list.count()):
+                item = self.session_list.item(i)
+                if item:
+                    widget = self.session_list.itemWidget(item)
+                    if widget and hasattr(widget, 'session_id') and widget.session_id == session_id:
+                        # 위젯 연결 해제
+                        try:
+                            widget.clicked.disconnect()
+                            widget.delete_requested.disconnect()
+                        except:
+                            pass
+                        # 아이템 제거
+                        self.session_list.takeItem(i)
+                        # 위젯 삭제
+                        widget.deleteLater()
+                        break
+        except Exception as e:
+            logger.error(f"세션 아이템 제거 오류: {e}")

@@ -4,7 +4,7 @@ import logging
 import time
 from ui.components.status_display import status_display
 from core.token_logger import TokenLogger
-from core.ai_logger import ai_logger
+# from core.ai_logger import ai_logger
 from core.simple_token_accumulator import token_accumulator
 
 
@@ -124,14 +124,15 @@ class AIProcessor(QObject):
                 # 실제 사용자 입력 결정
                 actual_user_input = processed_file_prompt or processed_user_text or ""
                 
-                request_id = ai_logger.log_request(
-                    model=model,
-                    system_prompt=system_prompt,
-                    user_input=actual_user_input,
-                    conversation_history=messages,
-                    tools_available=available_tools if agent_mode else [],
-                    agent_mode=agent_mode
-                )
+                # request_id = ai_logger.log_request(
+                #     model=model,
+                #     system_prompt=system_prompt,
+                #     user_input=actual_user_input,
+                #     conversation_history=messages,
+                #     tools_available=available_tools if agent_mode else [],
+                #     agent_mode=agent_mode
+                # )
+                request_id = None
                 
                 from core.ai_client import AIClient
                 client = AIClient(api_key, model)
@@ -287,26 +288,26 @@ class AIProcessor(QObject):
                         'output_tokens': actual_output_tokens
                     }
                     
-                    if request_id:
-                        ai_logger.log_response(
-                            request_id=request_id,
-                            model=model,
-                            response=str(response),
-                            used_tools=[str(tool) for tool in used_tools],
-                            token_usage=token_usage,
-                            response_time=response_time
-                        )
-                        
-                        # 추가 상세 로깅
-                        print(f"\n=== AI THINKING PROCESS LOG ===\nRequest ID: {request_id}")
-                        print(f"Model: {model} | Agent Mode: {agent_mode}")
-                        print(f"Input Length: {len(actual_user_input)} chars")
-                        print(f"Response Length: {len(str(response))} chars")
-                        print(f"Tools Used: {used_tools}")
-                        print(f"Response Time: {response_time:.2f}s")
-                        print(f"Tokens: IN:{token_usage.get('input_tokens', 0)} OUT:{token_usage.get('output_tokens', 0)}")
-                        if hasattr(client, '_last_response') and client._last_response:
-                            print(f"\n--- RAW AI RESPONSE ---\n{str(client._last_response)[:500]}...")
+                    # if request_id:
+                    #     ai_logger.log_response(
+                    #         request_id=request_id,
+                    #         model=model,
+                    #         response=str(response),
+                    #         used_tools=[str(tool) for tool in used_tools],
+                    #         token_usage=token_usage,
+                    #         response_time=response_time
+                    #     )
+                    
+                    # 추가 상세 로깅
+                    print(f"\n=== AI THINKING PROCESS LOG ===\nRequest ID: {request_id}")
+                    print(f"Model: {model} | Agent Mode: {agent_mode}")
+                    print(f"Input Length: {len(actual_user_input)} chars")
+                    print(f"Response Length: {len(str(response))} chars")
+                    print(f"Tools Used: {used_tools}")
+                    print(f"Response Time: {response_time:.2f}s")
+                    print(f"Tokens: IN:{token_usage.get('input_tokens', 0)} OUT:{token_usage.get('output_tokens', 0)}")
+                    if hasattr(client, '_last_response') and client._last_response:
+                        print(f"\n--- RAW AI RESPONSE ---\n{str(client._last_response)[:500]}...")
                     
                     # 응답 타입과 내용 로깅 (디버깅용)
                     print(f"\n=== RESPONSE DEBUG ===\nType: {type(response)}\nContent: {str(response)[:200]}...\nTools: {used_tools}")
@@ -370,16 +371,16 @@ class AIProcessor(QObject):
                     import traceback
                     print(f"Traceback:\n{traceback.format_exc()}")
                     
-                    if request_id:
-                        ai_logger.log_response(
-                            request_id=request_id,
-                            model=model,
-                            response="",
-                            used_tools=[],
-                            token_usage={},
-                            response_time=time.time() - request_start_time,
-                            error=str(e)
-                        )
+                    # if request_id:
+                    #     ai_logger.log_response(
+                    #         request_id=request_id,
+                    #         model=model,
+                    #         response="",
+                    #         used_tools=[],
+                    #         token_usage={},
+                    #         response_time=time.time() - request_start_time,
+                    #         error=str(e)
+                    #     )
         
         thread = threading.Thread(target=_process, daemon=True)
         thread.start()

@@ -7,8 +7,11 @@ logger = logging.getLogger(__name__)
 
 def start_mcp_servers(config_path: str = "mcp.json") -> bool:
     """MCP 서버들을 시작하고 초기화 (상태 파일 기반)"""
-    # 전체 서버 로드
-    success = mcp_manager.load_from_config(config_path)
+    from utils.config_path import config_path_manager
+    
+    # 사용자 설정 경로에서 mcp.json 로드
+    actual_config_path = config_path_manager.get_config_path(config_path)
+    success = mcp_manager.load_from_config(str(actual_config_path))
 
     if success:
         # 상태 파일에서 비활성화된 서버들 중지

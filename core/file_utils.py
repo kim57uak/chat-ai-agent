@@ -35,11 +35,12 @@ def save_last_model(model):
 def load_prompt_config():
     """Load prompt configuration from prompt_config.json."""
     import json
-    import os
+    from utils.config_path import config_path_manager
     
     try:
-        if os.path.exists('prompt_config.json'):
-            with open('prompt_config.json', 'r', encoding='utf-8') as f:
+        config_path = config_path_manager.get_config_path('prompt_config.json')
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         pass
@@ -78,6 +79,8 @@ def load_prompt_config():
 def save_prompt_config(config):
     """Save prompt configuration to prompt_config.json."""
     import json
+    from utils.config_path import config_path_manager
     
-    with open('prompt_config.json', 'w', encoding='utf-8') as f:
+    config_path = config_path_manager.get_config_path('prompt_config.json')
+    with open(config_path, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False) 

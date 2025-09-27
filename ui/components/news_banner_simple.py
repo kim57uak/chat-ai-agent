@@ -53,7 +53,9 @@ class NewsLoader(QObject):
         def load_in_thread():
             try:
                 self.running = True
-                with open("news_config.json", "r", encoding="utf-8") as f:
+                from utils.config_path import config_path_manager
+                config_path = config_path_manager.get_config_path('news_config.json')
+                with open(config_path, "r", encoding="utf-8") as f:
                     config = json.load(f)
 
                 all_news = []
@@ -433,7 +435,9 @@ class NewsBanner(QWidget):
 
         # 설정 파일에서 표시 시간 로드
         try:
-            with open("news_config.json", "r", encoding="utf-8") as f:
+            from utils.config_path import config_path_manager
+            config_path = config_path_manager.get_config_path('news_config.json')
+            with open(config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
             display_duration = config.get("display_settings", {}).get(
                 "display_duration", 8000

@@ -177,6 +177,13 @@ class MainWindow(QMainWindow):
         
         settings_menu.addSeparator()
         
+        # Config path setting
+        config_path_action = QAction('설정 파일 경로 설정', self)
+        config_path_action.triggered.connect(self.open_config_path_dialog)
+        settings_menu.addAction(config_path_action)
+        
+        settings_menu.addSeparator()
+        
         # History and prompt actions
         clear_history_action = QAction('대화 기록 초기화', self)
         clear_history_action.triggered.connect(self.clear_conversation_history)
@@ -320,6 +327,12 @@ class MainWindow(QMainWindow):
         
         ai_client = AIClient(api_key, model)
         dlg = UserPromptDialog(ai_client, self)
+        dlg.exec()
+    
+    def open_config_path_dialog(self) -> None:
+        """Open configuration path dialog."""
+        from ui.config_path_dialog import ConfigPathDialog
+        dlg = ConfigPathDialog(self)
         dlg.exec()
     
     def closeEvent(self, event):

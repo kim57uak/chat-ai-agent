@@ -1,20 +1,24 @@
-"""Configuration file path utilities for packaged applications."""
+"""Configuration file path utilities for user-configurable paths."""
 
 import os
 import sys
+import json
 from pathlib import Path
 from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
+# 사용자가 편집해야 하는 설정 파일들
+USER_CONFIG_FILES = {'config.json', 'mcp.json', 'news_config.json', 'prompt_config.json'}
 
 class ConfigPathManager:
-    """Manages configuration file paths for both development and packaged environments."""
+    """Manages configuration file paths with user-configurable base directory."""
     
     def __init__(self):
         self._base_path = self._get_base_path()
-        self._user_config_dir = self._get_user_config_dir()
+        self._user_config_path = None
+        self._load_user_config_path()
     
     def _get_base_path(self) -> Path:
         """Get the base path for the application."""
@@ -30,17 +34,41 @@ class ConfigPathManager:
             # Running in development
             return Path(__file__).parent.parent
     
-    def _get_user_config_dir(self) -> Path:
-        """Get user-specific configuration directory."""
-        if sys.platform == 'darwin':
-            config_dir = Path.home() / 'Library' / 'Application Support' / 'ChatAIAgent'
-        elif sys.platform == 'win32':
-            config_dir = Path(os.environ.get('APPDATA', Path.home())) / 'ChatAIAgent'
-        else:
-            config_dir = Path.home() / '.config' / 'ChatAIAgent'
-        
-        config_dir.mkdir(parents=True, exist_ok=True)
-        return config_dir
+    def _load_user_config_path(self):
+        """Load user-configured path from settings."""
+        settings_file = self._base_path / 'user_config_path.json'
+        if settings_file.exists():
+            try:
+                with open(settings_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    path_str = data.get('config_path')
+                    if path_str and Path(path_str).exists():
+                        self._user_config_path = Path(path_str)
+            except Exception as e:
+                logger.error(f"Failed to load user config path: {e}")
+    
+    def set_user_config_path(self, path: str) -> bool:
+        """Set user configuration path."""
+        try:
+            config_path = Path(path)
+            if not config_path.exists():
+                config_path.mkdir(parents=True, exist_ok=True)
+            
+            self._user_config_path = config_path
+            
+            # Save to settings file
+            settings_file = self._base_path / 'user_config_path.json'
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump({'config_path': str(config_path)}, f, ensure_ascii=False, indent=2)
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set user config path: {e}")
+            return False
+    
+    def get_user_config_path(self) -> Optional[Path]:
+        """Get current user configuration path."""
+        return self._user_config_path
     
     def get_config_path(self, filename: str, user_writable: bool = True) -> Path:
         """
@@ -53,12 +81,16 @@ class ConfigPathManager:
         Returns:
             Path to the configuration file
         """
-        # Always prefer project directory for all config files
-        project_path = self._base_path / filename
-        if project_path.exists():
-            return project_path
+        # Check if this is a user-configurable file
+        if filename in USER_CONFIG_FILES and self._user_config_path:
+            user_file_path = self._user_config_path / filename
+            if user_file_path.exists():
+                return user_file_path
+            # If user path is set but file doesn't exist, still return user path for creation
+            return user_file_path
         
-        # If project file doesn't exist, return project path anyway for creation
+        # For other files or when no user path is set, use base path
+        project_path = self._base_path / filename
         return project_path
     
     def ensure_config_exists(self, filename: str, default_content: str = None) -> Path:

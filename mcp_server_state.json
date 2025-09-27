@@ -3,7 +3,7 @@
   "hanatourApi": false,
   "mysql": false,
   "bitbucket": false,
-  "mcp-atlassian": false,
+  "mcp-atlassian": true,
   "notionApi": false,
   "ppt": false,
   "excel-stdio": false,

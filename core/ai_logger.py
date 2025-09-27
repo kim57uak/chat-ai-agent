@@ -10,9 +10,21 @@ from pathlib import Path
 class AILogger:
     """AI와의 모든 상호작용을 로깅하는 클래스"""
     
-    def __init__(self, log_dir: str = "logs"):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(exist_ok=True)
+    def __init__(self, log_dir: str = None):
+        if log_dir is None:
+            # 사용자 홈 디렉토리에 로그 폴더 생성
+            home_dir = Path.home()
+            self.log_dir = home_dir / ".chat-ai-agent" / "logs"
+        else:
+            self.log_dir = Path(log_dir)
+        
+        try:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            # 홈 디렉토리에도 생성할 수 없으면 임시 디렉토리 사용
+            import tempfile
+            self.log_dir = Path(tempfile.gettempdir()) / "chat-ai-agent-logs"
+            self.log_dir.mkdir(parents=True, exist_ok=True)
         
         # 로그 파일 설정
         self.setup_logger()

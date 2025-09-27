@@ -694,7 +694,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, '오류', f'PDF 내보내기 실패: {str(e)}')
     
     def _on_session_selected(self, session_id: int):
-        """세션 선택 이벤트 처리"""
+        """세션 선택 이벤트 처리 - 안전장치 포함"""
         try:
             # 메인 윈도우의 현재 세션 ID 업데이트
             self.current_session_id = session_id
@@ -713,16 +713,59 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, '오류', '세션을 찾을 수 없습니다.')
                 return
             
-            # 새로운 페이징 방식으로 세션 로드
             print(f"[SESSION_SELECT] 세션 {session_id} 로드 시도")
             
-            if hasattr(self.chat_widget, 'load_session_context'):
-                self.chat_widget.load_session_context(session_id)
+            # 대용량 세션 체크 (200개 이상 메시지)
+            message_count = session.get('message_count', 0)
+            if message_count > 200:
+                reply = QMessageBox.question(
+                    self, '대용량 세션 경고', 
+                    f'이 세션에는 {message_count}개의 메시지가 있습니다.\n'
+                    f'로드하는데 시간이 걸리고 메모리를 많이 사용할 수 있습니다.\n\n'
+                    f'계속 로드하시겠습니까?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.No:
+                    print(f"[SESSION_SELECT] 사용자가 대용량 세션 로드 취소")
+                    return
             
-            print(f"[SESSION_SELECT] 세션 로드 완료: {session['title']}")
+            # 채팅 화면 초기화
+            if hasattr(self.chat_widget, 'chat_display'):
+                self.chat_widget.chat_display.clear_messages()
+            
+            # 안전한 세션 로드 (타이머로 지연 실행)
+            QTimer.singleShot(100, lambda: self._safe_load_session(session_id))
+            
+            print(f"[SESSION_SELECT] 세션 로드 시작: {session['title']}")
             
         except Exception as e:
             print(f"세션 선택 오류: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _safe_load_session(self, session_id: int):
+        """안전한 세션 로드"""
+        try:
+            print(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 시작")
+            
+            # 세션 컨텍스트 로드 (제한된 수량으로)
+            if hasattr(self.chat_widget, 'load_session_context'):
+                self.chat_widget.load_session_context(session_id)
+            
+            print(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 완료")
+            
+        except Exception as e:
+            print(f"[SAFE_LOAD] 안전 로드 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # 오류 발생 시 사용자에게 알림
+            QMessageBox.critical(
+                self, '세션 로드 오류', 
+                f'세션을 로드하는 중 오류가 발생했습니다:\n{str(e)}\n\n'
+                f'다른 세션을 선택하거나 애플리케이션을 재시작해보세요.'
+            )
     
     def _on_session_created(self, session_id: int):
         """새 세션 생성 이벤트 처리"""

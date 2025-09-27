@@ -24,8 +24,30 @@ else
     echo "⚠️  가상환경이 없습니다. 시스템 Python 사용"
 fi
 
-# Python 실행
+# Python 실행 (안전 모드)
 echo "🚀 애플리케이션 실행 중..."
-python main.py
 
-echo "✅ 애플리케이션 종료 완료"
+# 메모리 및 스택 제한 설정
+ulimit -c 0  # 코어 덤프 비활성화
+ulimit -s 8192  # 스택 크기 제한
+
+# Python 실행 (디버그 모드 비활성화)
+export PYTHONOPTIMIZE=1
+export PYTHONDONTWRITEBYTECODE=1
+
+# 안전한 실행
+if python -c "import sys; print('Python 버전:', sys.version)" 2>/dev/null; then
+    python main.py
+    exit_code=$?
+else
+    echo "❌ Python 실행 환경에 문제가 있습니다."
+    exit 1
+fi
+
+if [ $exit_code -eq 0 ]; then
+    echo "✅ 애플리케이션 정상 종료"
+else
+    echo "⚠️ 애플리케이션이 오류와 함께 종료됨 (코드: $exit_code)"
+fi
+
+exit $exit_code

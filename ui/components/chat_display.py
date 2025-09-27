@@ -46,24 +46,38 @@ class ChatDisplay:
         settings.setAttribute(settings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
 
-        # PyQt6에서 지원하는 속성만 사용
+        # PyQt6에서 지원하는 속성만 안전하게 사용
         try:
             settings.setAttribute(
                 settings.WebAttribute.AllowRunningInsecureContent, True
             )
-        except AttributeError:
-            pass
+        except (AttributeError, RuntimeError) as e:
+            print(f"AllowRunningInsecureContent 설정 실패 (무시됨): {e}")
+        
         try:
             settings.setAttribute(
                 settings.WebAttribute.PlaybackRequiresUserGesture, False
             )
-        except AttributeError:
-            pass
+        except (AttributeError, RuntimeError) as e:
+            print(f"PlaybackRequiresUserGesture 설정 실패 (무시됨): {e}")
 
-        # 웹뷰 배경 투명 설정 및 스크롤 최적화
-        self.web_view.page().setBackgroundColor(
-            self.web_view.palette().color(self.web_view.palette().ColorRole.Window)
-        )
+        # 웹뷰 배경 설정 (안전한 방식으로 변경)
+        try:
+            # PyQt6에서 setBackgroundColor 호출 시 크래시 방지
+            from PyQt6.QtGui import QColor
+            from ui.styles.theme_manager import theme_manager
+            
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                bg_color = QColor(colors.get('background', '#121212'))
+            else:
+                bg_color = QColor('#1a1a1a')
+            
+            # setBackgroundColor 대신 CSS로 배경색 설정
+            # self.web_view.page().setBackgroundColor(bg_color)  # 크래시 원인
+            
+        except Exception as e:
+            print(f"웹뷰 배경 설정 오류 (무시됨): {e}")
         
         # 스크롤바 스타일 적용
         self._apply_scrollbar_style()
@@ -552,14 +566,21 @@ class ChatDisplay:
         print("채팅 디스플레이 테마 업데이트 완료")
 
     def _setup_link_handler(self):
-        """링크 클릭 핸들러 설정"""
-        from PyQt6.QtWebChannel import QWebChannel
+        """링크 클릭 핸들러 안전 설정"""
+        try:
+            from PyQt6.QtWebChannel import QWebChannel
 
-        # 웹 채널 설정
-        self.channel = QWebChannel()
-        self.link_handler = LinkHandler()
-        self.channel.registerObject("pyqt_bridge", self.link_handler)
-        self.web_view.page().setWebChannel(self.channel)
+            # 웹 채널 안전 설정
+            self.channel = QWebChannel()
+            self.link_handler = LinkHandler()
+            self.channel.registerObject("pyqt_bridge", self.link_handler)
+            self.web_view.page().setWebChannel(self.channel)
+            print("웹 채널 설정 완료")
+            
+        except Exception as e:
+            print(f"웹 채널 설정 오류: {e}")
+            # 채널 설정 실패 시 기본 핸들러만 생성
+            self.link_handler = LinkHandler()
 
     def set_chat_widget(self, chat_widget):
         """채팅 위젯 참조 설정"""

@@ -188,7 +188,7 @@ class ChatDisplay:
                         elements.forEach(function(element, index) {{
                             var code = element.textContent.trim();
                             // 빈 코드나 잘못된 구문 필터링
-                            if (code && code.length > 10 && (code.includes('graph') || code.includes('sequenceDiagram') || code.includes('flowchart') || code.includes('classDiagram') || code.includes('gitgraph') || code.includes('pie') || code.includes('journey') || code.includes('gantt') || code.includes('mindmap') || code.includes('timeline') || code.includes('sankey') || code.includes('xychart'))) {{
+                            if (code && code.length > 10 && (code.includes('graph') || code.includes('sequenceDiagram') || code.includes('flowchart') || code.includes('classDiagram') || code.includes('erDiagram') || code.includes('gitgraph') || code.includes('pie') || code.includes('journey') || code.includes('gantt') || code.includes('mindmap') || code.includes('timeline') || code.includes('sankey') || code.includes('xychart'))) {{
                                 var id = 'mermaid-' + Date.now() + '-' + index;
                                 mermaid.render(id, code).then(function(result) {{
                                     element.innerHTML = result.svg;

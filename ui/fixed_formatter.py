@@ -32,7 +32,7 @@ class FixedFormatter:
             # 기본 다이어그램
             'flowchart', 'graph TD', 'graph LR', 'graph TB', 'graph RL', 'graph BT',
             'sequenceDiagram', 'classDiagram', 'stateDiagram-v2', 'stateDiagram', 'erDiagram',
-            'journey', 'gantt', 'pie', 'requirementDiagram', 'gitgraph',
+            'journey', 'gantt', 'pie', 'requirementDiagram', 'gitgraph', 'gitGraph',
             # C4 다이어그램
             'C4Context', 'C4Container', 'C4Component', 'C4Dynamic', 'C4Deployment',
             # 새로운 다이어그램 유형
@@ -209,6 +209,10 @@ class FixedFormatter:
                 
                 if len(fixed_lines) > 1:
                     content = '\n    '.join(fixed_lines)
+            
+            # GitGraph 구문 특별 처리 - tag 문법 수정
+            if content.strip().startswith('gitGraph'):
+                content = self._fix_gitgraph_syntax(content)
             
             # Mindmap 구문 특별 처리 - 올바른 들여쓰기 보장
             if content.strip().startswith('mindmap'):
@@ -448,5 +452,24 @@ class FixedFormatter:
                 else:
                     # 4레벨 이상
                     fixed_lines.append(f'          {stripped}')
+        
+        return '\n'.join(fixed_lines)
+    
+    def _fix_gitgraph_syntax(self, content):
+        """GitGraph 문법 수정 - tag 구문 문제 해결"""
+        lines = content.split('\n')
+        fixed_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            
+            # tag 구문을 commit으로 변경 (Mermaid v11.12.0 호환성)
+            if stripped.startswith('tag '):
+                tag_name = stripped.replace('tag ', '').strip('"')
+                fixed_lines.append(f'    commit id: "Tag: {tag_name}"')
+            else:
+                fixed_lines.append(stripped)
         
         return '\n'.join(fixed_lines)

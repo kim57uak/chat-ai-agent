@@ -23,16 +23,39 @@ class ConfigPathManager:
     def _get_base_path(self) -> Path:
         """Get the base path for the application."""
         if getattr(sys, 'frozen', False):
-            # Running as packaged app
-            if sys.platform == 'darwin':
-                # macOS app bundle
-                return Path(sys.executable).parent.parent / 'Resources'
-            else:
-                # Windows/Linux executable
-                return Path(sys.executable).parent
+            print(f"[DEBUG] sys.executable: {sys.executable}")
+            print(f"[DEBUG] sys.frozen: {getattr(sys, 'frozen', False)}")
+            print(f"[DEBUG] sys._MEIPASS: {getattr(sys, '_MEIPASS', 'Not found')}")
+            
+            # 여러 경로 시도
+            possible_paths = [
+                Path(sys.executable).parent.parent / 'Resources',  # Contents/Resources
+                Path(sys.executable).parent / 'Resources',         # MacOS/Resources
+                Path(sys.executable).parent,                       # MacOS/
+                Path(sys._MEIPASS) if hasattr(sys, '_MEIPASS') else None,  # PyInstaller temp
+            ]
+            
+            for i, base_path in enumerate(possible_paths):
+                if base_path and base_path.exists():
+                    print(f"[DEBUG] Path {i+1} exists: {base_path}")
+                    # theme.json이 있는지 확인
+                    if (base_path / 'theme.json').exists():
+                        print(f"[DEBUG] Found theme.json at: {base_path}")
+                        return base_path
+                    else:
+                        print(f"[DEBUG] No theme.json at: {base_path}")
+                else:
+                    print(f"[DEBUG] Path {i+1} does not exist: {base_path}")
+            
+            # 폴백
+            base_path = Path(sys.executable).parent.parent / 'Resources'
+            print(f"[DEBUG] Using fallback: {base_path}")
+            return base_path
         else:
-            # Running in development
-            return Path(__file__).parent.parent
+            # 개발 환경
+            base_path = Path(__file__).parent.parent
+            print(f"[DEBUG] Development path: {base_path}")
+            return base_path
     
     def _load_user_config_path(self):
         """Load user-configured path from settings."""
@@ -71,27 +94,23 @@ class ConfigPathManager:
         return self._user_config_path
     
     def get_config_path(self, filename: str, user_writable: bool = True) -> Path:
-        """
-        Get the path for a configuration file.
+        """Get the path for a configuration file."""
+        print(f"[DEBUG] Getting path for: {filename}")
+        print(f"[DEBUG] User config path: {self._user_config_path}")
+        print(f"[DEBUG] Base path: {self._base_path}")
         
-        Args:
-            filename: Name of the configuration file
-            user_writable: If True, prefer user directory for writable configs
-        
-        Returns:
-            Path to the configuration file
-        """
-        # Check if this is a user-configurable file
-        if filename in USER_CONFIG_FILES and self._user_config_path:
+        # 외부 경로 확인
+        if self._user_config_path:
             user_file_path = self._user_config_path / filename
+            print(f"[DEBUG] Checking user file: {user_file_path} (exists: {user_file_path.exists()})")
             if user_file_path.exists():
+                print(f"[DEBUG] Using user file: {user_file_path}")
                 return user_file_path
-            # If user path is set but file doesn't exist, still return user path for creation
-            return user_file_path
         
-        # For other files or when no user path is set, use base path
-        project_path = self._base_path / filename
-        return project_path
+        # 내부 경로 사용
+        base_file_path = self._base_path / filename
+        print(f"[DEBUG] Using base file: {base_file_path} (exists: {base_file_path.exists()})")
+        return base_file_path
     
     def ensure_config_exists(self, filename: str, default_content: str = None) -> Path:
         """
@@ -126,10 +145,15 @@ class ConfigPathManager:
     
     def get_all_config_locations(self, filename: str) -> list[Path]:
         """Get all possible locations for a configuration file."""
-        locations = [
-            self._user_config_dir / filename,
-            self._base_path / filename
-        ]
+        locations = []
+        
+        # Add user config path if set
+        if self._user_config_path:
+            locations.append(self._user_config_path / filename)
+        
+        # Add base path
+        locations.append(self._base_path / filename)
+        
         return [path for path in locations if path.exists()]
 
 

@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt
 from core.file_utils import save_model_api_key, load_model_api_key, load_last_model, load_prompt_config, save_prompt_config
 from core.config.ai_model_manager import AIModelManager
 from ui.styles.theme_manager import theme_manager
+from utils.config_path import config_path_manager
 import json
 import os
 
@@ -632,7 +633,8 @@ class SettingsDialog(QDialog):
     def _create_news_source_checkboxes(self, layout):
         """뉴스 소스 체크박스 동적 생성"""
         try:
-            with open('news_config.json', 'r', encoding='utf-8') as f:
+            config_path = config_path_manager.get_config_path('news_config.json')
+            with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
             # 모든 뉴스 소스에 대해 체크박스 생성

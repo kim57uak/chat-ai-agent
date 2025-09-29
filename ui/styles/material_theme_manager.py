@@ -3,12 +3,14 @@
 import json
 import os
 from typing import Dict, Any, Optional
+from utils.config_path import config_path_manager
 
 class MaterialThemeManager:
     """Material Design 테마 관리자"""
     
     def __init__(self, theme_file: str = "theme.json"):
         self.theme_file = theme_file
+        self.theme_file_path = config_path_manager.get_config_path(theme_file)
         self.themes = {}
         self.theme_categories = {}
         self.current_theme_key = "material_dark"
@@ -17,16 +19,20 @@ class MaterialThemeManager:
     def _load_themes(self):
         """테마 파일에서 테마 정보 로드"""
         try:
-            if os.path.exists(self.theme_file):
-                with open(self.theme_file, 'r', encoding='utf-8') as f:
+            theme_file_path = config_path_manager.get_config_path(self.theme_file)
+            print(f"[DEBUG] Loading theme from: {theme_file_path}")
+            if theme_file_path.exists():
+                with open(theme_file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.themes = data.get("themes", {})
                     self.theme_categories = data.get("theme_categories", {})
+                    print(f"[DEBUG] Loaded {len(self.themes)} themes")
                     # 현재 테마가 이미 설정되어 있지 않은 경우에만 업데이트
                     if not hasattr(self, '_theme_loaded'):
                         self.current_theme_key = data.get("current_theme", "material_dark")
                         self._theme_loaded = True
             else:
+                print(f"[DEBUG] Theme file not found: {theme_file_path}")
                 self._create_default_themes()
         except Exception as e:
             print(f"테마 로드 오류: {e}")
@@ -60,7 +66,7 @@ class MaterialThemeManager:
                 "current_theme": self.current_theme_key,
                 "themes": self.themes
             }
-            with open(self.theme_file, 'w', encoding='utf-8') as f:
+            with open(self.theme_file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"테마 저장 오류: {e}")
@@ -171,8 +177,8 @@ class MaterialThemeManager:
     def is_glassmorphism_enabled(self) -> bool:
         """글래스모피즘 활성화 상태 확인"""
         try:
-            if os.path.exists(self.theme_file):
-                with open(self.theme_file, 'r', encoding='utf-8') as f:
+            if self.theme_file_path.exists():
+                with open(self.theme_file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     return data.get("glassmorphism_enabled", True)
         except Exception:
@@ -182,15 +188,15 @@ class MaterialThemeManager:
     def toggle_glassmorphism(self) -> bool:
         """글래스모피즘 활성화/비활성화 토글"""
         try:
-            if os.path.exists(self.theme_file):
-                with open(self.theme_file, 'r', encoding='utf-8') as f:
+            if self.theme_file_path.exists():
+                with open(self.theme_file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 
                 current_state = data.get("glassmorphism_enabled", True)
                 new_state = not current_state
                 data["glassmorphism_enabled"] = new_state
                 
-                with open(self.theme_file, 'w', encoding='utf-8') as f:
+                with open(self.theme_file_path, 'w', encoding='utf-8') as f:
                     json.dump(data, f, indent=2, ensure_ascii=False)
                 
                 return new_state

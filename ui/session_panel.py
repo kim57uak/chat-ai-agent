@@ -759,8 +759,8 @@ class SessionPanel(QWidget):
             if not file_path:
                 return
             
-            # 메시지 데이터 가져오기 (HTML 포함)
-            messages = session_manager.get_session_messages(session['id'], include_html=True)
+            # 메시지 데이터 가져오기 (HTML 포함) - export용이므로 limit=None, offset 사용 안함
+            messages = session_manager.get_session_messages(session['id'], limit=None, include_html=True)
             
             # 내보내기 실행
             success = export_func(session, messages, file_path)
@@ -780,8 +780,8 @@ class SessionPanel(QWidget):
     def _export_to_pdf(self, session: Dict):
         """PDF로 내보내기 - HTML 렌더링된 상태로"""
         try:
-            # 메시지 데이터 가져오기 (HTML 포함)
-            messages = session_manager.get_session_messages(session['id'], include_html=True)
+            # 메시지 데이터 가져오기 (HTML 포함) - export용이므로 limit=None, offset 사용 안함
+            messages = session_manager.get_session_messages(session['id'], limit=None, include_html=True)
             
             if not messages:
                 QMessageBox.information(self, '정보', '내보낼 메시지가 없습니다.')

@@ -188,7 +188,7 @@ class ChatDisplay:
                         elements.forEach(function(element, index) {{
                             var code = element.textContent.trim();
                             // 빈 코드나 잘못된 구문 필터링
-                            if (code && code.length > 10 && (code.includes('graph') || code.includes('sequenceDiagram') || code.includes('flowchart') || code.includes('classDiagram') || code.includes('gitgraph') || code.includes('pie') || code.includes('journey') || code.includes('gantt'))) {{
+                            if (code && code.length > 10 && (code.includes('graph') || code.includes('sequenceDiagram') || code.includes('flowchart') || code.includes('classDiagram') || code.includes('gitgraph') || code.includes('pie') || code.includes('journey') || code.includes('gantt') || code.includes('mindmap') || code.includes('timeline') || code.includes('sankey') || code.includes('xychart'))) {{
                                 var id = 'mermaid-' + Date.now() + '-' + index;
                                 mermaid.render(id, code).then(function(result) {{
                                     element.innerHTML = result.svg;
@@ -274,7 +274,7 @@ class ChatDisplay:
                         
                         if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
                             pyqt_bridge.copyToClipboard(textContent);
-                            showToast('텍스트가 복사되었습니다!');
+                            // Python에서 토스트 메시지를 처리하므로 여기서는 제거
                         }} else if (navigator.clipboard && navigator.clipboard.writeText) {{
                             navigator.clipboard.writeText(textContent).then(function() {{
                                 showToast('텍스트가 복사되었습니다!');
@@ -297,7 +297,7 @@ class ChatDisplay:
                         
                         if (pyqt_bridge && pyqt_bridge.copyHtmlToClipboard) {{
                             pyqt_bridge.copyHtmlToClipboard(htmlContent);
-                            showToast('HTML이 복사되었습니다!');
+                            // Python에서 토스트 메시지를 처리하므로 여기서는 제거
                         }} else {{
                             var textArea = document.createElement('textarea');
                             textArea.value = htmlContent;
@@ -316,7 +316,12 @@ class ChatDisplay:
                 function showToast(message) {{
                     var toast = document.createElement('div');
                     toast.textContent = message;
-                    toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: rgba(139, 92, 246, 0.9); color: white; padding: 12px 20px; border-radius: 8px; z-index: 10000; font-size: 14px; font-weight: 600;';
+                    toast.style.cssText = 'position: fixed !important; top: 20px !important; right: 20px !important; background: #4CAF50 !important; color: white !important; padding: 16px 24px !important; border-radius: 8px !important; z-index: 999999 !important; font-size: 16px !important; font-weight: 600 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; border: 2px solid white !important;';
+                    console.log('토스트 생성됨:', message);
+                    if (!document.body) {{
+                        console.error('document.body is null');
+                        return;
+                    }}
                     document.body.appendChild(toast);
                     
                     setTimeout(function() {{
@@ -789,20 +794,41 @@ class LinkHandler(QObject):
                 clipboard.clear()
                 clipboard.setText(text)
                 
-                # 복사 확인을 위해 잠시 후 다시 확인
-                def verify_copy():
-                    copied_text = clipboard.text()
-                    if copied_text == text:
-                        print(f"[COPY] 클립보드 복사 성공 확인: {len(text)}자")
+                # 즉시 토스트 메시지 표시
+                print(f"[DEBUG] chat_widget 존재: {hasattr(self, 'chat_widget')}")
+                print(f"[DEBUG] chat_widget 값: {self.chat_widget}")
+                if hasattr(self, 'chat_widget') and self.chat_widget:
+                    print(f"[DEBUG] chat_display 존재: {hasattr(self.chat_widget, 'chat_display')}")
+                    if hasattr(self.chat_widget, 'chat_display'):
+                        print(f"[DEBUG] JavaScript 실행 시도")
+                        # 직접 토스트 생성 (showToast 함수 의존성 제거)
+                        toast_js = """
+                        try {
+                            var toast = document.createElement('div');
+                            toast.textContent = '텍스트가 복사되었습니다!';
+                            toast.style.cssText = 'position: fixed !important; top: 20px !important; right: 20px !important; background: #4CAF50 !important; color: white !important; padding: 16px 24px !important; border-radius: 8px !important; z-index: 999999 !important; font-size: 16px !important; font-weight: 600 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;';
+                            document.body.appendChild(toast);
+                            setTimeout(function() { if(toast.parentNode) toast.parentNode.removeChild(toast); }, 2000);
+                        } catch(e) { console.error('Toast error:', e); }
+                        """
+                        self.chat_widget.chat_display.web_view.page().runJavaScript(toast_js)
                     else:
-                        print(f"[COPY] 클립보드 복사 실패 - 예상: {len(text)}자, 실제: {len(copied_text)}자")
-                
-                QTimer.singleShot(100, verify_copy)
+                        print(f"[DEBUG] chat_display 없음")
+                else:
+                    print(f"[DEBUG] chat_widget 없음 또는 None")
                 print(f"[COPY] 클립보드 복사 시도: {len(text)}자")
             else:
                 print(f"[COPY] QApplication 인스턴스 없음")
+                if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
+                    self.chat_widget.chat_display.web_view.page().runJavaScript(
+                        "showToast('복사에 실패했습니다.');"
+                    )
         except Exception as e:
             print(f"[COPY] 클립보드 복사 오류: {e}")
+            if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
+                self.chat_widget.chat_display.web_view.page().runJavaScript(
+                    "showToast('복사에 실패했습니다.');"
+                )
             import traceback
             traceback.print_exc()
     
@@ -823,20 +849,36 @@ class LinkHandler(QObject):
                 mime_data.setText(html)  # 텍스트 버전도 함께 저장
                 clipboard.setMimeData(mime_data)
                 
-                # 복사 확인
-                def verify_html_copy():
-                    copied_html = clipboard.mimeData().html()
-                    if copied_html:
-                        print(f"[COPY_HTML] HTML 클립보드 복사 성공 확인: {len(html)}자")
-                    else:
-                        print(f"[COPY_HTML] HTML 클립보드 복사 실패")
-                
-                QTimer.singleShot(100, verify_html_copy)
+                # 즉시 토스트 메시지 표시
+                print(f"[DEBUG HTML] chat_widget 존재: {hasattr(self, 'chat_widget')}")
+                if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
+                    print(f"[DEBUG HTML] JavaScript 실행 시도")
+                    # 직접 토스트 생성 (showToast 함수 의존성 제거)
+                    toast_js = """
+                    try {
+                        var toast = document.createElement('div');
+                        toast.textContent = 'HTML이 복사되었습니다!';
+                        toast.style.cssText = 'position: fixed !important; top: 20px !important; right: 20px !important; background: #03DAC6 !important; color: white !important; padding: 16px 24px !important; border-radius: 8px !important; z-index: 999999 !important; font-size: 16px !important; font-weight: 600 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;';
+                        document.body.appendChild(toast);
+                        setTimeout(function() { if(toast.parentNode) toast.parentNode.removeChild(toast); }, 2000);
+                    } catch(e) { console.error('Toast error:', e); }
+                    """
+                    self.chat_widget.chat_display.web_view.page().runJavaScript(toast_js)
+                else:
+                    print(f"[DEBUG HTML] chat_widget 또는 chat_display 없음")
                 print(f"[COPY_HTML] HTML 클립보드 복사 시도: {len(html)}자")
             else:
                 print(f"[COPY_HTML] QApplication 인스턴스 없음")
+                if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
+                    self.chat_widget.chat_display.web_view.page().runJavaScript(
+                        "showToast('HTML 복사에 실패했습니다.');"
+                    )
         except Exception as e:
             print(f"[COPY_HTML] HTML 클립보드 복사 오류: {e}")
+            if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
+                self.chat_widget.chat_display.web_view.page().runJavaScript(
+                    "showToast('HTML 복사에 실패했습니다.');"
+                )
             import traceback
             traceback.print_exc()
 

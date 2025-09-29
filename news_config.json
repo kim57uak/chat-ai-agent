@@ -69,6 +69,6 @@
   },
   "date_filter": {
     "news_days": 1,
-    "earthquake_days": 4
+    "earthquake_days": 3
   }
 }

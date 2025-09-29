@@ -164,22 +164,51 @@ class SessionManager:
             conn.commit()
             return message_id
     
-    def get_session_messages(self, session_id: int, limit: int = 100, offset: int = 0, include_html: bool = True) -> List[Dict]:
+    def get_session_messages(self, session_id: int, limit: int = None, offset: int = 0, include_html: bool = True) -> List[Dict]:
         """세션의 메시지 목록 조회 (시간순 정렬, 페이징 지원)"""
         print(f"[GET_MESSAGES] session_id: {session_id}, limit: {limit}, offset: {offset}, include_html: {include_html}")
         with self.db.get_connection() as conn:
-            cursor = conn.execute('''
-                SELECT id, role, content, content_html, timestamp, token_count, tool_calls
-                FROM messages 
-                WHERE session_id = ?
-                ORDER BY timestamp ASC
-                LIMIT ? OFFSET ?
-            ''', (session_id, limit, offset))
+            if limit is None:
+                # limit이 None이면 모든 메시지 조회
+                cursor = conn.execute('''
+                    SELECT id, role, content, content_html, timestamp, token_count, tool_calls
+                    FROM messages 
+                    WHERE session_id = ?
+                    ORDER BY timestamp ASC
+                ''', (session_id,))
+            elif offset > 0:
+                cursor = conn.execute('''
+                    SELECT id, role, content, content_html, timestamp, token_count, tool_calls
+                    FROM messages 
+                    WHERE session_id = ?
+                    ORDER BY timestamp ASC
+                    LIMIT ? OFFSET ?
+                ''', (session_id, limit, offset))
+            else:
+                cursor = conn.execute('''
+                    SELECT id, role, content, content_html, timestamp, token_count, tool_calls
+                    FROM messages 
+                    WHERE session_id = ?
+                    ORDER BY timestamp ASC
+                    LIMIT ?
+                ''', (session_id, limit))
             
             messages = []
             for row in cursor.fetchall():
-                # content_html이 있으면 우선 사용, 없으면 content 사용
-                display_content = row['content_html'] if row['content_html'] else row['content']
+                # content_html이 있으면 FixedFormatter로 처리 후 사용, 없으면 content 사용
+                if row['content_html']:
+                    try:
+                        from ui.fixed_formatter import FixedFormatter
+                        formatter = FixedFormatter()
+                        # HTML에서 마인드맵 코드 추출 및 재처리
+                        display_content = formatter.format_basic_markdown(row['content_html'])
+                        print(f"[GET_MESSAGES] HTML 콘텐츠를 FixedFormatter로 처리: {row['id']}")
+                    except Exception as e:
+                        print(f"[GET_MESSAGES] FixedFormatter 처리 오류: {e}, content 사용")
+                        display_content = row['content']
+                else:
+                    display_content = row['content']
+                
                 message = {
                     'id': row['id'],
                     'role': row['role'],

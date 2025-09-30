@@ -32,7 +32,7 @@ class FixedFormatter:
             # 기본 다이어그램
             'flowchart', 'graph TD', 'graph LR', 'graph TB', 'graph RL', 'graph BT',
             'sequenceDiagram', 'classDiagram', 'stateDiagram-v2', 'stateDiagram', 'erDiagram',
-            'journey', 'gantt', 'pie', 'requirementDiagram', 'gitgraph',
+            'journey', 'gantt', 'pie', 'requirementDiagram', 'gitgraph', 'gitGraph',
             # C4 다이어그램
             'C4Context', 'C4Container', 'C4Component', 'C4Dynamic', 'C4Deployment',
             # 새로운 다이어그램 유형
@@ -210,8 +210,13 @@ class FixedFormatter:
                 if len(fixed_lines) > 1:
                     content = '\n    '.join(fixed_lines)
             
-            # Mindmap 구문은 그대로 유지 (Mermaid v10 네이티브 지원)
-            # mindmap 변환 로직 제거됨
+            # GitGraph 구문 특별 처리 - tag 문법 수정
+            if content.strip().startswith('gitGraph'):
+                content = self._fix_gitgraph_syntax(content)
+            
+            # Mindmap 구문 특별 처리 - 올바른 들여쓰기 보장
+            if content.strip().startswith('mindmap'):
+                content = self._fix_mindmap_indentation(content)
             
             
             return content
@@ -236,6 +241,10 @@ class FixedFormatter:
             # v10 키워드 정확한 감지
             lines = content_lower.split('\n')
             first_line = lines[0].strip() if lines else ''
+            
+            # mindmap 특별 처리 - 압축된 형태도 감지
+            if content_lower.startswith('mindmap'):
+                return True
             
             # 정확한 키워드 매칭
             for keyword in mermaid_keywords:
@@ -269,20 +278,40 @@ class FixedFormatter:
         # 3. HTML 태그로 감싸진 코드 감지
         def check_html_code(match):
             content = match.group(1).strip()
+            # HTML 엔티티 디코딩
+            content = content.replace('&amp;', '&')
+            content = content.replace('&lt;', '<')
+            content = content.replace('&gt;', '>')
+            content = content.replace('&quot;', '"')
+            content = content.replace('&#39;', "'")
+            
             if is_mermaid_content(content):
                 return store_mermaid(content)
             return match.group(0)
         
-        # 다양한 HTML 태그 패턴 처리
+        # 다양한 HTML 태그 패턴 처리 - 더 정확한 패턴
         patterns = [
-            r'<div[^>]*>\s*<pre[^>]*>\s*<span[^>]*>\s*<code[^>]*>\s*([\s\S]*?)\s*</code>',
+            # 완전한 highlight 블록
+            r'<div class="highlight"><pre><span></span><code>([\s\S]*?)</code></pre></div>',
+            # 일반적인 HTML 코드 블록들
+            r'<div[^>]*class="highlight"[^>]*>\s*<pre[^>]*>\s*<span[^>]*>\s*<code[^>]*>\s*([\s\S]*?)\s*</code>\s*</span>\s*</pre>\s*</div>',
+            r'<div[^>]*class="highlight"[^>]*>\s*<pre[^>]*>\s*<span[^>]*>\s*<code[^>]*>\s*([\s\S]*?)\s*</code>\s*</pre>\s*</div>',
             r'<pre[^>]*>\s*<code[^>]*>\s*([\s\S]*?)\s*</code>\s*</pre>',
-            r'<code[^>]*>\s*([\s\S]*?)\s*</code>',
-            r'<div[^>]*class="highlight"[^>]*>\s*<pre[^>]*>\s*<span[^>]*>\s*<code[^>]*>\s*([\s\S]*?)\s*</code>'
+            r'<code[^>]*>\s*([\s\S]*?)\s*</code>'
         ]
         
         for pattern in patterns:
             text = re.sub(pattern, check_html_code, text)
+        
+        # 4. 일반 텍스트에서 mindmap 키워드 직접 감지 (코드 블록이 아닌 경우)
+        def check_plain_text(match):
+            content = match.group(0).strip()
+            if is_mermaid_content(content):
+                return store_mermaid(content)
+            return match.group(0)
+        
+        # mindmap으로 시작하는 일반 텍스트 라인 감지
+        text = re.sub(r'^mindmap\s+.*$', check_plain_text, text, flags=re.MULTILINE)
         
         return text
     
@@ -305,6 +334,10 @@ class FixedFormatter:
     def _clean_html_in_code_blocks(self, text):
         """전체 텍스트에서 HTML 코드 블록 정리"""
         import re
+        
+        # placeholder 보호
+        if '__MERMAID_PLACEHOLDER_' in text:
+            return text  # placeholder가 있으면 HTML 정리 스킵
         
         # HTML 코드 블록 패턴 감지 및 정리
         def clean_html_code_block(match):
@@ -387,3 +420,56 @@ class FixedFormatter:
                 html = html.replace(placeholder, content)
         
         return html
+    
+    def _fix_mindmap_indentation(self, content):
+        """마인드맵 들여쓰기 수정 - Mermaid 문법에 맞게"""
+        lines = content.split('\n')
+        fixed_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+                
+            if stripped == 'mindmap':
+                fixed_lines.append('mindmap')
+            elif stripped.startswith('root(('):
+                fixed_lines.append(f'  {stripped}')
+            else:
+                # 기존 들여쓰기 레벨 계산
+                original_indent = len(line) - len(line.lstrip())
+                
+                # Mermaid mindmap 문법: root 다음은 4칸, 그 다음은 6칸, 8칸...
+                if original_indent <= 2:
+                    # 메인 카테고리 (root 직하위)
+                    fixed_lines.append(f'    {stripped}')
+                elif original_indent <= 6:
+                    # 서브 카테고리
+                    fixed_lines.append(f'      {stripped}')
+                elif original_indent <= 10:
+                    # 3레벨 서브 카테고리
+                    fixed_lines.append(f'        {stripped}')
+                else:
+                    # 4레벨 이상
+                    fixed_lines.append(f'          {stripped}')
+        
+        return '\n'.join(fixed_lines)
+    
+    def _fix_gitgraph_syntax(self, content):
+        """GitGraph 문법 수정 - tag 구문 문제 해결"""
+        lines = content.split('\n')
+        fixed_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            
+            # tag 구문을 commit으로 변경 (Mermaid v11.12.0 호환성)
+            if stripped.startswith('tag '):
+                tag_name = stripped.replace('tag ', '').strip('"')
+                fixed_lines.append(f'    commit id: "Tag: {tag_name}"')
+            else:
+                fixed_lines.append(stripped)
+        
+        return '\n'.join(fixed_lines)

@@ -15,6 +15,10 @@ def main() -> int:
     os.environ['GRPC_DNS_RESOLVER'] = 'native'
     os.environ['GRPC_VERBOSITY'] = 'ERROR'
     
+    # PyQt6 WebEngine 안정성을 위한 환경 변수 설정
+    os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security --disable-features=VizDisplayCompositor'
+    os.environ['QT_LOGGING_RULES'] = 'qt.webenginecontext.debug=false'
+    
     # Setup logging
     logging.basicConfig(
         level=logging.INFO,
@@ -26,21 +30,31 @@ def main() -> int:
     initializer = AppInitializer(sys.argv)
     app = initializer.create_application()
 
-    # Set application icon
-    from PyQt6.QtGui import QIcon
+    # Set application icon with error handling
+    try:
+        from PyQt6.QtGui import QIcon
 
-    if os.path.exists("image/app_icon_128.png"):
-        app.setWindowIcon(QIcon("image/app_icon_128.png"))
-    elif os.path.exists("image/Agentic_AI_transparent.png"):
-        app.setWindowIcon(QIcon("image/Agentic_AI_transparent.png"))
+        if os.path.exists("image/app_icon_128.png"):
+            app.setWindowIcon(QIcon("image/app_icon_128.png"))
+        elif os.path.exists("image/Agentic_AI_transparent.png"):
+            app.setWindowIcon(QIcon("image/Agentic_AI_transparent.png"))
+    except Exception as e:
+        logging.warning(f"Failed to set application icon: {e}")
 
-    # Setup signal handling only in main thread
-    if threading.current_thread() is threading.main_thread():
-        signal_handler = SignalHandler()
+    try:
+        # Setup signal handling only in main thread
+        if threading.current_thread() is threading.main_thread():
+            signal_handler = SignalHandler()
 
-    # Run application
-    runner = AppRunner(app)
-    return runner.run()
+        # Run application
+        runner = AppRunner(app)
+        return runner.run()
+        
+    except Exception as e:
+        logging.error(f"Application runtime error: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
 
 
 if __name__ == "__main__":

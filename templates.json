@@ -64,5 +64,15 @@
     "created_at": "2025-09-20T01:47:48.860560",
     "used_count": 3,
     "last_used": "2025-09-21T01:29:18.822709"
+  },
+  {
+    "name": "앱패키징",
+    "content": "현재 chat-ai 패키징 요청\n1. macos and window 에서 모두 사용가능\n2. pyinstaller 사용\n3. 스크립트 작성필요\n4. 기존 작업했던 build_safe.py,build_safe.bat 참조\n5. xxx.config 파일은 설정파일들로 패키징된후 앱내부 또는 앱 외부(경로추가)에 존재 할수 으니 모든 사항을 반영. 현재 프로그램구조는 반영못하는 구조로 패키징후에는 설정파일을 못읽어서 오류가 발생할수 있으니 미리 점검할것.\n6. config.json,mcp.json,news_config.json,prompt.json은 특히 외부 파일로 존재할 가능성익큼.특히 config.json,mcp.json 은 개인 api key 정보가 포함되어있으니 패키징시에는 빈샘플 파일로 생성을 해야함. 반듯이 개인정보 키가 포함되면 안됨..\n7. config.json,news_config.json,prompt.json.mcp.json 파일은 샘플로 만든후에 다시 원복해야함...테스트를 계속해야하니 복구코드 꼭 포함시켜",
+    "category": "💻 코딩 도움",
+    "variables": [],
+    "favorite": false,
+    "created_at": "2025-09-29T22:39:45.472795",
+    "used_count": 0,
+    "last_used": null
   }
 ]

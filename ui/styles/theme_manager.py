@@ -85,14 +85,8 @@ class ThemeManager:
         }
     
     def _load_custom_themes(self) -> Dict[str, Dict[str, Any]]:
-        """커스텀 테마 로드"""
-        try:
-            theme_file = "custom_themes.json"
-            if os.path.exists(theme_file):
-                with open(theme_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-        except Exception:
-            pass
+        """커스텀 테마 로드 - 비활성화"""
+        # custom_themes.json 파일이 없으므로 빈 딕셔너리 반환
         return {}
     
     def get_current_theme(self) -> Dict[str, Any]:
@@ -285,13 +279,9 @@ class ThemeManager:
         """
     
     def save_custom_theme(self, name: str, theme_data: Dict[str, Any]):
-        """커스텀 테마 저장"""
-        self.custom_themes[name] = theme_data
-        try:
-            with open("custom_themes.json", 'w', encoding='utf-8') as f:
-                json.dump(self.custom_themes, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"커스텀 테마 저장 오류: {e}")
+        """커스텀 테마 저장 - 비활성화"""
+        # custom_themes.json 파일을 사용하지 않으므로 비활성화
+        print(f"커스텀 테마 저장 기능은 비활성화되어 있습니다: {name}")
     
     def get_material_design_stylesheet(self) -> str:
         """Material Design 기반 스타일시트 생성"""

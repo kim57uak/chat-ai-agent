@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QFileDialog,
                             QMessageBox, QDockWidget, QSplitter)
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QTimer, Qt
+from utils.env_loader import load_user_environment
 from ui.chat_widget import ChatWidget
 from ui.settings_dialog import SettingsDialog
 from ui.mcp_dialog import MCPDialog
@@ -23,6 +24,12 @@ class MainWindow(QMainWindow):
         print("[DEBUG] MainWindow.__init__() 시작")
         super().__init__()
         print("[DEBUG] super().__init__() 완료")
+        
+        # Load user environment variables for MCP servers
+        print("[DEBUG] 환경변수 로드 시작")
+        load_user_environment()
+        print("[DEBUG] 환경변수 로드 완료")
+        
         print("[DEBUG] _setup_window() 시작")
         self._setup_window()
         print("[DEBUG] _setup_window() 완료")
@@ -239,9 +246,10 @@ class MainWindow(QMainWindow):
         """MCP 서버 상태 파일을 읽어서 활성화된 서버만 시작"""
         def start_servers():
             try:
-                state_file = 'mcp_server_state.json'
-                if os.path.exists(state_file):
-                    with open(state_file, 'r', encoding='utf-8') as f:
+                from utils.config_path import config_path_manager
+                config_path = config_path_manager.get_config_path('mcp_server_state.json')
+                if config_path.exists():
+                    with open(config_path, 'r', encoding='utf-8') as f:
                         server_states = json.load(f)
                     
                     enabled_servers = [name for name, enabled in server_states.items() if enabled]
@@ -605,8 +613,10 @@ class MainWindow(QMainWindow):
     def _load_splitter_state(self):
         """스플리터 상태 로드"""
         try:
-            if os.path.exists('splitter_state.json'):
-                with open('splitter_state.json', 'r') as f:
+            from utils.config_path import config_path_manager
+            config_path = config_path_manager.get_config_path('splitter_state.json')
+            if config_path.exists():
+                with open(config_path, 'r') as f:
                     state = json.load(f)
                     sizes = state.get('sizes', [250, 950, 0])
                     token_visible = state.get('token_visible', False)
@@ -623,12 +633,14 @@ class MainWindow(QMainWindow):
     def _save_splitter_state(self):
         """스플리터 상태 저장"""
         try:
+            from utils.config_path import config_path_manager
             state = {
                 'sizes': self.splitter.sizes(),
                 'token_visible': self.token_display.isVisible(),
                 'session_visible': self.session_panel.isVisible()
             }
-            with open('splitter_state.json', 'w') as f:
+            config_path = config_path_manager.get_config_path('splitter_state.json')
+            with open(config_path, 'w') as f:
                 json.dump(state, f)
         except Exception as e:
             print(f"스플리터 상태 저장 오류: {e}")

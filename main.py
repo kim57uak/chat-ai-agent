@@ -7,6 +7,14 @@ from core.application import SignalHandler, AppInitializer, AppRunner
 
 def main() -> int:
     """Main application entry point."""
+    # Load user environment variables for packaged apps (Node.js, npm, npx)
+    try:
+        from utils.env_loader import load_user_environment
+        load_user_environment()
+        logging.info("환경변수 로더 실행 완료")
+    except Exception as e:
+        logging.warning(f"환경변수 로더 실행 실패: {e}")
+    
     # Remove problematic proxy environment variable for Google API
     if 'EXPERIMENTAL_HTTP_PROXY_SUPPORT' in os.environ:
         del os.environ['EXPERIMENTAL_HTTP_PROXY_SUPPORT']

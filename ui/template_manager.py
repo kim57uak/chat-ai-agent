@@ -98,8 +98,10 @@ class TemplateManager(QObject):
     def load_templates(self):
         """템플릿 파일에서 로드"""
         try:
-            if os.path.exists(self.templates_file):
-                with open(self.templates_file, 'r', encoding='utf-8') as f:
+            from utils.config_path import config_path_manager
+            config_path = config_path_manager.get_config_path(self.templates_file)
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.templates = [Template.from_dict(t) for t in data]
         except Exception as e:
@@ -109,8 +111,10 @@ class TemplateManager(QObject):
     def save_templates(self):
         """템플릿을 파일에 저장"""
         try:
+            from utils.config_path import config_path_manager
             data = [t.to_dict() for t in self.templates]
-            with open(self.templates_file, 'w', encoding='utf-8') as f:
+            config_path = config_path_manager.get_config_path(self.templates_file)
+            with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"템플릿 저장 오류: {e}")

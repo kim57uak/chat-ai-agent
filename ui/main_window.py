@@ -13,6 +13,7 @@ from mcp.servers.mcp import start_mcp_servers, stop_mcp_servers
 from ui.components.status_display import status_display
 from ui.styles.flat_theme import FlatTheme
 from ui.styles.theme_manager import theme_manager
+from ui.memory_manager import memory_manager
 # MaterialThemeType 제거 - 하드코딩 금지
 from core.session import session_manager
 import os
@@ -160,6 +161,10 @@ class MainWindow(QMainWindow):
         # 저장된 테마 적용
         self._apply_saved_theme()
         print("[DEBUG] _setup_ui: 저장된 테마 적용 완료")
+        
+        # 메모리 관리 시작
+        memory_manager.start_monitoring()
+        memory_manager.memory_warning.connect(self._on_memory_warning)
     
 
     
@@ -348,12 +353,19 @@ class MainWindow(QMainWindow):
         print("애플리케이션 종료 시작")
         
         try:
+            # 메모리 관리 중지
+            memory_manager.stop_monitoring()
+            
             # 스플리터 상태 저장
             self._save_splitter_state()
             
             if hasattr(self, 'chat_widget'):
                 self.chat_widget.close()
             stop_mcp_servers()
+            
+            # 최종 메모리 정리
+            memory_manager.force_cleanup()
+            
         except Exception as e:
             print(f"종료 중 오류: {e}")
         
@@ -708,6 +720,9 @@ class MainWindow(QMainWindow):
     def _on_session_selected(self, session_id: int):
         """세션 선택 이벤트 처리 - 안전장치 포함"""
         try:
+            # 메모리 정리 (세션 전환 시)
+            memory_manager.light_cleanup()
+            
             # 메인 윈도우의 현재 세션 ID 업데이트
             self.current_session_id = session_id
             self._auto_session_created = True  # 세션이 선택되었으므로 자동 생성 플래그 설정
@@ -875,4 +890,9 @@ class MainWindow(QMainWindow):
                 traceback.print_exc()
         else:
             print(f"[AUTO_SESSION] 이미 생성됨 - current_session_id: {self.current_session_id}")
+    
+    def _on_memory_warning(self, memory_percent):
+        """메모리 경고 처리"""
+        print(f"메모리 사용률 경고: {memory_percent:.1f}%")
+        # 필요시 사용자에게 알림 표시 가능
     

@@ -3,6 +3,7 @@ import threading
 import logging
 import os
 from core.application import SignalHandler, AppInitializer, AppRunner
+from ui.performance_optimizer import performance_optimizer
 
 
 def main() -> int:
@@ -37,6 +38,9 @@ def main() -> int:
     # Initialize application components
     initializer = AppInitializer(sys.argv)
     app = initializer.create_application()
+    
+    # Apply performance optimizations
+    performance_optimizer.optimize_application(app)
 
     # Set application icon with error handling
     try:

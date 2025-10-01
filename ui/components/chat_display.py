@@ -2,6 +2,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import QTimer, QUrl, QObject, pyqtSlot, QThread, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from ui.components.progressive_display import ProgressiveDisplay
+from ui.performance_optimizer import performance_optimizer
 import json
 import uuid
 
@@ -79,6 +80,9 @@ class ChatDisplay:
         except Exception as e:
             print(f"웹뷰 배경 설정 오류 (무시됨): {e}")
         
+        # 성능 최적화 적용
+        performance_optimizer.optimize_webview(self.web_view)
+        
         # 스크롤바 스타일 적용
         self._apply_scrollbar_style()
     
@@ -120,13 +124,32 @@ class ChatDisplay:
 
         # 스크롤 성능 향상을 위한 추가 설정
         from PyQt6.QtCore import QUrl
-
+        import platform
+        
+        # 플랫폼별 최적화
+        system = platform.system()
+        
+        # 캐시 설정
         self.web_view.page().profile().setHttpCacheType(
             self.web_view.page().profile().HttpCacheType.MemoryHttpCache
         )
-        self.web_view.page().profile().setHttpCacheMaximumSize(
-            50 * 1024 * 1024
-        )  # 50MB 캐시
+        cache_size = 100 * 1024 * 1024 if system == "Windows" else 50 * 1024 * 1024
+        self.web_view.page().profile().setHttpCacheMaximumSize(cache_size)
+        
+        # 하드웨어 가속 활성화
+        try:
+            web_settings = self.web_view.settings()
+            web_settings.setAttribute(web_settings.WebAttribute.Accelerated2dCanvasEnabled, True)
+            web_settings.setAttribute(web_settings.WebAttribute.WebGLEnabled, True)
+        except (AttributeError, RuntimeError):
+            pass
+            
+        # 스크롤 최적화
+        try:
+            web_settings = self.web_view.settings()
+            web_settings.setAttribute(web_settings.WebAttribute.ScrollAnimatorEnabled, True)
+        except (AttributeError, RuntimeError):
+            pass
 
         # 콘솔 메시지 캡처
         self.web_view.page().javaScriptConsoleMessage = self.handle_console_message
@@ -215,6 +238,9 @@ class ChatDisplay:
             <style id="theme-style">
                 {theme_css}
                 
+                /* 성능 최적화 CSS */
+                {performance_optimizer.get_optimized_css()}
+                
                 html, body {{
                     background: {body_bg_color} !important;
                     color: {colors.get('text_primary', '#ffffff')} !important;
@@ -223,6 +249,11 @@ class ChatDisplay:
                     font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
                     font-size: 15px !important;
                     line-height: 1.6 !important;
+                    /* 스크롤 성능 최적화 */
+                    scroll-behavior: smooth;
+                    -webkit-overflow-scrolling: touch;
+                    transform: translateZ(0);
+                    will-change: scroll-position;
                 }}
                 
                 #messages {{
@@ -230,6 +261,11 @@ class ChatDisplay:
                     height: auto;
                     overflow-y: visible;
                     padding-bottom: 120px;
+                    /* 스크롤 성능 최적화 */
+                    contain: layout style paint;
+                    transform: translateZ(0);
+                    backface-visibility: hidden;
+                    perspective: 1000px;
                 }}
                 
                 .message {{
@@ -243,6 +279,15 @@ class ChatDisplay:
                     min-height: auto;
                     height: auto;
                     overflow: visible;
+                    /* 렌더링 성능 최적화 */
+                    contain: layout style;
+                    transform: translateZ(0);
+                    will-change: transform;
+                    transition: transform 0.2s ease;
+                }}
+                
+                .message:hover {{
+                    transform: translateZ(0) translateY(-1px);
                 }}
                 
                 .message * {{

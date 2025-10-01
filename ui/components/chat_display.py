@@ -226,8 +226,10 @@ class ChatDisplay:
                 }}
                 
                 #messages {{
+                    min-height: calc(100vh - 120px);
                     height: auto;
                     overflow-y: visible;
+                    padding-bottom: 120px;
                 }}
                 
                 .message {{
@@ -238,6 +240,9 @@ class ChatDisplay:
                     border-radius: 16px;
                     position: relative;
                     color: {colors.get('text_primary', '#ffffff')} !important;
+                    min-height: auto;
+                    height: auto;
+                    overflow: visible;
                 }}
                 
                 .message * {{
@@ -263,9 +268,41 @@ class ChatDisplay:
                     pyqt_bridge = channel.objects.pyqt_bridge;
                 }});
                 
+                var currentSelectedMessage = null;
+                
+                // 메시지 클릭 시 선택 상태 변경
+                document.addEventListener('click', function(event) {{
+                    var messageElement = event.target.closest('.message');
+                    if (messageElement) {{
+                        // 이전 선택 해제
+                        var prevSelected = document.querySelector('.message.selected');
+                        if (prevSelected) {{
+                            prevSelected.classList.remove('selected');
+                            prevSelected.style.border = '';
+                        }}
+                        
+                        // 새로운 메시지 선택
+                        messageElement.classList.add('selected');
+                        messageElement.style.border = '2px solid #bb86fc';
+                        currentSelectedMessage = messageElement.id;
+                        
+                        // 버튼 표시
+                        var buttonContainer = document.getElementById('global-button-container');
+                        if (buttonContainer) {{
+                            buttonContainer.style.display = 'flex';
+                        }}
+                    }}
+                }});
+                
                 function copyMessage(messageId) {{
                     try {{
-                        var contentDiv = document.getElementById(messageId + '_content');
+                        var targetId = messageId || currentSelectedMessage;
+                        if (!targetId) {{
+                            showToast('메시지를 먼저 선택해주세요.');
+                            return;
+                        }}
+                        
+                        var contentDiv = document.getElementById(targetId + '_content');
                         if (!contentDiv) {{
                             return;
                         }}
@@ -274,7 +311,6 @@ class ChatDisplay:
                         
                         if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
                             pyqt_bridge.copyToClipboard(textContent);
-                            // Python에서 토스트 메시지를 처리하므로 여기서는 제거
                         }} else if (navigator.clipboard && navigator.clipboard.writeText) {{
                             navigator.clipboard.writeText(textContent).then(function() {{
                                 showToast('텍스트가 복사되었습니다!');
@@ -288,7 +324,13 @@ class ChatDisplay:
                 
                 function copyHtmlMessage(messageId) {{
                     try {{
-                        var contentDiv = document.getElementById(messageId + '_content');
+                        var targetId = messageId || currentSelectedMessage;
+                        if (!targetId) {{
+                            showToast('메시지를 먼저 선택해주세요.');
+                            return;
+                        }}
+                        
+                        var contentDiv = document.getElementById(targetId + '_content');
                         if (!contentDiv) {{
                             return;
                         }}
@@ -297,7 +339,6 @@ class ChatDisplay:
                         
                         if (pyqt_bridge && pyqt_bridge.copyHtmlToClipboard) {{
                             pyqt_bridge.copyHtmlToClipboard(htmlContent);
-                            // Python에서 토스트 메시지를 처리하므로 여기서는 제거
                         }} else {{
                             var textArea = document.createElement('textarea');
                             textArea.value = htmlContent;
@@ -449,8 +490,14 @@ class ChatDisplay:
                 
                 function deleteMessage(messageId) {{
                     try {{
+                        var targetId = messageId || currentSelectedMessage;
+                        if (!targetId) {{
+                            showToast('메시지를 먼저 선택해주세요.');
+                            return;
+                        }}
+                        
                         if (pyqt_bridge && pyqt_bridge.deleteMessage) {{
-                            pyqt_bridge.deleteMessage(messageId);
+                            pyqt_bridge.deleteMessage(targetId);
                         }}
                     }} catch (error) {{
                         console.error('Message delete failed:', error);
@@ -648,34 +695,38 @@ class ChatDisplay:
             messageDiv.id = '{display_message_id}';
             messageDiv.setAttribute('data-message-id', '{message_id or display_message_id}');
             messageDiv.className = 'message';
+            messageDiv.style.cssText = 'position: relative; margin: 16px 0; padding: 24px; background: {colors.get("surface", "rgba(255, 255, 255, 0.05)")}; border: 1px solid {colors.get("divider", "rgba(255, 255, 255, 0.1)")}; border-radius: 16px; color: {default_text_color} !important;';
             
             var headerDiv = document.createElement('div');
-            headerDiv.style.cssText = 'margin: 0 0 12px 0; font-weight: 600; color: {default_text_color} !important; font-size: 13px; display: flex; align-items: center; gap: 8px;';
-            headerDiv.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
+            headerDiv.style.cssText = 'margin: 0 0 12px 0; font-weight: 600; color: {default_text_color} !important; font-size: 13px; display: flex; align-items: center; justify-content: space-between;';
             
-            // 버튼 컨테이너 생성
+            var senderInfo = document.createElement('div');
+            senderInfo.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+            senderInfo.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
+            
+            // 개별 메시지 버튼 컨테이너
             var buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = 'position: absolute !important; top: 16px !important; right: 16px !important; display: flex !important; gap: 6px !important; opacity: 1 !important; z-index: 999999 !important; pointer-events: auto !important;';
+            buttonContainer.style.cssText = 'display: flex; gap: 4px; opacity: 0.7; transition: opacity 0.2s ease;';
             
             // 복사 버튼
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋';
             copyBtn.title = '텍스트 복사';
-            copyBtn.style.cssText = 'background: {colors.get("primary", "#bb86fc")}; color: {colors.get("on_primary", "#000000")}; border: 1px solid {colors.get("primary", "#bb86fc")}; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s ease;';
+            copyBtn.style.cssText = 'background: {colors.get("primary", "#bb86fc")}; color: {colors.get("on_primary", "#000000")}; border: none; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; transition: all 0.2s ease;';
             copyBtn.onclick = function() {{ copyMessage('{display_message_id}'); }};
             
             // HTML 복사 버튼
             var htmlCopyBtn = document.createElement('button');
             htmlCopyBtn.innerHTML = '🏷️';
             htmlCopyBtn.title = 'HTML 복사';
-            htmlCopyBtn.style.cssText = 'background: {colors.get("secondary", "#03dac6")}; color: {colors.get("on_secondary", "#000000")}; border: 1px solid {colors.get("secondary", "#03dac6")}; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s ease;';
+            htmlCopyBtn.style.cssText = 'background: {colors.get("secondary", "#03dac6")}; color: {colors.get("on_secondary", "#000000")}; border: none; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; transition: all 0.2s ease;';
             htmlCopyBtn.onclick = function() {{ copyHtmlMessage('{display_message_id}'); }};
             
             // 삭제 버튼
             var deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '🗑️';
             deleteBtn.title = '메시지 삭제';
-            deleteBtn.style.cssText = 'background: {colors.get("error", "#cf6679")}; color: {colors.get("on_error", "#000000")}; border: 1px solid {colors.get("error", "#cf6679")}; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s ease;';
+            deleteBtn.style.cssText = 'background: {colors.get("error", "#cf6679")}; color: {colors.get("on_error", "#000000")}; border: none; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; transition: all 0.2s ease;';
             deleteBtn.onclick = function() {{ 
                 if (confirm('이 메시지를 삭제하시겠습니까?')) {{
                     deleteMessage('{message_id or display_message_id}'); 
@@ -687,14 +738,18 @@ class ChatDisplay:
             buttonContainer.appendChild(htmlCopyBtn);
             buttonContainer.appendChild(deleteBtn);
             
-            // 버튼 항상 표시 (호버 효과 제거)
+            // 호버 효과
+            messageDiv.onmouseenter = function() {{ buttonContainer.style.opacity = '1'; }};
+            messageDiv.onmouseleave = function() {{ buttonContainer.style.opacity = '0.7'; }};
+            
+            headerDiv.appendChild(senderInfo);
+            headerDiv.appendChild(buttonContainer);
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{display_message_id}_content';
-            contentDiv.style.cssText = 'margin: 0; padding-right: 180px; line-height: 1.6; color: {default_text_color} !important; font-size: 15px; word-wrap: break-word;';
+            contentDiv.style.cssText = 'margin: 0; padding: 0; line-height: 1.6; color: {default_text_color} !important; font-size: 15px; word-wrap: break-word; width: 100%;';
             
             messageDiv.appendChild(headerDiv);
-            messageDiv.appendChild(buttonContainer);
             messageDiv.appendChild(contentDiv);
             
             if ({str(prepend).lower()}) {{

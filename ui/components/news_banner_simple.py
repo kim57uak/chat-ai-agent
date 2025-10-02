@@ -406,23 +406,23 @@ class NewsBanner(QWidget):
     def setup_ui(self):
         """UI 설정"""
         layout = QHBoxLayout()
-        layout.setContentsMargins(3, 1, 3, 1)
-        layout.setSpacing(3)
+        layout.setContentsMargins(6, 2, 6, 2)
+        layout.setSpacing(8)
 
         # 웹뷰로 뉴스 표시 (이미지 지원)
         self.web_view = QWebEngineView()
-        self.web_view.setFixedHeight(40)
+        self.web_view.setFixedHeight(60)
 
         # 새로고침 버튼
         self.refresh_btn = QPushButton("➤️")
-        self.refresh_btn.setFixedSize(36, 36)
+        self.refresh_btn.setFixedSize(44, 44)
         self.refresh_btn.clicked.connect(self.refresh_news)
         self.refresh_btn.setToolTip("뉴스 새로고침")
 
         layout.addWidget(self.web_view, 1)
-        layout.addWidget(self.refresh_btn)
+        layout.addWidget(self.refresh_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         self.setLayout(layout)
-        self.setFixedHeight(44)
+        self.setFixedHeight(64)
 
         self._init_web_view()
         self._setup_web_channel()
@@ -488,13 +488,16 @@ class NewsBanner(QWidget):
                     font-size: 13px;
                     background: transparent;
                     overflow: hidden;
+                    height: 100%;
+                    box-sizing: border-box;
                 }
                 .news-container {
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    height: 36px;
+                    height: 56px;
                     cursor: pointer;
+                    box-sizing: border-box;
                 }
                 .news-image {
                     width: 50px;
@@ -506,12 +509,17 @@ class NewsBanner(QWidget):
                 .news-content {
                     flex: 1;
                     overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    height: 100%;
                 }
                 .news-text {
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
-                    line-height: 1.4;
+                    line-height: 1.5;
+                    margin: 0;
+                    padding: 0;
                 }
             </style>
         </head>
@@ -543,6 +551,7 @@ class NewsBanner(QWidget):
         self.apply_theme()
         QTimer.singleShot(200, self.apply_theme)
         QTimer.singleShot(500, self.apply_theme)
+        QTimer.singleShot(1000, self.apply_theme)  # 추가 적용
     
     def _setup_web_channel(self):
         """웹채널 설정 - 링크 클릭 처리"""
@@ -746,7 +755,50 @@ class NewsBanner(QWidget):
                 primary_color = colors.get("primary", "#bb86fc")
                 secondary_color = colors.get("secondary", "#03dac6")
 
-                # 웹뷰 테마 업데이트 - 강화된 테마 적용
+                # 현재 테마 정보 가져오기
+                current_theme = theme_manager.material_manager.get_current_theme()
+                theme_type = current_theme.get('type', 'dark')
+                theme_name = current_theme.get('name', '')
+                glassmorphism = current_theme.get('glassmorphism', {})
+                
+                # 색상 RGB 변환 함수
+                def hex_to_rgb(hex_color):
+                    if hex_color.startswith('#'):
+                        hex_color = hex_color[1:]
+                    if len(hex_color) == 6:
+                        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+                    return (128, 128, 128)  # 기본값
+                
+                primary_rgb = hex_to_rgb(primary_color)
+                secondary_rgb = hex_to_rgb(secondary_color)
+                
+                # 테마별 맞춤 색상 조합
+                main_bg_color = colors.get('background', '#121212')
+                surface_color = colors.get('surface', '#1e1e1e')
+                divider_color = colors.get('divider', '#333333')
+                
+                # 테마 설정에서 자동으로 값 가져오기
+                user_bg = colors.get('user_bg', f'rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.08)')
+                
+                # 테마별 자동 색상 조합
+                if theme_type == 'light':
+                    # 밝은 테마: 부드러운 글래스 효과
+                    news_bg = user_bg
+                    news_text = text_color
+                    news_border = colors.get('user_border', primary_color)
+                    text_shadow = f'0 1px 2px rgba(0,0,0,0.1)'
+                    backdrop_filter = f"blur({glassmorphism.get('blur_intensity', '15px')}) saturate({glassmorphism.get('saturation', '150%')})"
+                    glow_effect = f'0 4px 20px rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.15), inset 0 1px 0 rgba(255, 255, 255, {glassmorphism.get("inset_highlight", "rgba(255, 255, 255, 0.4)").split(",")[-1].strip(")")}'
+                else:
+                    # 어두운 테마: 고급스러운 글래스 효과
+                    news_bg = user_bg
+                    news_text = text_color
+                    news_border = colors.get('user_border', primary_color)
+                    text_shadow = f'0 1px 3px rgba(0,0,0,0.7), 0 0 8px rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.3)'
+                    backdrop_filter = f"blur({glassmorphism.get('blur_intensity', '20px')}) saturate({glassmorphism.get('saturation', '180%')})"
+                    glow_effect = f'0 8px 32px rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.3), inset 0 1px 0 {glassmorphism.get("inset_highlight", "rgba(255, 255, 255, 0.1)")}'
+
+                # 테마별 맞춤 뉴스 배너 디자인
                 theme_js = f"""
                 try {{
                     // 기존 스타일 제거
@@ -759,52 +811,134 @@ class NewsBanner(QWidget):
                         * {{
                             box-sizing: border-box !important;
                         }}
+                        
                         html, body {{
-                            background-color: {bg_color} !important;
-                            color: {text_color} !important;
+                            background-color: {main_bg_color} !important;
+                            margin: 0 !important;
+                            padding: 2px !important;
+                            height: 100% !important;
+                            box-sizing: border-box !important;
+                        }}
+                        
+                        .news-container {{
+                            background: {news_bg} !important;
+                            backdrop-filter: {backdrop_filter} !important;
+                            -webkit-backdrop-filter: {backdrop_filter} !important;
+                            border: 1px solid {news_border} !important;
+                            border-radius: 28px !important;
+                            padding: 8px 16px !important;
+                            width: calc(100% - 8px) !important;
+                            height: calc(100% - 12px) !important;
+                            margin: 2px !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            position: relative !important;
+                            overflow: hidden !important;
+                            box-shadow: {glow_effect} !important;
+                            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                        }}
+                        
+                        .news-container:hover {{
+                            transform: translateY(-2px) scale(1.01) !important;
+                            border-color: rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.8) !important;
+                            box-shadow: {glow_effect}, 0 12px 40px rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.25) !important;
+                        }}
+                        
+                        .news-container::before {{
+                            content: '' !important;
+                            position: absolute !important;
+                            top: 0 !important;
+                            left: 0 !important;
+                            right: 0 !important;
+                            bottom: 0 !important;
+                            background: linear-gradient(135deg, 
+                                rgba(255,255,255,{0.15 if theme_type == 'light' else 0.08}) 0%, 
+                                transparent 30%, 
+                                transparent 70%, 
+                                rgba(255,255,255,{0.05 if theme_type == 'light' else 0.03}) 100%) !important;
+                            pointer-events: none !important;
+                            z-index: 1 !important;
+                            border-radius: 27px !important;
+                        }}
+                        
+                        .news-container::after {{
+                            content: '' !important;
+                            position: absolute !important;
+                            top: -1px !important;
+                            left: -1px !important;
+                            right: -1px !important;
+                            bottom: -1px !important;
+                            background: linear-gradient(135deg, 
+                                rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.4) 0%, 
+                                rgba({secondary_rgb[0]}, {secondary_rgb[1]}, {secondary_rgb[2]}, 0.2) 50%, 
+                                rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.4) 100%) !important;
+                            border-radius: 29px !important;
+                            z-index: -1 !important;
+                            opacity: {0.4 if theme_type == 'light' else 0.6} !important;
+                        }}
+                        
+                        .news-text {{
+                            color: {news_text} !important;
+                            font-size: 13px !important;
+                            font-weight: 600 !important;
+                            text-shadow: {text_shadow} !important;
+                            position: relative !important;
+                            z-index: 3 !important;
+                            line-height: 1.5 !important;
+                            letter-spacing: 0.2px !important;
+                            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif !important;
+                            white-space: nowrap !important;
+                            overflow: hidden !important;
+                            text-overflow: ellipsis !important;
                             margin: 0 !important;
                             padding: 0 !important;
                         }}
-                        .news-container {{
-                            background-color: {bg_color} !important;
-                            color: {text_color} !important;
-                            border: 1px solid {colors.get('divider', '#333333')} !important;
-                            border-radius: 6px !important;
-                            padding: 4px 6px !important;
-                            width: 100% !important;
-                            height: 100% !important;
-                        }}
-                        .news-text {{
-                            color: {text_color} !important;
-                            font-size: 12px !important;
-                            font-weight: 500 !important;
-                            text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
-                        }}
+                        
                         .news-content {{
                             background-color: transparent !important;
-                            color: {text_color} !important;
+                            color: {news_text} !important;
+                            position: relative !important;
+                            z-index: 2 !important;
+                            flex: 1 !important;
+                            overflow: hidden !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            height: 100% !important;
                         }}
+                        
                         .news-image {{
-                            border: 1px solid {colors.get('divider', '#333333')} !important;
+                            border: 1px solid rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.3) !important;
+                            border-radius: 8px !important;
+                            position: relative !important;
+                            z-index: 3 !important;
+                            box-shadow: 0 4px 12px rgba(0,0,0,{0.1 if theme_type == 'light' else 0.2}), 0 0 0 1px rgba(255,255,255,{0.2 if theme_type == 'light' else 0.1}) !important;
+                            transition: transform 0.3s ease !important;
+                        }}
+                        
+                        .news-image:hover {{
+                            transform: scale(1.02) !important;
                         }}
                     `;
                     document.head.appendChild(style);
                     
-                    // 배경색 직접 적용
-                    document.body.style.setProperty('background-color', '{bg_color}', 'important');
-                    document.body.style.setProperty('color', '{text_color}', 'important');
+                    // 바디 배경색 강제 적용
+                    document.body.style.setProperty('background-color', '{main_bg_color}', 'important');
+                    document.documentElement.style.setProperty('background-color', '{main_bg_color}', 'important');
                     
                     const container = document.getElementById('news-display');
                     if (container) {{
-                        container.style.setProperty('background-color', '{bg_color}', 'important');
-                        container.style.setProperty('color', '{text_color}', 'important');
-                        container.style.setProperty('border', '1px solid {colors.get('divider', '#333333')}', 'important');
+                        container.style.setProperty('background', '{news_bg}', 'important');
+                        container.style.setProperty('backdrop-filter', '{backdrop_filter}', 'important');
+                        container.style.setProperty('-webkit-backdrop-filter', '{backdrop_filter}', 'important');
+                        container.style.setProperty('border', '1px solid {news_border}', 'important');
                     }}
                     
                     // 모든 텍스트 요소에 색상 강제 적용
                     const textElements = document.querySelectorAll('.news-text, .news-content');
                     textElements.forEach(el => {{
-                        el.style.setProperty('color', '{text_color}', 'important');
+                        el.style.setProperty('color', '{news_text}', 'important');
+                        el.style.setProperty('text-shadow', '{text_shadow}', 'important');
+                        el.style.setProperty('font-weight', '600', 'important');
                     }});
                     
                 }} catch(e) {{
@@ -813,32 +947,56 @@ class NewsBanner(QWidget):
                 """
                 self.web_view.page().runJavaScript(theme_js)
 
+                # 테마 설정에서 자동으로 버튼 스타일 가져오기
+                if theme_type == 'light':
+                    btn_bg = surface_color
+                    btn_color = colors.get('text_primary', '#000000')
+                    btn_border = primary_color
+                    btn_hover_bg = colors.get('background', '#ffffff')
+                else:
+                    btn_bg = surface_color
+                    btn_color = text_color
+                    btn_border = primary_color
+                    btn_hover_bg = colors.get('background', '#121212')
+                
                 self.refresh_btn.setStyleSheet(
                     f"""
                     QPushButton {{
-                        border: none;
-                        background-color: transparent;
-                        border-radius: 18px;
-                        font-size: 20px;
-                        color: {text_color};
-                        padding: 2px;
+                        background-color: {btn_bg};
+                        border: 2px solid {btn_border};
+                        border-radius: 22px;
+                        font-size: 16px;
+                        color: {btn_color};
+                        padding: 6px;
+                        font-weight: 500;
+                        min-width: 44px;
+                        min-height: 44px;
+
+                        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
                     }}
                     QPushButton:hover {{
-                        background-color: rgba(128, 128, 128, 0.2);
-                        transform: scale(1.1);
+                        background-color: {btn_hover_bg};
+                        border-color: {primary_color};
+                        transform: translateY(-1px);
                     }}
                     QPushButton:pressed {{
-                        background-color: rgba(128, 128, 128, 0.3);
-                        transform: scale(0.95);
+                        transform: translateY(0px);
                     }}
                 """
                 )
 
+                # 메인 배경색 (이미 위에서 정의됨)
+                
+                # 웹뷰 배경색도 테마와 일치
+                self.web_view.setStyleSheet(f"QWebEngineView {{ background-color: {main_bg_color}; border-radius: 28px; }}")
+                
                 self.setStyleSheet(
                     f"""
                     NewsBanner {{
-                        background-color: {colors.get('background', '#121212')};
-                        border-radius: 8px;
+                        background-color: {main_bg_color};
+                        border: none;
+                        border-radius: 32px;
+                        padding: 2px;
                     }}
                 """
                 )
@@ -849,10 +1007,13 @@ class NewsBanner(QWidget):
                 QPushButton {
                     border: none;
                     background-color: transparent;
-                    border-radius: 18px;
+                    border-radius: 22px;
                     font-size: 20px;
                     color: #333333;
-                    padding: 2px;
+                    padding: 6px;
+                    min-width: 44px;
+                    min-height: 44px;
+
                 }
                 QPushButton:hover {
                     background-color: rgba(128, 128, 128, 0.2);

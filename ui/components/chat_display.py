@@ -158,7 +158,20 @@ class ChatDisplay:
         self._load_html_template()
 
     def handle_console_message(self, level, message, line_number, source_id):
-        """자바스크립트 콘솔 메시지 처리"""
+        """자바스크립트 콘솔 메시지 처리 - Mermaid 오류 완전 차단"""
+        # Mermaid 관련 모든 오류 메시지 완전 차단
+        message_lower = message.lower()
+        blocked_keywords = [
+            'mermaid', 'syntax error', 'parse error', 'diagram error',
+            'version 11.12.0', 'rendering error', 'invalid syntax',
+            'diagram syntax', 'mermaid.min.js'
+        ]
+        
+        for keyword in blocked_keywords:
+            if keyword in message_lower:
+                return  # 완전히 무시
+        
+        # 일반 메시지만 출력
         print(f"[JS Console] {message} (line: {line_number})")
 
     def _load_html_template(self):
@@ -187,24 +200,30 @@ class ChatDisplay:
             <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
             <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
             <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-            <script src="https://unpkg.com/mermaid@11.12.0/dist/mermaid.min.js"></script>
+            <script src="https://unpkg.com/mermaid@11.12.0/dist/mermaid.min.js" onerror="console.log('Mermaid 로드 실패 - 무시됨')"></script>
             <script>
-                // 간단한 Mermaid 초기화
+                // Mermaid 초기화 - 오류 완전 차단
                 function initMermaid() {{
-                    if (typeof mermaid !== 'undefined') {{
-                        mermaid.initialize({{
-                            startOnLoad: false,
-                            theme: '{mermaid_theme}',
-                            securityLevel: 'loose'
-                        }});
-                        console.log('Mermaid 초기화 완료');
-                        renderMermaidDiagrams();
-                    }} else {{
-                        setTimeout(initMermaid, 100);
+                    try {{
+                        if (typeof mermaid !== 'undefined') {{
+                            // 오류 로깅 비활성화
+                            mermaid.initialize({{
+                                startOnLoad: false,
+                                theme: '{mermaid_theme}',
+                                securityLevel: 'loose',
+                                logLevel: 'fatal',  // 오류 로깅 비활성화
+                                suppressErrorRendering: true  // 오류 렌더링 비활성화
+                            }});
+                            renderMermaidDiagrams();
+                        }} else {{
+                            setTimeout(initMermaid, 100);
+                        }}
+                    }} catch (error) {{
+                        // 초기화 오류 완전 무시
                     }}
                 }}
                 
-                // Mermaid 다이어그램 렌더링
+                // Mermaid 다이어그램 렌더링 - 오류 완전 차단
                 function renderMermaidDiagrams() {{
                     try {{
                         var elements = document.querySelectorAll('.mermaid:not([data-processed])');
@@ -213,27 +232,66 @@ class ChatDisplay:
                             // 빈 코드나 잘못된 구문 필터링
                             if (code && code.length > 10 && (code.includes('graph') || code.includes('sequenceDiagram') || code.includes('flowchart') || code.includes('classDiagram') || code.includes('erDiagram') || code.includes('gitgraph') || code.includes('gitGraph') || code.includes('pie') || code.includes('journey') || code.includes('gantt') || code.includes('mindmap') || code.includes('timeline') || code.includes('sankey') || code.includes('xychart'))) {{
                                 var id = 'mermaid-' + Date.now() + '-' + index;
-                                mermaid.render(id, code).then(function(result) {{
-                                    element.innerHTML = result.svg;
-                                    element.setAttribute('data-processed', 'true');
-                                }}).catch(function(error) {{
-                                    console.error('Mermaid 렌더링 오류:', error);
-                                    element.style.display = 'none'; // 오류 시 숨김
-                                }});
-                            }} else {{
-                                // 빈 요소나 잘못된 구문은 숨김
-                                element.style.display = 'none';
+                                // 처리 중 표시로 즉시 마킹하여 중복 처리 방지
                                 element.setAttribute('data-processed', 'true');
+                                
+                                // 오류 메시지 완전 차단을 위한 래퍼
+                                try {{
+                                    mermaid.render(id, code).then(function(result) {{
+                                        element.innerHTML = result.svg;
+                                        element.setAttribute('data-processed', 'success');
+                                    }}).catch(function(error) {{
+                                        // 오류 시 완전히 제거하고 오류 메시지도 차단
+                                        element.style.display = 'none';
+                                        element.remove();
+                                        // 오류 메시지 DOM에서 제거
+                                        setTimeout(function() {{
+                                            var errorElements = document.querySelectorAll('[class*="error"], [id*="error"], .mermaid-error');
+                                            errorElements.forEach(function(el) {{ el.remove(); }});
+                                        }}, 10);
+                                    }});
+                                }} catch (renderError) {{
+                                    // 렌더링 오류 시 완전 제거
+                                    element.style.display = 'none';
+                                    element.remove();
+                                }}
+                            }} else {{
+                                // 빈 요소나 잘못된 구문은 완전히 제거
+                                element.style.display = 'none';
+                                element.remove();
                             }}
                         }});
                     }} catch (error) {{
-                        console.error('Mermaid 처리 오류:', error);
+                        // Mermaid 오류 조용히 처리
                     }}
                 }}
                 
-                // 초기화
-                document.addEventListener('DOMContentLoaded', initMermaid);
-                window.addEventListener('load', function() {{ setTimeout(initMermaid, 200); }});
+                // 초기화 - 중복 실행 방지
+                var mermaidInitialized = false;
+                function safeMermaidInit() {{
+                    if (!mermaidInitialized) {{
+                        mermaidInitialized = true;
+                        initMermaid();
+                    }}
+                }}
+                
+                // DOM 로드 이벤트 - 오류 처리 포함
+                document.addEventListener('DOMContentLoaded', function() {{
+                    try {{
+                        safeMermaidInit();
+                    }} catch (e) {{
+                        // 무시
+                    }}
+                }});
+                window.addEventListener('load', function() {{ 
+                    setTimeout(function() {{
+                        try {{
+                            safeMermaidInit();
+                        }} catch (e) {{
+                            // 무시
+                        }}
+                    }}, 200); 
+                }});
             </script>
             <style id="theme-style">
                 {theme_css}
@@ -298,12 +356,31 @@ class ChatDisplay:
         <body>
             <div id="messages"></div>
             <script>
+                // 전역 Mermaid 오류 차단
+                window.addEventListener('error', function(e) {{
+                    if (e.message && (e.message.includes('mermaid') || e.message.includes('Syntax error'))) {{
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }}
+                }});
+                
+                // 콘솔 오류 차단
+                var originalConsoleError = console.error;
+                console.error = function() {{
+                    var message = Array.prototype.slice.call(arguments).join(' ');
+                    if (message.includes('mermaid') || message.includes('Syntax error') || message.includes('version 11.12.0')) {{
+                        return; // Mermaid 오류 무시
+                    }}
+                    originalConsoleError.apply(console, arguments);
+                }};
+                
                 console.log('HTML 로드 완료');
                 
-                // Mermaid 초기화 (HTML 로드 후)
+                // Mermaid 초기화 (HTML 로드 후) - 중복 실행 방지
                 setTimeout(function() {{
-                    if (typeof initMermaid === 'function') {{
-                        initMermaid();
+                    if (typeof safeMermaidInit === 'function') {{
+                        safeMermaidInit();
                     }}
                 }}, 300);
                 
@@ -798,8 +875,10 @@ class ChatDisplay:
             messageDiv.appendChild(contentDiv);
             
             if ({str(prepend).lower()}) {{
+                // prepend 시에는 기존 첫 번째 메시지 앞에 삽입
                 messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
             }} else {{
+                // 일반적인 경우 맨 뒤에 추가
                 messagesDiv.appendChild(messageDiv);
             }}
             
@@ -824,12 +903,40 @@ class ChatDisplay:
                 }}
             }}, 50);
             
-            // 스크롤 조정
+            // 스크롤 조정 - 강화된 하단 스크롤
             setTimeout(function() {{
                 if (!{str(prepend).lower()}) {{
-                    window.scrollTo(0, document.body.scrollHeight);
+                    // 여러 방법으로 하단 스크롤 시도
+                    const scrollToBottom = () => {{
+                        const maxScroll = Math.max(
+                            document.body.scrollHeight,
+                            document.documentElement.scrollHeight,
+                            document.body.offsetHeight,
+                            document.documentElement.offsetHeight
+                        );
+                        
+                        // 즉시 스크롤
+                        window.scrollTo(0, maxScroll);
+                        document.documentElement.scrollTop = maxScroll;
+                        document.body.scrollTop = maxScroll;
+                        
+                        // 부드러운 스크롤도 시도
+                        window.scrollTo({{
+                            top: maxScroll,
+                            behavior: 'smooth'
+                        }});
+                    }};
+                    
+                    // 즉시 실행
+                    scrollToBottom();
+                    
+                    // 100ms 후 다시 시도
+                    setTimeout(scrollToBottom, 100);
+                    
+                    // 300ms 후 마지막 시도
+                    setTimeout(scrollToBottom, 300);
                 }}
-            }}, 100);
+            }}, 50);
             
         }} catch(e) {{
             console.error('메시지 생성 오류:', e);

@@ -299,10 +299,13 @@ class SessionPanel(QWidget):
         self.setup_ui()
         self.load_sessions()
         
-        # 자동 새로고침 타이머 - 비동기 처리
-        self.refresh_timer = QTimer()
-        self.refresh_timer.timeout.connect(lambda: QTimer.singleShot(0, self.refresh_all_data))
-        self.refresh_timer.start(30000)  # 30초마다 새로고침
+        # 자동 선택 플래그
+        self._auto_selection_done = False
+        
+        # 자동 새로고침 타이머 - 비동기 처리 (비활성화)
+        # self.refresh_timer = QTimer()
+        # self.refresh_timer.timeout.connect(lambda: QTimer.singleShot(0, self.refresh_all_data))
+        # self.refresh_timer.start(30000)  # 30초마다 새로고침
     
     def setup_ui(self):
         """UI 설정 - 로고와 Sessions 문구 삭제, 버튼 재정렬"""
@@ -451,6 +454,11 @@ class SessionPanel(QWidget):
         
         # 현재 모델 표시 업데이트
         QTimer.singleShot(200, self._update_current_model_display)
+        
+        # 마지막 사용 세션 자동 선택 - 더 긴 지연과 재시도
+        QTimer.singleShot(500, self._auto_select_last_session)
+        QTimer.singleShot(1000, self._auto_select_last_session)  # 재시도
+        QTimer.singleShot(2000, self._auto_select_last_session)  # 최종 재시도
     
     def _update_current_model_display(self):
         """현재 모델 표시 업데이트"""
@@ -492,6 +500,9 @@ class SessionPanel(QWidget):
         """비동기 데이터 새로고침"""
         try:
             self.load_sessions()
+            # 현재 선택된 세션 유지
+            if self.current_session_id:
+                QTimer.singleShot(50, lambda: self._select_session_without_touch(self.current_session_id))
             QTimer.singleShot(100, self.update_stats)
         except Exception as e:
             logger.error(f"비동기 새로고침 오류: {e}")
@@ -523,6 +534,9 @@ class SessionPanel(QWidget):
         """세션 검색"""
         if not query.strip():
             self.load_sessions()
+            # 검색 해제 시 현재 선택된 세션 유지
+            if self.current_session_id:
+                QTimer.singleShot(50, lambda: self._select_session_without_touch(self.current_session_id))
             return
         
         try:
@@ -538,16 +552,23 @@ class SessionPanel(QWidget):
                 item.setSizeHint(session_widget.sizeHint())
                 self.session_list.addItem(item)
                 self.session_list.setItemWidget(item, session_widget)
+            
+            # 검색 결과에서도 현재 선택된 세션 하이라이트 유지
+            if self.current_session_id:
+                QTimer.singleShot(50, lambda: self._select_session_without_touch(self.current_session_id))
                 
         except Exception as e:
             logger.error(f"세션 검색 오류: {e}")
     
     def select_session(self, session_id: int):
-        """세션 선택"""
+        """세션 선택 - 자동/수동 동일하게 동작"""
         self.current_session_id = session_id
         self.rename_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
         self.delete_btn.setEnabled(True)
+        
+        # 세션 사용 시간 업데이트 (최상단으로 올리기 위해)
+        session_manager.touch_session(session_id)
         
         # 메인 윈도우의 현재 세션 ID도 업데이트
         if hasattr(self, 'main_window') and self.main_window:
@@ -562,6 +583,9 @@ class SessionPanel(QWidget):
                 widget.set_selected(True)
             else:
                 widget.set_selected(False)
+        
+        # 세션 목록 새로고침 (순서 업데이트)
+        QTimer.singleShot(100, self.load_sessions)
         
         self.session_selected.emit(session_id)
         logger.info(f"세션 선택: {session_id}")
@@ -586,8 +610,9 @@ class SessionPanel(QWidget):
                     self.main_window.current_session_id = session_id
                     self.main_window._auto_session_created = True
                 
-                self.refresh_all_data()
-                self.select_session(session_id)
+                # 세션 목록 새로고침 후 선택
+                self.load_sessions()
+                QTimer.singleShot(50, lambda: self.select_session(session_id))
                 self.session_created.emit(session_id)
                 
                 QMessageBox.information(self, "성공", f"새 세션 '{data['title']}'이 생성되었습니다.")
@@ -617,7 +642,8 @@ class SessionPanel(QWidget):
                 )
                 
                 if success:
-                    self.refresh_all_data()
+                    # 세션 목록 새로고침
+                    self.load_sessions()
                     QMessageBox.information(self, "성공", "세션 이름이 변경되었습니다.")
                 else:
                     QMessageBox.warning(self, "실패", "세션 이름 변경에 실패했습니다.")
@@ -647,7 +673,7 @@ class SessionPanel(QWidget):
                 # 먼저 UI에서 해당 아이템 제거
                 self._remove_session_item(self.current_session_id)
                 
-                success = session_manager.delete_session(self.current_session_id)
+                success = session_manager.delete_session(self.current_session_id, hard_delete=True)
                 
                 if success:
                     # 메인 윈도우의 현재 세션 ID도 초기화
@@ -655,14 +681,16 @@ class SessionPanel(QWidget):
                         if self.main_window.current_session_id == self.current_session_id:
                             self.main_window.current_session_id = None
                             self.main_window._auto_session_created = False
+                            # 창 제목 업데이트
+                            self.main_window._update_window_title()
                     
                     self.current_session_id = None
                     self.rename_btn.setEnabled(False)
                     self.export_btn.setEnabled(False)
                     self.delete_btn.setEnabled(False)
                     
-                    # 지연 새로고침
-                    QTimer.singleShot(100, self.refresh_all_data)
+                    # 세션 목록 새로고침
+                    self.load_sessions()
                     QMessageBox.information(self, "성공", "세션이 삭제되었습니다.")
                 else:
                     QMessageBox.warning(self, "실패", "세션 삭제에 실패했습니다.")
@@ -1147,13 +1175,15 @@ class SessionPanel(QWidget):
                 # 먼저 UI에서 해당 아이템 제거
                 self._remove_session_item(session_id)
                 
-                success = session_manager.delete_session(session_id)
+                success = session_manager.delete_session(session_id, hard_delete=True)
                 if success:
                     # 메인 윈도우의 현재 세션 ID도 초기화
                     if hasattr(self, 'main_window') and self.main_window:
                         if self.main_window.current_session_id == session_id:
                             self.main_window.current_session_id = None
                             self.main_window._auto_session_created = False
+                            # 창 제목 업데이트
+                            self.main_window._update_window_title()
                     
                     if self.current_session_id == session_id:
                         self.current_session_id = None
@@ -1161,8 +1191,8 @@ class SessionPanel(QWidget):
                         self.export_btn.setEnabled(False)
                         self.delete_btn.setEnabled(False)
                     
-                    # 지연 새로고침
-                    QTimer.singleShot(100, self.refresh_all_data)
+                    # 세션 목록 새로고침
+                    self.load_sessions()
                     QMessageBox.information(self, "성공", "세션이 삭제되었습니다.")
                 else:
                     QMessageBox.warning(self, "실패", "세션 삭제에 실패했습니다.")
@@ -1608,6 +1638,68 @@ class SessionPanel(QWidget):
                 self.setCursor(Qt.CursorShape.ArrowCursor)
         super().mouseMoveEvent(event)
     
+    def _auto_select_last_session(self):
+        """마지막 사용 세션 자동 선택 - 메시지 수와 상관없이 항상 작동"""
+        # 이미 자동 선택이 완료되었거나 수동으로 선택된 경우 스킵
+        if self._auto_selection_done or self.current_session_id:
+            print(f"[자동선택] 스킵 - 이미 완료됨 또는 세션 선택됨")
+            return
+            
+        try:
+            print(f"[자동선택] 시작 - 마지막 사용 세션 찾기")
+            sessions = session_manager.get_sessions(limit=1)
+            print(f"[자동선택] 조회된 세션 수: {len(sessions)}")
+            
+            if sessions:
+                last_session = sessions[0]
+                message_count = last_session.get('message_count', 0)
+                print(f"[자동선택] 마지막 세션 발견: {last_session['title']} (메시지 {message_count}개)")
+                
+                # 메시지 수와 상관없이 항상 선택 - 강제 실행
+                print(f"[자동선택] 세션 선택 실행: {last_session['id']}")
+                
+                # 메인 윈도우의 자동 세션 생성 플래그를 먼저 설정
+                if hasattr(self, 'main_window') and self.main_window:
+                    self.main_window._auto_session_created = True
+                    self.main_window.current_session_id = last_session['id']
+                
+                # 세션 선택 실행
+                self.select_session(last_session['id'])
+                self._auto_selection_done = True  # 자동 선택 완료 플래그 설정
+                print(f"[자동선택] 세션 선택 완료")
+            else:
+                print(f"[자동선택] 선택할 세션이 없음")
+                self._auto_selection_done = True  # 빈 상태도 완료로 처리
+        except Exception as e:
+            print(f"[자동선택] 오류: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _select_session_without_touch(self, session_id: int):
+        """세션 선택 (last_used_at 업데이트 없이) - 자동 선택용"""
+        self.current_session_id = session_id
+        self.rename_btn.setEnabled(True)
+        self.export_btn.setEnabled(True)
+        self.delete_btn.setEnabled(True)
+        
+        # 메인 윈도우의 현재 세션 ID도 업데이트
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.current_session_id = session_id
+            self.main_window._auto_session_created = True
+        
+        # 선택된 세션 하이라이트
+        for i in range(self.session_list.count()):
+            item = self.session_list.item(i)
+            widget = self.session_list.itemWidget(item)
+            if hasattr(widget, 'session_id') and widget.session_id == session_id:
+                widget.set_selected(True)
+            else:
+                widget.set_selected(False)
+        
+        # 자동 선택 시에도 세션 컨텍스트 로드 필요
+        self.session_selected.emit(session_id)
+        logger.info(f"세션 자동 선택: {session_id}")
+    
     def update_theme(self):
         """테마 업데이트"""
         self.apply_theme()
@@ -1617,6 +1709,7 @@ class SessionPanel(QWidget):
             widget = self.session_list.itemWidget(item)
             if hasattr(widget, 'apply_theme'):
                 widget.apply_theme()
+    
     def _remove_session_item(self, session_id: int):
         """안전하게 세션 아이템 제거"""
         try:

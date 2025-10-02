@@ -326,6 +326,10 @@ class ChatWidget(QWidget):
         self.chat_display.append_message('사용자', user_text, message_id=message_id)
         self.input_text.clear()
         
+        # 사용자 메시지 후 맨 하단으로 스크롤 - 더 긴 지연
+        QTimer.singleShot(200, self._scroll_to_bottom)
+        QTimer.singleShot(500, self._scroll_to_bottom)  # 추가 시도
+        
         model = load_last_model()
         api_key = load_model_api_key(model)
         # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
@@ -418,6 +422,10 @@ class ChatWidget(QWidget):
             self.uploaded_file_name = filename
             
             self.chat_display.append_message('시스템', f'파일이 업로드되었습니다. 이제 파일에 대해 무엇을 알고 싶은지 메시지를 입력해주세요.')
+            
+            # 파일 업로드 후 맨 하단으로 스크롤
+            QTimer.singleShot(300, self._scroll_to_bottom)
+            QTimer.singleShot(700, self._scroll_to_bottom)
             self.input_text.setPlaceholderText(f"{filename}에 대해 무엇을 알고 싶으신가요? (Enter로 전송)")
             
         except Exception as e:
@@ -442,6 +450,10 @@ class ChatWidget(QWidget):
         self.chat_display.cancel_progressive_display()
         
         self.chat_display.append_message('시스템', '요청을 취소했습니다.')
+        
+        # 취소 메시지 후 맨 하단으로 스크롤
+        QTimer.singleShot(300, self._scroll_to_bottom)
+        
         print("취소 요청 완료")
     
     def on_ai_response(self, sender, text, used_tools):
@@ -523,6 +535,11 @@ class ChatWidget(QWidget):
         
         self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
         
+        # AI 응답 후 맨 하단으로 스크롤 - 더 적극적으로
+        QTimer.singleShot(300, self._scroll_to_bottom)
+        QTimer.singleShot(800, self._scroll_to_bottom)
+        QTimer.singleShot(1500, self._scroll_to_bottom)  # 최종 확인
+        
         # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
         
         self.ui_manager.set_ui_enabled(True)
@@ -559,6 +576,10 @@ class ChatWidget(QWidget):
         enhanced_msg = f"{msg}{error_time}\n\n---\n*🤖 {current_model}{token_info}*\n⚠️ *AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.*" if token_info else f"{msg}{error_time}"
         
         self.chat_display.append_message('시스템', enhanced_msg)
+        
+        # 오류 메시지 후 맨 하단으로 스크롤
+        QTimer.singleShot(300, self._scroll_to_bottom)
+        
         self.ui_manager.set_ui_enabled(True)
         self.ui_manager.show_loading(False)
     
@@ -613,7 +634,8 @@ class ChatWidget(QWidget):
             all_messages = self.conversation_history.current_session
             
             if all_messages:
-                display_messages = all_messages[-20:] if len(all_messages) > 20 else all_messages
+                # 페이징 설정에 따라 초기 로드 개수 결정
+                display_messages = all_messages[-self.initial_load_count:] if len(all_messages) > self.initial_load_count else all_messages
                 
                 unique_contents = set()
                 unique_messages = []
@@ -782,46 +804,40 @@ class ChatWidget(QWidget):
             print(f"ChatWidget 종료 중 오류: {e}")
     
     def delete_message(self, message_id: str) -> bool:
-        """메시지 삭제"""
+        """메시지 삭제 - 개선된 세션 ID 찾기"""
         try:
             print(f"[CHAT_DELETE] 삭제 시작: {message_id}")
             
-            # 메인 윈도우에서 세션 ID 가져오기
-            main_window = self._find_main_window()
-            session_id = None
-            
-            # 현재 세션 ID 확인 (여러 방법으로 시도)
-            if main_window and hasattr(main_window, 'current_session_id') and main_window.current_session_id:
-                session_id = main_window.current_session_id
-            elif hasattr(self, 'current_session_id') and self.current_session_id:
-                session_id = self.current_session_id
-            
-            # 세션 ID가 없으면 메시지 ID로부터 세션 찾기
-            if not session_id:
-                from core.session.message_manager import message_manager
-                try:
-                    db_message_id = int(message_id)
-                    session_id = message_manager.find_session_by_message_id(db_message_id)
-                    print(f"[CHAT_DELETE] 메시지로부터 세션 ID 찾음: {session_id}")
-                except (ValueError, AttributeError):
-                    print(f"[CHAT_DELETE] 메시지 ID로부터 세션을 찾을 수 없음")
-            
-            if not session_id:
-                print(f"[CHAT_DELETE] 세션 ID를 찾을 수 없음")
-                return False
-            
-            print(f"[CHAT_DELETE] 사용할 세션 ID: {session_id}")
-            
-            # DB에서 삭제
-            from core.session.message_manager import message_manager
-            
-            # message_id를 정수로 변환
+            # 메시지 ID를 정수로 변환
             try:
                 db_message_id = int(message_id)
                 print(f"[CHAT_DELETE] DB 메시지 ID: {db_message_id}")
             except ValueError:
                 print(f"[CHAT_DELETE] 잘못된 메시지 ID 형식: {message_id}")
                 return False
+            
+            # 1순위: 메시지 ID로부터 직접 세션 찾기 (가장 안정적)
+            from core.session.message_manager import message_manager
+            session_id = message_manager.find_session_by_message_id(db_message_id)
+            print(f"[CHAT_DELETE] 메시지로부터 세션 ID 찾음: {session_id}")
+            
+            # 2순위: 메인 윈도우에서 세션 ID 가져오기
+            if not session_id:
+                main_window = self._find_main_window()
+                if main_window and hasattr(main_window, 'current_session_id') and main_window.current_session_id:
+                    session_id = main_window.current_session_id
+                    print(f"[CHAT_DELETE] 메인 윈도우에서 세션 ID 가져옴: {session_id}")
+            
+            # 3순위: 채팅 위젯의 세션 ID
+            if not session_id and hasattr(self, 'current_session_id') and self.current_session_id:
+                session_id = self.current_session_id
+                print(f"[CHAT_DELETE] 채팅 위젯에서 세션 ID 가져옴: {session_id}")
+            
+            if not session_id:
+                print(f"[CHAT_DELETE] 세션 ID를 찾을 수 없음")
+                return False
+            
+            print(f"[CHAT_DELETE] 사용할 세션 ID: {session_id}")
             
             # DB에서 삭제 실행
             success = message_manager.delete_message(session_id, db_message_id)
@@ -836,6 +852,7 @@ class ChatWidget(QWidget):
                     print(f"[CHAT_DELETE] 메모리 삭제 오류: {e}")
                 
                 # 세션 패널 새로고침
+                main_window = self._find_main_window()
                 if main_window and hasattr(main_window, 'session_panel'):
                     main_window.session_panel.load_sessions()
                     print(f"[CHAT_DELETE] 세션 패널 새로고침 완료")
@@ -1117,6 +1134,11 @@ class ChatWidget(QWidget):
                     load_msg += "\n\n🔼 위로 스크롤하면 이전 메시지를 볼 수 있습니다."
                 self.chat_display.append_message('시스템', load_msg)
             
+            # 맨 하단으로 스크롤 - 더 긴 지연 시간
+            QTimer.singleShot(600, self._scroll_to_bottom)
+            QTimer.singleShot(1200, self._scroll_to_bottom)
+            QTimer.singleShot(2000, self._scroll_to_bottom)  # 최종 확인
+            
             # 스크롤 이벤트 리스너 추가
             self._setup_scroll_listener()
             
@@ -1185,7 +1207,10 @@ class ChatWidget(QWidget):
     def _display_session_messages(self, messages, prepend=False):
         """세션 메시지들을 화면에 표시"""
         try:
-            for i, msg in enumerate(messages):
+            # prepend 시에는 역순으로 처리하여 올바른 순서 보장
+            display_messages = list(reversed(messages)) if prepend else messages
+            
+            for i, msg in enumerate(display_messages):
                 print(f"[LOAD_SESSION] 메시지 {i+1} 표시: role={msg['role']}, content={msg['content'][:30]}...")
                 msg_id = str(msg.get('id', f"session_msg_{i}"))
                 if msg['role'] == 'user':
@@ -1194,8 +1219,87 @@ class ChatWidget(QWidget):
                     self.chat_display.append_message('AI', msg['content'], message_id=msg_id, prepend=prepend)
             
             print(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
+            
+            # prepend가 아닌 경우(일반 로드)에만 하단 스크롤
+            if not prepend:
+                QTimer.singleShot(400, self._scroll_to_bottom)
+                QTimer.singleShot(1000, self._scroll_to_bottom)
+                QTimer.singleShot(1800, self._scroll_to_bottom)  # 최종 확인
+                
         except Exception as e:
             print(f"[LOAD_SESSION] 메시지 표시 오류: {e}")
+    
+    def _scroll_to_bottom(self):
+        """채팅 화면을 맨 하단으로 스크롤 - 최대 강화 버전"""
+        try:
+            self.chat_display_view.page().runJavaScript("""
+                // 최대 강화된 하단 스크롤 함수
+                const forceScrollToBottom = () => {
+                    // 모든 가능한 스크롤 높이 계산
+                    const heights = [
+                        document.body.scrollHeight,
+                        document.documentElement.scrollHeight,
+                        document.body.offsetHeight,
+                        document.documentElement.offsetHeight,
+                        document.body.clientHeight,
+                        document.documentElement.clientHeight
+                    ];
+                    
+                    const maxScroll = Math.max(...heights.filter(h => h > 0));
+                    const targetScroll = maxScroll + 1000; // 여유분 추가
+                    
+                    console.log('[SCROLL] 계산된 최대 높이:', maxScroll, '목표 스크롤:', targetScroll);
+                    
+                    // 모든 방법으로 스크롤 시도
+                    window.scrollTo(0, targetScroll);
+                    window.scroll(0, targetScroll);
+                    document.documentElement.scrollTop = targetScroll;
+                    document.body.scrollTop = targetScroll;
+                    
+                    // 메시지 컨테이너가 있다면 직접 스크롤
+                    const messagesDiv = document.getElementById('messages');
+                    if (messagesDiv) {
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
+                    
+                    // 부드러운 스크롤도 시도 (마지막에)
+                    setTimeout(() => {
+                        window.scrollTo({
+                            top: targetScroll,
+                            left: 0,
+                            behavior: 'smooth'
+                        });
+                    }, 10);
+                    
+                    console.log('[SCROLL] 현재 스크롤 위치:', window.scrollY, '/', targetScroll);
+                };
+                
+                // 즉시 실행
+                forceScrollToBottom();
+                
+                // 50ms 후 재시도
+                setTimeout(forceScrollToBottom, 50);
+                
+                // 150ms 후 재시도
+                setTimeout(forceScrollToBottom, 150);
+                
+                // 400ms 후 최종 시도
+                setTimeout(forceScrollToBottom, 400);
+                
+                // 1초 후 마지막 확인
+                setTimeout(() => {
+                    const currentScroll = window.scrollY;
+                    const maxHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+                    console.log('[SCROLL] 최종 확인 - 현재:', currentScroll, '최대:', maxHeight);
+                    if (currentScroll < maxHeight - 100) {
+                        console.log('[SCROLL] 스크롤이 완전히 하단에 도달하지 못함, 재시도');
+                        forceScrollToBottom();
+                    }
+                }, 1000);
+            """)
+            print("[SCROLL] 최대 강화된 하단 스크롤 실행")
+        except Exception as e:
+            print(f"[SCROLL] 스크롤 오류: {e}")
     
     # 세션 정보 업데이트 삭제 - 좌측 패널로 이동
     

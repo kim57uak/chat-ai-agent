@@ -655,7 +655,8 @@ class SettingsDialog(QDialog):
     def load_news_settings(self):
         """뉴스 설정 로드"""
         try:
-            with open('news_config.json', 'r', encoding='utf-8') as f:
+            config_path = config_path_manager.get_config_path('news_config.json')
+            with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
             # 동적 체크박스 설정
@@ -689,7 +690,8 @@ class SettingsDialog(QDialog):
         try:
             # 기본 설정 로드
             try:
-                with open('news_config.json', 'r', encoding='utf-8') as f:
+                config_path = config_path_manager.get_config_path('news_config.json')
+                with open(config_path, 'r', encoding='utf-8') as f:
                     config = json.load(f)
             except:
                 config = {
@@ -747,7 +749,8 @@ class SettingsDialog(QDialog):
             }
             
             # 저장
-            with open('news_config.json', 'w', encoding='utf-8') as f:
+            config_path = config_path_manager.get_config_path('news_config.json')
+            with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
                 
         except Exception as e:

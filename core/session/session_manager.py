@@ -80,6 +80,20 @@ class SessionManager:
                 }
             return None
     
+    def touch_session(self, session_id: int) -> bool:
+        """세션의 last_used_at 업데이트 (세션 선택 시 호출)"""
+        rowcount = self.db.execute_update('''
+            UPDATE sessions 
+            SET last_used_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND is_active = 1
+        ''', (session_id,))
+        
+        success = rowcount > 0
+        if success:
+            logger.info(f"세션 사용 시간 업데이트: {session_id}")
+        
+        return success
+    
     def update_session(self, session_id: int, title: str = None, topic_category: str = None) -> bool:
         """세션 정보 업데이트"""
         updates = []
@@ -111,17 +125,34 @@ class SessionManager:
         
         return success
     
-    def delete_session(self, session_id: int) -> bool:
-        """세션 삭제 (소프트 삭제)"""
-        rowcount = self.db.execute_update('''
-            UPDATE sessions 
-            SET is_active = 0 
-            WHERE id = ?
-        ''', (session_id,))
+    def delete_session(self, session_id: int, hard_delete: bool = True) -> bool:
+        """세션 삭제
         
-        success = rowcount > 0
+        Args:
+            session_id: 삭제할 세션 ID
+            hard_delete: True=완전삭제, False=소프트삭제
+        """
+        if hard_delete:
+            # 하드 삭제: 메시지와 세션 모두 완전 삭제
+            with self.db.get_connection() as conn:
+                # 메시지 먼저 삭제
+                conn.execute('DELETE FROM messages WHERE session_id = ?', (session_id,))
+                # 세션 삭제
+                cursor = conn.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
+                conn.commit()
+                success = cursor.rowcount > 0
+        else:
+            # 소프트 삭제: 세션만 비활성화
+            rowcount = self.db.execute_update('''
+                UPDATE sessions 
+                SET is_active = 0 
+                WHERE id = ?
+            ''', (session_id,))
+            success = rowcount > 0
+        
         if success:
-            logger.info(f"세션 삭제: {session_id}")
+            delete_type = "완전삭제" if hard_delete else "소프트삭제"
+            logger.info(f"세션 {delete_type}: {session_id}")
         
         return success
     

@@ -73,10 +73,17 @@ class SessionDatabase:
             
             # 인덱스 생성
             conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_last_used ON sessions(last_used_at DESC)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(is_active)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_title ON sessions(title)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, timestamp)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_content ON messages(content)')
             
             conn.commit()
-            logger.info(f"세션 데이터베이스 초기화 완료: {self.db_path}")
+            # 인덱스 통계 확인
+            cursor = conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'")
+            index_count = cursor.fetchone()[0]
+            logger.info(f"세션 데이터베이스 초기화 완료: {self.db_path} (인덱스 {index_count}개)")
     
     def execute_query(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
         """쿼리 실행"""

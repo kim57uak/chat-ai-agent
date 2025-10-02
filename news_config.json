@@ -4,7 +4,7 @@
       {
         "name": "연합뉴스",
         "url": "https://www.yna.co.kr/rss/news.xml",
-        "enabled": false
+        "enabled": true
       },
       {
         "name": "트래블데일리",

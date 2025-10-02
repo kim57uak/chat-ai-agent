@@ -559,15 +559,23 @@ class MainWindow(QMainWindow):
     # 테마 메뉴 체크 상태 업데이트 삭제 - 좌측 패널로 이동
     
     def _update_window_title(self):
-        """창 제목을 현재 테마명과 함께 업데이트"""
+        """창 제목을 현재 테마명과 세션명과 함께 업데이트"""
         try:
             current_theme_key = theme_manager.material_manager.current_theme_key
             available_themes = theme_manager.get_available_material_themes()
             theme_name = available_themes.get(current_theme_key, "Unknown")
-            self.setWindowTitle(f'AIAgent - {theme_name}')
+            
+            # 세션 이름 가져오기
+            session_name = ""
+            if self.current_session_id:
+                session = session_manager.get_session(self.current_session_id)
+                if session:
+                    session_name = f" - {session['title']}"
+            
+            self.setWindowTitle(f'AIChat - {theme_name}{session_name}')
         except Exception as e:
             print(f"창 제목 업데이트 오류: {e}")
-            self.setWindowTitle('AIAgent')
+            self.setWindowTitle('AIChat')
     
     def toggle_session_panel(self):
         """세션 패널 표시 토글"""
@@ -727,6 +735,9 @@ class MainWindow(QMainWindow):
             self.current_session_id = session_id
             self._auto_session_created = True  # 세션이 선택되었으므로 자동 생성 플래그 설정
             
+            # 창 제목 업데이트
+            self._update_window_title()
+            
             # 토큰 누적기 세션 설정
             from core.token_accumulator import token_accumulator
             token_accumulator.set_session(session_id)
@@ -742,9 +753,9 @@ class MainWindow(QMainWindow):
             
             print(f"[SESSION_SELECT] 세션 {session_id} 로드 시도")
             
-            # 대용량 세션 체크 (200개 이상 메시지)
+            # 대용량 세션 체크 (200개 이상 메시지) - 자동 선택된 세션은 경고 없이 로드
             message_count = session.get('message_count', 0)
-            if message_count > 200:
+            if message_count > 200 and not self._auto_session_created:
                 reply = QMessageBox.question(
                     self, '대용량 세션 경고', 
                     f'이 세션에는 {message_count}개의 메시지가 있습니다.\n'
@@ -755,6 +766,9 @@ class MainWindow(QMainWindow):
                 
                 if reply == QMessageBox.StandardButton.No:
                     print(f"[SESSION_SELECT] 사용자가 대용량 세션 로드 취소")
+                    # 세션 선택을 취소하고 현재 세션 ID를 초기화
+                    self.current_session_id = None
+                    self._auto_session_created = False
                     return
             
             # 채팅 화면 초기화
@@ -763,6 +777,10 @@ class MainWindow(QMainWindow):
             
             # 안전한 세션 로드 (타이머로 지연 실행)
             QTimer.singleShot(100, lambda: self._safe_load_session(session_id))
+            
+            # 세션 로드 후 하단 스크롤 보장
+            QTimer.singleShot(1500, self._ensure_scroll_to_bottom)
+            QTimer.singleShot(2500, self._ensure_scroll_to_bottom)
             
             print(f"[SESSION_SELECT] 세션 로드 시작: {session['title']}")
             
@@ -782,6 +800,10 @@ class MainWindow(QMainWindow):
             
             print(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 완료")
             
+            # 세션 로드 완료 후 하단 스크롤 강제 실행
+            QTimer.singleShot(500, self._ensure_scroll_to_bottom)
+            QTimer.singleShot(1000, self._ensure_scroll_to_bottom)
+            
         except Exception as e:
             print(f"[SAFE_LOAD] 안전 로드 오류: {e}")
             import traceback
@@ -798,6 +820,9 @@ class MainWindow(QMainWindow):
         """새 세션 생성 이벤트 처리"""
         self.current_session_id = session_id
         self._auto_session_created = True  # 세션이 생성되었으므로 자동 생성 플래그 설정
+        
+        # 창 제목 업데이트
+        self._update_window_title()
         
         # 토큰 누적기 세션 설정
         from core.token_accumulator import token_accumulator
@@ -890,6 +915,15 @@ class MainWindow(QMainWindow):
                 traceback.print_exc()
         else:
             print(f"[AUTO_SESSION] 이미 생성됨 - current_session_id: {self.current_session_id}")
+    
+    def _ensure_scroll_to_bottom(self):
+        """채팅 위젯 하단 스크롤 보장"""
+        try:
+            if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, '_scroll_to_bottom'):
+                self.chat_widget._scroll_to_bottom()
+                print("[MAIN_WINDOW] 채팅 위젯 하단 스크롤 강제 실행")
+        except Exception as e:
+            print(f"[MAIN_WINDOW] 하단 스크롤 오류: {e}")
     
     def _on_memory_warning(self, memory_percent):
         """메모리 경고 처리"""

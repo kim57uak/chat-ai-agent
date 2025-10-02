@@ -10,8 +10,11 @@ import shutil
 import subprocess
 import platform
 import json
+import multiprocessing
+import time
 from pathlib import Path
 from typing import Dict, Any
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
 # External config files (contain personal API keys)
 EXTERNAL_CONFIG_FILES = [
@@ -499,19 +502,37 @@ else:
             f.write(spec_content)
         print("✓ Updated PyInstaller spec file")
 
-    def build_executable(self):
-        """Build executable using PyInstaller"""
+    def build_executable(self, parallel_jobs=None):
+        """Build executable using PyInstaller with parallel processing"""
+        if parallel_jobs is None:
+            cpu_cores = multiprocessing.cpu_count()
+            parallel_jobs = min(cpu_cores, 8)
+            print(f"💻 CPU 코어: {cpu_cores}개, 병렬 작업: {parallel_jobs}개")
+        
+        # 환경변수로 병렬 처리 설정
+        import os
+        os.environ['PYINSTALLER_COMPILE_BOOTLOADER_PARALLEL'] = str(parallel_jobs)
+        
         try:
-            cmd = ["pyinstaller", "--clean", "--noconfirm", "chat_ai_agent.spec"]
-            print(f"Running: {' '.join(cmd)}")
+            cmd = [
+                "pyinstaller", 
+                "--noconfirm", 
+                "--clean",
+                f"--distpath=dist",
+                f"--workpath=build",
+                "chat_ai_agent.spec"
+            ]
+            print(f"🚀 병렬 빌드 시작: {' '.join(cmd)}")
 
+            start_time = time.time()
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            end_time = time.time()
 
             if result.stdout:
                 print("Build output:")
                 print(result.stdout)
 
-            print("✅ PyInstaller build completed")
+            print(f"✅ PyInstaller build completed in {end_time - start_time:.2f} seconds")
             return True
 
         except subprocess.CalledProcessError as e:
@@ -633,31 +654,47 @@ else:
                 else:
                     print(f"   - {item.name}/ (directory)")
 
-    def build(self):
-        """Main build process"""
+    def build_parallel_tasks(self, parallel_jobs=None):
+        """병렬로 실행할 수 있는 작업들을 동시에 처리"""
+        if parallel_jobs is None:
+            parallel_jobs = min(multiprocessing.cpu_count(), 3)
+        
+        print(f"🔄 병렬 작업 시작 ({parallel_jobs} workers)...")
+        
+        with ThreadPoolExecutor(max_workers=parallel_jobs) as executor:
+            # 병렬로 실행할 작업들
+            futures = {
+                executor.submit(self.clean_build): "clean_build",
+                executor.submit(self.create_sample_configs): "create_configs",
+                executor.submit(self.update_spec_file): "update_spec"
+            }
+            
+            # 작업 완료 대기
+            for future in as_completed(futures):
+                task_name = futures[future]
+                try:
+                    future.result()
+                    print(f"✅ {task_name} completed")
+                except Exception as e:
+                    print(f"❌ {task_name} failed: {e}")
+                    raise
+    
+    def build(self, parallel_jobs=None):
+        """Main build process with parallel optimization"""
         print(f"🚀 Building ChatAI Agent for {self.system}")
         print("=" * 50)
 
         try:
-            # 1. Backup configs
+            # 1. Backup configs (순차 실행 필요)
             print("📦 Backing up config files...")
             self.backup_configs()
 
-            # 2. Create sample configs
-            print("📝 Creating sample config files...")
-            self.create_sample_configs()
+            # 2-4. 병렬 실행 가능한 작업들
+            self.build_parallel_tasks(parallel_jobs)
 
-            # 3. Clean build
-            print("🧹 Cleaning build directories...")
-            self.clean_build()
-
-            # 4. Update spec file
-            print("📄 Updating PyInstaller spec...")
-            self.update_spec_file()
-
-            # 5. Build executable
-            print("🔨 Building executable...")
-            if not self.build_executable():
+            # 5. Build executable (병렬 처리 적용)
+            print("🔨 Building executable with parallel processing...")
+            if not self.build_executable(parallel_jobs):
                 raise Exception("Build failed")
 
             # 6. Verify build
@@ -689,8 +726,16 @@ else:
 
 def main():
     """Entry point"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='ChatAI Agent 빌드 도구')
+    parser.add_argument('--parallel', '-p', type=int, default=None,
+                       help='병렬 작업 수 (기본값: CPU 코어 수 기반 자동 최적화)')
+    
+    args = parser.parse_args()
+    
     builder = PackageBuilder()
-    builder.build()
+    builder.build(parallel_jobs=args.parallel)
 
 
 if __name__ == "__main__":

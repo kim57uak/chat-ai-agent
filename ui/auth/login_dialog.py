@@ -87,19 +87,21 @@ class LoginDialog(QDialog):
         # 비밀번호 입력
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setPlaceholderText("비밀번호")
+        self.password_input.setPlaceholderText("Password (English only)")
         self.password_input.setMinimumHeight(35)
         self.password_input.returnPressed.connect(self.handle_auth)
         self.password_input.textChanged.connect(lambda: self._filter_non_ascii(self.password_input))
+        self.password_input.installEventFilter(self)
         layout.addWidget(self.password_input)
         
         # 비밀번호 확인 (설정 모드에서만 표시)
         self.confirm_password_input = QLineEdit()
         self.confirm_password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.confirm_password_input.setPlaceholderText("비밀번호 확인")
+        self.confirm_password_input.setPlaceholderText("Confirm Password (English only)")
         self.confirm_password_input.setMinimumHeight(35)
         self.confirm_password_input.returnPressed.connect(self.handle_auth)
         self.confirm_password_input.textChanged.connect(lambda: self._filter_non_ascii(self.confirm_password_input))
+        self.confirm_password_input.installEventFilter(self)
         self.confirm_password_input.hide()
         layout.addWidget(self.confirm_password_input)
         
@@ -529,6 +531,15 @@ class LoginDialog(QDialog):
         if text != filtered:
             line_edit.setText(filtered)
             line_edit.setCursorPosition(min(cursor_pos, len(filtered)))
+    
+    def eventFilter(self, obj, event):
+        """이벤트 필터 - 한글 입력 차단"""
+        if obj in (self.password_input, self.confirm_password_input):
+            if event.type() == event.Type.KeyPress:
+                # ASCII 범위 외 문자 차단
+                if event.text() and any(ord(c) >= 128 for c in event.text()):
+                    return True  # 이벤트 차단
+        return super().eventFilter(obj, event)
     
     def keyPressEvent(self, event):
         """키 이벤트 처리"""

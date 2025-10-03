@@ -15,7 +15,9 @@ from ui.styles.flat_theme import FlatTheme
 from ui.styles.theme_manager import theme_manager
 from ui.memory_manager import memory_manager
 # MaterialThemeType 제거 - 하드코딩 금지
-from core.session import session_manager
+from core.session.session_manager import initialize_session_manager
+from core.auth.auth_manager import AuthManager
+from ui.auth.login_dialog import LoginDialog
 import os
 import json
 import threading
@@ -25,6 +27,14 @@ class MainWindow(QMainWindow):
         print("[DEBUG] MainWindow.__init__() 시작")
         super().__init__()
         print("[DEBUG] super().__init__() 완료")
+        
+        # 인증 시스템 초기화
+        self.auth_manager = AuthManager()
+        
+        # 인증 체크 및 로그인 다이얼로그 표시
+        if not self._check_authentication():
+            self.close()
+            return
         
         # Load user environment variables for MCP servers
         print("[DEBUG] 환경변수 로드 시작")
@@ -41,6 +51,9 @@ class MainWindow(QMainWindow):
         self._initialize_mcp()
         print("[DEBUG] _initialize_mcp() 완료")
         print("MainWindow 초기화 완료")
+        
+        # 세션 만료 타이머 설정
+        self._setup_session_timer()
     
     def _setup_window(self) -> None:
         """Setup main window properties."""
@@ -232,6 +245,21 @@ class MainWindow(QMainWindow):
         self.glassmorphism_action.setShortcut('Ctrl+G')
         self.glassmorphism_action.triggered.connect(self.toggle_glassmorphism)
         settings_menu.addAction(self.glassmorphism_action)
+        
+        settings_menu.addSeparator()
+        
+        # 보안 메뉴
+        security_menu = menubar.addMenu('보안')
+        
+        # 로그아웃
+        logout_action = QAction('로그아웃', self)
+        logout_action.triggered.connect(self.logout)
+        security_menu.addAction(logout_action)
+        
+        # 보안 상태 표시
+        security_status_action = QAction('보안 상태', self)
+        security_status_action.triggered.connect(self.show_security_status)
+        security_menu.addAction(security_status_action)
         
         settings_menu.addSeparator()
         
@@ -567,10 +595,12 @@ class MainWindow(QMainWindow):
             
             # 세션 이름 가져오기
             session_name = ""
-            if self.current_session_id:
-                session = session_manager.get_session(self.current_session_id)
-                if session:
-                    session_name = f" - {session['title']}"
+            if hasattr(self, 'current_session_id') and self.current_session_id:
+                from core.session.session_manager import session_manager
+                if session_manager:
+                    session = session_manager.get_session(self.current_session_id)
+                    if session:
+                        session_name = f" - {session['title']}"
             
             self.setWindowTitle(f'AIChat - {theme_name}{session_name}')
         except Exception as e:
@@ -746,6 +776,11 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
                 self.chat_widget.update_session_info(session_id)
             
+            from core.session.session_manager import session_manager
+            if not session_manager:
+                QMessageBox.warning(self, '오류', '세션 매니저가 초기화되지 않았습니다.')
+                return
+            
             session = session_manager.get_session(session_id)
             if not session:
                 QMessageBox.warning(self, '오류', '세션을 찾을 수 없습니다.')
@@ -855,14 +890,19 @@ class MainWindow(QMainWindow):
         if self.current_session_id:
             try:
                 print(f"[SAVE_MESSAGE] 세션 {self.current_session_id}에 메시지 저장 시도")
-                message_id = session_manager.add_message(
-                    self.current_session_id, 
-                    role, 
-                    content, 
-                    content_html=content_html,
-                    token_count=token_count
-                )
-                print(f"[SAVE_MESSAGE] 성공 - message_id: {message_id}")
+                from core.session.session_manager import session_manager
+                if session_manager:
+                    message_id = session_manager.add_message(
+                        self.current_session_id, 
+                        role, 
+                        content, 
+                        content_html=content_html,
+                        token_count=token_count
+                    )
+                    print(f"[SAVE_MESSAGE] 성공 - message_id: {message_id}")
+                else:
+                    print(f"[SAVE_MESSAGE] 오류 - session_manager가 초기화되지 않음")
+                    return
                 # 채팅 위젯의 세션 정보 업데이트
                 if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
                     self.chat_widget.update_session_info(self.current_session_id)
@@ -897,7 +937,12 @@ class MainWindow(QMainWindow):
                 from datetime import datetime
                 title = f"대화 {datetime.now().strftime('%m/%d %H:%M')}"
                 print(f"[AUTO_SESSION] 세션 생성 시도 - title: {title}")
-                self.current_session_id = session_manager.create_session(title)
+                from core.session.session_manager import session_manager
+                if session_manager:
+                    self.current_session_id = session_manager.create_session(title)
+                else:
+                    print(f"[AUTO_SESSION] 오류 - session_manager가 초기화되지 않음")
+                    return
                 self._auto_session_created = True
                 print(f"[AUTO_SESSION] 성공 - session_id: {self.current_session_id}")
                 
@@ -925,8 +970,104 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"[MAIN_WINDOW] 하단 스크롤 오류: {e}")
     
+    def _check_authentication(self) -> bool:
+        """인증 체크 및 로그인 다이얼로그 표시"""
+        # 테스트 모드 체크
+        if os.environ.get('CHAT_AI_TEST_MODE') == '1':
+            # 테스트 모드에서는 자동 로그인
+            if self.auth_manager.is_setup_required():
+                self.auth_manager.setup_first_time("test_password_123")
+            else:
+                self.auth_manager.login("test_password_123")
+            return True
+        
+        if not self.auth_manager.is_logged_in():
+            login_dialog = LoginDialog(self.auth_manager, self)
+            login_dialog.login_successful.connect(self._on_login_successful)
+            
+            if login_dialog.exec() != LoginDialog.DialogCode.Accepted:
+                return False
+        else:
+            # 이미 로그인된 경우 세션 매니저 초기화
+            global session_manager
+            session_manager = initialize_session_manager(self.auth_manager)
+        
+        return True
+    
+    def _on_login_successful(self):
+        """로그인 성공 처리"""
+        print("로그인 성공")
+        
+        # 세션 매니저에 AuthManager 설정
+        from core.session.session_manager import session_manager, set_auth_manager
+        if session_manager:
+            set_auth_manager(self.auth_manager)
+        else:
+            # 세션 매니저가 없으면 새로 초기화
+            from core.session.session_manager import initialize_session_manager
+            initialize_session_manager(self.auth_manager)
+        
+        # 세션 타이머 시작
+        self._setup_session_timer()
+    
+    def _setup_session_timer(self):
+        """세션 만료 타이머 설정"""
+        self.session_timer = QTimer()
+        self.session_timer.timeout.connect(self._check_session_expiry)
+        self.session_timer.start(60000)  # 1분마다 체크
+    
+    def _check_session_expiry(self):
+        """세션 만료 체크"""
+        if not self.auth_manager.is_logged_in():
+            self._handle_session_expired()
+    
+    def _handle_session_expired(self):
+        """세션 만료 처리"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        # 세션 타이머 중지
+        if hasattr(self, 'session_timer'):
+            self.session_timer.stop()
+        
+        QMessageBox.information(
+            self, 
+            "세션 만료",
+            "비활성 상태로 인해 세션이 만료되었습니다.\n다시 로그인해주세요."
+        )
+        
+        # 로그인 다이얼로그 표시
+        self._check_authentication()
+    
+    def logout(self):
+        """로그아웃"""
+        self.auth_manager.logout()
+        
+        # 세션 타이머 중지
+        if hasattr(self, 'session_timer'):
+            self.session_timer.stop()
+        
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(self, "로그아웃", "로그아웃되었습니다.")
+        
+        # 로그인 다이얼로그 표시
+        self._check_authentication()
+    
     def _on_memory_warning(self, memory_percent):
         """메모리 경고 처리"""
         print(f"메모리 사용률 경고: {memory_percent:.1f}%")
         # 필요시 사용자에게 알림 표시 가능
+    
+    def show_security_status(self):
+        """보안 상태 표시"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if self.auth_manager.is_logged_in():
+            remaining_minutes = self.auth_manager.get_session_remaining_minutes()
+            status_text = f"현재 로그인 상태입니다.\n\n"
+            status_text += f"세션 남은 시간: {remaining_minutes}분\n"
+            status_text += f"자동 로그아웃 시간: {self.auth_manager.auto_logout_minutes}분"
+        else:
+            status_text = "로그인되지 않은 상태입니다."
+        
+        QMessageBox.information(self, "보안 상태", status_text)
     

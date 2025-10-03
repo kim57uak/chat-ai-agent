@@ -6,6 +6,22 @@ from core.application import SignalHandler, AppInitializer, AppRunner
 from ui.performance_optimizer import performance_optimizer
 
 
+def qt_message_handler(mode, context, message):
+    """Qt 메시지 필터링 - CSS 경고 숨기기"""
+    # CSS 관련 경고 메시지 필터링
+    if 'Unknown property' in message or 'box-shadow' in message or 'transform' in message or 'transition' in message:
+        return
+    # 나머지 메시지는 출력
+    if mode == 0:  # QtDebugMsg
+        logging.debug(message)
+    elif mode == 1:  # QtWarningMsg
+        logging.warning(message)
+    elif mode == 2:  # QtCriticalMsg
+        logging.error(message)
+    elif mode == 3:  # QtFatalMsg
+        logging.critical(message)
+
+
 def main() -> int:
     """Main application entry point."""
     # Load user environment variables for packaged apps (Node.js, npm, npx)
@@ -38,6 +54,13 @@ def main() -> int:
     # Initialize application components
     initializer = AppInitializer(sys.argv)
     app = initializer.create_application()
+    
+    # Qt 메시지 핸들러 설치 (CSS 경고 숨기기)
+    try:
+        from PyQt6.QtCore import qInstallMessageHandler
+        qInstallMessageHandler(qt_message_handler)
+    except Exception as e:
+        logging.warning(f"Qt message handler 설치 실패: {e}")
     
     # Apply performance optimizations
     performance_optimizer.optimize_application(app)

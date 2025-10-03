@@ -1233,71 +1233,55 @@ class ChatWidget(QWidget):
         """채팅 화면을 맨 하단으로 스크롤 - 최대 강화 버전"""
         try:
             self.chat_display_view.page().runJavaScript("""
-                // 최대 강화된 하단 스크롤 함수
-                const forceScrollToBottom = () => {
-                    // 모든 가능한 스크롤 높이 계산
-                    const heights = [
-                        document.body.scrollHeight,
-                        document.documentElement.scrollHeight,
-                        document.body.offsetHeight,
-                        document.documentElement.offsetHeight,
-                        document.body.clientHeight,
-                        document.documentElement.clientHeight
-                    ];
-                    
-                    const maxScroll = Math.max(...heights.filter(h => h > 0));
-                    const targetScroll = maxScroll + 1000; // 여유분 추가
-                    
-                    console.log('[SCROLL] 계산된 최대 높이:', maxScroll, '목표 스크롤:', targetScroll);
-                    
-                    // 모든 방법으로 스크롤 시도
-                    window.scrollTo(0, targetScroll);
-                    window.scroll(0, targetScroll);
-                    document.documentElement.scrollTop = targetScroll;
-                    document.body.scrollTop = targetScroll;
-                    
-                    // 메시지 컨테이너가 있다면 직접 스크롤
-                    const messagesDiv = document.getElementById('messages');
-                    if (messagesDiv) {
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                    }
-                    
-                    // 부드러운 스크롤도 시도 (마지막에)
-                    setTimeout(() => {
-                        window.scrollTo({
-                            top: targetScroll,
-                            left: 0,
-                            behavior: 'smooth'
-                        });
-                    }, 10);
-                    
-                    console.log('[SCROLL] 현재 스크롤 위치:', window.scrollY, '/', targetScroll);
-                };
+                // 전역 함수로 한 번만 선언
+                if (!window.forceScrollToBottom) {
+                    window.forceScrollToBottom = () => {
+                        const heights = [
+                            document.body.scrollHeight,
+                            document.documentElement.scrollHeight,
+                            document.body.offsetHeight,
+                            document.documentElement.offsetHeight,
+                            document.body.clientHeight,
+                            document.documentElement.clientHeight
+                        ];
+                        
+                        const maxScroll = Math.max(...heights.filter(h => h > 0));
+                        const targetScroll = maxScroll + 1000;
+                        
+                        window.scrollTo(0, targetScroll);
+                        window.scroll(0, targetScroll);
+                        document.documentElement.scrollTop = targetScroll;
+                        document.body.scrollTop = targetScroll;
+                        
+                        const messagesDiv = document.getElementById('messages');
+                        if (messagesDiv) {
+                            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                        }
+                        
+                        setTimeout(() => {
+                            window.scrollTo({
+                                top: targetScroll,
+                                left: 0,
+                                behavior: 'smooth'
+                            });
+                        }, 10);
+                    };
+                }
                 
-                // 즉시 실행
-                forceScrollToBottom();
+                // 함수 실행
+                window.forceScrollToBottom();
+                setTimeout(window.forceScrollToBottom, 50);
+                setTimeout(window.forceScrollToBottom, 150);
+                setTimeout(window.forceScrollToBottom, 400);
                 
-                // 50ms 후 재시도
-                setTimeout(forceScrollToBottom, 50);
-                
-                // 150ms 후 재시도
-                setTimeout(forceScrollToBottom, 150);
-                
-                // 400ms 후 최종 시도
-                setTimeout(forceScrollToBottom, 400);
-                
-                // 1초 후 마지막 확인
                 setTimeout(() => {
                     const currentScroll = window.scrollY;
                     const maxHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-                    console.log('[SCROLL] 최종 확인 - 현재:', currentScroll, '최대:', maxHeight);
                     if (currentScroll < maxHeight - 100) {
-                        console.log('[SCROLL] 스크롤이 완전히 하단에 도달하지 못함, 재시도');
-                        forceScrollToBottom();
+                        window.forceScrollToBottom();
                     }
                 }, 1000);
             """)
-            print("[SCROLL] 최대 강화된 하단 스크롤 실행")
         except Exception as e:
             print(f"[SCROLL] 스크롤 오류: {e}")
     

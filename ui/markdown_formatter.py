@@ -288,18 +288,39 @@ class MarkdownFormatter:
         return html
     
     def _add_copy_buttons(self, html: str) -> str:
-        """코드 블록에 복사 버튼 추가"""
-        def add_copy_button(match):
+        """코드 블록에 복사 및 실행 버튼 추가"""
+        def add_buttons(match):
             code_content = match.group(1)
             code_id = f'code_{uuid.uuid4().hex[:8]}'
             
+            # 언어 감지 (class="language-xxx" 패턴)
+            language = ''
+            lang_match = re.search(r'class="[^"]*language-([^\s"]+)', match.group(0))
+            if lang_match:
+                language = lang_match.group(1).lower()
+            
+            # 실행 가능한 언어 확인
+            executable_languages = ['python', 'py', 'javascript', 'js']
+            is_executable = language in executable_languages
+            
+            # 버튼 HTML 생성
+            buttons_html = f'''<button onclick="copyCodeBlock('{code_id}')" class="code-action-btn" style="position: absolute; top: 8px; right: {"60px" if is_executable else "8px"}; background: #444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background='#555'; this.style.transform='scale(1.05)';" onmouseout="this.style.background='#444'; this.style.transform='scale(1)';">📋 복사</button>'''
+            
+            if is_executable:
+                exec_lang = 'python' if language in ['python', 'py'] else 'javascript'
+                buttons_html += f'''<button onclick="executeCode('{code_id}', '{exec_lang}')" class="code-action-btn" style="position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background='#45a049'; this.style.transform='scale(1.05)';" onmouseout="this.style.background='#4CAF50'; this.style.transform='scale(1)';">▶️ 실행</button>'''
+            
+            # 언어 라벨 추가
+            lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{language or "code"}</div>' if language else ''
+            
             return f'''<div style="position: relative; margin: 12px 0;">
-<button onclick="copyCode('{code_id}')" class="copy-btn" style="position: absolute; top: 8px; right: 8px; background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10;" onmouseover="this.style.background='#555'" onmouseout="this.style.background='#444'">복사</button>
-<pre style="background-color: #1e1e1e; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 0;"><code id="{code_id}">{code_content}</code></pre>
+{lang_label}
+{buttons_html}
+<pre style="background-color: #1e1e1e; padding: 16px; padding-top: 40px; border-radius: 8px; overflow-x: auto; margin: 0;"><code id="{code_id}" data-language="{language}">{code_content}</code></pre>
 </div>'''
         
-        # 코드 블록에 복사 버튼 추가
-        html = re.sub(r'<pre[^>]*><code[^>]*>(.*?)</code></pre>', add_copy_button, html, flags=re.DOTALL)
+        # 코드 블록에 버튼 추가
+        html = re.sub(r'<pre[^>]*><code[^>]*>(.*?)</code></pre>', add_buttons, html, flags=re.DOTALL)
         
         return html
     

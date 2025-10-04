@@ -48,7 +48,7 @@ class LoginDialog(QDialog):
         self.auth_worker = None
         
         self.setWindowTitle("Chat AI Agent - 인증")
-        self.setFixedSize(400, 320)
+        self.setFixedSize(400, 350)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowCloseButtonHint)
         
         # 모달 다이얼로그로 설정
@@ -73,7 +73,8 @@ class LoginDialog(QDialog):
         self.title_label = QLabel("로그인")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setObjectName("titleLabel")
-        self.title_label.setMinimumHeight(30)
+        self.title_label.setMinimumHeight(50)
+        self.title_label.setWordWrap(False)
         layout.addWidget(self.title_label)
         
         # 설명 텍스트
@@ -197,11 +198,13 @@ class LoginDialog(QDialog):
             }}
             
             #titleLabel {{
-                font-size: 24px;
+                font-size: 22px;
                 font-weight: 600;
                 color: {text_primary};
                 margin: 8px 0;
-                padding: 4px;
+                padding: 12px 8px;
+                line-height: 1.4;
+                min-height: 50px;
             }}
             
             #descriptionLabel {{
@@ -328,7 +331,7 @@ class LoginDialog(QDialog):
         self.confirm_password_input.show()
         self.strength_label.show()
         self.bottom_link.hide()
-        self.setFixedSize(400, 380)  # 높이 증가
+        self.setFixedSize(400, 400)  # 높이 증가
         
     def switch_to_login_mode(self):
         """로그인 모드로 전환"""
@@ -338,7 +341,7 @@ class LoginDialog(QDialog):
         self.confirm_password_input.hide()
         self.strength_label.hide()
         self.bottom_link.show()
-        self.setFixedSize(400, 320)  # 기본 높이로 복원
+        self.setFixedSize(400, 350)  # 높이 증가
     
     def check_password_strength(self, password):
         """비밀번호 강도 검사"""

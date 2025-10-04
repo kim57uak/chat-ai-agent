@@ -365,6 +365,8 @@ class FixedFormatter:
         lines = text.split('\n')
         result = []
         in_code_block = False
+        current_lang = ''
+        current_code_id = ''
         
         for line in lines:
             # placeholder는 그대로 통과
@@ -376,12 +378,32 @@ class FixedFormatter:
             if line.startswith('```') and not line.startswith('```mermaid'):
                 if not in_code_block:
                     in_code_block = True
-                    lang = line[3:].strip() if len(line) > 3 else ''
-                    code_id = f"code_{uuid.uuid4().hex[:8]}"
-                    result.append(f'<div style="position: relative;"><pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; margin: 8px 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{code_id}">')
+                    current_lang = line[3:].strip() if len(line) > 3 else ''
+                    current_code_id = f"code_{uuid.uuid4().hex[:8]}"
+                    
+                    # 디버그: 언어 감지 확인
+                    print(f"[DEBUG] 코드 블록 감지: lang='{current_lang}'")
+                    
+                    # 실행 가능한 언어 확인
+                    executable_langs = ['python', 'py', 'javascript', 'js']
+                    is_executable = current_lang.lower() in executable_langs
+                    print(f"[DEBUG] 실행 가능: {is_executable}")
+                    exec_lang = 'python' if current_lang.lower() in ['python', 'py'] else 'javascript'
+                    
+                    # 언어 라벨
+                    lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{current_lang or "code"}</div>' if current_lang else ''
+                    
+                    # 버튼들
+                    copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: {"60px" if is_executable else "8px"}; background: #444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';">📋 복사</button>'
+                    
+                    exec_btn = ''
+                    if is_executable:
+                        exec_btn = f'<button onclick="executeCode(\'{current_code_id}\', \'{exec_lang}\')" style="position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#45a049\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#4CAF50\'; this.style.transform=\'scale(1)\';">▶️ 실행</button>'
+                    
+                    result.append(f'<div style="position: relative; margin: 12px 0;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{current_code_id}" data-language="{current_lang}">')
                 else:
                     in_code_block = False
-                    result.append(f'</code></pre><button onclick="copyCode(document.getElementById(\'{code_id}\'))" style="position: absolute; top: 6px; right: 6px; background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; opacity: 0.7;">복사</button></div>')
+                    result.append(f'</code></pre></div>')
                 continue
             
             if in_code_block:

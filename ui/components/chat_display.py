@@ -610,6 +610,54 @@ class ChatDisplay:
                     }}
                 }}
                 
+                function copyCodeBlock(codeId) {{
+                    try {{
+                        var codeElement = document.getElementById(codeId);
+                        if (!codeElement) {{
+                            showToast('코드 요소를 찾을 수 없습니다.');
+                            return;
+                        }}
+                        
+                        var codeText = codeElement.textContent || codeElement.innerText;
+                        
+                        if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
+                            pyqt_bridge.copyToClipboard(codeText);
+                            showToast('✅ 코드가 복사되었습니다!');
+                        }} else if (navigator.clipboard && navigator.clipboard.writeText) {{
+                            navigator.clipboard.writeText(codeText).then(function() {{
+                                showToast('✅ 코드가 복사되었습니다!');
+                            }}).catch(function(err) {{
+                                console.error('Clipboard write failed:', err);
+                            }});
+                        }}
+                    }} catch (error) {{
+                        console.error('Code copy failed:', error);
+                        showToast('❌ 코드 복사에 실패했습니다.');
+                    }}
+                }}
+                
+                function executeCode(codeId, language) {{
+                    try {{
+                        var codeElement = document.getElementById(codeId);
+                        if (!codeElement) {{
+                            showToast('코드 요소를 찾을 수 없습니다.');
+                            return;
+                        }}
+                        
+                        var codeText = codeElement.textContent || codeElement.innerText;
+                        
+                        if (pyqt_bridge && pyqt_bridge.executeCode) {{
+                            showToast('⏳ 코드 실행 중...');
+                            pyqt_bridge.executeCode(codeText, language);
+                        }} else {{
+                            showToast('❌ 코드 실행 기능을 사용할 수 없습니다.');
+                        }}
+                    }} catch (error) {{
+                        console.error('Code execution failed:', error);
+                        showToast('❌ 코드 실행에 실패했습니다.');
+                    }}
+                }}
+                
                 function deleteMessage(messageId) {{
                     try {{
                         var targetId = messageId || currentSelectedMessage;
@@ -1133,3 +1181,44 @@ class LinkHandler(QObject):
             import traceback
 
             traceback.print_exc()
+    
+    @pyqtSlot(str, str)
+    def executeCode(self, code, language):
+        """코드 실행"""
+        try:
+            from ui.components.code_executor import CodeExecutor
+            
+            executor = CodeExecutor()
+            executor.execution_finished.connect(self._on_execution_finished)
+            executor.executeCode(code, language)
+            
+        except Exception as e:
+            print(f"[EXECUTE] 코드 실행 오류: {e}")
+            self._show_execution_result("", f"실행 오류: {str(e)}")
+    
+    def _on_execution_finished(self, output, error):
+        """코드 실행 완료 처리"""
+        self._show_execution_result(output, error)
+    
+    def _show_execution_result(self, output, error):
+        """실행 결과 표시"""
+        try:
+            if hasattr(self, 'chat_widget') and self.chat_widget:
+                result_text = ""
+                if output:
+                    result_text += f"**출력:**\n```\n{output}\n```\n"
+                if error:
+                    result_text += f"**오류:**\n```\n{error}\n```"
+                
+                if not result_text:
+                    result_text = "실행 완료 (출력 없음)"
+                
+                # 채팅 위젯에 결과 메시지 추가
+                if hasattr(self.chat_widget, 'chat_display'):
+                    self.chat_widget.chat_display.append_message(
+                        "시스템",
+                        result_text,
+                        progressive=False
+                    )
+        except Exception as e:
+            print(f"[EXECUTE] 결과 표시 오류: {e}")

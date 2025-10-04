@@ -1112,10 +1112,13 @@ class ChatWidget(QWidget):
             
             # 설정에서 초기 로드 개수 가져오기
             initial_limit = min(self.initial_load_count, self.total_message_count)
-            offset = max(0, self.total_message_count - initial_limit)
             
-            context_messages = session_manager.get_session_messages(session_id, initial_limit, offset)
+            context_messages = session_manager.get_session_messages(session_id, initial_limit, 0)
             self.loaded_message_count = len(context_messages)
+            
+            print(f"[CHAT_WIDGET] Loaded {len(context_messages)} messages")
+            for i, msg in enumerate(context_messages):
+                print(f"[CHAT_WIDGET] Message {i+1}: role={msg['role']}, id={msg['id']}, timestamp={msg['timestamp'][:19]}")
             
             # 세션 컨텍스트를 대화 히스토리에 로드
             for msg in context_messages:
@@ -1625,9 +1628,10 @@ class ChatWidget(QWidget):
             # 설정에서 페이지 크기 사용
             remaining_messages = self.total_message_count - self.loaded_message_count
             load_count = min(self.page_size, remaining_messages)
-            offset = self.total_message_count - self.loaded_message_count - load_count
+            # 이미 로드된 메시지 바로 다음부터 로드 (최신부터 역순이므로)
+            offset = self.loaded_message_count
             
-            print(f"[LOAD_MORE] 로드 시도: offset={offset}, limit={load_count}")
+            print(f"[LOAD_MORE] 로드 시도: offset={offset}, limit={load_count}, 로드됨={self.loaded_message_count}, 전체={self.total_message_count}")
             
             older_messages = session_manager.get_session_messages(
                 self.current_session_id, load_count, offset

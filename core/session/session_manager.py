@@ -138,9 +138,9 @@ class SessionManager:
         print(f"[GET_MESSAGES] session_id: {session_id}, limit: {limit}, offset: {offset}, include_html: {include_html}")
         
         if limit is None:
-            messages = self.db.get_messages(session_id, 10000)  # 충분히 큰 수
+            messages = self.db.get_messages(session_id, 10000, 0)  # 충분히 큰 수
         else:
-            messages = self.db.get_messages(session_id, limit)
+            messages = self.db.get_messages(session_id, limit, offset)
         
         # FixedFormatter 처리
         for message in messages:

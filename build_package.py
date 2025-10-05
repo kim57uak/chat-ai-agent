@@ -221,7 +221,7 @@ class PackageBuilder:
     def clean_build(self):
         """완전한 빌드 환경 정리"""
         print("🧹 완전한 빌드 환경 정리 중...")
-        
+
         # 1. 기존 빌드 디렉토리 삭제
         dirs_to_clean = ["build", "dist"]
         for dir_name in dirs_to_clean:
@@ -237,27 +237,39 @@ class PackageBuilder:
 
         # 2. __pycache__ 재귀적 삭제
         try:
-            subprocess.run([
-                "find", str(self.project_root), 
-                "-name", "__pycache__", 
-                "-type", "d", 
-                "-exec", "rm", "-rf", "{}", "+"
-            ], check=False, capture_output=True)
+            subprocess.run(
+                [
+                    "find",
+                    str(self.project_root),
+                    "-name",
+                    "__pycache__",
+                    "-type",
+                    "d",
+                    "-exec",
+                    "rm",
+                    "-rf",
+                    "{}",
+                    "+",
+                ],
+                check=False,
+                capture_output=True,
+            )
             print("✓ Cleaned __pycache__ directories")
         except Exception as e:
             print(f"⚠ __pycache__ 정리 중 오류: {e}")
-        
+
         # 3. pip 캐시 정리
         try:
-            result = subprocess.run(["pip", "cache", "purge"], 
-                                  capture_output=True, text=True, check=False)
+            result = subprocess.run(
+                ["pip", "cache", "purge"], capture_output=True, text=True, check=False
+            )
             if result.returncode == 0 and result.stdout:
                 print(f"✓ Pip cache purged: {result.stdout.strip()}")
             else:
                 print("✓ Pip cache already clean")
         except Exception as e:
             print(f"⚠ Pip 캐시 정리 중 오류: {e}")
-        
+
         # 4. PyInstaller 캐시 정리 (있다면)
         pyinstaller_cache = Path.home() / ".pyinstaller_cache"
         if pyinstaller_cache.exists():
@@ -266,7 +278,7 @@ class PackageBuilder:
                 print("✓ Cleaned PyInstaller cache")
             except Exception as e:
                 print(f"⚠ PyInstaller 캐시 정리 중 오류: {e}")
-        
+
         print("✅ 완전한 빌드 환경 정리 완료")
 
     def update_spec_file(self):
@@ -276,8 +288,12 @@ class PackageBuilder:
 import os
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
+
+# Collect cryptography package completely
+cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
 
 # Data files to include
 datas = [
@@ -316,8 +332,8 @@ datas = filtered_datas
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
-    datas=datas,
+    binaries=cryptography_binaries,
+    datas=datas + cryptography_datas,
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore',
@@ -337,6 +353,10 @@ a = Analysis(
         'base64',
         'hashlib',
         
+        # Security & Encryption
+        'keyring',
+        'keyring.backends',
+        
         # Third-party
         'requests',
         'dateutil',
@@ -347,12 +367,14 @@ a = Analysis(
         
         # Project modules
         'core',
+        'core.security',
+        'core.session',
         'ui',
         'mcp',
         'tools',
         'utils',
-    ],
-    hookspath=[],
+    ] + cryptography_hiddenimports,
+    hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
@@ -399,6 +421,11 @@ a = Analysis(
     noarchive=False,
 )
 
+# Ensure cryptography is in pure Python modules
+for item in cryptography_hiddenimports:
+    if item not in [mod[0] for mod in a.pure]:
+        a.pure.append((item, '', 'PYMODULE'))
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 # Platform-specific executable configuration
@@ -435,11 +462,11 @@ elif sys.platform == 'darwin':
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
-        upx=True,
+        upx=False,
         console=False,
         disable_windowed_traceback=False,
         argv_emulation=False,
-        target_arch=None,
+        target_arch='arm64',
         codesign_identity=None,
         entitlements_file=None,
     )
@@ -450,7 +477,7 @@ elif sys.platform == 'darwin':
         a.zipfiles,
         a.datas,
         strip=False,
-        upx=True,
+        upx=False,
         upx_exclude=[],
         name='ChatAIAgent'
     )
@@ -463,6 +490,11 @@ elif sys.platform == 'darwin':
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'NSAppleScriptEnabled': False,
+            'LSMinimumSystemVersion': '11.0',
+            'LSEnvironment': {
+                'PYTHONIOENCODING': 'utf-8',
+                'LANG': 'en_US.UTF-8',
+            },
             'CFBundleDocumentTypes': [
                 {
                     'CFBundleTypeName': 'ChatAIAgent Document',
@@ -508,19 +540,20 @@ else:
             cpu_cores = multiprocessing.cpu_count()
             parallel_jobs = min(cpu_cores, 8)
             print(f"💻 CPU 코어: {cpu_cores}개, 병렬 작업: {parallel_jobs}개")
-        
+
         # 환경변수로 병렬 처리 설정
         import os
-        os.environ['PYINSTALLER_COMPILE_BOOTLOADER_PARALLEL'] = str(parallel_jobs)
-        
+
+        os.environ["PYINSTALLER_COMPILE_BOOTLOADER_PARALLEL"] = str(parallel_jobs)
+
         try:
             cmd = [
-                "pyinstaller", 
-                "--noconfirm", 
+                "pyinstaller",
+                "--noconfirm",
                 "--clean",
                 f"--distpath=dist",
                 f"--workpath=build",
-                "chat_ai_agent.spec"
+                "chat_ai_agent.spec",
             ]
             print(f"🚀 병렬 빌드 시작: {' '.join(cmd)}")
 
@@ -532,7 +565,9 @@ else:
                 print("Build output:")
                 print(result.stdout)
 
-            print(f"✅ PyInstaller build completed in {end_time - start_time:.2f} seconds")
+            print(
+                f"✅ PyInstaller build completed in {end_time - start_time:.2f} seconds"
+            )
             return True
 
         except subprocess.CalledProcessError as e:
@@ -658,17 +693,17 @@ else:
         """병렬로 실행할 수 있는 작업들을 동시에 처리"""
         if parallel_jobs is None:
             parallel_jobs = min(multiprocessing.cpu_count(), 3)
-        
+
         print(f"🔄 병렬 작업 시작 ({parallel_jobs} workers)...")
-        
+
         with ThreadPoolExecutor(max_workers=parallel_jobs) as executor:
             # 병렬로 실행할 작업들
             futures = {
                 executor.submit(self.clean_build): "clean_build",
                 executor.submit(self.create_sample_configs): "create_configs",
-                executor.submit(self.update_spec_file): "update_spec"
+                executor.submit(self.update_spec_file): "update_spec",
             }
-            
+
             # 작업 완료 대기
             for future in as_completed(futures):
                 task_name = futures[future]
@@ -678,7 +713,7 @@ else:
                 except Exception as e:
                     print(f"❌ {task_name} failed: {e}")
                     raise
-    
+
     def build(self, parallel_jobs=None):
         """Main build process with parallel optimization"""
         print(f"🚀 Building ChatAI Agent for {self.system}")
@@ -727,13 +762,18 @@ else:
 def main():
     """Entry point"""
     import argparse
-    
-    parser = argparse.ArgumentParser(description='ChatAI Agent 빌드 도구')
-    parser.add_argument('--parallel', '-p', type=int, default=None,
-                       help='병렬 작업 수 (기본값: CPU 코어 수 기반 자동 최적화)')
-    
+
+    parser = argparse.ArgumentParser(description="ChatAI Agent 빌드 도구")
+    parser.add_argument(
+        "--parallel",
+        "-p",
+        type=int,
+        default=None,
+        help="병렬 작업 수 (기본값: CPU 코어 수 기반 자동 최적화)",
+    )
+
     args = parser.parse_args()
-    
+
     builder = PackageBuilder()
     builder.build(parallel_jobs=args.parallel)
 

@@ -56,6 +56,10 @@ class PerplexityWrapper(LLM):
     
     def invoke(self, input, config=None, **kwargs):
         """LangChain invoke 메서드 오버라이드 - 메시지 리스트 처리"""
+        # 저장된 파라미터 병합
+        if hasattr(self, '_model_params'):
+            kwargs.update(self._model_params)
+        
         try:
             # BaseMessage 리스트인 경우 직접 처리
             if isinstance(input, list):

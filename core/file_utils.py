@@ -47,6 +47,14 @@ def load_prompt_config():
     
     # Return default configuration
     return {
+        'ai_parameters': {
+            'temperature': 0.1,
+            'top_p': 0.9,
+            'top_k': 40,
+            'frequency_penalty': 0.0,
+            'presence_penalty': 0.0,
+            'stop_sequences': []
+        },
         'conversation_settings': {
             'enable_history': True,
             'hybrid_mode': True,

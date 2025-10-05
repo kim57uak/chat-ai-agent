@@ -213,23 +213,31 @@ class PollinationsStrategy(BaseModelStrategy):
     
     def create_llm(self):
         """Pollinations LLM 생성"""
+        params = self.get_model_parameters()
+        
         # 모델별 timeout 설정
         model_timeouts = {
-            "mistral": 120,      # 가장 느림
-            "llama": 90,         # 중간 속도
-            "openai": 60,        # 빠름
-            "bidara": 90,        # 중간 속도
-            "searchgpt": 75,     # 검색 모델
-            "roblox": 60,        # 빠름
-            "image": 45          # 이미지 생성
+            "mistral": 120,
+            "llama": 90,
+            "openai": 60,
+            "bidara": 90,
+            "searchgpt": 75,
+            "roblox": 60,
+            "image": 45
         }
         
-        timeout = 60  # 기본값
+        timeout = 60
         for model_key, model_timeout in model_timeouts.items():
             if model_key in self.model_name.lower():
                 timeout = model_timeout
                 break
-        return PollinationsLLM(self.api_key, self.model_name, timeout=timeout)
+        
+        # Pollinations는 temperature만 제한적 지원
+        llm = PollinationsLLM(self.api_key, self.model_name, timeout=timeout)
+        # temperature 설정 (내부적으로 사용)
+        if hasattr(llm, 'temperature'):
+            llm.temperature = params.get('temperature', 0.7)
+        return llm
     
     def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
         """메시지 형식 생성 - 다른 모델과 동일한 패턴"""

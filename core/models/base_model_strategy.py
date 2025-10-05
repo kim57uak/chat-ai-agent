@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from langchain.schema import BaseMessage
 from core.response_formatter import SystemPromptEnhancer
 from ui.prompts import prompt_manager, ModelType
+from core.file_utils import load_prompt_config
 
 
 class BaseModelStrategy(ABC):
@@ -12,6 +13,7 @@ class BaseModelStrategy(ABC):
         self.api_key = api_key
         self.model_name = model_name
         self._llm = None
+        self._load_ai_parameters()
     
     @abstractmethod
     def create_llm(self):
@@ -88,3 +90,57 @@ class BaseModelStrategy(ABC):
         # 한글 비율이 임계값 이상이면 한국어로 판단
         korean_ratio = korean_chars / total_chars
         return "ko" if korean_ratio >= korean_threshold else "en"
+    
+    def _load_ai_parameters(self):
+        """AI 파라미터 로드"""
+        try:
+            config = load_prompt_config()
+            self.ai_params = config.get('ai_parameters', {})
+        except:
+            self.ai_params = {}
+    
+    def get_model_parameters(self) -> Dict[str, Any]:
+        """모델별 지원 파라미터만 반환"""
+        params = {}
+        provider = self._get_provider()
+        
+        # 공통 파라미터
+        if 'temperature' in self.ai_params:
+            params['temperature'] = self.ai_params['temperature']
+        if 'max_tokens' in self.ai_params:
+            params['max_tokens'] = self.ai_params['max_tokens']
+        if 'top_p' in self.ai_params:
+            params['top_p'] = self.ai_params['top_p']
+        
+        # 모델별 파라미터
+        if provider in ['openai', 'openrouter']:
+            if 'frequency_penalty' in self.ai_params:
+                params['frequency_penalty'] = self.ai_params['frequency_penalty']
+            if 'presence_penalty' in self.ai_params:
+                params['presence_penalty'] = self.ai_params['presence_penalty']
+            if 'stop_sequences' in self.ai_params and self.ai_params['stop_sequences']:
+                params['stop'] = self.ai_params['stop_sequences']
+        
+        if provider in ['google', 'openrouter']:
+            if 'top_k' in self.ai_params:
+                params['top_k'] = self.ai_params['top_k']
+            if 'stop_sequences' in self.ai_params and self.ai_params['stop_sequences']:
+                params['stop_sequences'] = self.ai_params['stop_sequences']
+        
+        # perplexity는 temperature, max_tokens, top_p만 지원
+        
+        return params
+    
+    def _get_provider(self) -> str:
+        """현재 모델의 프로바이더 반환"""
+        from core.file_utils import load_config
+        try:
+            config = load_config()
+            model_config = config.get('models', {}).get(self.model_name, {})
+            provider = model_config.get('provider', 'unknown')
+            # perplexity provider 감지
+            if provider == 'perplexity' or 'sonar' in self.model_name.lower():
+                return 'perplexity'
+            return provider
+        except:
+            return 'unknown'

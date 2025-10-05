@@ -230,21 +230,203 @@ class SettingsDialog(QDialog):
         self.tab_widget.addTab(tab, '🔒 보안')
     
     def create_length_limit_tab(self):
-        """길이 제한 탭"""
+        """AI 파라미터 탭"""
         tab = QWidget()
         
-        # 스크롤 영역 생성
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         
-        # 스크롤 내용 위젯
         scroll_content = QWidget()
         layout = QVBoxLayout(scroll_content)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
+        
+        # AI 파라미터 설정 그룹
+        param_group = QGroupBox('🎛️ AI 모델 파라미터 설정')
+        param_layout = QVBoxLayout(param_group)
+        param_layout.setSpacing(12)
+        
+        # 권장 프리셋 버튼
+        preset_layout = QHBoxLayout()
+        preset_layout.addWidget(QLabel('⚡ 빠른 설정:'))
+        
+        accurate_btn = QPushButton('📝 정확한 작업')
+        accurate_btn.setToolTip('코딩, 분석, 번역에 최적화\nTemp: 0.1, Top P: 0.9, Penalties: 0.0')
+        accurate_btn.clicked.connect(lambda: self._apply_preset('accurate'))
+        preset_layout.addWidget(accurate_btn)
+        
+        creative_btn = QPushButton('🎨 창의적 작업')
+        creative_btn.setToolTip('글쓰기, 스토리텔링에 최적화\nTemp: 0.9, Top P: 0.95, Freq: 0.3, Pres: 0.6')
+        creative_btn.clicked.connect(lambda: self._apply_preset('creative'))
+        preset_layout.addWidget(creative_btn)
+        
+        balanced_btn = QPushButton('💬 일반 대화')
+        balanced_btn.setToolTip('균형잡힌 일반 대화\nTemp: 0.7, Top P: 0.9, Penalties: 0.2')
+        balanced_btn.clicked.connect(lambda: self._apply_preset('balanced'))
+        preset_layout.addWidget(balanced_btn)
+        
+        preset_layout.addStretch()
+        param_layout.addLayout(preset_layout)
+        
+        # temperature
+        temp_layout = QHBoxLayout()
+        temp_label = QLabel('Temperature:')
+        temp_label.setMinimumWidth(150)
+        temp_label.setToolTip(
+            '응답의 무작위성/창의성 조절\n'
+            '• 0.0: 항상 가장 확률 높은 답변 (결정론적)\n'
+            '• 0.1-0.3: 정확한 답변 (코딩, 분석)\n'
+            '• 0.7: 균형잡힌 답변 (일반 대화)\n'
+            '• 0.9-1.5: 창의적 답변 (글쓰기)\n'
+            '• 2.0: 매우 무작위적 (실험적)'
+        )
+        temp_layout.addWidget(temp_label)
+        self.temperature_spin = QSpinBox()
+        self.temperature_spin.setRange(0, 200)
+        self.temperature_spin.setValue(10)
+        self.temperature_spin.setMinimumHeight(40)
+        self.temperature_spin.setToolTip('낮을수록 일관적, 높을수록 창의적')
+        self.temperature_spin.valueChanged.connect(lambda v: self.temperature_spin.setSuffix(f'  →  {v/100:.2f}'))
+        self.temperature_spin.setSuffix('  →  0.10')
+        temp_layout.addWidget(self.temperature_spin)
+        param_layout.addLayout(temp_layout)
+        
+        # max_tokens
+        token_layout = QHBoxLayout()
+        token_label = QLabel('Max Tokens:')
+        token_label.setMinimumWidth(150)
+        token_label.setToolTip(
+            '생성할 최대 토큰 수 (응답 길이 제한)\n'
+            '• 100-1000: 짧은 답변 (2-3문장)\n'
+            '• 1000-4000: 중간 답변 (1-2문단)\n'
+            '• 4000-8000: 긴 답변 (에세이)\n'
+            '• 8000+: 매우 긴 답변 (보고서)\n'
+            '\n한글: 1글자 ≈ 2-3 토큰\n영어: 1단어 ≈ 1-2 토큰'
+        )
+        token_layout.addWidget(token_label)
+        self.max_tokens_spin = QSpinBox()
+        self.max_tokens_spin.setRange(100, 1000000)
+        self.max_tokens_spin.setValue(4096)
+        self.max_tokens_spin.setSuffix(' tokens')
+        self.max_tokens_spin.setMinimumHeight(40)
+        self.max_tokens_spin.setToolTip('응답 최대 길이 제한')
+        token_layout.addWidget(self.max_tokens_spin)
+        param_layout.addLayout(token_layout)
+        
+        # top_p
+        top_p_layout = QHBoxLayout()
+        top_p_label = QLabel('Top P:')
+        top_p_label.setMinimumWidth(150)
+        top_p_label.setToolTip(
+            'Nucleus Sampling - 누적 확률 기반 토큰 선택\n'
+            '• 0.1: 상위 10% 확률 토큰만 (매우 보수적)\n'
+            '• 0.5: 상위 50% 확률 토큰만 (안정적)\n'
+            '• 0.9: 상위 90% 확률 토큰 (균형, 권장)\n'
+            '• 1.0: 모든 토큰 고려 (최대 다양성)'
+        )
+        top_p_layout.addWidget(top_p_label)
+        self.top_p_spin = QSpinBox()
+        self.top_p_spin.setRange(0, 100)
+        self.top_p_spin.setValue(90)
+        self.top_p_spin.setMinimumHeight(40)
+        self.top_p_spin.setToolTip('낮을수록 보수적, 높을수록 다양함')
+        self.top_p_spin.valueChanged.connect(lambda v: self.top_p_spin.setSuffix(f'  →  {v/100:.2f}'))
+        self.top_p_spin.setSuffix('  →  0.90')
+        top_p_layout.addWidget(self.top_p_spin)
+        param_layout.addLayout(top_p_layout)
+        
+        # top_k
+        top_k_layout = QHBoxLayout()
+        top_k_label = QLabel('Top K:')
+        top_k_label.setMinimumWidth(150)
+        top_k_label.setToolTip(
+            'Top-K Sampling - 상위 K개 토큰만 고려\n'
+            '• 1: 항상 최고 확률 단어 (temperature=0과 유사)\n'
+            '• 10: 상위 10개 단어 중 선택\n'
+            '• 40: 상위 40개 단어 중 선택 (기본, 권장)\n'
+            '• 100: 상위 100개 단어 중 선택\n'
+            '\n⚠️ Gemini, OpenRouter만 지원'
+        )
+        top_k_layout.addWidget(top_k_label)
+        self.top_k_spin = QSpinBox()
+        self.top_k_spin.setRange(1, 100)
+        self.top_k_spin.setValue(40)
+        self.top_k_spin.setMinimumHeight(40)
+        self.top_k_spin.setToolTip('Gemini, OpenRouter만 지원')
+        top_k_layout.addWidget(self.top_k_spin)
+        param_layout.addLayout(top_k_layout)
+        
+        # frequency_penalty
+        freq_layout = QHBoxLayout()
+        freq_label = QLabel('Frequency Penalty:')
+        freq_label.setMinimumWidth(150)
+        freq_label.setToolTip(
+            '이미 나온 단어의 반복 억제 (빈도 기반)\n'
+            '• 0.0: 페널티 없음 (기본)\n'
+            '• 0.3-0.5: 반복 약간 억제\n'
+            '• 1.0: 반복 강하게 억제\n'
+            '• 2.0: 반복 최대 억제\n'
+            '• 음수: 반복 장려 (드물게 사용)\n'
+            '\n⚠️ OpenAI, OpenRouter만 지원'
+        )
+        freq_layout.addWidget(freq_label)
+        self.frequency_penalty_spin = QSpinBox()
+        self.frequency_penalty_spin.setRange(-200, 200)
+        self.frequency_penalty_spin.setValue(0)
+        self.frequency_penalty_spin.setMinimumHeight(40)
+        self.frequency_penalty_spin.setToolTip('OpenAI, OpenRouter만 지원')
+        self.frequency_penalty_spin.valueChanged.connect(lambda v: self.frequency_penalty_spin.setSuffix(f'  →  {v/100:.2f}'))
+        self.frequency_penalty_spin.setSuffix('  →  0.00')
+        freq_layout.addWidget(self.frequency_penalty_spin)
+        param_layout.addLayout(freq_layout)
+        
+        # presence_penalty
+        pres_layout = QHBoxLayout()
+        pres_label = QLabel('Presence Penalty:')
+        pres_label.setMinimumWidth(150)
+        pres_label.setToolTip(
+            '새로운 주제/단어 도입 장려 (존재 기반)\n'
+            '• 0.0: 페널티 없음 (기본)\n'
+            '• 0.4-0.6: 새 주제 약간 장려\n'
+            '• 1.0: 새 주제 강하게 장려\n'
+            '• 2.0: 새 주제 최대 장려\n'
+            '\n차이점: Frequency는 반복 횟수, Presence는 한 번이라도 나왔으면 페널티\n'
+            '⚠️ OpenAI, OpenRouter만 지원'
+        )
+        pres_layout.addWidget(pres_label)
+        self.presence_penalty_spin = QSpinBox()
+        self.presence_penalty_spin.setRange(-200, 200)
+        self.presence_penalty_spin.setValue(0)
+        self.presence_penalty_spin.setMinimumHeight(40)
+        self.presence_penalty_spin.setToolTip('OpenAI, OpenRouter만 지원')
+        self.presence_penalty_spin.valueChanged.connect(lambda v: self.presence_penalty_spin.setSuffix(f'  →  {v/100:.2f}'))
+        self.presence_penalty_spin.setSuffix('  →  0.00')
+        pres_layout.addWidget(self.presence_penalty_spin)
+        param_layout.addLayout(pres_layout)
+        
+        # stop_sequences
+        stop_layout = QVBoxLayout()
+        stop_label = QLabel('Stop Sequences (쉼표로 구분):')
+        stop_label.setToolTip(
+            '특정 문자열을 만나면 생성 중단\n'
+            '예: END, ###, STOP\n'
+            '\n사용 예시:\n'
+            '"이것은 예시입니다. END 더 이상 생성 안됨"\n'
+            '                    ↑ 여기서 중단\n'
+            '\n⚠️ OpenAI, Gemini만 지원'
+        )
+        stop_layout.addWidget(stop_label)
+        self.stop_sequences_edit = QLineEdit()
+        self.stop_sequences_edit.setPlaceholderText('예: END, ###, STOP')
+        self.stop_sequences_edit.setMinimumHeight(40)
+        self.stop_sequences_edit.setToolTip('OpenAI, Gemini만 지원')
+        stop_layout.addWidget(self.stop_sequences_edit)
+        param_layout.addLayout(stop_layout)
+        
+        layout.addWidget(param_group)
         
         # 응답 길이 제한 그룹
         response_group = QGroupBox('📏 응답 길이 제한 설정')
@@ -253,17 +435,6 @@ class SettingsDialog(QDialog):
         
         self.enable_length_limit = QCheckBox('응답 길이 제한 사용')
         response_layout.addWidget(self.enable_length_limit)
-        
-        # 최대 토큰 수
-        token_layout = QHBoxLayout()
-        token_layout.addWidget(QLabel('최대 토큰 수:'))
-        self.max_tokens_spin = QSpinBox()
-        self.max_tokens_spin.setRange(100, 8192)
-        self.max_tokens_spin.setValue(4096)
-        self.max_tokens_spin.setSuffix(' tokens')
-        self.max_tokens_spin.setMinimumHeight(40)
-        token_layout.addWidget(self.max_tokens_spin)
-        response_layout.addLayout(token_layout)
         
         # 최대 응답 길이
         length_layout = QHBoxLayout()
@@ -295,15 +466,13 @@ class SettingsDialog(QDialog):
         layout.addWidget(response_group)
         layout.addStretch()
         
-        # 스크롤 영역에 내용 설정
         scroll_area.setWidget(scroll_content)
         
-        # 탭에 스크롤 영역 추가
         tab_layout = QVBoxLayout(tab)
         tab_layout.setContentsMargins(0, 0, 0, 0)
         tab_layout.addWidget(scroll_area)
         
-        self.tab_widget.addTab(tab, '📏 길이제한')
+        self.tab_widget.addTab(tab, '🎛️ AI 파라미터')
     
     def create_history_settings_tab(self):
         """히스토리 설정 탭"""
@@ -633,10 +802,20 @@ class SettingsDialog(QDialog):
         # prompt_config.json에서 설정 로드
         prompt_config = load_prompt_config()
         
+        # AI 파라미터 설정
+        ai_params = prompt_config.get('ai_parameters', {})
+        self.temperature_spin.setValue(int(ai_params.get('temperature', 0.1) * 100))
+        self.max_tokens_spin.setValue(ai_params.get('max_tokens', 4096))
+        self.top_p_spin.setValue(int(ai_params.get('top_p', 0.9) * 100))
+        self.top_k_spin.setValue(ai_params.get('top_k', 40))
+        self.frequency_penalty_spin.setValue(int(ai_params.get('frequency_penalty', 0.0) * 100))
+        self.presence_penalty_spin.setValue(int(ai_params.get('presence_penalty', 0.0) * 100))
+        stop_sequences = ai_params.get('stop_sequences', [])
+        self.stop_sequences_edit.setText(', '.join(stop_sequences) if stop_sequences else '')
+        
         # 응답 길이 제한 설정
         response_settings = prompt_config.get('response_settings', {})
         self.enable_length_limit.setChecked(response_settings.get('enable_length_limit', False))
-        self.max_tokens_spin.setValue(response_settings.get('max_tokens', 4096))
         self.max_response_length_spin.setValue(response_settings.get('max_response_length', 50000))
         self.enable_streaming.setChecked(response_settings.get('enable_streaming', True))
         self.streaming_chunk_size_spin.setValue(response_settings.get('streaming_chunk_size', 300))
@@ -678,10 +857,23 @@ class SettingsDialog(QDialog):
         # prompt_config.json에 설정 저장
         prompt_config = load_prompt_config()
         
+        # AI 파라미터 설정 저장
+        stop_text = self.stop_sequences_edit.text().strip()
+        stop_sequences = [s.strip() for s in stop_text.split(',') if s.strip()] if stop_text else []
+        
+        prompt_config['ai_parameters'] = {
+            'temperature': self.temperature_spin.value() / 100.0,
+            'max_tokens': self.max_tokens_spin.value(),
+            'top_p': self.top_p_spin.value() / 100.0,
+            'top_k': self.top_k_spin.value(),
+            'frequency_penalty': self.frequency_penalty_spin.value() / 100.0,
+            'presence_penalty': self.presence_penalty_spin.value() / 100.0,
+            'stop_sequences': stop_sequences
+        }
+        
         # 응답 길이 제한 설정
         prompt_config['response_settings'] = {
             'enable_length_limit': self.enable_length_limit.isChecked(),
-            'max_tokens': self.max_tokens_spin.value(),
             'max_response_length': self.max_response_length_spin.value(),
             'enable_streaming': self.enable_streaming.isChecked(),
             'streaming_chunk_size': self.streaming_chunk_size_spin.value()
@@ -1208,3 +1400,24 @@ class SettingsDialog(QDialog):
                     
             except Exception as e:
                 QMessageBox.critical(self, '오류', f'암호화 키 재생성 중 오류가 발생했습니다: {str(e)}')
+    
+    def _apply_preset(self, preset_type: str):
+        """프리셋 적용"""
+        if preset_type == 'accurate':
+            # 정확한 작업 (코딩, 분석, 번역)
+            self.temperature_spin.setValue(10)  # 0.1
+            self.top_p_spin.setValue(90)  # 0.9
+            self.frequency_penalty_spin.setValue(0)  # 0.0
+            self.presence_penalty_spin.setValue(0)  # 0.0
+        elif preset_type == 'creative':
+            # 창의적 작업 (글쓰기, 스토리)
+            self.temperature_spin.setValue(90)  # 0.9
+            self.top_p_spin.setValue(95)  # 0.95
+            self.frequency_penalty_spin.setValue(30)  # 0.3
+            self.presence_penalty_spin.setValue(60)  # 0.6
+        elif preset_type == 'balanced':
+            # 일반 대화
+            self.temperature_spin.setValue(70)  # 0.7
+            self.top_p_spin.setValue(90)  # 0.9
+            self.frequency_penalty_spin.setValue(20)  # 0.2
+            self.presence_penalty_spin.setValue(20)  # 0.2

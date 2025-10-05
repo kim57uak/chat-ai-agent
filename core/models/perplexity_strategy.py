@@ -18,10 +18,14 @@ class PerplexityStrategy(BaseModelStrategy):
     
     def create_llm(self):
         """Perplexity LLM 생성"""
-        return PerplexityWrapper(
+        params = self.get_model_parameters()
+        wrapper = PerplexityWrapper(
             pplx_api_key=self.api_key,
             model=self.model_name
         )
+        # 파라미터를 wrapper에 저장하여 generate 호출 시 사용
+        wrapper._model_params = params
+        return wrapper
     
     def create_messages(self, user_input: str, system_prompt: str = None, conversation_history: List[Dict] = None) -> List[BaseMessage]:
         """Perplexity 메시지 형식 생성 - 대화 히스토리 포함"""

@@ -18,22 +18,27 @@ class GeminiStrategy(BaseModelStrategy):
     
     def create_llm(self):
         """Gemini LLM 생성"""
+        params = self.get_model_parameters()
+        
         # Pro 모델의 경우 더 긴 타임아웃과 더 많은 재시도
         if "pro" in self.model_name.lower():
-            max_tokens = 32768
+            default_max_tokens = 32768
             max_retries = 5
             request_timeout = 60
         else:
-            max_tokens = 16384
+            default_max_tokens = 16384
             max_retries = 3
             request_timeout = 30
         
         llm = ChatGoogleGenerativeAI(
             model=self.model_name,
             google_api_key=self.api_key,
-            temperature=0.1,
+            temperature=params.get('temperature', 0.1),
             convert_system_message_to_human=True,
-            max_tokens=max_tokens,
+            max_tokens=params.get('max_tokens', default_max_tokens),
+            top_p=params.get('top_p', 0.9),
+            top_k=params.get('top_k', 40),
+            stop_sequences=params.get('stop_sequences', None),
             max_retries=max_retries,
             request_timeout=request_timeout,
         )

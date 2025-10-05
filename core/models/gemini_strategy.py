@@ -246,11 +246,13 @@ class GeminiStrategy(BaseModelStrategy):
         if not tools:
             return None
         
-        # 모델별 프롬프트 선택
+        # 중앙 관리 시스템에서 시스템 프롬프트 가져오기 (날짜 정보 포함)
+        base_system_prompt = prompt_manager.get_system_prompt(ModelType.GOOGLE.value, use_tools=True)
+        
+        # 모델별 ReAct 형식 가이드 추가
         if "pro" in self.model_name.lower():
-            # Pro 모델용 파싱 강제 프롬프트
-            agent_system_prompt = (
-                "## 🚨 CRITICAL: Every response MUST start with a keyword\n\n"
+            react_guide = (
+                "\n\n## 🚨 CRITICAL: Every response MUST start with a keyword\n\n"
                 "### Required Keywords:\n"
                 "- `Thought:` [your reasoning]\n"
                 "- `Action:` [exact_tool_name]\n"
@@ -268,9 +270,8 @@ class GeminiStrategy(BaseModelStrategy):
                 "**Rule: Follow ReAct format - Thought → Action → Action Input → Final Answer**"
             )
         else:
-            # Flash 및 기타 모델용 기존 프롬프트 (가독성 개선)
-            agent_system_prompt = (
-                "## Google Gemini ReAct Format\n\n"
+            react_guide = (
+                "\n\n## Google Gemini ReAct Format\n\n"
                 "### Step 1 - Tool Use:\n"
                 "`Thought:` [your reasoning]\n"
                 "`Action:` [exact_tool_name]\n"
@@ -285,6 +286,8 @@ class GeminiStrategy(BaseModelStrategy):
                 "- Wait for system Observation before Final Answer\n"
                 "- Keep Final Answer under 16384 tokens (summarize if needed)"
             )
+        
+        agent_system_prompt = base_system_prompt + react_guide
         
         # Gemini는 ReAct 에이전트만 지원
         if "pro" in self.model_name.lower():

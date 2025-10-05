@@ -341,13 +341,14 @@ class MainWindow(QMainWindow):
     
     def clear_conversation_history(self) -> None:
         """Clear conversation history with confirmation."""
-        reply = QMessageBox.question(
-            self, '대화 기록 초기화', 
-            '모든 대화 기록을 삭제하시겠습니까?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        msg_box.setWindowTitle('대화 기록 초기화')
+        msg_box.setText('모든 대화 기록을 삭제하시겠습니까?')
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        self._apply_dialog_theme(msg_box)
         
-        if reply == QMessageBox.StandardButton.Yes:
+        if msg_box.exec() == QMessageBox.StandardButton.Yes:
             self.chat_widget.clear_conversation_history()
     
     def open_user_prompt(self) -> None:
@@ -1029,11 +1030,13 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'session_timer'):
             self.session_timer.stop()
         
-        QMessageBox.information(
-            self, 
-            "세션 만료",
-            "비활성 상태로 인해 세션이 만료되었습니다.\n다시 로그인해주세요."
-        )
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Information)
+        msg_box.setWindowTitle("세션 만료")
+        msg_box.setText("비활성 상태로 인해 세션이 만료되었습니다.\n다시 로그인해주세요.")
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        self._apply_dialog_theme(msg_box)
+        msg_box.exec()
         
         # 로그인 다이얼로그 표시
         self._check_authentication()
@@ -1047,7 +1050,13 @@ class MainWindow(QMainWindow):
             self.session_timer.stop()
         
         from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.information(self, "로그아웃", "로그아웃되었습니다.")
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Information)
+        msg_box.setWindowTitle("로그아웃")
+        msg_box.setText("로그아웃되었습니다.")
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        self._apply_dialog_theme(msg_box)
+        msg_box.exec()
         
         # 로그인 다이얼로그 표시
         self._check_authentication()
@@ -1056,6 +1065,40 @@ class MainWindow(QMainWindow):
         """메모리 경고 처리"""
         print(f"메모리 사용률 경고: {memory_percent:.1f}%")
         # 필요시 사용자에게 알림 표시 가능
+    
+    def _apply_dialog_theme(self, msg_box):
+        """다이얼로그에 테마 적용"""
+        colors = theme_manager.material_manager.get_theme_colors()
+        is_dark = theme_manager.material_manager.is_dark_theme()
+        
+        primary = colors.get('primary', '#6366f1')
+        primary_variant = colors.get('primary_variant', '#4f46e5')
+        background = colors.get('background', '#ffffff')
+        text_primary = colors.get('text_primary', '#000000')
+        
+        msg_box.setStyleSheet(f"""
+            QMessageBox {{
+                background-color: {background};
+                color: {text_primary};
+            }}
+            QMessageBox QLabel {{
+                color: {text_primary};
+                font-size: 14px;
+            }}
+            QMessageBox QPushButton {{
+                background-color: {primary};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-size: 14px;
+                font-weight: 600;
+                min-width: 80px;
+            }}
+            QMessageBox QPushButton:hover {{
+                background-color: {primary_variant};
+            }}
+        """)
     
     def show_security_status(self):
         """보안 상태 표시"""
@@ -1069,5 +1112,11 @@ class MainWindow(QMainWindow):
         else:
             status_text = "로그인되지 않은 상태입니다."
         
-        QMessageBox.information(self, "보안 상태", status_text)
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Information)
+        msg_box.setWindowTitle("보안 상태")
+        msg_box.setText(status_text)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        self._apply_dialog_theme(msg_box)
+        msg_box.exec()
     

@@ -174,22 +174,23 @@ class LoginDialog(QDialog):
             return color
         
         # 가독성 확보를 위한 색상 설정
+        surface = clean_color(colors.get('surface', '#2a2a2a' if is_dark else '#f5f5f5'), '#2a2a2a' if is_dark else '#f5f5f5')
+        divider = clean_color(colors.get('divider', '#555555' if is_dark else '#d0d0d0'), '#555555' if is_dark else '#d0d0d0')
+        
         if is_dark:
-            surface = clean_color(colors.get('surface', '#2a2a2a'), '#2a2a2a')
-            divider = clean_color(colors.get('divider', '#555555'), '#555555')
             input_bg = surface
-            input_text = text_primary
+            input_text = text_primary if self._is_readable_on_dark(text_primary) else '#ffffff'
             input_border = divider
-            button_secondary_bg = surface
-            placeholder_color = text_secondary
+            button_secondary_bg = self._lighten_color(surface, 0.15)
+            button_secondary_text = text_primary if self._is_readable_on_dark(text_primary) else '#ffffff'
+            placeholder_color = text_secondary if self._is_readable_on_dark(text_secondary) else '#999999'
         else:
-            surface = clean_color(colors.get('surface', '#f5f5f5'), '#f5f5f5')
-            divider = clean_color(colors.get('divider', '#d0d0d0'), '#d0d0d0')
             input_bg = '#ffffff'
-            input_text = text_primary
+            input_text = text_primary if self._is_readable_on_light(text_primary) else '#000000'
             input_border = divider
             button_secondary_bg = surface
-            placeholder_color = text_secondary
+            button_secondary_text = text_primary if self._is_readable_on_light(text_primary) else '#000000'
+            placeholder_color = text_secondary if self._is_readable_on_light(text_secondary) else '#666666'
         
         self.setStyleSheet(f"""
             QDialog {{
@@ -236,12 +237,14 @@ class LoginDialog(QDialog):
             }}
             
             QPushButton {{
-                padding: 10px 20px;
+                padding: 6px 20px;
                 border: none;
                 border-radius: 6px;
-                font-size: 14px;
+                font-size: 13px;
                 font-weight: 600;
                 min-width: 80px;
+                min-height: 32px;
+                line-height: 1.2;
             }}
             
             QPushButton[default="true"] {{
@@ -255,12 +258,13 @@ class LoginDialog(QDialog):
             
             QPushButton:!default {{
                 background-color: {button_secondary_bg};
-                color: {text_primary};
-                border: 1px solid {input_border};
+                color: {button_secondary_text};
+                border: 2px solid {input_border};
             }}
             
             QPushButton:!default:hover {{
                 background-color: {input_border};
+                color: {button_secondary_text};
             }}
             
             #linkButton {{
@@ -322,6 +326,38 @@ class LoginDialog(QDialog):
         if len(hex_color) == 6:
             return f"{int(hex_color[0:2], 16)}, {int(hex_color[2:4], 16)}, {int(hex_color[4:6], 16)}"
         return "99, 102, 241"  # 기본값
+    
+    def _get_luminance(self, hex_color: str) -> float:
+        """색상의 명도 계산"""
+        try:
+            hex_color = hex_color.lstrip('#')
+            if len(hex_color) == 6:
+                r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+                return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        except:
+            pass
+        return 0.5
+    
+    def _is_readable_on_dark(self, hex_color: str) -> bool:
+        """어두운 배경에서 읽기 가능한 색상인지 확인"""
+        return self._get_luminance(hex_color) > 0.5
+    
+    def _is_readable_on_light(self, hex_color: str) -> bool:
+        """밝은 배경에서 읽기 가능한 색상인지 확인"""
+        return self._get_luminance(hex_color) < 0.5
+    
+    def _lighten_color(self, hex_color: str, amount: float) -> str:
+        """색상을 밝게 조정"""
+        try:
+            hex_color = hex_color.lstrip('#')
+            if len(hex_color) == 6:
+                r = min(255, int(int(hex_color[0:2], 16) * (1 + amount)))
+                g = min(255, int(int(hex_color[2:4], 16) * (1 + amount)))
+                b = min(255, int(int(hex_color[4:6], 16) * (1 + amount)))
+                return f'#{r:02x}{g:02x}{b:02x}'
+        except:
+            pass
+        return hex_color
     
     def switch_to_setup_mode(self):
         """최초 설정 모드로 전환"""

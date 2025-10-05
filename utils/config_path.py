@@ -95,22 +95,29 @@ class ConfigPathManager:
     
     def get_config_path(self, filename: str, user_writable: bool = True) -> Path:
         """Get the path for a configuration file."""
-        print(f"[DEBUG] Getting path for: {filename}")
-        print(f"[DEBUG] User config path: {self._user_config_path}")
-        print(f"[DEBUG] Base path: {self._base_path}")
+        # 우선순위: 1) 외부 경로에 파일 존재 2) 내부 경로
+        possible_paths = []
         
-        # 외부 경로 확인
-        if self._user_config_path:
+        # 외부 경로 확인 (파일이 존재하는 경우만)
+        if self._user_config_path and filename in USER_CONFIG_FILES:
             user_file_path = self._user_config_path / filename
-            print(f"[DEBUG] Checking user file: {user_file_path} (exists: {user_file_path.exists()})")
             if user_file_path.exists():
-                print(f"[DEBUG] Using user file: {user_file_path}")
-                return user_file_path
+                possible_paths.append(user_file_path)
         
-        # 내부 경로 사용
+        # 내부 경로 추가
         base_file_path = self._base_path / filename
-        print(f"[DEBUG] Using base file: {base_file_path} (exists: {base_file_path.exists()})")
-        return base_file_path
+        possible_paths.append(base_file_path)
+        
+        # 존재하는 첫 번째 파일 반환, 없으면 적절한 경로 반환
+        for path in possible_paths:
+            if path.exists():
+                return path
+        
+        # 파일이 없으면 저장할 적절한 경로 결정
+        if filename in USER_CONFIG_FILES and self._user_config_path:
+            return self._user_config_path / filename
+        else:
+            return self._base_path / filename
     
     def ensure_config_exists(self, filename: str, default_content: str = None) -> Path:
         """

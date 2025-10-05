@@ -25,11 +25,27 @@ class SessionDatabase:
     
     def _get_default_db_path(self) -> str:
         """기본 데이터베이스 경로 반환"""
+        try:
+            # ConfigPathManager와 연동
+            from utils.config_path import config_path_manager
+            
+            # 사용자 설정 경로가 있으면 사용 (db 서브폴더에 저장)
+            user_config_path = config_path_manager.get_user_config_path()
+            if user_config_path:
+                db_path = user_config_path / "db" / "chat_sessions.db"
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                return str(db_path)
+        except ImportError as e:
+            logger.debug(f"ConfigPathManager import failed: {e}")
+        except Exception as e:
+            logger.debug(f"ConfigPathManager error: {e}")
+        
+        # 폴백: 기본 외부 경로 (db 서브폴더 사용)
         import os
         if os.name == 'nt':  # Windows
-            data_dir = Path.home() / "AppData" / "Local" / "ChatAIAgent"
+            data_dir = Path.home() / "AppData" / "Local" / "ChatAIAgent" / "db"
         else:  # macOS, Linux
-            data_dir = Path.home() / ".chat-ai-agent"
+            data_dir = Path.home() / ".chat-ai-agent" / "db"
         
         data_dir.mkdir(parents=True, exist_ok=True)
         return str(data_dir / "chat_sessions.db")
@@ -73,10 +89,17 @@ class SessionDatabase:
             
             # 인덱스 생성
             conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_last_used ON sessions(last_used_at DESC)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(is_active)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_title ON sessions(title)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, timestamp)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_messages_content ON messages(content)')
             
             conn.commit()
-            logger.info(f"세션 데이터베이스 초기화 완료: {self.db_path}")
+            # 인덱스 통계 확인
+            cursor = conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'")
+            index_count = cursor.fetchone()[0]
+            logger.info(f"세션 데이터베이스 초기화 완료: {self.db_path} (인덱스 {index_count}개)")
     
     def execute_query(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
         """쿼리 실행"""

@@ -24,6 +24,12 @@ class AppRunner:
             print("[DEBUG] MainWindow 생성 시작")
             self._window = MainWindow()
             print("[DEBUG] MainWindow 생성 완료")
+            
+            # 로그인 취소 시 종료
+            if not hasattr(self._window, 'auth_manager') or not self._window.auth_manager.is_logged_in():
+                print("[DEBUG] 로그인 취소 - 애플리케이션 종료")
+                return 0
+            
             print("[DEBUG] MainWindow.show() 호출")
             self._window.show()
             print("[DEBUG] app.exec() 호출")

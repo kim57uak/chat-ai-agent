@@ -47,6 +47,7 @@ class SettingsDialog(QDialog):
         
         # 탭 생성
         self.create_ai_settings_tab()
+        self.create_security_settings_tab()
         self.create_length_limit_tab()
         self.create_history_settings_tab()
         self.create_language_detection_tab()
@@ -144,6 +145,89 @@ class SettingsDialog(QDialog):
         self.model_combo.currentTextChanged.connect(self.on_model_changed)
         
         self.tab_widget.addTab(tab, '🤖 AI 설정')
+    
+    def create_security_settings_tab(self):
+        """보안 설정 탭"""
+        tab = QWidget()
+        
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+        
+        # 자동 로그아웃 설정 그룹
+        logout_group = QGroupBox('🔒 자동 로그아웃 설정')
+        logout_layout = QVBoxLayout(logout_group)
+        logout_layout.setSpacing(12)
+        
+        self.enable_auto_logout = QCheckBox('자동 로그아웃 사용')
+        logout_layout.addWidget(self.enable_auto_logout)
+        
+        timeout_layout = QHBoxLayout()
+        timeout_layout.addWidget(QLabel('로그아웃 시간:'))
+        self.logout_timeout_spin = QSpinBox()
+        self.logout_timeout_spin.setRange(5, 120)
+        self.logout_timeout_spin.setValue(30)
+        self.logout_timeout_spin.setSuffix(' 분')
+        self.logout_timeout_spin.setMinimumHeight(40)
+        timeout_layout.addWidget(self.logout_timeout_spin)
+        logout_layout.addLayout(timeout_layout)
+        
+        layout.addWidget(logout_group)
+        
+        # 암호화 상태 그룹
+        encryption_group = QGroupBox('🔐 암호화 상태')
+        encryption_layout = QVBoxLayout(encryption_group)
+        encryption_layout.setSpacing(12)
+        
+        self.encryption_status_label = QLabel('암호화 상태: 확인 중...')
+        encryption_layout.addWidget(self.encryption_status_label)
+        
+        self.key_version_label = QLabel('키 버전: 확인 중...')
+        encryption_layout.addWidget(self.key_version_label)
+        
+        self.last_login_label = QLabel('마지막 로그인: 확인 중...')
+        encryption_layout.addWidget(self.last_login_label)
+        
+        # 새로고침 버튼
+        refresh_button = QPushButton('🔄 상태 새로고침')
+        refresh_button.clicked.connect(self.refresh_security_status)
+        encryption_layout.addWidget(refresh_button)
+        
+        layout.addWidget(encryption_group)
+        
+        # 보안 작업 그룹
+        security_actions_group = QGroupBox('⚙️ 보안 작업')
+        security_actions_layout = QVBoxLayout(security_actions_group)
+        security_actions_layout.setSpacing(12)
+        
+        change_password_button = QPushButton('🔑 비밀번호 변경')
+        change_password_button.clicked.connect(self.change_password)
+        security_actions_layout.addWidget(change_password_button)
+        
+        reset_encryption_button = QPushButton('🔄 암호화 키 재생성')
+        reset_encryption_button.clicked.connect(self.reset_encryption)
+        security_actions_layout.addWidget(reset_encryption_button)
+        
+        layout.addWidget(security_actions_group)
+        layout.addStretch()
+        
+        scroll_area.setWidget(scroll_content)
+        
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll_area)
+        
+        # 초기 보안 상태 로드
+        self.refresh_security_status()
+        
+        self.tab_widget.addTab(tab, '🔒 보안')
     
     def create_length_limit_tab(self):
         """길이 제한 탭"""
@@ -577,6 +661,9 @@ class SettingsDialog(QDialog):
         
         # 뉴스 설정 로드
         self.load_news_settings()
+        
+        # 보안 설정 로드
+        self.load_security_settings()
     
     def save(self):
         """설정 저장"""
@@ -628,6 +715,9 @@ class SettingsDialog(QDialog):
         # 뉴스 설정 저장
         self.save_news_settings()
         
+        # 보안 설정 저장
+        self.save_security_settings()
+        
         self.accept()
     
     def _create_news_source_checkboxes(self, layout):
@@ -655,7 +745,8 @@ class SettingsDialog(QDialog):
     def load_news_settings(self):
         """뉴스 설정 로드"""
         try:
-            with open('news_config.json', 'r', encoding='utf-8') as f:
+            config_path = config_path_manager.get_config_path('news_config.json')
+            with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
             # 동적 체크박스 설정
@@ -689,7 +780,8 @@ class SettingsDialog(QDialog):
         try:
             # 기본 설정 로드
             try:
-                with open('news_config.json', 'r', encoding='utf-8') as f:
+                config_path = config_path_manager.get_config_path('news_config.json')
+                with open(config_path, 'r', encoding='utf-8') as f:
                     config = json.load(f)
             except:
                 config = {
@@ -747,7 +839,8 @@ class SettingsDialog(QDialog):
             }
             
             # 저장
-            with open('news_config.json', 'w', encoding='utf-8') as f:
+            config_path = config_path_manager.get_config_path('news_config.json')
+            with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
                 
         except Exception as e:
@@ -983,3 +1076,135 @@ class SettingsDialog(QDialog):
                 background-color: {colors.get('error_dark', '#dc2626')};
             }}
         """
+    
+    def load_security_settings(self):
+        """보안 설정 로드"""
+        try:
+            prompt_config = load_prompt_config()
+            security_settings = prompt_config.get('security_settings', {})
+            
+            self.enable_auto_logout.setChecked(security_settings.get('enable_auto_logout', True))
+            self.logout_timeout_spin.setValue(security_settings.get('logout_timeout_minutes', 30))
+            
+        except Exception as e:
+            print(f"보안 설정 로드 오류: {e}")
+    
+    def save_security_settings(self):
+        """보안 설정 저장"""
+        try:
+            prompt_config = load_prompt_config()
+            
+            prompt_config['security_settings'] = {
+                'enable_auto_logout': self.enable_auto_logout.isChecked(),
+                'logout_timeout_minutes': self.logout_timeout_spin.value()
+            }
+            
+            save_prompt_config(prompt_config)
+            
+        except Exception as e:
+            print(f"보안 설정 저장 오류: {e}")
+    
+    def refresh_security_status(self):
+        """보안 상태 새로고침"""
+        try:
+            import keyring
+            import datetime
+            
+            # 암호화 상태 확인
+            try:
+                salt = keyring.get_password('chat-ai-agent', 'encryption_salt')
+                key = keyring.get_password('chat-ai-agent', 'data_encryption_key')
+                
+                if salt and key:
+                    self.encryption_status_label.setText('암호화 상태: ✅ 활성화됨')
+                    self.encryption_status_label.setStyleSheet('color: #22c55e; font-weight: 600;')
+                else:
+                    self.encryption_status_label.setText('암호화 상태: ❌ 비활성화됨')
+                    self.encryption_status_label.setStyleSheet('color: #ef4444; font-weight: 600;')
+            except Exception:
+                self.encryption_status_label.setText('암호화 상태: ❓ 확인 불가')
+                self.encryption_status_label.setStyleSheet('color: #f59e0b; font-weight: 600;')
+            
+            # 키 버전 정보
+            self.key_version_label.setText('키 버전: v1.0 (기본)')
+            self.key_version_label.setStyleSheet('color: #6366f1; font-weight: 600;')
+            
+            # 마지막 로그인 시간
+            current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.last_login_label.setText(f'마지막 로그인: {current_time} (현재 세션)')
+            self.last_login_label.setStyleSheet('color: #8b5cf6; font-weight: 600;')
+                
+        except Exception as e:
+            print(f"보안 상태 새로고침 오류: {e}")
+    
+    def change_password(self):
+        """비밀번호 변경"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        reply = QMessageBox.question(
+            self,
+            '비밀번호 변경',
+            '비밀번호를 변경하시겠습니까?\n\n'
+            '변경 후 새로운 비밀번호로 다시 로그인해야 합니다.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                from ui.auth.login_dialog import LoginDialog
+                from core.auth.auth_manager import AuthManager
+                
+                auth_manager = AuthManager()
+                
+                # 기존 키 삭제
+                import keyring
+                keyring.delete_password('chat-ai-agent', 'encryption_salt')
+                keyring.delete_password('chat-ai-agent', 'data_encryption_key')
+                
+                # 새 비밀번호 설정 다이얼로그
+                dialog = LoginDialog(auth_manager, self)
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    QMessageBox.information(self, '성공', '비밀번호가 성공적으로 변경되었습니다.')
+                    self.refresh_security_status()
+                else:
+                    QMessageBox.warning(self, '취소', '비밀번호 변경이 취소되었습니다.')
+                    
+            except Exception as e:
+                QMessageBox.critical(self, '오류', f'비밀번호 변경 중 오류가 발생했습니다: {str(e)}')
+    
+    def reset_encryption(self):
+        """암호화 키 재생성"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        reply = QMessageBox.warning(
+            self,
+            '암호화 키 재생성',
+            '⚠️ 경고: 암호화 키를 재생성하면 기존의 모든 암호화된 데이터가 복구할 수 없게 됩니다.\n\n'
+            '계속하시겠습니까?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                from core.auth.auth_manager import AuthManager
+                import keyring
+                
+                # 기존 키 삭제
+                keyring.delete_password('chat-ai-agent', 'encryption_salt')
+                keyring.delete_password('chat-ai-agent', 'data_encryption_key')
+                
+                # 새 키 생성을 위한 로그인
+                auth_manager = AuthManager()
+                from ui.auth.login_dialog import LoginDialog
+                
+                dialog = LoginDialog(auth_manager, self)
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    QMessageBox.information(self, '성공', '암호화 키가 성공적으로 재생성되었습니다.')
+                    self.refresh_security_status()
+                else:
+                    QMessageBox.warning(self, '취소', '암호화 키 재생성이 취소되었습니다.')
+                    
+            except Exception as e:
+                QMessageBox.critical(self, '오류', f'암호화 키 재생성 중 오류가 발생했습니다: {str(e)}')

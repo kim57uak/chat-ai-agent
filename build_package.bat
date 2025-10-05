@@ -39,7 +39,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM 패키징 스크립트 실행
+REM 패키징 스크립트 실행 (멀티코어 병렬 처리 활성화)
 echo 패키징 스크립트 실행 중...
 python build_package.py
 

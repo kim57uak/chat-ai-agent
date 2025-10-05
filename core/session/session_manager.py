@@ -6,7 +6,8 @@ Chat Session Manager
 from typing import List, Dict, Optional
 import logging
 import re
-from .session_database import SessionDatabase
+from ..security.encrypted_database import EncryptedDatabase
+from ..auth.auth_manager import AuthManager
 
 logger = logging.getLogger(__name__)
 
@@ -14,16 +15,13 @@ logger = logging.getLogger(__name__)
 class SessionManager:
     """채팅 세션 관리 클래스"""
     
-    def __init__(self, db_path: Optional[str] = None):
-        self.db = SessionDatabase(db_path)
+    def __init__(self, db_path: Optional[str] = None, auth_manager: Optional[AuthManager] = None):
+        self.db = EncryptedDatabase(db_path, auth_manager)
     
     def create_session(self, title: str, topic_category: str = None, model_used: str = None) -> int:
         """새 세션 생성"""
         print(f"[SESSION_MANAGER] create_session - title: {title}")
-        session_id = self.db.execute_insert('''
-            INSERT INTO sessions (title, topic_category, model_used)
-            VALUES (?, ?, ?)
-        ''', (title, topic_category, model_used))
+        session_id = self.db.create_session(title, topic_category, model_used)
         
         print(f"[SESSION_MANAGER] 세션 생성 성공 - session_id: {session_id}")
         logger.info(f"새 세션 생성: {session_id} - {title}")
@@ -31,54 +29,25 @@ class SessionManager:
     
     def get_sessions(self, limit: int = 50) -> List[Dict]:
         """세션 목록 조회 (최근 사용 순)"""
-        with self.db.get_connection() as conn:
-            cursor = conn.execute('''
-                SELECT id, title, topic_category, created_at, last_used_at, 
-                       message_count, model_used, is_active
-                FROM sessions 
-                WHERE is_active = 1
-                ORDER BY last_used_at DESC
-                LIMIT ?
-            ''', (limit,))
-            
-            sessions = []
-            for row in cursor.fetchall():
-                sessions.append({
-                    'id': row['id'],
-                    'title': row['title'],
-                    'topic_category': row['topic_category'],
-                    'created_at': row['created_at'],
-                    'last_used_at': row['last_used_at'],
-                    'message_count': row['message_count'],
-                    'model_used': row['model_used'],
-                    'is_active': row['is_active']
-                })
-            
-            return sessions
+        return self.db.get_sessions(limit)
     
     def get_session(self, session_id: int) -> Optional[Dict]:
         """특정 세션 조회"""
-        with self.db.get_connection() as conn:
-            cursor = conn.execute('''
-                SELECT id, title, topic_category, created_at, last_used_at,
-                       message_count, model_used, is_active
-                FROM sessions 
-                WHERE id = ? AND is_active = 1
-            ''', (session_id,))
-            
-            row = cursor.fetchone()
-            if row:
-                return {
-                    'id': row['id'],
-                    'title': row['title'],
-                    'topic_category': row['topic_category'],
-                    'created_at': row['created_at'],
-                    'last_used_at': row['last_used_at'],
-                    'message_count': row['message_count'],
-                    'model_used': row['model_used'],
-                    'is_active': row['is_active']
-                }
-            return None
+        return self.db.get_session(session_id)
+    
+    def touch_session(self, session_id: int) -> bool:
+        """세션의 last_used_at 업데이트 (세션 선택 시 호출)"""
+        rowcount = self.db.execute_update('''
+            UPDATE sessions 
+            SET last_used_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND is_active = 1
+        ''', (session_id,))
+        
+        success = rowcount > 0
+        if success:
+            logger.info(f"세션 사용 시간 업데이트: {session_id}")
+        
+        return success
     
     def update_session(self, session_id: int, title: str = None, topic_category: str = None) -> bool:
         """세션 정보 업데이트"""
@@ -111,17 +80,34 @@ class SessionManager:
         
         return success
     
-    def delete_session(self, session_id: int) -> bool:
-        """세션 삭제 (소프트 삭제)"""
-        rowcount = self.db.execute_update('''
-            UPDATE sessions 
-            SET is_active = 0 
-            WHERE id = ?
-        ''', (session_id,))
+    def delete_session(self, session_id: int, hard_delete: bool = True) -> bool:
+        """세션 삭제
         
-        success = rowcount > 0
+        Args:
+            session_id: 삭제할 세션 ID
+            hard_delete: True=완전삭제, False=소프트삭제
+        """
+        if hard_delete:
+            # 하드 삭제: 메시지와 세션 모두 완전 삭제
+            with self.db.get_connection() as conn:
+                # 메시지 먼저 삭제
+                conn.execute('DELETE FROM messages WHERE session_id = ?', (session_id,))
+                # 세션 삭제
+                cursor = conn.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
+                conn.commit()
+                success = cursor.rowcount > 0
+        else:
+            # 소프트 삭제: 세션만 비활성화
+            rowcount = self.db.execute_update('''
+                UPDATE sessions 
+                SET is_active = 0 
+                WHERE id = ?
+            ''', (session_id,))
+            success = rowcount > 0
+        
         if success:
-            logger.info(f"세션 삭제: {session_id}")
+            delete_type = "완전삭제" if hard_delete else "소프트삭제"
+            logger.info(f"세션 {delete_type}: {session_id}")
         
         return success
     
@@ -143,84 +129,32 @@ class SessionManager:
         # content 필드에는 HTML 태그 제거된 텍스트 저장
         clean_content = self._remove_html_tags(content)
         
-        with self.db.get_connection() as conn:
-            # 메시지 추가
-            cursor = conn.execute('''
-                INSERT INTO messages (session_id, role, content, content_html, token_count, tool_calls)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (session_id, role, clean_content, content_html, token_count, tool_calls))
-            
-            message_id = cursor.lastrowid
-            print(f"[SESSION_MANAGER] 메시지 삽입 성공 - message_id: {message_id}")
-            
-            # 세션의 메시지 카운트 및 마지막 사용 시간 업데이트
-            conn.execute('''
-                UPDATE sessions 
-                SET message_count = message_count + 1,
-                    last_used_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ''', (session_id,))
-            
-            conn.commit()
-            return message_id
+        message_id = self.db.add_message(session_id, role, clean_content, content_html, token_count, tool_calls)
+        print(f"[SESSION_MANAGER] 메시지 삽입 성공 - message_id: {message_id}")
+        return message_id
     
     def get_session_messages(self, session_id: int, limit: int = None, offset: int = 0, include_html: bool = True) -> List[Dict]:
         """세션의 메시지 목록 조회 (시간순 정렬, 페이징 지원)"""
         print(f"[GET_MESSAGES] session_id: {session_id}, limit: {limit}, offset: {offset}, include_html: {include_html}")
-        with self.db.get_connection() as conn:
-            if limit is None:
-                # limit이 None이면 모든 메시지 조회
-                cursor = conn.execute('''
-                    SELECT id, role, content, content_html, timestamp, token_count, tool_calls
-                    FROM messages 
-                    WHERE session_id = ?
-                    ORDER BY timestamp ASC
-                ''', (session_id,))
-            elif offset > 0:
-                cursor = conn.execute('''
-                    SELECT id, role, content, content_html, timestamp, token_count, tool_calls
-                    FROM messages 
-                    WHERE session_id = ?
-                    ORDER BY timestamp ASC
-                    LIMIT ? OFFSET ?
-                ''', (session_id, limit, offset))
-            else:
-                cursor = conn.execute('''
-                    SELECT id, role, content, content_html, timestamp, token_count, tool_calls
-                    FROM messages 
-                    WHERE session_id = ?
-                    ORDER BY timestamp ASC
-                    LIMIT ?
-                ''', (session_id, limit))
-            
-            messages = []
-            for row in cursor.fetchall():
-                # content_html이 있으면 FixedFormatter로 처리 후 사용, 없으면 content 사용
-                if row['content_html']:
-                    try:
-                        from ui.fixed_formatter import FixedFormatter
-                        formatter = FixedFormatter()
-                        # HTML에서 마인드맵 코드 추출 및 재처리
-                        display_content = formatter.format_basic_markdown(row['content_html'])
-                        print(f"[GET_MESSAGES] HTML 콘텐츠를 FixedFormatter로 처리: {row['id']}")
-                    except Exception as e:
-                        print(f"[GET_MESSAGES] FixedFormatter 처리 오류: {e}, content 사용")
-                        display_content = row['content']
-                else:
-                    display_content = row['content']
-                
-                message = {
-                    'id': row['id'],
-                    'role': row['role'],
-                    'content': display_content,
-                    'timestamp': row['timestamp'],
-                    'token_count': row['token_count'],
-                    'tool_calls': row['tool_calls']
-                }
-                messages.append(message)
-            
-            print(f"[GET_MESSAGES] 반환할 메시지 수: {len(messages)}")
-            return messages
+        
+        if limit is None:
+            messages = self.db.get_messages(session_id, 10000, 0)  # 충분히 큰 수
+        else:
+            messages = self.db.get_messages(session_id, limit, offset)
+        
+        # FixedFormatter 처리
+        for message in messages:
+            if message.get('content_html'):
+                try:
+                    from ui.fixed_formatter import FixedFormatter
+                    formatter = FixedFormatter()
+                    message['content'] = formatter.format_basic_markdown(message['content_html'])
+                    print(f"[GET_MESSAGES] HTML 콘텐츠를 FixedFormatter로 처리: {message['id']}")
+                except Exception as e:
+                    print(f"[GET_MESSAGES] FixedFormatter 처리 오류: {e}, content 사용")
+        
+        print(f"[GET_MESSAGES] 반환할 메시지 수: {len(messages)}")
+        return messages
     
     def get_session_context(self, session_id: int, max_tokens: int = 4000) -> List[Dict]:
         """세션 컨텍스트 조회 (토큰 제한 고려)"""
@@ -394,5 +328,28 @@ class SessionManager:
             return {'total_count': 0, 'servers': {}}
 
 
-# 전역 세션 매니저 인스턴스
-session_manager = SessionManager()
+# 전역 세션 매니저 인스턴스 (인증 후 초기화)
+session_manager = None
+
+def initialize_session_manager(auth_manager: AuthManager = None) -> SessionManager:
+    """인증 후 세션 매니저 초기화"""
+    global session_manager
+    session_manager = SessionManager(auth_manager=auth_manager)
+    logger.info(f"세션 매니저 초기화 완료 (AuthManager: {'있음' if auth_manager else '없음'})")
+    return session_manager
+
+def set_auth_manager(auth_manager: AuthManager):
+    """기존 세션 매니저에 AuthManager 설정"""
+    global session_manager
+    if session_manager:
+        session_manager.db.auth_manager = auth_manager
+        logger.info("세션 매니저에 AuthManager 설정 완료")
+
+# 기본 세션 매니저 초기화 (인증 없이 - 나중에 AuthManager 설정)
+try:
+    if session_manager is None:
+        session_manager = SessionManager()
+        logger.info("기본 세션 매니저 초기화 완료 (AuthManager는 나중에 설정)")
+except Exception as e:
+    logger.warning(f"기본 세션 매니저 초기화 실패: {e}")
+    session_manager = None

@@ -25,6 +25,14 @@ class MCPClient:
         """MCP 서버 프로세스 시작"""
         try:
             import os
+            
+            # 환경변수 로더 사용하여 Node.js 환경 설정
+            try:
+                from utils.env_loader import load_user_environment
+                load_user_environment()
+            except Exception as e:
+                logger.debug(f"환경변수 로더 실행 실패: {e}")
+            
             full_env = os.environ.copy()
             full_env.update(self.env)
             

@@ -24,6 +24,9 @@ class CustomReActParser(ReActOutputParser):
         """관대한 파싱 로직 - Claude 파서 참고"""
         print(f"\n=== LENIENT PARSING DEBUG ===\nFull AI Response:\n{text}\n=== END RESPONSE ===")
         
+        # HTML 엔티티 디코딩
+        text = text.replace('&quot;', '"').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+        
         # Action과 Action Input이 모두 있는 경우만 Action으로 처리
         action_match = re.search(r'Action:\s*([^\n\s]+)', text, re.IGNORECASE)
         input_match = re.search(r'Action Input:\s*({.*?})', text, re.DOTALL | re.IGNORECASE)

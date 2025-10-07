@@ -221,16 +221,24 @@ Answer with ONLY: YES or NO"""
         if not tools:
             return None
         
+        # Common 프롬프트에서 도구 사용 규칙 가져오기
+        tool_usage_rules = prompt_manager.get_tool_prompt(ModelType.PERPLEXITY.value)
+        execution_rules = prompt_manager.get_custom_prompt(ModelType.COMMON.value, "execution_rules")
+        
         react_prompt = PromptTemplate.from_template(
-            """You are an expert data analyst that uses tools to gather information and provides comprehensive analysis.
+            f"""You are an expert data analyst that uses tools to gather information and provides comprehensive analysis.
 
 **CRITICAL: THOROUGH OBSERVATION ANALYSIS REQUIRED**
+
+{tool_usage_rules}
+
+{execution_rules}
 
 **EXACT FORMAT (MANDATORY):**
 
 Thought: [Analyze what information is needed for the user's question]
 Action: [exact_tool_name]
-Action Input: {{"param": "value"}}
+Action Input: {{{{"exact_parameter_name_from_schema": "value"}}}}
 
 (System provides Observation with tool results)
 
@@ -246,15 +254,16 @@ Final Answer: [Comprehensive Korean response based EXCLUSIVELY on Observation da
 
 **PARSING RULES:**
 - Use EXACT keywords: "Thought:", "Action:", "Action Input:", "Final Answer:"
-- Action Input MUST be valid JSON
+- Action Input MUST be valid JSON with EXACT parameter names from inputSchema
+- NEVER use generic names like "param", "value" - check the tool's inputSchema
 - NEVER mix Action and Final Answer
 - Analyze Observation thoroughly before Final Answer
 
-Tools: {tools}
-Tool names: {tool_names}
+Tools: {{tools}}
+Tool names: {{tool_names}}
 
-Question: {input}
-Thought:{agent_scratchpad}"""
+Question: {{input}}
+Thought:{{agent_scratchpad}}"""
         )
 
         try:

@@ -257,33 +257,30 @@ class GeminiStrategy(BaseModelStrategy):
         # 모델별 ReAct 형식 가이드 추가
         if "pro" in self.model_name.lower():
             react_guide = (
-                "\n\n## 🚨 CRITICAL: Every response MUST start with a keyword\n\n"
-                "### Required Keywords:\n"
-                "- `Thought:` [your reasoning]\n"
-                "- `Action:` [exact_tool_name]\n"
-                "- `Action Input:` [json_parameters]\n"
-                "- `Final Answer:` [complete response with tables/content]\n\n"
-                "### ✅ Correct Examples:\n"
-                "```\n"
-                "Final Answer: Here are the search results.\n"
-                "| Product | Price |\n"
-                "```\n\n"
-                "### 📏 Response Length Control:\n"
-                "- Keep Final Answer under 16384 tokens to prevent parsing errors\n"
-                "- If data is large, provide summary with key statistics\n"
-                "- Always prioritize essential information over details\n\n"
-                "**Rule: Follow ReAct format - Thought → Action → Action Input → Final Answer**"
+                "\n\n## 🚨 CRITICAL FORMAT RULES\n\n"
+                "### Required Format (each on NEW LINE):\n"
+                "Thought: [your reasoning]\n"
+                "Action: [exact_tool_name]\n"
+                "Action Input: {{\"key\": \"value\"}}\n\n"
+                "### ❌ WRONG Format:\n"
+                "ThoughtAction (no line break)\n"
+                "Action Input: ```json {{...}} ``` (code blocks)\n\n"
+                "### ✅ CORRECT Format:\n"
+                "Thought: I need to search\n"
+                "Action: search-mcp-server_perplexitySearch\n"
+                "Action Input: {{\"query\": \"weather\"}}\n\n"
+                "**CRITICAL: Use plain JSON without code blocks or backticks**"
             )
         else:
             react_guide = (
                 "\n\n## Google Gemini ReAct Format\n\n"
                 "### Step 1 - Tool Use:\n"
-                "`Thought:` [your reasoning]\n"
-                "`Action:` [exact_tool_name]\n"
-                "`Action Input:` [json_params]\n\n"
+                "Thought: [your reasoning]\n"
+                "Action: [exact_tool_name]\n"
+                "Action Input: [json_params]\n\n"
                 "### Step 2 - After Observation:\n"
-                "`Thought:` [analyze the observation result]\n"
-                "`Final Answer:` [response based on observation]\n\n"
+                "Thought: [analyze the observation result]\n"
+                "Final Answer: [response based on observation]\n\n"
                 "### 🚨 Critical Rules:\n"
                 "- Never skip Observation\n"
                 "- Never mix steps\n"
@@ -309,9 +306,9 @@ class GeminiStrategy(BaseModelStrategy):
 {{tool_names}}
 
 ## Process:
-1. **First**: `Thought:` → `Action:` → `Action Input:`
+1. **First**: Thought: → Action: → Action Input:
 2. **Wait for Observation**
-3. **Then**: `Thought:` → `Final Answer:`
+3. **Then**: Thought: → Final Answer:
 
 ---
 **Question:** {{input}}

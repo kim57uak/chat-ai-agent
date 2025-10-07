@@ -72,7 +72,7 @@ a = Analysis(
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore',
-        'PyQt6.QtGui', 
+        'PyQt6.QtGui',
         'PyQt6.QtWidgets',
         'PyQt6.QtWebEngineWidgets',
         'PyQt6.QtWebChannel',
@@ -91,6 +91,13 @@ a = Analysis(
         # Security & Encryption
         'keyring',
         'keyring.backends',
+        'cryptography',
+        'cryptography.fernet',
+        'cryptography.hazmat',
+        'cryptography.hazmat.primitives',
+        'cryptography.hazmat.primitives.ciphers',
+        'cryptography.hazmat.backends',
+        'cryptography.hazmat.backends.openssl',
         
         # Third-party
         'requests',

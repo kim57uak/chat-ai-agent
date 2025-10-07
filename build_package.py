@@ -724,8 +724,26 @@ else:
             print("📦 Backing up config files...")
             self.backup_configs()
 
-            # 2-4. 병렬 실행 가능한 작업들
-            self.build_parallel_tasks(parallel_jobs)
+            # 2-3. 병렬 실행 가능한 작업들 (spec 파일 업데이트 제외)
+            print("🔄 병렬 작업 시작...")
+            if parallel_jobs is None:
+                parallel_jobs = min(multiprocessing.cpu_count(), 3)
+            
+            with ThreadPoolExecutor(max_workers=parallel_jobs) as executor:
+                futures = {
+                    executor.submit(self.clean_build): "clean_build",
+                    executor.submit(self.create_sample_configs): "create_configs",
+                    # spec 파일은 수동으로 관리하므로 자동 업데이트 비활성화
+                    # executor.submit(self.update_spec_file): "update_spec",
+                }
+                for future in as_completed(futures):
+                    task_name = futures[future]
+                    try:
+                        future.result()
+                        print(f"✅ {task_name} completed")
+                    except Exception as e:
+                        print(f"❌ {task_name} failed: {e}")
+                        raise
 
             # 5. Build executable (병렬 처리 적용)
             print("🔨 Building executable with parallel processing...")

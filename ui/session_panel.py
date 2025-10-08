@@ -302,10 +302,10 @@ class SessionPanel(QWidget):
         # 자동 선택 플래그
         self._auto_selection_done = False
         
-        # 자동 새로고침 타이머 - 비동기 처리 (비활성화)
-        # self.refresh_timer = QTimer()
-        # self.refresh_timer.timeout.connect(lambda: QTimer.singleShot(0, self.refresh_all_data))
-        # self.refresh_timer.start(30000)  # 30초마다 새로고침
+        # 통계 자동 갱신 타이머 (60초마다)
+        self.stats_refresh_timer = QTimer()
+        self.stats_refresh_timer.timeout.connect(self.update_stats)
+        self.stats_refresh_timer.start(60000)
     
     def setup_ui(self):
         """UI 설정 - 로고와 Sessions 문구 삭제, 버튼 재정렬"""
@@ -431,7 +431,7 @@ class SessionPanel(QWidget):
         self.stats_label = QLabel()
         self.stats_label.setMinimumHeight(36)
         self.stats_label.setObjectName("stats_label")
-        self.stats_label.setToolTip("세션 수 | 메시지 수 | DB 용량 | 도구 수 (마지막 숫자 클릭시 상세보기)")
+        self.stats_label.setToolTip("세션 수 | 메시지 수 | DB 용량 | MCP 서버 수 (마지막 숫자 클릭시 관리화면)")
         self.stats_label.mousePressEvent = self.on_stats_label_click
         layout.addWidget(self.stats_label)
         
@@ -492,20 +492,7 @@ class SessionPanel(QWidget):
         except Exception as e:
             logger.error(f"세션 DB 로드 오류: {e}")
     
-    def refresh_all_data(self):
-        """모든 데이터 새로고침 - 비동기 처리"""
-        QTimer.singleShot(0, self._async_refresh)
-    
-    def _async_refresh(self):
-        """비동기 데이터 새로고침"""
-        try:
-            self.load_sessions()
-            # 현재 선택된 세션 유지
-            if self.current_session_id:
-                QTimer.singleShot(50, lambda: self._select_session_without_touch(self.current_session_id))
-            QTimer.singleShot(100, self.update_stats)
-        except Exception as e:
-            logger.error(f"비동기 새로고침 오류: {e}")
+
     
     def load_sessions(self):
         """세션 목록 로드"""
@@ -854,7 +841,7 @@ class SessionPanel(QWidget):
                 f"세션 {stats['total_sessions']}개 | "
                 f"메시지 {stats['total_messages']}개 | "
                 f"{stats['db_size_mb']} MB | "
-                f"{stats['available_tools']}개"
+                f"{stats['active_servers']}개"
             )
         except Exception as e:
             logger.error(f"통계 업데이트 오류: {e}")
@@ -1591,14 +1578,12 @@ class SessionPanel(QWidget):
     
     def on_stats_label_click(self, event):
         """통계 라벨 클릭 처리 - 마지막 숫자 영역만 반응"""
-        text = self.stats_label.text()
-        if "개" in text:
-            label_width = self.stats_label.width()
-            click_x = event.position().x()
-            
-            # 텍스트의 마지막 1/4 영역에서 클릭한 경우만 반응
-            if click_x > label_width * 0.75:
-                self.show_tools_detail()
+        label_width = self.stats_label.width()
+        click_x = event.position().x()
+        
+        # 텍스트의 마지막 1/4 영역에서 클릭한 경우만 반응
+        if click_x > label_width * 0.75:
+            self.show_tools_detail()
     
     def show_tools_detail(self):
         """MCP 서버 관리 화면 열기"""
@@ -1620,18 +1605,14 @@ class SessionPanel(QWidget):
 
     
     def mouseMoveEvent(self, event):
-        """마우스 이동 시 도구 영역에서만 손모양 커서"""
+        """마우스 이동 시 마지막 숫자 영역에서만 손모양 커서"""
         if hasattr(self, 'stats_label'):
             stats_rect = self.stats_label.geometry()
             if stats_rect.contains(event.position().toPoint()):
-                text = self.stats_label.text()
-                if "개" in text:
-                    # 텍스트의 마지막 1/4 영역에서만 손모양 커서
-                    relative_x = event.position().x() - stats_rect.x()
-                    if relative_x > stats_rect.width() * 0.75:
-                        self.setCursor(Qt.CursorShape.PointingHandCursor)
-                    else:
-                        self.setCursor(Qt.CursorShape.ArrowCursor)
+                # 텍스트의 마지막 1/4 영역에서만 손모양 커서
+                relative_x = event.position().x() - stats_rect.x()
+                if relative_x > stats_rect.width() * 0.75:
+                    self.setCursor(Qt.CursorShape.PointingHandCursor)
                 else:
                     self.setCursor(Qt.CursorShape.ArrowCursor)
             else:

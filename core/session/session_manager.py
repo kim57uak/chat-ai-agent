@@ -254,7 +254,7 @@ class SessionManager:
                 'total_messages': row[1] or 0,
                 'avg_messages_per_session': round(row[2] or 0, 1),
                 'db_size_mb': self.get_db_size_mb(),
-                'available_tools': self.get_available_tools_count()
+                'active_servers': self.get_available_tools_count()
             }
     
     def get_db_size_mb(self) -> float:
@@ -271,60 +271,40 @@ class SessionManager:
             return 0.0
     
     def get_available_tools_count(self) -> int:
-        """사용 가능한 MCP 서버 개수 반환 - ON 상태 서버만"""
+        """활성화된 MCP 서버 개수 반환"""
         try:
-            # 안전한 import를 위해 지연 import 사용
-            import sys
-            if 'mcp.client.mcp_client' in sys.modules:
-                from mcp.client.mcp_client import mcp_manager
-                server_status = mcp_manager.get_server_status()
-                
-                running_servers = 0
-                for server_name, status_info in server_status.items():
-                    if status_info['status'] == 'running':
-                        running_servers += 1
-                
-                return running_servers
-            else:
-                # MCP 클라이언트가 아직 로드되지 않은 경우
-                return 0
-        except Exception as e:
-            logger.debug(f"MCP 서버 개수 조회 오류: {e}")
+            from mcp.client.mcp_client import mcp_manager
+            server_status = mcp_manager.get_server_status()
+            
+            active_servers = 0
+            for status_info in server_status.values():
+                if status_info['status'] == 'running':
+                    active_servers += 1
+            
+            return active_servers
+        except:
             return 0
     
     def get_available_tools_detail(self) -> Dict:
-        """사용 가능한 도구 상세 정보 반환 - ON 상태 서버만"""
+        """사용 가능한 도구 상세 정보 반환"""
         try:
-            # 안전한 import를 위해 지연 import 사용
-            import sys
-            if 'mcp.client.mcp_client' in sys.modules:
-                from mcp.client.mcp_client import mcp_manager
-                server_status = mcp_manager.get_server_status()
-                
-                tools_by_server = {}
-                total_count = 0
-                
-                for server_name, status_info in server_status.items():
+            from mcp.client.mcp_client import mcp_manager
+            server_status = mcp_manager.get_server_status()
+            
+            tools_by_server = {}
+            total_count = 0
+            
+            for server_name, status_info in server_status.items():
+                if status_info['status'] == 'running':
                     tools = status_info.get('tools', [])
-                    tool_names = [tool.get('name', 'Unknown') for tool in tools]
-                    
                     tools_by_server[server_name] = {
-                        'count': len(tools) if status_info['status'] == 'running' else 0,
-                        'tools': tool_names if status_info['status'] == 'running' else []
+                        'count': len(tools),
+                        'tools': [t.get('name', 'Unknown') for t in tools]
                     }
-                    
-                    if status_info['status'] == 'running':
-                        total_count += len(tools)
-                
-                return {
-                    'total_count': total_count,
-                    'servers': tools_by_server
-                }
-            else:
-                # MCP 클라이언트가 아직 로드되지 않은 경우
-                return {'total_count': 0, 'servers': {}}
-        except Exception as e:
-            logger.debug(f"도구 상세 정보 조회 오류: {e}")
+                    total_count += len(tools)
+            
+            return {'total_count': total_count, 'servers': tools_by_server}
+        except:
             return {'total_count': 0, 'servers': {}}
 
 

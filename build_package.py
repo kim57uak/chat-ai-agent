@@ -534,8 +534,66 @@ else:
             f.write(spec_content)
         print("✓ Updated PyInstaller spec file")
 
+    def verify_and_fix_dependencies(self):
+        """빌드 전 필수 의존성 확인 및 자동 수정"""
+        print("🔍 필수 의존성 확인 및 자동 수정 중...")
+        
+        required_packages = [
+            ('cryptography', '42.0.8'),
+            ('keyring', None),
+            ('PyQt6', None),
+            ('langchain', None),
+            ('openai', None),
+        ]
+        
+        needs_reinstall = []
+        for package_info in required_packages:
+            package = package_info[0]
+            version = package_info[1]
+            
+            try:
+                __import__(package)
+                print(f"✓ {package}")
+            except ImportError:
+                needs_reinstall.append(package_info)
+                print(f"❌ {package} 누락")
+        
+        if needs_reinstall:
+            print(f"\n🔧 누락된 패키지 자동 설치 중...")
+            for package, version in needs_reinstall:
+                try:
+                    if version:
+                        cmd = ['pip', 'install', '--force-reinstall', '--no-cache-dir', f'{package}=={version}']
+                    else:
+                        cmd = ['pip', 'install', package]
+                    
+                    print(f"  설치 중: {package}...")
+                    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+                    print(f"  ✓ {package} 설치 완료")
+                except subprocess.CalledProcessError as e:
+                    print(f"  ❌ {package} 설치 실패: {e}")
+                    return False
+        
+        # cryptography는 항상 강제 재설치 (빌드 문제 방지)
+        print("\n🔐 cryptography 모듈 강제 재설치 (빌드 안정성 확보)...")
+        try:
+            cmd = ['pip', 'install', '--force-reinstall', '--no-cache-dir', 'cryptography==42.0.8']
+            subprocess.run(cmd, check=True, capture_output=True, text=True)
+            print("✓ cryptography 재설치 완료")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ cryptography 재설치 실패: {e}")
+            return False
+        
+        print("✅ 모든 필수 의존성 확인 및 수정 완료")
+        return True
+
     def build_executable(self, parallel_jobs=None):
         """Build executable using PyInstaller with parallel processing"""
+        # 빌드 전 의존성 확인 및 자동 수정
+        if not self.verify_and_fix_dependencies():
+            print("❌ 의존성 확인 및 수정 실패. 빌드를 중단합니다.")
+            return False
+        
         if parallel_jobs is None:
             cpu_cores = multiprocessing.cpu_count()
             parallel_jobs = min(cpu_cores, 8)
@@ -545,7 +603,7 @@ else:
         import os
 
         os.environ["PYINSTALLER_COMPILE_BOOTLOADER_PARALLEL"] = str(parallel_jobs)
-
+        
         try:
             cmd = [
                 "pyinstaller",
@@ -673,8 +731,83 @@ else:
                         return False
 
                 print("✅ All required files included")
-                return True
+            
+            # cryptography 모듈 확인
+            print("\n🔐 Verifying cryptography module:")
+            internal_path = dist_dir / "ChatAIAgent" / "_internal"
+            if internal_path.exists():
+                crypto_found = False
+                crypto_dirs = []
+                
+                # cryptography 디렉토리 찾기
+                for item in internal_path.iterdir():
+                    if item.is_dir() and 'cryptography' in item.name.lower():
+                        crypto_dirs.append(item.name)
+                        crypto_found = True
+                
+                # cryptography 관련 파일 찾기
+                for item in internal_path.rglob('*cryptography*'):
+                    if item.is_file() and item.suffix in ['.so', '.dylib', '.pyd']:
+                        print(f"✓ Found: {item.relative_to(internal_path)}")
+                        crypto_found = True
+                
+                if crypto_dirs:
+                    print(f"✓ cryptography 디렉토리: {', '.join(crypto_dirs)}")
+                
+                if not crypto_found:
+                    print("❌ cryptography 모듈이 빌드에 포함되지 않았습니다!")
+                    print("\n자동 수정을 시도합니다...")
+                    print("다음 명령을 실행하세요:")
+                    print("  python build_package.py")
+                    return False
+                else:
+                    print("✅ cryptography 모듈 포함 확인")
+            
+            return True
 
+        return True
+
+    def test_executable(self):
+        """빌드된 실행 파일 테스트"""
+        dist_dir = self.project_root / "dist"
+        
+        if self.system == "Darwin":
+            exe_path = dist_dir / "ChatAIAgent" / "ChatAIAgent"
+        elif self.system == "Windows":
+            exe_path = dist_dir / "ChatAIAgent.exe"
+        else:
+            exe_path = dist_dir / "ChatAIAgent"
+        
+        if not exe_path.exists():
+            print(f"❌ 실행 파일을 찾을 수 없습니다: {exe_path}")
+            return False
+        
+        print(f"실행 파일 테스트: {exe_path}")
+        try:
+            # 5초 타임아웃으로 실행 테스트
+            result = subprocess.run(
+                [str(exe_path)],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+        except subprocess.TimeoutExpired:
+            # GUI 앱이므로 타임아웃은 정상 (실행은 성공)
+            print("✓ 실행 파일이 정상적으로 시작됨 (GUI 앱)")
+            return True
+        except Exception as e:
+            print(f"❌ 실행 테스트 실패: {e}")
+            if result.stderr:
+                print(f"에러 출력:\n{result.stderr[:500]}")
+            return False
+        
+        # 즉시 종료된 경우 에러 확인
+        if result.returncode != 0:
+            print(f"❌ 실행 파일 에러 (exit code: {result.returncode})")
+            if result.stderr:
+                print(f"에러 출력:\n{result.stderr[:500]}")
+            return False
+        
         return True
 
     def show_results(self):
@@ -720,12 +853,17 @@ else:
         print("=" * 50)
 
         try:
+            # 0. 의존성 자동 확인 및 수정
+            print("\n🔧 Step 0: 의존성 자동 확인 및 수정...")
+            if not self.verify_and_fix_dependencies():
+                raise Exception("의존성 확인 실패")
+
             # 1. Backup configs (순차 실행 필요)
-            print("📦 Backing up config files...")
+            print("\n📦 Step 1: Backing up config files...")
             self.backup_configs()
 
             # 2-3. 병렬 실행 가능한 작업들 (spec 파일 업데이트 제외)
-            print("🔄 병렬 작업 시작...")
+            print("\n🔄 Step 2: 병렬 작업 시작...")
             if parallel_jobs is None:
                 parallel_jobs = min(multiprocessing.cpu_count(), 3)
             
@@ -733,8 +871,6 @@ else:
                 futures = {
                     executor.submit(self.clean_build): "clean_build",
                     executor.submit(self.create_sample_configs): "create_configs",
-                    # spec 파일은 수동으로 관리하므로 자동 업데이트 비활성화
-                    # executor.submit(self.update_spec_file): "update_spec",
                 }
                 for future in as_completed(futures):
                     task_name = futures[future]
@@ -745,28 +881,43 @@ else:
                         print(f"❌ {task_name} failed: {e}")
                         raise
 
+            # 4. PyInstaller 캐시 정리
+            print("\n🗑️  Step 3: PyInstaller 캐시 정리...")
+            cache_dir = Path.home() / ".pyinstaller_cache"
+            if cache_dir.exists():
+                import shutil
+                shutil.rmtree(cache_dir, ignore_errors=True)
+                print("✓ 캐시 정리 완료")
+
             # 5. Build executable (병렬 처리 적용)
-            print("🔨 Building executable with parallel processing...")
+            print("\n🔨 Step 4: Building executable with parallel processing...")
             if not self.build_executable(parallel_jobs):
                 raise Exception("Build failed")
 
             # 6. Verify build
-            print("🔍 Verifying build...")
+            print("\n🔍 Step 5: Verifying build...")
             if not self.verify_build():
-                print("⚠ Build verification failed but continuing...")
+                raise Exception("Build verification failed")
 
             # 7. Create distribution packages
-            print("📦 Creating distribution packages...")
+            print("\n📦 Step 6: Creating distribution packages...")
             self.create_distribution_package()
 
-            print("=" * 50)
+            print("\n" + "=" * 50)
             print("✅ Build completed successfully!")
+            print("=" * 50)
 
             # 8. Show results
             self.show_results()
+            
+            # 9. 실행 테스트
+            print("\n🧪 Step 7: 실행 테스트...")
+            self.test_executable()
 
         except Exception as e:
-            print(f"❌ Build failed: {e}")
+            print(f"\n❌ Build failed: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
         finally:

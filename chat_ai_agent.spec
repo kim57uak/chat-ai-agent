@@ -27,8 +27,9 @@ VERSION = '1.0.0-beta'
 APP_NAME = 'ChatAIAgent'
 BUNDLE_ID = 'com.chataiagent.beta.app'
 
-# Collect cryptography package completely
+# Collect security packages completely
 cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
+keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
 
 # Data files to include
 datas = [
@@ -67,8 +68,8 @@ datas = filtered_datas
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=cryptography_binaries,
-    datas=datas + cryptography_datas,
+    binaries=cryptography_binaries + keyring_binaries,
+    datas=datas + cryptography_datas + keyring_datas,
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore',
@@ -88,16 +89,19 @@ a = Analysis(
         'base64',
         'hashlib',
         
-        # Security & Encryption
-        'keyring',
-        'keyring.backends',
+        # Security & Encryption (hiddenimports에서 중복 제거)
         'cryptography',
         'cryptography.fernet',
         'cryptography.hazmat',
         'cryptography.hazmat.primitives',
+        'cryptography.hazmat.primitives.kdf',
+        'cryptography.hazmat.primitives.kdf.pbkdf2',
         'cryptography.hazmat.primitives.ciphers',
+        'cryptography.hazmat.primitives.ciphers.aead',
         'cryptography.hazmat.backends',
         'cryptography.hazmat.backends.openssl',
+        'cryptography.hazmat.backends.openssl.backend',
+        '_cffi_backend',
         
         # Third-party
         'requests',
@@ -115,7 +119,7 @@ a = Analysis(
         'mcp',
         'tools',
         'utils',
-    ] + cryptography_hiddenimports,
+    ] + cryptography_hiddenimports + keyring_hiddenimports,
     hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],

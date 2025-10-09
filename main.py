@@ -3,6 +3,11 @@ import threading
 import logging
 import os
 import multiprocessing
+
+# 로깅 시스템 초기화 (가장 먼저)
+from core.logging import setup_logging
+setup_logging()
+
 from core.application import SignalHandler, AppInitializer, AppRunner
 from ui.performance_optimizer import performance_optimizer
 

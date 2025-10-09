@@ -364,6 +364,11 @@ class ChatWidget(QWidget):
     def _prepare_and_send_request(self, api_key, model, user_text, file_prompt=None):
         """요청 준비 및 전송 - 모든 모델에 하이브리드 히스토리 사용"""
         try:
+            # logger 안전 체크
+            if 'logger' not in globals():
+                from core.logging import get_logger
+                global logger
+                logger = get_logger("chat_widget")
             # 모든 모델에 대해 하이브리드 방식으로 컨텍스트 메시지 가져오기
             context_messages = self.conversation_history.get_context_messages()
             
@@ -390,7 +395,10 @@ class ChatWidget(QWidget):
                 agent_mode=use_agent, file_prompt=file_prompt
             )
         except Exception as e:
-            logger.debug(f"AI 요청 준비 오류: {e}")
+            try:
+                logger.debug(f"AI 요청 준비 오류: {e}")
+            except:
+                print(f"AI 요청 준비 오류: {e}")
             QTimer.singleShot(0, lambda: self.on_ai_error(f"요청 준비 중 오류: {e}"))
     
     def upload_file(self):

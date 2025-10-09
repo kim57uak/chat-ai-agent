@@ -16,4 +16,8 @@ def get_logger(name=None):
         return logger.bind(module=name)
     return logger
 
-__all__ = ['logger', 'app_logger', 'unified_logger', 'setup_loguru', 'get_logger']
+def setup_logging():
+    """Setup logging system (alias for setup_loguru)"""
+    return setup_loguru()
+
+__all__ = ['logger', 'app_logger', 'unified_logger', 'setup_loguru', 'get_logger', 'setup_logging']

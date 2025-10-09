@@ -15,8 +15,8 @@
   "youtube_transcript": false,
   "wikipedia-mcp": false,
   "duckduckgo": false,
-  "sale-product-search": false,
+  "sale-product-search": true,
   "pollinations": false,
   "taskmaster-ai": false,
-  "korea-stock-analyzer": true
+  "korea-stock-analyzer": false
 }

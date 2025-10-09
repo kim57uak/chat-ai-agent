@@ -3,10 +3,10 @@ import subprocess
 import threading
 import uuid
 from typing import Dict, Any, Optional, List
-import logging
 from utils.config_path import config_path_manager
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("mcp_client")
 
 class MCPClient:
     """MCP STDIO 클라이언트 - JSON-RPC over STDIO (개선된 버전)"""

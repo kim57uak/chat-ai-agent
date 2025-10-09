@@ -1,9 +1,0 @@
-{
-  "news_sources": {
-    "domestic": [],
-    "international": [],
-    "earthquake": []
-  },
-  "update_interval": 300,
-  "max_articles": 10
-}

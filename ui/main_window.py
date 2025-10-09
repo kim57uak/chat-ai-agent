@@ -399,10 +399,16 @@ class MainWindow(QMainWindow):
             memory_manager.force_cleanup()
             
         except Exception as e:
-            logger.debug(f"종료 중 오류: {e}")
+            try:
+                logger.debug(f"종료 중 오류: {e}")
+            except:
+                print(f"종료 중 오류: {e}")
         
         event.accept()
-        logger.debug("애플리케이션 종료 완료")
+        try:
+            logger.debug("애플리케이션 종료 완료")
+        except:
+            print("애플리케이션 종료 완료")
     
     # 테마 메뉴 생성 삭제 - 좌측 패널로 이동
     

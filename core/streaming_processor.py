@@ -4,11 +4,11 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema.output import LLMResult
 from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
-import logging
+from core.logging import get_logger
 import threading
 import time
 
-logger = logging.getLogger(__name__)
+logger = get_logger("streaming_processor")
 
 
 class StreamingCallbackHandler(BaseCallbackHandler):

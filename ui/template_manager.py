@@ -1,4 +1,7 @@
 """템플릿 관리 시스템"""
+from core.logging import get_logger
+
+logger = get_logger("template_manager")
 import json
 import os
 from datetime import datetime
@@ -105,7 +108,7 @@ class TemplateManager(QObject):
                     data = json.load(f)
                     self.templates = [Template.from_dict(t) for t in data]
         except Exception as e:
-            print(f"템플릿 로드 오류: {e}")
+            logger.debug(f"템플릿 로드 오류: {e}")
             self.templates = []
     
     def save_templates(self):
@@ -117,7 +120,7 @@ class TemplateManager(QObject):
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"템플릿 저장 오류: {e}")
+            logger.debug(f"템플릿 저장 오류: {e}")
     
     def add_template(self, template: Template):
         """템플릿 추가"""

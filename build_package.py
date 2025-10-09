@@ -292,8 +292,10 @@ from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
-# Collect cryptography package completely
+# Collect packages completely
 cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
+loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
+keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
 
 # Data files to include
 datas = [
@@ -332,8 +334,8 @@ datas = filtered_datas
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=cryptography_binaries,
-    datas=datas + cryptography_datas,
+    binaries=cryptography_binaries + loguru_binaries + keyring_binaries,
+    datas=datas + cryptography_datas + loguru_datas + keyring_datas,
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore',
@@ -357,6 +359,9 @@ a = Analysis(
         'keyring',
         'keyring.backends',
         
+        # Logging
+        'loguru',
+        
         # Third-party
         'requests',
         'dateutil',
@@ -369,11 +374,12 @@ a = Analysis(
         'core',
         'core.security',
         'core.session',
+        'core.logging',
         'ui',
         'mcp',
         'tools',
         'utils',
-    ] + cryptography_hiddenimports,
+    ] + cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports,
     hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],

@@ -7,9 +7,9 @@ from core.streaming_processor import StreamingChatProcessor, ChunkedResponseProc
 from core.llm_factory import LLMFactoryProvider
 from core.message_validator import MessageValidator
 from core.token_accumulator import token_accumulator
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("ai_client")
 
 
 class AIClient:
@@ -375,8 +375,7 @@ class AIClient:
             save_config(config)
             logger.info(f"유저 프롬프트 저장 완료: {self.user_prompt}")
         except Exception as e:
-            logger.error(f"유저 프롬프트 저장 오류: {e}")
-            print(f"유저 프롬프트 저장 오류: {e}")
+            logger.error(f"유저 프롬프트 저장 오류: {e}", exc_info=True)
     
     def streaming_chat(
         self, 

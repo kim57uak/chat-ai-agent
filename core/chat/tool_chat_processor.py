@@ -2,10 +2,10 @@ from typing import List, Dict, Tuple
 from .base_chat_processor import BaseChatProcessor
 from core.token_logger import TokenLogger
 from core.token_tracker import token_tracker, StepType
-import logging
+from core.logging import get_logger
 import time
 
-logger = logging.getLogger(__name__)
+logger = get_logger("tool_chat_processor")
 
 
 class ToolChatProcessor(BaseChatProcessor):

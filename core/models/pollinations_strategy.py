@@ -9,10 +9,10 @@ from core.token_logger import TokenLogger
 from core.parsers.custom_react_parser import CustomReActParser
 import requests
 import base64
-import logging
+from core.logging import get_logger
 import json
 
-logger = logging.getLogger(__name__)
+logger = get_logger("pollinations_strategy")
 
 
 class PollinationsLLM(LLM):

@@ -8,9 +8,9 @@ from core.chat_processor_refactored import (
 from langchain.schema import HumanMessage
 from core.file_utils import load_config
 from typing import List, Dict, Any, Tuple
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("chat_processor")
 
 
 class ChatProcessor(BaseChatProcessor):

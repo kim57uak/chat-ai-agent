@@ -8,10 +8,13 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QLabel, QLineEdit, QDialog, QDialogButtonBox,
     QMessageBox, QMenu, QInputDialog, QSplitter
 )
+from core.logging import get_logger
+
+logger = get_logger("session_panel")
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, pyqtSlot
 from PyQt6.QtGui import QFont, QIcon, QAction
 from typing import Dict, List, Optional
-import logging
+from core.logging import get_logger
 import os
 from datetime import datetime
 
@@ -19,7 +22,7 @@ from core.session import session_manager
 from ui.styles.theme_manager import theme_manager
 from core.session.session_exporter import SessionExporter
 
-logger = logging.getLogger(__name__)
+logger = get_logger("session_panel")
 
 
 class NewSessionDialog(QDialog):
@@ -275,7 +278,7 @@ class SessionListItem(QWidget):
             super().mousePressEvent(event)
         except RuntimeError as e:
             if "wrapped C/C++ object" in str(e):
-                print(f"SessionListItem이 이미 삭제됨: {e}")
+                logger.debug(f"SessionListItem이 이미 삭제됨: {e}")
                 return
             raise
     
@@ -341,7 +344,7 @@ class SessionPanel(QWidget):
         self.theme_button.setMinimumHeight(44)
         self.theme_button.clicked.connect(self.show_theme_selector)
         self.theme_button.setToolTip("테마 선택")
-        print("테마 버튼 생성 및 연결 완료")
+        logger.debug("테마 버튼 생성 및 연결 완료")
         top_buttons_layout.addWidget(self.theme_button)
         
         layout.addLayout(top_buttons_layout)
@@ -476,7 +479,7 @@ class SessionPanel(QWidget):
                 self.model_button.setText("🤖 Select Model")
                 self.model_button.setToolTip("모델을 선택하세요")
         except Exception as e:
-            print(f"현재 모델 표시 업데이트 오류: {e}")
+            logger.debug(f"현재 모델 표시 업데이트 오류: {e}")
             self.model_button.setText("🤖 Select Model")
             self.model_button.setToolTip("모델을 선택하세요")
     
@@ -1285,7 +1288,7 @@ class SessionPanel(QWidget):
             menu.exec(QPoint(button_pos.x(), button_pos.y() + self.model_button.height()))
             
         except Exception as e:
-            print(f"모델 선택기 표시 오류: {e}")
+            logger.debug(f"모델 선택기 표시 오류: {e}")
     
     def _select_model(self, model_name: str):
         """모델 선택"""
@@ -1299,9 +1302,9 @@ class SessionPanel(QWidget):
             self.model_button.setText(f"🤖 {display_name}")
             self.model_button.setToolTip(f"현재 모델: {model_name}")
             
-            print(f"모델 선택됨: {model_name}")
+            logger.debug(f"모델 선택됨: {model_name}")
         except Exception as e:
-            print(f"모델 선택 오류: {e}")
+            logger.debug(f"모델 선택 오류: {e}")
     
     def show_template_manager(self):
         """템플릿 관리자 표시"""
@@ -1311,7 +1314,7 @@ class SessionPanel(QWidget):
             dialog.template_selected.connect(self._on_template_selected)
             dialog.exec()
         except Exception as e:
-            print(f"템플릿 관리자 표시 오류: {e}")
+            logger.debug(f"템플릿 관리자 표시 오류: {e}")
     
     def _on_template_selected(self, content: str):
         """템플릿 선택 시 채팅창 입력창에 내용 입력"""
@@ -1338,13 +1341,13 @@ class SessionPanel(QWidget):
                     # 입력창에 포커스
                     chat_widget.input_text.setFocus()
                     
-                    print(f"템플릿 내용이 채팅창에 입력되었습니다: {content[:50]}...")
+                    logger.debug(f"템플릿 내용이 채팅창에 입력되었습니다: {content[:50]}...")
                 else:
-                    print("채팅 위젯에 input_text가 없습니다")
+                    logger.debug("채팅 위젯에 input_text가 없습니다")
             else:
-                print("메인 윈도우 또는 채팅 위젯을 찾을 수 없습니다")
+                logger.debug("메인 윈도우 또는 채팅 위젯을 찾을 수 없습니다")
         except Exception as e:
-            print(f"템플릿 선택 처리 오류: {e}")
+            logger.debug(f"템플릿 선택 처리 오류: {e}")
             import traceback
             traceback.print_exc()
     
@@ -1412,30 +1415,30 @@ class SessionPanel(QWidget):
             menu.exec(QPoint(button_pos.x(), button_pos.y() + self.theme_button.height()))
             
         except Exception as e:
-            print(f"테마 선택기 표시 오류: {e}")
+            logger.debug(f"테마 선택기 표시 오류: {e}")
             import traceback
             traceback.print_exc()
     
     def _select_theme(self, theme_key: str):
         """테마 선택"""
         try:
-            print(f"테마 선택 시도: {theme_key}")
+            logger.debug(f"테마 선택 시도: {theme_key}")
             
             # 메인 윈도우 찾기
             main_window = self._find_main_window()
             if main_window and hasattr(main_window, '_change_theme'):
-                print(f"메인 윈도우에서 테마 변경 호출")
+                logger.debug(f"메인 윈도우에서 테마 변경 호출")
                 # QTimer를 사용해 즉시 실행
                 QTimer.singleShot(0, lambda: main_window._change_theme(theme_key))
             else:
-                print("메인 윈도우를 찾을 수 없거나 _change_theme 메서드가 없음")
+                logger.debug("메인 윈도우를 찾을 수 없거나 _change_theme 메서드가 없음")
                 # 직접 테마 설정
                 theme_manager.material_manager.set_theme(theme_key)
                 self.update_theme()
             
-            print(f"테마 선택 완료: {theme_key}")
+            logger.debug(f"테마 선택 완료: {theme_key}")
         except Exception as e:
-            print(f"테마 선택 오류: {e}")
+            logger.debug(f"테마 선택 오류: {e}")
             import traceback
             traceback.print_exc()
     
@@ -1627,21 +1630,21 @@ class SessionPanel(QWidget):
         """마지막 사용 세션 자동 선택 - 메시지 수와 상관없이 항상 작동"""
         # 이미 자동 선택이 완료되었거나 수동으로 선택된 경우 스킵
         if self._auto_selection_done or self.current_session_id:
-            print(f"[자동선택] 스킵 - 이미 완료됨 또는 세션 선택됨")
+            logger.debug(f"[자동선택] 스킵 - 이미 완료됨 또는 세션 선택됨")
             return
             
         try:
-            print(f"[자동선택] 시작 - 마지막 사용 세션 찾기")
+            logger.debug(f"[자동선택] 시작 - 마지막 사용 세션 찾기")
             sessions = session_manager.get_sessions(limit=1)
-            print(f"[자동선택] 조회된 세션 수: {len(sessions)}")
+            logger.debug(f"[자동선택] 조회된 세션 수: {len(sessions)}")
             
             if sessions:
                 last_session = sessions[0]
                 message_count = last_session.get('message_count', 0)
-                print(f"[자동선택] 마지막 세션 발견: {last_session['title']} (메시지 {message_count}개)")
+                logger.debug(f"[자동선택] 마지막 세션 발견: {last_session['title']} (메시지 {message_count}개)")
                 
                 # 메시지 수와 상관없이 항상 선택 - 강제 실행
-                print(f"[자동선택] 세션 선택 실행: {last_session['id']}")
+                logger.debug(f"[자동선택] 세션 선택 실행: {last_session['id']}")
                 
                 # 메인 윈도우의 자동 세션 생성 플래그를 먼저 설정
                 if hasattr(self, 'main_window') and self.main_window:
@@ -1651,12 +1654,12 @@ class SessionPanel(QWidget):
                 # 세션 선택 실행
                 self.select_session(last_session['id'])
                 self._auto_selection_done = True  # 자동 선택 완료 플래그 설정
-                print(f"[자동선택] 세션 선택 완료")
+                logger.debug(f"[자동선택] 세션 선택 완료")
             else:
-                print(f"[자동선택] 선택할 세션이 없음")
+                logger.debug(f"[자동선택] 선택할 세션이 없음")
                 self._auto_selection_done = True  # 빈 상태도 완료로 처리
         except Exception as e:
-            print(f"[자동선택] 오류: {e}")
+            logger.debug(f"[자동선택] 오류: {e}")
             import traceback
             traceback.print_exc()
     

@@ -1,4 +1,7 @@
 """스크롤바 테마 CSS 수정 패치"""
+from core.logging import get_logger
+
+logger = get_logger("scrollbar_fix")
 
 def apply_scrollbar_fix():
     """스크롤바 스타일을 개선하는 패치 적용"""
@@ -78,10 +81,10 @@ def apply_scrollbar_fix():
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        print("스크롤바 스타일 패치 적용 완료")
+        logger.debug("스크롤바 스타일 패치 적용 완료")
         return True
     else:
-        print("기존 스크롤바 스타일을 찾을 수 없습니다")
+        logger.debug("기존 스크롤바 스타일을 찾을 수 없습니다")
         return False
 
 if __name__ == "__main__":

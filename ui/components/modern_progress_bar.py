@@ -1,4 +1,7 @@
 """Modern animated progress bar with neon effects and particles"""
+from core.logging import get_logger
+
+logger = get_logger("modern_progress_bar")
 
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty, QRect, QRectF
@@ -255,9 +258,9 @@ class ModernProgressBar(QWidget):
             # 색상 캐시 초기화
             self.color_phase = 0.0
             self.update()
-            print("로딩바 테마 업데이트 완료")
+            logger.debug("로딩바 테마 업데이트 완료")
         except Exception as e:
-            print(f"로딩바 테마 업데이트 오류: {e}")
+            logger.debug(f"로딩바 테마 업데이트 오류: {e}")
     
     def paintEvent(self, event):
         """페인트 이벤트"""

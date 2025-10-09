@@ -1,12 +1,12 @@
 import requests
 import json
-import logging
+from core.logging import get_logger
 from typing import List, Dict, Any, Optional, Iterator
 from langchain.schema import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.llms.base import LLM
 
-logger = logging.getLogger(__name__)
+logger = get_logger("claude_api_wrapper")
 
 
 class ClaudeAPIWrapper(LLM):

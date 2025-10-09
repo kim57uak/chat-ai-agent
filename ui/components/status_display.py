@@ -1,4 +1,7 @@
 """상태 표시 컴포넌트 - 실시간 AI 처리 상태 모니터링"""
+from core.logging import get_logger
+
+logger = get_logger("status_display")
 
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 from typing import Dict, List, Optional
@@ -61,7 +64,7 @@ class StatusDisplay(QObject):
         
         # 전역 토큰 카운터에 토큰 추가
         from core.global_token_counter import global_token_counter
-        print(f"[StatusDisplay] update_tokens() 호출: {input_tokens}/{output_tokens}")
+        logger.debug(f"StatusDisplay] update_tokens() 호출: {input_tokens}/{output_tokens}")
         global_token_counter.add_tokens(input_tokens, output_tokens)
         
         self.status_updated.emit(self.current_status.copy())

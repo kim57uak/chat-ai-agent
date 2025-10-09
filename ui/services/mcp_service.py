@@ -1,4 +1,7 @@
 """MCP server management service."""
+from core.logging import get_logger
+
+logger = get_logger("mcp_service")
 
 import os
 import json
@@ -24,16 +27,16 @@ class MCPService:
                     
                     enabled_servers = [name for name, enabled in server_states.items() if enabled]
                     if enabled_servers:
-                        print(f"활성화된 MCP 서버 시작: {enabled_servers}")
+                        logger.debug(f"활성화된 MCP 서버 시작: {enabled_servers}")
                         start_mcp_servers()
                         if self._tools_update_callback:
                             QTimer.singleShot(1000, self._tools_update_callback)
                     else:
-                        print("활성화된 MCP 서버가 없습니다")
+                        logger.debug("활성화된 MCP 서버가 없습니다")
                 else:
-                    print("MCP 서버 상태 파일이 없습니다")
+                    logger.debug("MCP 서버 상태 파일이 없습니다")
             except Exception as e:
-                print(f"MCP 서버 시작 오류: {e}")
+                logger.debug(f"MCP 서버 시작 오류: {e}")
         
         threading.Thread(target=start_servers, daemon=True).start()
     
@@ -42,4 +45,4 @@ class MCPService:
         try:
             stop_mcp_servers()
         except Exception as e:
-            print(f"MCP 서버 종료 오류: {e}")
+            logger.debug(f"MCP 서버 종료 오류: {e}")

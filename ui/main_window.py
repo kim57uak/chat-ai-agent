@@ -18,15 +18,18 @@ from ui.memory_manager import memory_manager
 from core.session.session_manager import initialize_session_manager
 from core.auth.auth_manager import AuthManager
 from ui.auth.login_dialog import LoginDialog
+from core.logging import get_logger
+
+logger = get_logger("main_window")
 import os
 import json
 import threading
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        print("[DEBUG] MainWindow.__init__() 시작")
+        logger.debug(" MainWindow.__init__() 시작")
         super().__init__()
-        print("[DEBUG] super().__init__() 완료")
+        logger.debug(" super().__init__() 완료")
         
         # 인증 시스템 초기화
         self.auth_manager = AuthManager()
@@ -37,20 +40,20 @@ class MainWindow(QMainWindow):
             return
         
         # Load user environment variables for MCP servers
-        print("[DEBUG] 환경변수 로드 시작")
+        logger.debug(" 환경변수 로드 시작")
         load_user_environment()
-        print("[DEBUG] 환경변수 로드 완료")
+        logger.debug(" 환경변수 로드 완료")
         
-        print("[DEBUG] _setup_window() 시작")
+        logger.debug(" _setup_window() 시작")
         self._setup_window()
-        print("[DEBUG] _setup_window() 완료")
-        print("[DEBUG] _setup_ui() 시작")
+        logger.debug(" _setup_window() 완료")
+        logger.debug(" _setup_ui() 시작")
         self._setup_ui()
-        print("[DEBUG] _setup_ui() 완료")
-        print("[DEBUG] _initialize_mcp() 시작")
+        logger.debug(" _setup_ui() 완료")
+        logger.debug(" _initialize_mcp() 시작")
         self._initialize_mcp()
-        print("[DEBUG] _initialize_mcp() 완료")
-        print("MainWindow 초기화 완료")
+        logger.debug(" _initialize_mcp() 완료")
+        logger.debug("MainWindow 초기화 완료")
         
         # 세션 만료 타이머 설정
         self._setup_session_timer()
@@ -71,74 +74,74 @@ class MainWindow(QMainWindow):
     
     def _setup_ui(self) -> None:
         """Setup UI components."""
-        print("[DEBUG] _setup_ui: Central widget 생성 시작")
+        logger.debug(" _setup_ui: Central widget 생성 시작")
         # Central widget with splitter
         central_widget = QWidget(self)
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        print("[DEBUG] _setup_ui: Central widget 생성 완료")
+        logger.debug(" _setup_ui: Central widget 생성 완료")
         
-        print("[DEBUG] _setup_ui: Splitter 생성 시작")
+        logger.debug(" _setup_ui: Splitter 생성 시작")
         # Main splitter for session panel, chat, and token usage
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setHandleWidth(1)  # 핸들 너비 최소화
         self.splitter.setChildrenCollapsible(False)  # 완전히 접히지 않도록
-        print("[DEBUG] _setup_ui: Splitter 생성 완료")
+        logger.debug(" _setup_ui: Splitter 생성 완료")
         
         # 스플리터 스타일은 테마 적용 시 설정됨
         
-        print("[DEBUG] _setup_ui: SessionPanel 생성 시작")
+        logger.debug(" _setup_ui: SessionPanel 생성 시작")
         # Session panel (left)
         self.session_panel = SessionPanel(self)
-        print("[DEBUG] _setup_ui: SessionPanel 생성 완료")
+        logger.debug(" _setup_ui: SessionPanel 생성 완료")
         self.session_panel.session_selected.connect(self._on_session_selected)
         self.session_panel.session_created.connect(self._on_session_created)
         self.splitter.addWidget(self.session_panel)
-        print("[DEBUG] _setup_ui: SessionPanel 스플리터에 추가 완료")
+        logger.debug(" _setup_ui: SessionPanel 스플리터에 추가 완료")
         
-        print("[DEBUG] _setup_ui: Chat container 생성 시작")
+        logger.debug(" _setup_ui: Chat container 생성 시작")
         # Chat widget with news banner (center)
         chat_container = QWidget()
         chat_layout = QVBoxLayout(chat_container)
         chat_layout.setContentsMargins(0, 0, 0, 0)
         chat_layout.setSpacing(0)
-        print("[DEBUG] _setup_ui: Chat container 생성 완료")
+        logger.debug(" _setup_ui: Chat container 생성 완료")
         
-        print("[DEBUG] _setup_ui: NewsBanner 생성 시작")
+        logger.debug(" _setup_ui: NewsBanner 생성 시작")
         # News banner
         from ui.components.news_banner_simple import NewsBanner
         self.news_banner = NewsBanner(self)
-        print("[DEBUG] _setup_ui: NewsBanner 생성 완료")
+        logger.debug(" _setup_ui: NewsBanner 생성 완료")
         self.news_banner.setMaximumHeight(44)
         self.news_banner.setContentsMargins(0, 0, 0, 5)
         chat_layout.addWidget(self.news_banner)
         chat_layout.addSpacing(3)  # 하단 영역과 간격 추가
-        print("[DEBUG] _setup_ui: NewsBanner 설정 완료")
+        logger.debug(" _setup_ui: NewsBanner 설정 완료")
         
-        print("[DEBUG] _setup_ui: ChatWidget 생성 시작")
+        logger.debug(" _setup_ui: ChatWidget 생성 시작")
         # Chat widget
         self.chat_widget = ChatWidget(self)
-        print("[DEBUG] _setup_ui: ChatWidget 생성 완료")
+        logger.debug(" _setup_ui: ChatWidget 생성 완료")
         self.chat_widget.setMinimumWidth(400)  # 최소 너비 설정
         chat_layout.addWidget(self.chat_widget)
-        print("[DEBUG] _setup_ui: ChatWidget 레이아웃 추가 완료")
+        logger.debug(" _setup_ui: ChatWidget 레이아웃 추가 완료")
         
         chat_container.setMinimumWidth(400)
         self.splitter.addWidget(chat_container)
-        print("[DEBUG] _setup_ui: Chat container 스플리터에 추가 완료")
+        logger.debug(" _setup_ui: Chat container 스플리터에 추가 완료")
         
-        print("[DEBUG] _setup_ui: TokenUsageDisplay 생성 시작")
+        logger.debug(" _setup_ui: TokenUsageDisplay 생성 시작")
         # Token usage display (right)
         self.token_display = TokenUsageDisplay(self)
-        print("[DEBUG] _setup_ui: TokenUsageDisplay 생성 완료")
+        logger.debug(" _setup_ui: TokenUsageDisplay 생성 완료")
         self.token_display.setVisible(True)  # 기본적으로 표시
         self.token_display.setMinimumWidth(250)  # 최소 너비 설정
         self.token_display.setMaximumWidth(600)  # 최대 너비 설정
         self.token_display.export_requested.connect(self._show_export_message)
         self.splitter.addWidget(self.token_display)
-        print("[DEBUG] _setup_ui: TokenUsageDisplay 스플리터에 추가 완료")
+        logger.debug(" _setup_ui: TokenUsageDisplay 스플리터에 추가 완료")
         
-        print("[DEBUG] _setup_ui: SessionPanel 및 TokenUsageDisplay 생성 완료")
+        logger.debug(" _setup_ui: SessionPanel 및 TokenUsageDisplay 생성 완료")
         
         # Set splitter proportions (토큰 패널 기본 표시)
         self.splitter.setSizes([250, 700, 300])
@@ -165,15 +168,15 @@ class MainWindow(QMainWindow):
         # 상태 표시 초기화
         status_display.status_updated.emit(status_display.current_status.copy())
         
-        print("[DEBUG] _setup_ui: Menu 생성 시작")
+        logger.debug(" _setup_ui: Menu 생성 시작")
         # Menu
         self._create_menu_bar()
-        print("[DEBUG] _setup_ui: Menu 생성 완료")
+        logger.debug(" _setup_ui: Menu 생성 완료")
         
-        print("[DEBUG] _setup_ui: 저장된 테마 적용 시작")
+        logger.debug(" _setup_ui: 저장된 테마 적용 시작")
         # 저장된 테마 적용
         self._apply_saved_theme()
-        print("[DEBUG] _setup_ui: 저장된 테마 적용 완료")
+        logger.debug(" _setup_ui: 저장된 테마 적용 완료")
         
         # 메모리 관리 시작
         memory_manager.start_monitoring()
@@ -287,18 +290,18 @@ class MainWindow(QMainWindow):
                     
                     enabled_servers = [name for name, enabled in server_states.items() if enabled]
                     if enabled_servers:
-                        print(f"활성화된 MCP 서버 시작: {enabled_servers}")
+                        logger.debug(f"활성화된 MCP 서버 시작: {enabled_servers}")
                         start_mcp_servers()
                         # MCP 서버 시작 후 충분한 시간을 두고 도구 라벨 업데이트 삭제
-                        print("도구 라벨 업데이트 삭제 - 좌측 패널로 이동")
+                        logger.debug("도구 라벨 업데이트 삭제 - 좌측 패널로 이동")
                     else:
-                        print("활성화된 MCP 서버가 없습니다")
+                        logger.debug("활성화된 MCP 서버가 없습니다")
                         # 서버가 없을 때도 라벨 업데이트 삭제
-                        print("도구 라벨 업데이트 삭제 - 좌측 패널로 이동")
+                        logger.debug("도구 라벨 업데이트 삭제 - 좌측 패널로 이동")
                 else:
-                    print("MCP 서버 상태 파일이 없습니다")
+                    logger.debug("MCP 서버 상태 파일이 없습니다")
             except Exception as e:
-                print(f"MCP 서버 시작 오류: {e}")
+                logger.debug(f"MCP 서버 시작 오류: {e}")
         
         threading.Thread(target=start_servers, daemon=True).start()
     
@@ -327,7 +330,7 @@ class MainWindow(QMainWindow):
             dlg = MCPDialog('mcp.json', self)
             dlg.exec()
         except Exception as e:
-            print(f"MCP 파일 처리 오류: {e}")
+            logger.debug(f"MCP 파일 처리 오류: {e}")
     
     def open_mcp_manager(self) -> None:
         """Open MCP manager dialog."""
@@ -379,7 +382,7 @@ class MainWindow(QMainWindow):
     
     def closeEvent(self, event):
         """애플리케이션 종료 처리"""
-        print("애플리케이션 종료 시작")
+        logger.debug("애플리케이션 종료 시작")
         
         try:
             # 메모리 관리 중지
@@ -396,10 +399,10 @@ class MainWindow(QMainWindow):
             memory_manager.force_cleanup()
             
         except Exception as e:
-            print(f"종료 중 오류: {e}")
+            logger.debug(f"종료 중 오류: {e}")
         
         event.accept()
-        print("애플리케이션 종료 완료")
+        logger.debug("애플리케이션 종료 완료")
     
     # 테마 메뉴 생성 삭제 - 좌측 패널로 이동
     
@@ -425,11 +428,11 @@ class MainWindow(QMainWindow):
             
             # 채팅 위젯의 웹뷰 CSS 업데이트 - 강화된 업데이트
             if hasattr(self, 'chat_widget'):
-                print("채팅 위젯 테마 업데이트 시작")
+                logger.debug("채팅 위젯 테마 업데이트 시작")
                 self.chat_widget.update_theme()
                 # 추가 지연 업데이트
                 QTimer.singleShot(200, lambda: self.chat_widget.update_theme())
-                print("채팅 위젯 테마 업데이트 완료")
+                logger.debug("채팅 위젯 테마 업데이트 완료")
             
             # 세션 패널 테마 업데이트
             if hasattr(self, 'session_panel'):
@@ -454,7 +457,7 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(100, self._delayed_theme_update)
             
         except Exception as e:
-            print(f"테마 변경 오류: {e}")
+            logger.debug(f"테마 변경 오류: {e}")
     
     def _delayed_theme_update(self):
         """지연된 테마 업데이트"""
@@ -468,7 +471,7 @@ class MainWindow(QMainWindow):
                 if hasattr(self.chat_widget, 'input_container'):
                     self.chat_widget.input_container.update()
         except Exception as e:
-            print(f"지연된 테마 업데이트 오류: {e}")
+            logger.debug(f"지연된 테마 업데이트 오류: {e}")
     
 
     
@@ -569,7 +572,7 @@ class MainWindow(QMainWindow):
             self.splitter.setStyleSheet(splitter_style)
             
         except Exception as e:
-            print(f"스플리터 테마 적용 오류: {e}")
+            logger.debug(f"스플리터 테마 적용 오류: {e}")
     
     def _apply_saved_theme(self):
         """저장된 테마 적용"""
@@ -583,7 +586,7 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'session_panel'):
                 self.session_panel.update_theme()
         except Exception as e:
-            print(f"저장된 테마 적용 오류: {e}")
+            logger.debug(f"저장된 테마 적용 오류: {e}")
     
     # 테마 메뉴 체크 상태 업데이트 삭제 - 좌측 패널로 이동
     
@@ -605,7 +608,7 @@ class MainWindow(QMainWindow):
             
             self.setWindowTitle(f'AIChat - {theme_name}{session_name}')
         except Exception as e:
-            print(f"창 제목 업데이트 오류: {e}")
+            logger.debug(f"창 제목 업데이트 오류: {e}")
             self.setWindowTitle('AIChat')
     
     def toggle_session_panel(self):
@@ -659,7 +662,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'chat_widget'):
             self.chat_widget.update_theme()
         
-        print(f"글래스모피즘 {'ON' if new_state else 'OFF'}")
+        logger.debug(f"글래스모피즘 {'ON' if new_state else 'OFF'}")
     
     def _load_splitter_state(self):
         """스플리터 상태 로드"""
@@ -679,7 +682,7 @@ class MainWindow(QMainWindow):
                     self.session_panel.setVisible(session_visible)
                     self.session_panel_action.setChecked(session_visible)
         except Exception as e:
-            print(f"스플리터 상태 로드 오류: {e}")
+            logger.debug(f"스플리터 상태 로드 오류: {e}")
     
     def _save_splitter_state(self):
         """스플리터 상태 저장"""
@@ -694,7 +697,7 @@ class MainWindow(QMainWindow):
             with open(config_path, 'w') as f:
                 json.dump(state, f)
         except Exception as e:
-            print(f"스플리터 상태 저장 오류: {e}")
+            logger.debug(f"스플리터 상태 저장 오류: {e}")
     
     def reset_layout(self):
         """레이아웃 초기화"""
@@ -704,7 +707,7 @@ class MainWindow(QMainWindow):
         self.token_display.setVisible(False)
         self.token_usage_action.setChecked(False)
         self._save_splitter_state()
-        print("레이아웃이 초기화되었습니다.")
+        logger.debug("레이아웃이 초기화되었습니다.")
     
     def _show_export_message(self, message: str):
         """내보내기 메시지 표시"""
@@ -753,7 +756,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, '완료', 'PDF 내보내기가 완료되었습니다.')
             
         except Exception as e:
-            print(f"PDF 내보내기 오류: {e}")
+            logger.debug(f"PDF 내보내기 오류: {e}")
             QMessageBox.critical(self, '오류', f'PDF 내보내기 실패: {str(e)}')
     
     def _on_session_selected(self, session_id: int):
@@ -787,7 +790,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, '오류', '세션을 찾을 수 없습니다.')
                 return
             
-            print(f"[SESSION_SELECT] 세션 {session_id} 로드 시도")
+            logger.debug(f"[SESSION_SELECT] 세션 {session_id} 로드 시도")
             
             # 대용량 세션 체크 (200개 이상 메시지) - 자동 선택된 세션은 경고 없이 로드
             message_count = session.get('message_count', 0)
@@ -801,7 +804,7 @@ class MainWindow(QMainWindow):
                 )
                 
                 if reply == QMessageBox.StandardButton.No:
-                    print(f"[SESSION_SELECT] 사용자가 대용량 세션 로드 취소")
+                    logger.debug(f"[SESSION_SELECT] 사용자가 대용량 세션 로드 취소")
                     # 세션 선택을 취소하고 현재 세션 ID를 초기화
                     self.current_session_id = None
                     self._auto_session_created = False
@@ -818,30 +821,30 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(1500, self._ensure_scroll_to_bottom)
             QTimer.singleShot(2500, self._ensure_scroll_to_bottom)
             
-            print(f"[SESSION_SELECT] 세션 로드 시작: {session['title']}")
+            logger.debug(f"[SESSION_SELECT] 세션 로드 시작: {session['title']}")
             
         except Exception as e:
-            print(f"세션 선택 오류: {e}")
+            logger.debug(f"세션 선택 오류: {e}")
             import traceback
             traceback.print_exc()
     
     def _safe_load_session(self, session_id: int):
         """안전한 세션 로드"""
         try:
-            print(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 시작")
+            logger.debug(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 시작")
             
             # 세션 컨텍스트 로드 (제한된 수량으로)
             if hasattr(self.chat_widget, 'load_session_context'):
                 self.chat_widget.load_session_context(session_id)
             
-            print(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 완료")
+            logger.debug(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 완료")
             
             # 세션 로드 완료 후 하단 스크롤 강제 실행
             QTimer.singleShot(500, self._ensure_scroll_to_bottom)
             QTimer.singleShot(1000, self._ensure_scroll_to_bottom)
             
         except Exception as e:
-            print(f"[SAFE_LOAD] 안전 로드 오류: {e}")
+            logger.debug(f"[SAFE_LOAD] 안전 로드 오류: {e}")
             import traceback
             traceback.print_exc()
             
@@ -877,20 +880,20 @@ class MainWindow(QMainWindow):
         self.chat_widget.loaded_message_count = 0
         self.chat_widget.total_message_count = 0
         self.chat_widget.is_loading_more = False
-        print(f"새 세션 생성: {session_id}")
+        logger.debug(f"새 세션 생성: {session_id}")
     
     def save_message_to_session(self, role: str, content: str, token_count: int = 0, content_html: str = None):
         """메시지를 현재 세션에 저장"""
-        print(f"[SAVE_MESSAGE] 시작 - role: {role}, current_session_id: {self.current_session_id}, content 길이: {len(content) if content else 0}")
+        logger.debug(f"[SAVE_MESSAGE] 시작 - role: {role}, current_session_id: {self.current_session_id}, content 길이: {len(content) if content else 0}")
         
         # 현재 세션이 없으면 자동으로 새 세션 생성
         if not self.current_session_id:
-            print(f"[SAVE_MESSAGE] 세션 ID가 없음 - 자동 세션 생성 시도")
+            logger.debug(f"[SAVE_MESSAGE] 세션 ID가 없음 - 자동 세션 생성 시도")
             self._create_auto_session()
         
         if self.current_session_id:
             try:
-                print(f"[SAVE_MESSAGE] 세션 {self.current_session_id}에 메시지 저장 시도")
+                logger.debug(f"[SAVE_MESSAGE] 세션 {self.current_session_id}에 메시지 저장 시도")
                 from core.session.session_manager import session_manager
                 if session_manager:
                     message_id = session_manager.add_message(
@@ -900,9 +903,9 @@ class MainWindow(QMainWindow):
                         content_html=content_html,
                         token_count=token_count
                     )
-                    print(f"[SAVE_MESSAGE] 성공 - message_id: {message_id}")
+                    logger.debug(f"[SAVE_MESSAGE] 성공 - message_id: {message_id}")
                 else:
-                    print(f"[SAVE_MESSAGE] 오류 - session_manager가 초기화되지 않음")
+                    logger.debug(f"[SAVE_MESSAGE] 오류 - session_manager가 초기화되지 않음")
                     return
                 # 채팅 위젯의 세션 정보 업데이트
                 if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
@@ -910,11 +913,11 @@ class MainWindow(QMainWindow):
                 # 세션 패널 새로고침
                 self.session_panel.load_sessions()
             except Exception as e:
-                print(f"[SAVE_MESSAGE] 오류: {e}")
+                logger.debug(f"[SAVE_MESSAGE] 오류: {e}")
                 import traceback
                 traceback.print_exc()
         else:
-            print(f"[SAVE_MESSAGE] 실패 - 세션 ID가 여전히 None")
+            logger.debug(f"[SAVE_MESSAGE] 실패 - 세션 ID가 여전히 None")
     
     def delete_message_from_session(self, message_id: int) -> bool:
         """세션에서 메시지 삭제"""
@@ -926,26 +929,26 @@ class MainWindow(QMainWindow):
                     self.session_panel.load_sessions()
                 return success
             except Exception as e:
-                print(f"메시지 삭제 오류: {e}")
+                logger.debug(f"메시지 삭제 오류: {e}")
                 return False
         return False
     
     def _create_auto_session(self):
         """자동 세션 생성"""
-        print(f"[AUTO_SESSION] 시작 - _auto_session_created: {self._auto_session_created}")
+        logger.debug(f"[AUTO_SESSION] 시작 - _auto_session_created: {self._auto_session_created}")
         if not self._auto_session_created:
             try:
                 from datetime import datetime
                 title = f"대화 {datetime.now().strftime('%m/%d %H:%M')}"
-                print(f"[AUTO_SESSION] 세션 생성 시도 - title: {title}")
+                logger.debug(f"[AUTO_SESSION] 세션 생성 시도 - title: {title}")
                 from core.session.session_manager import session_manager
                 if session_manager:
                     self.current_session_id = session_manager.create_session(title)
                 else:
-                    print(f"[AUTO_SESSION] 오류 - session_manager가 초기화되지 않음")
+                    logger.debug(f"[AUTO_SESSION] 오류 - session_manager가 초기화되지 않음")
                     return
                 self._auto_session_created = True
-                print(f"[AUTO_SESSION] 성공 - session_id: {self.current_session_id}")
+                logger.debug(f"[AUTO_SESSION] 성공 - session_id: {self.current_session_id}")
                 
                 # 채팅 위젯의 세션 정보 업데이트
                 if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, 'update_session_info'):
@@ -956,20 +959,20 @@ class MainWindow(QMainWindow):
                 # 생성된 세션 선택
                 self.session_panel.select_session(self.current_session_id)
             except Exception as e:
-                print(f"[AUTO_SESSION] 오류: {e}")
+                logger.debug(f"[AUTO_SESSION] 오류: {e}")
                 import traceback
                 traceback.print_exc()
         else:
-            print(f"[AUTO_SESSION] 이미 생성됨 - current_session_id: {self.current_session_id}")
+            logger.debug(f"[AUTO_SESSION] 이미 생성됨 - current_session_id: {self.current_session_id}")
     
     def _ensure_scroll_to_bottom(self):
         """채팅 위젯 하단 스크롤 보장"""
         try:
             if hasattr(self, 'chat_widget') and hasattr(self.chat_widget, '_scroll_to_bottom'):
                 self.chat_widget._scroll_to_bottom()
-                print("[MAIN_WINDOW] 채팅 위젯 하단 스크롤 강제 실행")
+                logger.debug("[MAIN_WINDOW] 채팅 위젯 하단 스크롤 강제 실행")
         except Exception as e:
-            print(f"[MAIN_WINDOW] 하단 스크롤 오류: {e}")
+            logger.debug(f"[MAIN_WINDOW] 하단 스크롤 오류: {e}")
     
     def _check_authentication(self) -> bool:
         """인증 체크 및 로그인 다이얼로그 표시"""
@@ -997,7 +1000,7 @@ class MainWindow(QMainWindow):
     
     def _on_login_successful(self):
         """로그인 성공 처리"""
-        print("로그인 성공")
+        logger.debug("로그인 성공")
         
         # 세션 매니저에 AuthManager 설정
         from core.session.session_manager import session_manager, set_auth_manager
@@ -1063,7 +1066,7 @@ class MainWindow(QMainWindow):
     
     def _on_memory_warning(self, memory_percent):
         """메모리 경고 처리"""
-        print(f"메모리 사용률 경고: {memory_percent:.1f}%")
+        logger.debug(f"메모리 사용률 경고: {memory_percent:.1f}%")
         # 필요시 사용자에게 알림 표시 가능
     
     def _apply_dialog_theme(self, msg_box):

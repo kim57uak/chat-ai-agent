@@ -2,7 +2,6 @@
 Token usage tracking system for precise measurement across all AI interactions
 """
 
-import logging
 import time
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
@@ -10,8 +9,9 @@ from enum import Enum
 import json
 from datetime import datetime
 from core.token_logger import TokenLogger
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("token_tracker")
 
 
 class StepType(Enum):

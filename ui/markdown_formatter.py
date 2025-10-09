@@ -1,4 +1,7 @@
 """Enhanced markdown formatter using python-markdown library"""
+from core.logging import get_logger
+
+logger = get_logger("markdown_formatter")
 
 import markdown
 import re
@@ -79,9 +82,9 @@ class MarkdownFormatter:
                     'enable_dollar_delimiter': True,
                     'add_preview': False
                 }
-                print("[Math] python-markdown-math 확장 로드됨")
+                logger.debug("[Math] python-markdown-math 확장 로드됨")
             except ImportError:
-                print("[Math] python-markdown-math 확장 없음 - 기본 처리")
+                logger.debug("[Math] python-markdown-math 확장 없음 - 기본 처리")
                 pass
             
             self.md = markdown.Markdown(
@@ -130,7 +133,7 @@ class MarkdownFormatter:
             return html
             
         except Exception as e:
-            print(f"마크다운 포맷팅 오류: {e}")
+            logger.debug(f"마크다운 포맷팅 오류: {e}")
             # 폴백: 기본 텍스트 처리
             return self._fallback_format(text)
     

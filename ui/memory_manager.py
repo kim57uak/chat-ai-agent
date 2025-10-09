@@ -1,4 +1,7 @@
 """
+from core.logging import get_logger
+
+logger = get_logger("memory_manager")
 메모리 관리 모듈 - 자동 메모리 정리 및 모니터링
 """
 import gc
@@ -45,7 +48,7 @@ class MemoryManager(QObject):
                     self.light_cleanup()
                     
         except Exception as e:
-            print(f"자동 메모리 정리 오류: {e}")
+            logger.debug(f"자동 메모리 정리 오류: {e}")
             
     def light_cleanup(self):
         """가벼운 메모리 정리"""
@@ -54,7 +57,7 @@ class MemoryManager(QObject):
             gc.collect()
             
         except Exception as e:
-            print(f"가벼운 메모리 정리 오류: {e}")
+            logger.debug(f"가벼운 메모리 정리 오류: {e}")
             
     def force_cleanup(self):
         """강제 메모리 정리"""
@@ -66,10 +69,10 @@ class MemoryManager(QObject):
             # 플랫폼별 메모리 정리
             performance_optimizer.cleanup_memory()
             
-            print("강제 메모리 정리 완료")
+            logger.debug("강제 메모리 정리 완료")
             
         except Exception as e:
-            print(f"강제 메모리 정리 오류: {e}")
+            logger.debug(f"강제 메모리 정리 오류: {e}")
             
     def get_memory_status(self):
         """현재 메모리 상태 반환"""

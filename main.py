@@ -2,6 +2,7 @@ import sys
 import threading
 import logging
 import os
+import multiprocessing
 from core.application import SignalHandler, AppInitializer, AppRunner
 from ui.performance_optimizer import performance_optimizer
 
@@ -93,4 +94,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # PyInstaller freeze 지원 (무한 실행 방지)
+    multiprocessing.freeze_support()
     sys.exit(main())

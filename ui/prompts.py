@@ -7,10 +7,10 @@ from typing import Dict, Any, Optional
 from enum import Enum
 import json
 import os
-import logging
+from core.logging import get_logger
 from datetime import datetime
 
-logger = logging.getLogger(__name__)
+logger = get_logger("prompts")
 
 
 class ModelType(Enum):

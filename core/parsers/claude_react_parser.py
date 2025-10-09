@@ -3,9 +3,9 @@ from langchain.agents.agent import AgentAction, AgentFinish
 from langchain.agents.react.output_parser import ReActOutputParser
 from langchain.schema import OutputParserException
 import re
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("claude_react_parser")
 
 
 class ClaudeReActParser(ReActOutputParser):

@@ -1,9 +1,9 @@
 """AI 모델별 처리 전략을 정의하는 모듈"""
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("model_strategy")
 
 
 class ModelStrategy(ABC):

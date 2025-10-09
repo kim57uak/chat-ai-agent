@@ -5,12 +5,12 @@ Session Security Manager
 
 import time
 import psutil
-import logging
+from core.logging import get_logger
 from typing import Optional, Callable
 from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 
-logger = logging.getLogger(__name__)
+logger = get_logger("session_security")
 
 
 class SessionSecurityManager(QObject):

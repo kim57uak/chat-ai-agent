@@ -3,6 +3,9 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QLine
                             QTabWidget, QWidget, QScrollArea, QFrame)
 from PyQt6.QtCore import Qt
 from core.file_utils import save_model_api_key, load_model_api_key, load_last_model, load_prompt_config, save_prompt_config
+from core.logging import get_logger
+
+logger = get_logger("settings_dialog")
 from core.config.ai_model_manager import AIModelManager
 from ui.styles.theme_manager import theme_manager
 from utils.config_path import config_path_manager
@@ -932,7 +935,7 @@ class SettingsDialog(QDialog):
                     layout.addWidget(checkbox)
                     
         except Exception as e:
-            print(f"뉴스 소스 체크박스 생성 오류: {e}")
+            logger.debug(f"뉴스 소스 체크박스 생성 오류: {e}")
     
     def load_news_settings(self):
         """뉴스 설정 로드"""
@@ -965,7 +968,7 @@ class SettingsDialog(QDialog):
             self.earthquake_days_spin.setValue(date_filter.get('earthquake_days', 3))
             
         except Exception as e:
-            print(f"뉴스 설정 로드 오류: {e}")
+            logger.debug(f"뉴스 설정 로드 오류: {e}")
     
     def save_news_settings(self):
         """뉴스 설정 저장"""
@@ -1036,7 +1039,7 @@ class SettingsDialog(QDialog):
                 json.dump(config, f, indent=2, ensure_ascii=False)
                 
         except Exception as e:
-            print(f"뉴스 설정 저장 오류: {e}")
+            logger.debug(f"뉴스 설정 저장 오류: {e}")
     
     def _get_themed_dialog_style(self):
         """현대적 테마 스타일 적용"""
@@ -1279,7 +1282,7 @@ class SettingsDialog(QDialog):
             self.logout_timeout_spin.setValue(security_settings.get('logout_timeout_minutes', 30))
             
         except Exception as e:
-            print(f"보안 설정 로드 오류: {e}")
+            logger.debug(f"보안 설정 로드 오류: {e}")
     
     def save_security_settings(self):
         """보안 설정 저장"""
@@ -1294,7 +1297,7 @@ class SettingsDialog(QDialog):
             save_prompt_config(prompt_config)
             
         except Exception as e:
-            print(f"보안 설정 저장 오류: {e}")
+            logger.debug(f"보안 설정 저장 오류: {e}")
     
     def refresh_security_status(self):
         """보안 상태 새로고침"""
@@ -1327,7 +1330,7 @@ class SettingsDialog(QDialog):
             self.last_login_label.setStyleSheet('color: #8b5cf6; font-weight: 600;')
                 
         except Exception as e:
-            print(f"보안 상태 새로고침 오류: {e}")
+            logger.debug(f"보안 상태 새로고침 오류: {e}")
     
     def change_password(self):
         """비밀번호 변경"""

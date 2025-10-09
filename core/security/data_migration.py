@@ -9,12 +9,12 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-import logging
+from core.logging import get_logger
 
 from ..auth.auth_manager import AuthManager
 from .encrypted_database import EncryptedDatabase
 
-logger = logging.getLogger(__name__)
+logger = get_logger("data_migration")
 
 
 class DataMigrator:

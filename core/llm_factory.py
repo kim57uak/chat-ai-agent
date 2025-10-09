@@ -7,10 +7,10 @@ from core.perplexity_wrapper import PerplexityWrapper
 from core.llm.claude.claude_wrapper import ClaudeWrapper
 from core.llm.claude.claude_api_wrapper import ClaudeAPIWrapper
 from core.file_utils import load_config, load_prompt_config
-import logging
+from core.logging import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger("llm_factory")
 
 
 def _get_ai_parameters():

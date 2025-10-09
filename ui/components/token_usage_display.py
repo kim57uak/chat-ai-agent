@@ -12,9 +12,9 @@ from core.token_tracker import token_tracker, StepType
 from core.token_accumulator import token_accumulator
 import json
 from datetime import datetime
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("token_usage_display")
 
 
 class AsyncDataProcessor(QObject):

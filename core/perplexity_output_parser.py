@@ -1,11 +1,11 @@
 import re
 import json
-import logging
+from core.logging import get_logger
 from typing import Union
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.output_parsers import BaseOutputParser
 
-logger = logging.getLogger(__name__)
+logger = get_logger("perplexity_output_parser")
 
 
 class PerplexityOutputParser(BaseOutputParser):

@@ -1,4 +1,7 @@
 """
+from core.logging import get_logger
+
+logger = get_logger("performance_optimizer")
 성능 최적화 모듈 - Windows/macOS 크로스 플랫폼 지원
 """
 import platform
@@ -266,7 +269,7 @@ class PerformanceOptimizer:
                 self._cleanup_macos_memory()
                 
         except Exception as e:
-            print(f"메모리 정리 오류: {e}")
+            logger.debug(f"메모리 정리 오류: {e}")
             
     def _cleanup_windows_memory(self):
         """Windows 메모리 정리"""

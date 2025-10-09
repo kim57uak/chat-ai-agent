@@ -1,12 +1,12 @@
 """토큰 사용량 누적 관리자"""
 
-import logging
+from core.logging import get_logger
 from typing import Dict, List, Optional
 from datetime import datetime
 from PyQt6.QtCore import QObject, pyqtSignal
 from .token_extractor import TokenUsage, TokenExtractor
 
-logger = logging.getLogger(__name__)
+logger = get_logger("token_accumulator")
 
 
 class TokenAccumulator(QObject):

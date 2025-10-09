@@ -2,9 +2,9 @@
 from abc import ABC, abstractmethod
 from typing import List, Any
 from langchain.schema import HumanMessage
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("tool_result_formatter")
 
 
 class ToolResultFormatter(ABC):

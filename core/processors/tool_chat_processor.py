@@ -2,10 +2,10 @@
 from typing import List, Dict, Any, Tuple
 from core.strategies.model_strategy import ModelStrategyFactory
 from core.processors.simple_chat_processor import SimpleChatProcessor
-import logging
+from core.logging import get_logger
 import time
 
-logger = logging.getLogger(__name__)
+logger = get_logger("tool_chat_processor")
 
 
 class ToolChatProcessor:

@@ -1,15 +1,18 @@
 """
+from core.logging import get_logger
+
+logger = get_logger("session_manager")
 Chat Session Manager
 주제별 AI 대화 세션을 관리하는 메인 클래스
 """
 
 from typing import List, Dict, Optional
-import logging
+from core.logging import get_logger
 import re
 from ..security.encrypted_database import EncryptedDatabase
 from ..auth.auth_manager import AuthManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger("session_manager")
 
 
 class SessionManager:
@@ -20,10 +23,10 @@ class SessionManager:
     
     def create_session(self, title: str, topic_category: str = None, model_used: str = None) -> int:
         """새 세션 생성"""
-        print(f"[SESSION_MANAGER] create_session - title: {title}")
+        logger.debug(f"SESSION_MANAGER] create_session - title: {title}")
         session_id = self.db.create_session(title, topic_category, model_used)
         
-        print(f"[SESSION_MANAGER] 세션 생성 성공 - session_id: {session_id}")
+        logger.debug(f"SESSION_MANAGER] 세션 생성 성공 - session_id: {session_id}")
         logger.info(f"새 세션 생성: {session_id} - {title}")
         return session_id
     
@@ -124,18 +127,18 @@ class SessionManager:
     def add_message(self, session_id: int, role: str, content: str, 
                    content_html: str = None, token_count: int = 0, tool_calls: str = None) -> int:
         """메시지 추가"""
-        print(f"[SESSION_MANAGER] add_message - session_id: {session_id}, role: {role}, content 길이: {len(content) if content else 0}")
+        logger.debug(f"SESSION_MANAGER] add_message - session_id: {session_id}, role: {role}, content 길이: {len(content) if content else 0}")
         
         # content 필드에는 HTML 태그 제거된 텍스트 저장
         clean_content = self._remove_html_tags(content)
         
         message_id = self.db.add_message(session_id, role, clean_content, content_html, token_count, tool_calls)
-        print(f"[SESSION_MANAGER] 메시지 삽입 성공 - message_id: {message_id}")
+        logger.debug(f"SESSION_MANAGER] 메시지 삽입 성공 - message_id: {message_id}")
         return message_id
     
     def get_session_messages(self, session_id: int, limit: int = None, offset: int = 0, include_html: bool = True) -> List[Dict]:
         """세션의 메시지 목록 조회 (시간순 정렬, 페이징 지원)"""
-        print(f"[GET_MESSAGES] session_id: {session_id}, limit: {limit}, offset: {offset}, include_html: {include_html}")
+        logger.debug(f"GET_MESSAGES] session_id: {session_id}, limit: {limit}, offset: {offset}, include_html: {include_html}")
         
         if limit is None:
             messages = self.db.get_messages(session_id, 10000, 0)  # 충분히 큰 수
@@ -149,11 +152,11 @@ class SessionManager:
                     from ui.fixed_formatter import FixedFormatter
                     formatter = FixedFormatter()
                     message['content'] = formatter.format_basic_markdown(message['content_html'])
-                    print(f"[GET_MESSAGES] HTML 콘텐츠를 FixedFormatter로 처리: {message['id']}")
+                    logger.debug(f"GET_MESSAGES] HTML 콘텐츠를 FixedFormatter로 처리: {message['id']}")
                 except Exception as e:
-                    print(f"[GET_MESSAGES] FixedFormatter 처리 오류: {e}, content 사용")
+                    logger.debug(f"GET_MESSAGES] FixedFormatter 처리 오류: {e}, content 사용")
         
-        print(f"[GET_MESSAGES] 반환할 메시지 수: {len(messages)}")
+        logger.debug(f"GET_MESSAGES] 반환할 메시지 수: {len(messages)}")
         return messages
     
     def get_session_context(self, session_id: int, max_tokens: int = 4000) -> List[Dict]:

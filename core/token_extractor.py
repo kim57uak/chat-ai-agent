@@ -1,10 +1,10 @@
 """AI 응답에서 토큰 사용량 추출 유틸리티"""
 
-import logging
+from core.logging import get_logger
 from typing import Dict, Optional, Any
 from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
+logger = get_logger("token_extractor")
 
 
 @dataclass

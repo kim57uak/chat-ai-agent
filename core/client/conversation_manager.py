@@ -1,9 +1,9 @@
 """Conversation management following SRP."""
 
 from typing import List, Dict, Any
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("conversation_manager")
 
 
 class ConversationManager:

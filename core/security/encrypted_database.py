@@ -1,4 +1,7 @@
 """
+from core.logging import get_logger
+
+logger = get_logger("encrypted_database")
 Encrypted Database Handler
 암호화된 데이터베이스 관리 클래스
 """
@@ -8,13 +11,13 @@ import json
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 from pathlib import Path
-import logging
+from core.logging import get_logger
 
 from ..auth.auth_manager import AuthManager
 from .memory_security import memory_security
 from .security_logger import security_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("encrypted_database")
 
 
 class EncryptedDatabase:
@@ -389,12 +392,12 @@ class EncryptedDatabase:
                         "encryption_version": row["encryption_version"],
                     }
                     messages.append(message)
-                    print(f"[DB] Message {row['id']}: role={row['role']}, timestamp={row['timestamp'][:19]}")
+                    logger.debug(f"DB] Message {row['id']}: role={row['role']}, timestamp={row['timestamp'][:19]}")
                 except Exception as e:
                     logger.warning(f"Failed to decrypt message {row['id']}: {e}")
                     continue
             
-            print(f"[DB] Total {len(messages)} messages loaded for session {session_id}")
+            logger.debug(f"DB] Total {len(messages)} messages loaded for session {session_id}")
             return messages
 
     def delete_session(self, session_id: int) -> bool:

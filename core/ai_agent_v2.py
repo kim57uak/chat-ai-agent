@@ -7,9 +7,9 @@ from core.token_tracker import token_tracker
 from tools.langchain.langchain_tools import MCPTool, MCPToolRegistry
 from mcp.servers.mcp import get_all_mcp_tools
 from mcp.tools.tool_manager import tool_manager
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("ai_agent_v2")
 
 
 class AIAgentV2:

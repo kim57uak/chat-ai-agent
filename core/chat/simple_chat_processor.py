@@ -2,9 +2,9 @@ from typing import List, Dict, Tuple
 from .base_chat_processor import BaseChatProcessor
 from core.token_logger import TokenLogger
 from core.token_tracker import token_tracker, StepType
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger('chat.simple')
 
 
 class SimpleChatProcessor(BaseChatProcessor):
@@ -111,41 +111,29 @@ class SimpleChatProcessor(BaseChatProcessor):
                 
                 # tool_calls가 있으면 도구 사용 시도로 간주하고 거부
                 if hasattr(response, 'tool_calls') and response.tool_calls:
-                    print(f"\n=== TOOL CALLS DETECTED IN ASK MODE ===\nTool calls: {response.tool_calls}")
+                    logger.warning(f"Tool calls detected in ASK mode: {response.tool_calls}")
                     response_content = "죄송합니다. Ask 모드에서는 도구를 사용할 수 없습니다. 제가 알고 있는 지식으로 답변드리겠습니다.\n\n" + self._get_fallback_response(user_input)
                 
                 # 응답 디버깅
-                print(f"\n=== AI RESPONSE DEBUG ===\nResponse type: {type(response)}")
-                print(f"Has tool_calls: {hasattr(response, 'tool_calls') and bool(response.tool_calls)}")
-                print(f"Response content: '{response_content}'")
-                print(f"Content length: {len(response_content) if response_content else 0}")
-                print("=== END DEBUG ===")
+                logger.debug(f"AI Response - Type: {type(response)}, Has tool_calls: {hasattr(response, 'tool_calls') and bool(response.tool_calls)}, Content length: {len(response_content) if response_content else 0}")
             
             # 응답 내용 검증 및 디버깅
             if not response_content or response_content.strip() == "":
-                print(f"\n=== EMPTY RESPONSE DEBUG ===\nOriginal response: {response}")
-                print(f"Response type: {type(response)}")
-                if hasattr(response, '__dict__'):
-                    print(f"Response dict: {response.__dict__}")
-                if hasattr(response, 'content'):
-                    print(f"Response.content: '{response.content}'")
-                if hasattr(response, 'text'):
-                    print(f"Response.text: '{response.text}'")
-                print(f"Response str: '{str(response)}'")
+                logger.warning(f"Empty response detected - Type: {type(response)}")
+                logger.debug(f"Response attributes: {response.__dict__ if hasattr(response, '__dict__') else 'N/A'}")
                 
                 # OpenRouter 모델의 경우 다른 속성 확인
                 if 'openrouter' in self.model_strategy.model_name.lower() or any(prefix in self.model_strategy.model_name for prefix in ['deepseek/', 'qwen/', 'meta-llama/', 'nvidia/']):
-                    print(f"OpenRouter model detected: {self.model_strategy.model_name}")
-                    # 다양한 속성에서 응답 찾기
+                    logger.debug(f"OpenRouter model detected: {self.model_strategy.model_name}")
                     for attr in ['message', 'choices', 'data', 'result']:
                         if hasattr(response, attr):
                             attr_value = getattr(response, attr)
-                            print(f"Response.{attr}: {attr_value}")
+                            logger.debug(f"Response.{attr}: {attr_value}")
                             if attr == 'choices' and attr_value and len(attr_value) > 0:
                                 choice = attr_value[0]
                                 if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
                                     response_content = choice.message.content
-                                    print(f"Found content in choices[0].message.content: '{response_content}'")
+                                    logger.debug(f"Found content in choices[0].message.content")
                                     break
                 
                 # 여전히 비어있으면 기본 메시지

@@ -1,9 +1,9 @@
 import requests
-import logging
+from core.logging import get_logger
 from typing import Optional, Dict, Any, List
 from abc import ABC, abstractmethod
 
-logger = logging.getLogger(__name__)
+logger = get_logger("perplexity_llm")
 
 
 class LLMInterface(ABC):

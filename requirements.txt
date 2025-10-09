@@ -102,7 +102,11 @@ urllib3==2.5.0
 xlsxwriter==3.2.5
 yarl==1.20.1
 zstandard==0.23.0
+
 # Security and Encryption
 keyring>=24.0.0
 cryptography==42.0.8
 pykrx>=1.0.51
+
+# Logging
+loguru>=0.7.0

@@ -30,6 +30,7 @@ BUNDLE_ID = 'com.chataiagent.beta.app'
 # Collect security packages completely
 cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
 keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
+loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
 
 # Data files to include
 datas = [
@@ -68,8 +69,8 @@ datas = filtered_datas
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=cryptography_binaries + keyring_binaries,
-    datas=datas + cryptography_datas + keyring_datas,
+    binaries=cryptography_binaries + keyring_binaries + loguru_binaries,
+    datas=datas + cryptography_datas + keyring_datas + loguru_datas,
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore',
@@ -103,6 +104,9 @@ a = Analysis(
         'cryptography.hazmat.backends.openssl.backend',
         '_cffi_backend',
         
+        # Logging
+        'loguru',
+        
         # Third-party
         'requests',
         'dateutil',
@@ -119,7 +123,7 @@ a = Analysis(
         'mcp',
         'tools',
         'utils',
-    ] + cryptography_hiddenimports + keyring_hiddenimports,
+    ] + cryptography_hiddenimports + keyring_hiddenimports + loguru_hiddenimports,
     hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],

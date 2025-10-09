@@ -7,9 +7,9 @@ from .perplexity_strategy import PerplexityStrategy
 from .claude_strategy import ClaudeStrategy
 from .pollinations_strategy import PollinationsStrategy
 from .openrouter_strategy import OpenRouterStrategy
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("model_strategy_factory")
 
 
 class ModelStrategyFactory:

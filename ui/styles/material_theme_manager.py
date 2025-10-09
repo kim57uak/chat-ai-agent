@@ -4,6 +4,9 @@ import json
 import os
 from typing import Dict, Any, Optional
 from utils.config_path import config_path_manager
+from core.logging import get_logger
+
+logger = get_logger('ui.theme_manager')
 
 class MaterialThemeManager:
     """Material Design 테마 관리자"""
@@ -20,22 +23,22 @@ class MaterialThemeManager:
         """테마 파일에서 테마 정보 로드"""
         try:
             theme_file_path = config_path_manager.get_config_path(self.theme_file)
-            print(f"[DEBUG] Loading theme from: {theme_file_path}")
+            logger.debug(f"Loading theme from: {theme_file_path}")
             if theme_file_path.exists():
                 with open(theme_file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.themes = data.get("themes", {})
                     self.theme_categories = data.get("theme_categories", {})
-                    print(f"[DEBUG] Loaded {len(self.themes)} themes")
+                    logger.debug(f"Loaded {len(self.themes)} themes")
                     # 현재 테마가 이미 설정되어 있지 않은 경우에만 업데이트
                     if not hasattr(self, '_theme_loaded'):
                         self.current_theme_key = data.get("current_theme", "material_dark")
                         self._theme_loaded = True
             else:
-                print(f"[DEBUG] Theme file not found: {theme_file_path}")
+                logger.debug(f"Theme file not found: {theme_file_path}")
                 self._create_default_themes()
         except Exception as e:
-            print(f"테마 로드 오류: {e}")
+            logger.error(f"Theme load error: {e}", exc_info=True)
             self._create_default_themes()
     
     @property
@@ -69,7 +72,7 @@ class MaterialThemeManager:
             with open(self.theme_file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            print(f"테마 저장 오류: {e}")
+            logger.error(f"Theme save error: {e}", exc_info=True)
     
     def get_current_theme(self) -> Dict[str, Any]:
         """현재 테마 정보 반환"""
@@ -81,7 +84,7 @@ class MaterialThemeManager:
             self.current_theme_key = theme_key
             self._save_themes()
         else:
-            print(f"존재하지 않는 테마: {theme_key}")
+            logger.warning(f"Theme not found: {theme_key}")
     
     def get_theme_colors(self) -> Dict[str, str]:
         """현재 테마의 색상 정보 반환"""
@@ -201,7 +204,7 @@ class MaterialThemeManager:
                 
                 return new_state
         except Exception as e:
-            print(f"글래스모피즘 토글 오류: {e}")
+            logger.error(f"Glassmorphism toggle error: {e}", exc_info=True)
         return True
     
     def get_glassmorphism_config(self) -> Dict[str, Any]:

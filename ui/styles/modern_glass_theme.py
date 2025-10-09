@@ -1,4 +1,7 @@
 """현대적 Glass Morphism 테마 적용"""
+from core.logging import get_logger
+
+logger = get_logger("modern_glass_theme")
 
 def apply_modern_glass_design():
     """현대적 Glass morphism 디자인을 적용하는 패치"""
@@ -87,10 +90,10 @@ def apply_modern_glass_design():
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        print("현대적 Glass morphism 디자인 적용 완료")
+        logger.debug("현대적 Glass morphism 디자인 적용 완료")
         return True
     else:
-        print("CSS 삽입 위치를 찾을 수 없습니다")
+        logger.debug("CSS 삽입 위치를 찾을 수 없습니다")
         return False
 
 if __name__ == "__main__":

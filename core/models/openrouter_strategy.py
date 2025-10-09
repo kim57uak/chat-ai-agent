@@ -7,9 +7,9 @@ from .base_model_strategy import BaseModelStrategy
 from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
 from core.token_tracker import token_tracker, StepType
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("openrouter_strategy")
 
 
 class OpenRouterStrategy(BaseModelStrategy):

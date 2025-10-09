@@ -3,9 +3,9 @@ from langchain.schema import BaseMessage, HumanMessage, SystemMessage, AIMessage
 from .base_model_strategy import BaseModelStrategy
 from ui.prompts import prompt_manager, ModelType
 from core.llm_factory import LLMFactoryProvider
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("claude_strategy")
 
 
 class ClaudeStrategy(BaseModelStrategy):

@@ -1,4 +1,7 @@
 """Intelligent content formatter that uses AI to determine optimal formatting"""
+from core.logging import get_logger
+
+logger = get_logger("intelligent_formatter")
 
 import re
 import json
@@ -344,26 +347,26 @@ Respond with a JSON object containing:
     
     def _format_claude_content(self, text: str) -> str:
         """Claude 모델 전용 콘텐츠 포맷팅"""
-        print(f"[DEBUG] _format_claude_content called")
+        logger.debug(f" _format_claude_content called")
         
         # 테이블 감지 체크
         has_mixed = self.table_formatter.has_mixed_content(text)
         is_table = self.table_formatter.is_markdown_table(text)
-        print(f"[DEBUG] has_mixed_content: {has_mixed}, is_markdown_table: {is_table}")
+        logger.debug(f" has_mixed_content: {has_mixed}, is_markdown_table: {is_table}")
         
         # 혼합 콘텐츠 우선 처리 (테이블 + 일반 텍스트)
         if has_mixed:
             result = self._format_mixed_content(text)
-            print(f"[DEBUG] Mixed content formatting result has HTML table: {'<table' in result}")
+            logger.debug(f" Mixed content formatting result has HTML table: {'<table' in result}")
             return result
         
         # 순수 마크다운 테이블만 있는 경우
         if is_table:
             result = self.table_formatter.format_markdown_table(text)
-            print(f"[DEBUG] Pure table formatting result has HTML table: {'<table' in result}")
+            logger.debug(f" Pure table formatting result has HTML table: {'<table' in result}")
             return result
         
         # 기본 마크다운 포맷팅
         result = self.markdown_parser.convert(text)
-        print(f"[DEBUG] Basic markdown formatting result has HTML table: {'<table' in result}")
+        logger.debug(f" Basic markdown formatting result has HTML table: {'<table' in result}")
         return result

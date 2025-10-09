@@ -3,14 +3,14 @@ Perplexity LLM을 위한 LangChain 호환 래퍼
 단순하고 확장 가능한 구현
 """
 
-import logging
+from core.logging import get_logger
 from typing import Any, Dict, List, Optional, Iterator
 from langchain_core.language_models.llms import LLM
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.outputs import GenerationChunk
 from core.perplexity_llm import PerplexityLLM
 
-logger = logging.getLogger(__name__)
+logger = get_logger("perplexity_wrapper")
 
 
 class PerplexityWrapper(LLM):

@@ -1,4 +1,7 @@
 """완전히 새로운 포매터 - 렌더링 확실히 보장"""
+from core.logging import get_logger
+
+logger = get_logger("fixed_formatter")
 
 import re
 import uuid
@@ -382,12 +385,12 @@ class FixedFormatter:
                     current_code_id = f"code_{uuid.uuid4().hex[:8]}"
                     
                     # 디버그: 언어 감지 확인
-                    print(f"[DEBUG] 코드 블록 감지: lang='{current_lang}'")
+                    logger.debug(f" 코드 블록 감지: lang='{current_lang}'")
                     
                     # 실행 가능한 언어 확인
                     executable_langs = ['python', 'py', 'javascript', 'js']
                     is_executable = current_lang.lower() in executable_langs
-                    print(f"[DEBUG] 실행 가능: {is_executable}")
+                    logger.debug(f" 실행 가능: {is_executable}")
                     exec_lang = 'python' if current_lang.lower() in ['python', 'py'] else 'javascript'
                     
                     # 언어 라벨

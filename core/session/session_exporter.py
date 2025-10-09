@@ -8,9 +8,9 @@ import html
 from datetime import datetime
 from typing import Dict, List, Optional
 from pathlib import Path
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("session_exporter")
 
 # 테마 매니저 import
 try:

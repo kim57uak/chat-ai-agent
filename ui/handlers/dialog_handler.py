@@ -1,4 +1,7 @@
 """Dialog handling for main window."""
+from core.logging import get_logger
+
+logger = get_logger("dialog_handler")
 
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from ui.settings_dialog import SettingsDialog
@@ -35,7 +38,7 @@ class DialogHandler:
             dlg = MCPDialog('mcp.json', self._parent)
             dlg.exec()
         except Exception as e:
-            print(f"MCP 파일 처리 오류: {e}")
+            logger.debug(f"MCP 파일 처리 오류: {e}")
     
     def open_mcp_manager(self) -> None:
         """Open MCP manager dialog."""

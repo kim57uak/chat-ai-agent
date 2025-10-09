@@ -7,10 +7,10 @@ import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import json
-import logging
+from core.logging import get_logger
 from dateutil import parser as date_parser
 
-logger = logging.getLogger(__name__)
+logger = get_logger("rss_parser")
 
 class RSSParser:
     """RSS 피드 파서"""

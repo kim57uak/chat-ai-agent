@@ -2,10 +2,10 @@
 
 import requests
 import json
-import logging
+from core.logging import get_logger
 from typing import Optional, Dict, Any
 
-logger = logging.getLogger(__name__)
+logger = get_logger("gemini_image_llm")
 
 
 class GeminiImageLLM:

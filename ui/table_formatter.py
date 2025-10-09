@@ -1,4 +1,7 @@
 """Table formatter for markdown tables"""
+from core.logging import get_logger
+
+logger = get_logger("table_formatter")
 
 import re
 from typing import List
@@ -12,7 +15,7 @@ class TableFormatter:
         # Claude 한줄 테이블 감지
         if '\n' not in text.strip() and '|' in text and text.count('|') >= 6:
             if any(pattern in text for pattern in ['---', ':--', '--:', '===']):
-                print(f"[DEBUG] Claude single-line table detected")
+                logger.debug(f" Claude single-line table detected")
                 return True
         
         lines = text.strip().split('\n')
@@ -48,7 +51,7 @@ class TableFormatter:
             has_metadata = '*🤖' in text or '수)*' in text  # 메타데이터 감지
             
             if has_prefix or has_metadata:
-                print(f"[DEBUG] Mixed content detected: Claude table with metadata")
+                logger.debug(f" Mixed content detected: Claude table with metadata")
                 return True
         
         has_table = self.is_markdown_table(text)
@@ -66,7 +69,7 @@ class TableFormatter:
         if model_name and 'claude' in model_name.lower() and '\n' not in text.strip():
             if '|' in text and text.count('|') >= 6:
                 text = self._normalize_claude_table_for_claude(text)
-                print(f"[DEBUG] Claude table normalized for model: {model_name}")
+                logger.debug(f" Claude table normalized for model: {model_name}")
         
         # 테이블과 설명 텍스트 분리  
         table_text, description = self._separate_table_and_description(text)
@@ -136,7 +139,7 @@ class TableFormatter:
     
     def _format_single_line_table(self, text: str) -> str:
         """Claude 한줄 테이블 포매팅"""
-        print(f"[DEBUG] 한줄 테이블 원본: {text[:100]}...")
+        logger.debug(f" 한줄 테이블 원본: {text[:100]}...")
         
         # 파이프로 분리하여 셀 추출
         parts = text.split('|')
@@ -177,14 +180,14 @@ class TableFormatter:
             rows.append(data_cells[:num_cols])
         
         # 디버그 로그 추가
-        print(f"[DEBUG] 헤더 개수: {len(headers)}, 데이터 셀 개수: {len(data_cells)}, 생성된 행 수: {len(rows)}")
-        print(f"[DEBUG] 헤더: {headers}")
-        print(f"[DEBUG] 첫 번째 행: {rows[0] if rows else 'None'}")
+        logger.debug(f" 헤더 개수: {len(headers)}, 데이터 셀 개수: {len(data_cells)}, 생성된 행 수: {len(rows)}")
+        logger.debug(f" 헤더: {headers}")
+        logger.debug(f" 첫 번째 행: {rows[0] if rows else 'None'}")
         
         if not rows:
             return text
         
-        print(f"[DEBUG] 헤더: {headers}, 데이터 행 수: {len(rows)}")
+        logger.debug(f" 헤더: {headers}, 데이터 행 수: {len(rows)}")
         
         # HTML 테이블 생성
         html = '<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: #2a2a2a; border-radius: 6px; overflow: hidden;">'
@@ -205,7 +208,7 @@ class TableFormatter:
             html += '</tr>'
         
         html += '</tbody></table>'
-        print(f"[DEBUG] HTML 테이블 생성 완료")
+        logger.debug(f" HTML 테이블 생성 완료")
         return html
     
     def _normalize_claude_table_for_claude(self, text: str) -> str:

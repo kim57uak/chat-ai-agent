@@ -8,9 +8,9 @@ from core.perplexity_wrapper import PerplexityWrapper
 from core.perplexity_output_parser import PerplexityOutputParser
 from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("perplexity_strategy")
 
 
 class PerplexityStrategy(BaseModelStrategy):

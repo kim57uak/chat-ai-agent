@@ -8,9 +8,9 @@ from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
 from core.token_tracker import token_tracker, StepType
 from core.token_accumulator import token_accumulator
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("openai_strategy")
 
 
 class OpenAIStrategy(BaseModelStrategy):

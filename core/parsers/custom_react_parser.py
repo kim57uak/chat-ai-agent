@@ -3,9 +3,9 @@ from langchain.agents.agent import AgentAction, AgentFinish
 from langchain.agents.react.output_parser import ReActOutputParser
 from langchain.schema import OutputParserException
 import re
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger('parser.react')
 
 
 class CustomReActParser(ReActOutputParser):
@@ -22,7 +22,7 @@ class CustomReActParser(ReActOutputParser):
     
     def _lenient_parse(self, text: str) -> Union[AgentAction, AgentFinish]:
         """관대한 파싱 로직 - Claude 파서 참고"""
-        print(f"\n=== LENIENT PARSING DEBUG ===\nFull AI Response:\n{text}\n=== END RESPONSE ===")
+        logger.debug(f"Lenient parsing - Response length: {len(text)} chars")
         
         # HTML 엔티티 디코딩
         text = text.replace('&quot;', '"').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
@@ -74,12 +74,10 @@ class CustomReActParser(ReActOutputParser):
                 # 너무 긴 Thought는 잘리고 파싱 오류 발생
                 if len(thought_content) > 200:
                     thought_content = thought_content[:200] + "..."
-                logger.warning("Thought만 있는 불완전 응답 - 파싱 오류로 처리")
-                print(f"\n=== INCOMPLETE AI RESPONSE DEBUG ===\nFull AI Response:\n{text}\n=== END RESPONSE ===")
-                print(f"Thought Content: {thought_content}")
-                print(f"Response Length: {len(text)} chars")
+                logger.warning(f"Incomplete response - Thought only, length: {len(text)} chars")
+                logger.debug(f"Thought content: {thought_content}")
                 raise OutputParserException(
-                    f"Incomplete response - missing Action or Final Answer after Thought: {thought_content}",
+                    f"Incomplete response - missing Action or Final Answer after Thought",
                     observation="",
                     llm_output=text,
                     send_to_llm=True

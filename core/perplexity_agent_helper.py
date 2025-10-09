@@ -7,7 +7,7 @@ Perplexity 모델을 위한 커스텀 에이전트 헬퍼 모듈
 
 import re
 import json
-import logging
+from core.logging import get_logger
 from typing import Dict, List, Optional, Union, Any, Tuple
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.exceptions import OutputParserException
@@ -15,7 +15,7 @@ from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts import BasePromptTemplate
 from langchain_core.tools import BaseTool
 
-logger = logging.getLogger(__name__)
+logger = get_logger("perplexity_agent_helper")
 
 class PerplexityOutputParser:
     """

@@ -1,5 +1,8 @@
 from PyQt6.QtWidgets import QLabel, QMenu
 from PyQt6.QtCore import Qt, QTimer
+from core.logging import get_logger
+
+logger = get_logger('ui.model_manager')
 
 
 class ModelManager:
@@ -89,11 +92,11 @@ class ModelManager:
             
         except Exception as e:
             self.tools_label.setText('🔧 도구 상태 불명')
-            print(f"도구 라벨 업데이트 오류: {e}")
+            logger.error(f"Tools label update error: {e}", exc_info=True)
     
     def show_model_popup(self, event):
         """모델 선택 팝업 표시 - 계층 구조"""
-        print("DEBUG: show_model_popup 호출됨!")
+        logger.debug("show_model_popup called")
         try:
             from core.file_utils import load_config, save_last_model, load_last_model
             
@@ -142,9 +145,9 @@ class ModelManager:
                 
                 # OpenRouter 카테고리는 카테고리별로 세분화
                 if category == 'openrouter':
-                    print(f"DEBUG: OpenRouter 발견! {len(category_models)}개 모델")
+                    logger.debug(f"OpenRouter category found: {len(category_models)} models")
                     self._add_openrouter_category_submenus(submenu, category_models, current_model)
-                    print(f"DEBUG: OpenRouter 2차 분류 완료")
+                    logger.debug("OpenRouter subcategories created")
                 else:
                     # 일반 카테고리는 그대로 표시
                     for model_name, model_config in sorted(category_models.items()):
@@ -161,7 +164,7 @@ class ModelManager:
             menu.exec(self.model_label.mapToGlobal(event.pos()))
             
         except Exception as e:
-            print(f"모델 팝업 표시 오류: {e}")
+            logger.error(f"Model popup display error: {e}", exc_info=True)
     
     def _categorize_models(self, models):
         """모델을 카테고리별로 분류"""
@@ -241,9 +244,9 @@ class ModelManager:
             from core.file_utils import save_last_model
             save_last_model(model_name)
             self.update_model_label()
-            print(f"모델 변경: {model_name}")
+            logger.info(f"Model changed: {model_name}")
         except Exception as e:
-            print(f"모델 변경 오류: {e}")
+            logger.error(f"Model change error: {e}", exc_info=True)
     
     def show_tools_popup(self, event):
         """도구 목록 팝업 표시"""
@@ -264,7 +267,7 @@ class ModelManager:
             self._show_tools_menu(event, tools)
             
         except Exception as e:
-            print(f"도구 팝업 표시 오류: {e}")
+            logger.error(f"Tools popup display error: {e}", exc_info=True)
     
     def _show_tools_menu(self, event, tools):
         """도구 메뉴 표시"""
@@ -314,11 +317,11 @@ class ModelManager:
             menu.exec(QCursor.pos())
             
         except Exception as e:
-            print(f"도구 메뉴 표시 오류: {e}")
+            logger.error(f"Tools menu display error: {e}", exc_info=True)
     
     def _add_openrouter_category_submenus(self, parent_menu, models, current_model):
         """OpenRouter 모델을 카테고리별로 세분화"""
-        print(f"DEBUG: _add_openrouter_category_submenus 시작 - {len(models)}개 모델")
+        logger.debug(f"Adding OpenRouter category submenus: {len(models)} models")
         # 모델을 카테고리별로 그룹화
         category_groups = {
             'reasoning': {},

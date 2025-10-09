@@ -2,10 +2,10 @@
 Token usage logging utility
 """
 
-import logging
+from core.logging import get_logger
 from typing import List, Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
+logger = get_logger("token_logger")
 
 
 class TokenLogger:

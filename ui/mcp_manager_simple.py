@@ -13,15 +13,18 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QApplication,
 )
+from core.logging import get_logger
+
+logger = get_logger("mcp_manager_simple")
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 from ui.styles.material_theme_manager import material_theme_manager
-import logging
+from core.logging import get_logger
 import json
 import time
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+logger = get_logger("mcp_manager_simple")
 
 try:
     from mcp.servers.mcp import (
@@ -171,7 +174,7 @@ class MCPManagerDialog(QDialog):
     def _do_refresh(self):
         """실제 새로고침 작업"""
         try:
-            print("서버 새로고침 시작")
+            logger.debug("서버 새로고침 시작")
             self.server_list.clear()
             self.current_servers.clear()
 
@@ -239,10 +242,10 @@ class MCPManagerDialog(QDialog):
                 colors = theme.get('colors', {})
                 self.status_label.setStyleSheet(f"color: {colors.get('success', '#66BB6A')};")
 
-            print("서버 새로고침 완료")
+            logger.debug("서버 새로고침 완료")
 
         except Exception as e:
-            print(f"새로고침 오류: {e}")
+            logger.debug(f"새로고침 오류: {e}")
             self.status_label.setText(f"❌ 오류: {str(e)}")
             theme = material_theme_manager.get_current_theme()
             colors = theme.get('colors', {})

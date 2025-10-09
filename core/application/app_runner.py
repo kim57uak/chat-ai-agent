@@ -3,6 +3,9 @@
 import sys
 from PyQt6.QtWidgets import QApplication
 from ui.main_window import MainWindow
+from core.logging import get_logger
+
+logger = get_logger('app.runner')
 
 
 class AppRunner:
@@ -15,31 +18,30 @@ class AppRunner:
     def run(self) -> int:
         """Run the application with error handling."""
         try:
-            print("[DEBUG] AppRunner.run() 시작")
-            # 테마 미리 로드
-            print("[DEBUG] 테마 로드 시작")
+            logger.debug("AppRunner starting")
+            logger.debug("Loading theme")
             self._load_saved_theme()
-            print("[DEBUG] 테마 로드 완료")
+            logger.debug("Theme loaded")
             
-            print("[DEBUG] MainWindow 생성 시작")
+            logger.debug("Creating MainWindow")
             self._window = MainWindow()
-            print("[DEBUG] MainWindow 생성 완료")
+            logger.debug("MainWindow created")
             
             # 로그인 취소 시 종료
             if not hasattr(self._window, 'auth_manager') or not self._window.auth_manager.is_logged_in():
-                print("[DEBUG] 로그인 취소 - 애플리케이션 종료")
+                logger.info("Login cancelled - application exit")
                 return 0
             
-            print("[DEBUG] MainWindow.show() 호출")
+            logger.debug("Showing MainWindow")
             self._window.show()
-            print("[DEBUG] app.exec() 호출")
+            logger.debug("Starting event loop")
             return self._app.exec()
         except KeyboardInterrupt:
-            print("Keyboard interrupt detected, shutting down...")
+            logger.info("Keyboard interrupt detected, shutting down")
             self._app.quit()
             return 0
         except Exception as e:
-            print(f"Application error: {e}")
+            logger.error(f"Application error: {e}", exc_info=True)
             return 1
     
     def _load_saved_theme(self):
@@ -56,6 +58,6 @@ class AppRunner:
                     saved_theme = data.get("current_theme", "material_dark")
                     theme_manager.material_manager.current_theme_key = saved_theme
                     theme_manager.material_manager.themes = data.get("themes", {})
-                    print(f"앞서 로드된 테마: {saved_theme}")
+                    logger.debug(f"Theme preloaded: {saved_theme}")
         except Exception as e:
-            print(f"테마 선로드 오류: {e}")
+            logger.error(f"Theme preload error: {e}", exc_info=True)

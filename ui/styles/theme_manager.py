@@ -1,4 +1,7 @@
 """테마 관리자 - 다중 테마 지원"""
+from core.logging import get_logger
+
+logger = get_logger("theme_manager")
 
 from enum import Enum
 from typing import Dict, Any
@@ -281,7 +284,7 @@ class ThemeManager:
     def save_custom_theme(self, name: str, theme_data: Dict[str, Any]):
         """커스텀 테마 저장 - 비활성화"""
         # custom_themes.json 파일을 사용하지 않으므로 비활성화
-        print(f"커스텀 테마 저장 기능은 비활성화되어 있습니다: {name}")
+        logger.debug(f"커스텀 테마 저장 기능은 비활성화되어 있습니다: {name}")
     
     def get_material_design_stylesheet(self) -> str:
         """Material Design 기반 스타일시트 생성"""

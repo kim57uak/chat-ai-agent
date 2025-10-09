@@ -7,9 +7,9 @@ from .base_model_strategy import BaseModelStrategy
 from ui.prompts import prompt_manager, ModelType
 from core.token_logger import TokenLogger
 from core.token_tracker import token_tracker, StepType
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("openrouter_strategy")
 
 
 class OpenRouterStrategy(BaseModelStrategy):
@@ -17,12 +17,18 @@ class OpenRouterStrategy(BaseModelStrategy):
     
     def create_llm(self):
         """OpenRouter LLM 생성"""
+        params = self.get_model_parameters()
+        
         llm = ChatOpenAI(
             model=self.model_name,
             openai_api_key=self.api_key,
             openai_api_base="https://openrouter.ai/api/v1",
-            temperature=0.1,
-            max_tokens=4096,
+            temperature=params.get('temperature', 0.1),
+            max_tokens=params.get('max_tokens', 4096),
+            top_p=params.get('top_p', 0.9),
+            frequency_penalty=params.get('frequency_penalty', 0.0),
+            presence_penalty=params.get('presence_penalty', 0.0),
+            stop=params.get('stop', None),
         )
         
         # 토큰 사용량 추적을 위한 콜백 설정

@@ -7,11 +7,11 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
-import logging
+from core.logging import get_logger
 
 from ..auth.auth_manager import AuthManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger("encrypted_config")
 
 
 class EncryptedConfig:

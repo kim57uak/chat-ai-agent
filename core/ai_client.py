@@ -9,11 +9,17 @@ from core.message_validator import MessageValidator
 from core.token_accumulator import token_accumulator
 import logging
 
-logger = logging.getLogger(__name__)
+try:
+    from core.logging import get_logger
+    _logger = get_logger("ai_client")
+except:
+    _logger = logging.getLogger("ai_client")
 
 
 class AIClient:
     """AI 클라이언트 - 리팩토링된 버전 (하위 호환성 유지)"""
+    
+    logger = _logger
 
     def __init__(self, api_key, model_name="gpt-3.5-turbo"):
         self.api_key = api_key
@@ -97,7 +103,7 @@ class AIClient:
 
             if not user_message:
                 return "처리할 메시지를 찾을 수 없습니다."
-            logger.info(f"채팅 요청 처리 시작: {user_message[:50]}...")
+            self.logger.info(f"채팅 요청 처리 시작: {user_message[:50]}...")
 
             # 전달받은 메시지를 그대로 사용 (하이브리드 히스토리 적용)
             validated_messages = MessageValidator.validate_and_fix_messages(messages)
@@ -112,7 +118,7 @@ class AIClient:
 
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"AI 클라이언트 채팅 오류: {error_msg}")
+            _logger.error(f"AI 클라이언트 채팅 오류: {error_msg}")
             return f"채팅 처리 중 오류가 발생했습니다: {error_msg[:100]}..."
 
     def _process_with_quota_handling(
@@ -125,7 +131,7 @@ class AIClient:
             start_time = time.time()
             mode_info = " (Agent 모드)" if force_agent else " (Ask 모드)"
             
-            logger.info(
+            self.logger.info(
                 f"AI 요청 시작{mode_info}: {self.model_name} (히스토리: {len(history)}개)"
             )
 
@@ -163,11 +169,11 @@ class AIClient:
             elapsed_time = time.time() - start_time
 
             if used_tools:
-                logger.debug(
+                self.logger.debug(
                     f"도구 사용 응답 완료{mode_info}: {self.model_name} ({elapsed_time:.1f}초) - 도구: {used_tools}"
                 )
             else:
-                logger.debug(
+                self.logger.debug(
                     f"일반 채팅 응답 완료{mode_info}: {self.model_name} ({elapsed_time:.1f}초)"
                 )
 
@@ -178,7 +184,7 @@ class AIClient:
 
             # 할당량 초과 오류 감지
             if "429" in error_msg and "quota" in error_msg.lower():
-                logger.warning(
+                self.logger.warning(
                     f"할당량 초과 감지, 청크 분할 처리 시도: {self.model_name}"
                 )
                 return self._handle_quota_exceeded(user_message, history)
@@ -188,11 +194,11 @@ class AIClient:
                 keyword in error_msg.lower()
                 for keyword in ["connection", "timeout", "network"]
             ):
-                logger.error(f"네트워크 오류: {self.model_name} - {error_msg}")
+                self.logger.error(f"네트워크 오류: {self.model_name} - {error_msg}")
                 return "네트워크 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.", []
 
             else:
-                logger.error(f"AI 클라이언트 오류: {self.model_name} - {error_msg}")
+                self.logger.error(f"AI 클라이언트 오류: {self.model_name} - {error_msg}")
                 raise e
 
     def _handle_quota_exceeded(self, user_message: str, history: list):
@@ -214,7 +220,7 @@ class AIClient:
                     responses.append(chunk_response)
 
                 except Exception as chunk_error:
-                    logger.error(f"청크 {i+1} 처리 오류: {chunk_error}")
+                    self.logger.error(f"청크 {i+1} 처리 오류: {chunk_error}")
                     responses.append(
                         f"[청크 {i+1} 처리 실패: {str(chunk_error)[:100]}...]"
                     )
@@ -225,7 +231,7 @@ class AIClient:
             # 짧은 메시지는 히스토리 없이 처리
             try:
                 response, used_tools = self.agent.process_message(user_message)
-                logger.info(f"할당량 초과로 히스토리 없이 처리: {self.model_name}")
+                self.logger.info(f"할당량 초과로 히스토리 없이 처리: {self.model_name}")
                 return response, used_tools
             except Exception as fallback_error:
                 return (
@@ -270,7 +276,7 @@ class AIClient:
             
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"에이전트 채팅 오류: {error_msg}")
+            self.logger.error(f"에이전트 채팅 오류: {error_msg}")
             return f"에이전트 채팅 오류: {error_msg[:100]}...", []
 
     def simple_chat(self, user_input: str):
@@ -279,7 +285,7 @@ class AIClient:
             # 기본 채팅 처리
             return self._chat_client.chat(user_input)
         except Exception as e:
-            logger.error(f"단순 채팅 오류: {e}")
+            self.logger.error(f"단순 채팅 오류: {e}")
             return f"오류: {e}"
 
     def _optimize_conversation_history(self):
@@ -320,7 +326,7 @@ class AIClient:
             limited_history.insert(0, msg)
             total_tokens += msg_tokens
 
-        logger.info(
+        self.logger.info(
             f"대화 기록 최적화: {len(history)}개 -> {len(limited_history)}개 (예상 토큰: {total_tokens})"
         )
         return limited_history
@@ -341,10 +347,10 @@ class AIClient:
                     "perplexity": prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value),
                 },
             )
-            logger.info(f"유저 프롬프트 로드 완료: {len(user_prompts)}개 모델")
+            self.logger.info(f"유저 프롬프트 로드 완료: {len(user_prompts)}개 모델")
             return user_prompts
         except Exception as e:
-            logger.error(f"유저 프롬프트 로드 오류: {e}")
+            self.logger.error(f"유저 프롬프트 로드 오류: {e}")
             # 오류 시 중앙관리 시스템에서 기본 프롬프트 사용
             from ui.prompts import prompt_manager, ModelType
             return {
@@ -373,10 +379,9 @@ class AIClient:
             config = load_config()
             config["user_prompt"] = self.user_prompt
             save_config(config)
-            logger.info(f"유저 프롬프트 저장 완료: {self.user_prompt}")
+            self.logger.info(f"유저 프롬프트 저장 완료: {self.user_prompt}")
         except Exception as e:
-            logger.error(f"유저 프롬프트 저장 오류: {e}")
-            print(f"유저 프롬프트 저장 오류: {e}")
+            self.logger.error(f"유저 프롬프트 저장 오류: {e}", exc_info=True)
     
     def streaming_chat(
         self, 
@@ -392,7 +397,7 @@ class AIClient:
                 self.streaming_llm = LLMFactoryProvider.create_llm(
                     self.api_key, self.model_name, streaming=True
                 )
-                logger.info(f"스트리밍 LLM 생성: {self.model_name}")
+                self.logger.info(f"스트리밍 LLM 생성: {self.model_name}")
             
             # 대화 기록 최적화
             optimized_history = self._optimize_conversation_history()
@@ -409,7 +414,7 @@ class AIClient:
             
         except Exception as e:
             error_msg = f"스트리밍 채팅 오류: {str(e)}"
-            logger.error(error_msg)
+            self.logger.error(error_msg)
             if on_error:
                 on_error(error_msg)
     
@@ -417,7 +422,7 @@ class AIClient:
         """스트리밍 취소"""
         self.streaming_processor.cancel_current_stream()
         self.chunked_processor.cancel()
-        logger.info("스트리밍 취소 요청")
+        self.logger.info("스트리밍 취소 요청")
     
     def process_large_response(
         self, 

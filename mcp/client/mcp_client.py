@@ -3,10 +3,10 @@ import subprocess
 import threading
 import uuid
 from typing import Dict, Any, Optional, List
-import logging
 from utils.config_path import config_path_manager
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("mcp_client")
 
 class MCPClient:
     """MCP STDIO 클라이언트 - JSON-RPC over STDIO (개선된 버전)"""
@@ -18,7 +18,6 @@ class MCPClient:
         self.process = None
         self.initialized = False
         self.pending_requests = {}
-        self.tools = []
         self._lock = threading.Lock()
         
     def start(self) -> bool:
@@ -196,7 +195,7 @@ class MCPClient:
         return False
     
     def list_tools(self) -> List[Dict[str, Any]]:
-        """사용 가능한 도구 목록 조회 - 표준 MCP 방식"""
+        """사용 가능한 도구 목록 조회 - 표준 MCP 방식 (항상 실시간 조회)"""
         if not self.initialized:
             return []
             
@@ -209,10 +208,10 @@ class MCPClient:
         
         if response and "result" in response:
             if "tools" in response["result"]:
-                self.tools = response["result"]["tools"]
-                # 로그 제거: 도구 개수 정보는 디버그 레벨로 변경
-                logger.debug(f"도구 {len(self.tools)}개 발견")
-                return self.tools
+                # 캐시하지 않고 매번 새로 조회한 결과 반환
+                tools = response["result"]["tools"]
+                logger.debug(f"도구 {len(tools)}개 실시간 조회")
+                return tools
             else:
                 logger.info("서버가 도구를 제공하지 않음")
                 return []
@@ -331,7 +330,7 @@ class MCPManager:
             return False
     
     def get_all_tools(self) -> Dict[str, List[Dict[str, Any]]]:
-        """모든 서버의 도구 목록 조회 (실시간)"""
+        """모든 서버의 도구 목록 조회 (항상 실시간)"""
         all_tools = {}
         
         # 딕셔너리 변경 오류 방지를 위해 복사본 사용
@@ -340,19 +339,17 @@ class MCPManager:
         for name, client in clients_copy.items():
             if client and client.initialized and client.process and client.process.poll() is None:
                 try:
+                    # 항상 실시간으로 list_tools() 호출
                     tools = client.list_tools()
                     if tools:
-                        # 도구 목록도 복사본으로 저장
-                        all_tools[name] = list(tools)
-                        # 로그 제거: 서버별 도구 조회 정보는 디버그 레벨로 변경
-                        logger.debug(f"서버 '{name}'에서 {len(tools)}개 도구 조회됨")
+                        all_tools[name] = tools  # 복사본 불필요 - list_tools가 새 리스트 반환
+                        logger.debug(f"서버 '{name}': {len(tools)}개 도구 실시간 조회")
                     else:
-                        logger.warning(f"서버 '{name}'에서 도구를 찾을 수 없음")
+                        logger.debug(f"서버 '{name}': 도구 없음")
                 except Exception as e:
                     logger.error(f"서버 '{name}' 도구 목록 조회 오류: {e}")
-            else:
-                # logger.warning(f"서버 '{name}' 연결되지 않음 또는 초기화되지 않음")  # 주석 처리
-                pass
+        
+        logger.debug(f"총 {len(all_tools)}개 서버에서 도구 조회 완료")
         return all_tools
     
     def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
@@ -371,7 +368,7 @@ class MCPManager:
         self.clients.clear()
     
     def get_server_status(self) -> Dict[str, Dict[str, Any]]:
-        """모든 서버의 상태 정보 반환"""
+        """모든 서버의 상태 정보 반환 - 실시간 도구 목록 조회"""
         status = {}
         
         # 설정 파일에서 서버 정보 로드
@@ -384,20 +381,26 @@ class MCPManager:
             logger.warning(f"mcp.json 로드 실패: {e}")
             servers = {}
         
+        # 딕셔너리 변경 오류 방지를 위해 복사본 사용
+        clients_copy = dict(self.clients)
+        
         for name, server_config in servers.items():
-            client = self.clients.get(name)
+            client = clients_copy.get(name)
             
-            # 실시간 도구 목록 조회
+            # 실시간 도구 목록 조회 - 강제 새로고침
             tools = []
             server_type = "unknown"
             
             if client and client.initialized and client.process and client.process.poll() is None:
                 try:
+                    # 실시간으로 도구 목록 조회 (캐시 사용 안 함)
                     tools = client.list_tools()
                     if tools:
                         server_type = "tools_provider"
+                        logger.debug(f"서버 '{name}' 도구 {len(tools)}개 조회됨")
                     else:
                         server_type = "no_tools"
+                        logger.debug(f"서버 '{name}' 도구 없음")
                 except Exception as e:
                     logger.warning(f"서버 '{name}' 도구 목록 조회 실패: {e}")
                     server_type = "error"

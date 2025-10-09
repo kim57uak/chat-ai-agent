@@ -7,9 +7,9 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("secure_path_manager")
 
 
 class SecurePathManager:

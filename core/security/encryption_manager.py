@@ -11,6 +11,9 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import keyring
+from core.logging import get_logger
+
+logger = get_logger('security.encryption')
 
 
 class EncryptionManager:
@@ -57,7 +60,7 @@ class EncryptionManager:
             return True
             
         except Exception as e:
-            print(f"Setup failed: {e}")
+            logger.error(f"Encryption setup failed", exc_info=True)
             self._clear_memory()
             return False
             
@@ -103,7 +106,7 @@ class EncryptionManager:
             return True
             
         except Exception as e:
-            # print(f"Login failed: {e}")  # 보안상 자세한 에러 메시지 숨김
+            logger.warning("Login failed - invalid credentials")
             self._clear_memory()
             return False
             

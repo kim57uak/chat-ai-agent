@@ -6,6 +6,9 @@ from typing import Dict, Optional, Tuple
 from dataclasses import dataclass, field
 import time
 from collections import defaultdict
+from core.logging import get_logger
+
+logger = get_logger('token.session')
 
 
 @dataclass
@@ -47,14 +50,14 @@ class SessionTokenManager:
         self.current_conversation_id = conversation_id
         self.current_conversation_input = 0
         self.current_conversation_output = 0
-        print(f"[SessionTokenManager] 새 대화 시작: {conversation_id}")
+        logger.debug(f"New conversation started: {conversation_id}")
     
     def add_tokens(self, input_tokens: int, output_tokens: int):
         """현재 대화에 토큰 추가 (임시 저장소에 누적)"""
         if input_tokens > 0 or output_tokens > 0:
             self.current_conversation_input += input_tokens
             self.current_conversation_output += output_tokens
-            print(f"[SessionTokenManager] 토큰 추가: IN+{input_tokens}, OUT+{output_tokens} -> 누적: IN{self.current_conversation_input}, OUT{self.current_conversation_output}")
+            logger.debug(f"Tokens added: IN+{input_tokens}, OUT+{output_tokens} -> Total: IN{self.current_conversation_input}, OUT{self.current_conversation_output}")
     
     def complete_conversation(self) -> Optional[ConversationTokens]:
         """현재 대화 완료 및 토큰 정보 반환"""
@@ -87,7 +90,7 @@ class SessionTokenManager:
         self.session_total_input += total_input
         self.session_total_output += total_output
         
-        print(f"[SessionTokenManager] 대화 완료: {self.current_conversation_id}, 토큰: IN{total_input}, OUT{total_output}, TOTAL{total_input + total_output}")
+        logger.info(f"Conversation completed: {self.current_conversation_id}, Tokens: IN{total_input}, OUT{total_output}, TOTAL{total_input + total_output}")
         
         # 현재 대화 정보 초기화
         self.current_conversation_input = 0

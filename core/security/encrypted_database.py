@@ -1,4 +1,7 @@
 """
+from core.logging import get_logger
+
+logger = get_logger("encrypted_database")
 Encrypted Database Handler
 암호화된 데이터베이스 관리 클래스
 """
@@ -8,13 +11,13 @@ import json
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 from pathlib import Path
-import logging
+from core.logging import get_logger
 
 from ..auth.auth_manager import AuthManager
 from .memory_security import memory_security
 from .security_logger import security_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("encrypted_database")
 
 
 class EncryptedDatabase:
@@ -83,12 +86,12 @@ class EncryptedDatabase:
             """
             )
 
-            # 세션 테이블 (암호화 버전 추가)
+            # 세션 테이블 (title은 평문, 나머지는 암호화)
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title BLOB,
+                    title TEXT,
                     topic_category BLOB,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -184,10 +187,9 @@ class EncryptedDatabase:
     def create_session(
         self, title: str, topic_category: str = None, model_used: str = None
     ) -> int:
-        """새 세션 생성"""
+        """새 세션 생성 (title은 평문 저장)"""
         with sqlite3.connect(self.db_path) as conn:
-            # 데이터 암호화
-            title_encrypted = self._encrypt_data(title)
+            # title은 평문, 나머지는 암호화
             topic_category_encrypted = (
                 self._encrypt_data(topic_category) if topic_category else None
             )
@@ -203,7 +205,7 @@ class EncryptedDatabase:
                 ) VALUES (?, ?, ?, ?)
             """,
                 (
-                    title_encrypted,
+                    title,
                     topic_category_encrypted,
                     model_used_encrypted,
                     self.CURRENT_ENCRYPTION_VERSION,
@@ -231,11 +233,11 @@ class EncryptedDatabase:
             if not row:
                 return None
 
-            # 데이터 복호화
+            # 데이터 복호화 (title은 평문)
             try:
                 return {
                     "id": row["id"],
-                    "title": self._decrypt_data(row["title"]) if row["title"] else "",
+                    "title": row["title"] if row["title"] else "",
                     "topic_category": (
                         self._decrypt_data(row["topic_category"])
                         if row["topic_category"]
@@ -276,9 +278,7 @@ class EncryptedDatabase:
                 try:
                     session = {
                         "id": row["id"],
-                        "title": (
-                            self._decrypt_data(row["title"]) if row["title"] else ""
-                        ),
+                        "title": row["title"] if row["title"] else "",
                         "topic_category": (
                             self._decrypt_data(row["topic_category"])
                             if row["topic_category"]
@@ -392,12 +392,12 @@ class EncryptedDatabase:
                         "encryption_version": row["encryption_version"],
                     }
                     messages.append(message)
-                    print(f"[DB] Message {row['id']}: role={row['role']}, timestamp={row['timestamp'][:19]}")
+                    logger.debug(f"DB] Message {row['id']}: role={row['role']}, timestamp={row['timestamp'][:19]}")
                 except Exception as e:
                     logger.warning(f"Failed to decrypt message {row['id']}: {e}")
                     continue
             
-            print(f"[DB] Total {len(messages)} messages loaded for session {session_id}")
+            logger.debug(f"DB] Total {len(messages)} messages loaded for session {session_id}")
             return messages
 
     def delete_session(self, session_id: int) -> bool:

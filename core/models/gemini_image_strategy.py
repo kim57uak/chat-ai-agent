@@ -6,10 +6,10 @@ from langchain.agents import AgentExecutor
 from .base_model_strategy import BaseModelStrategy
 from core.llm.google.gemini_image_llm import GeminiImageLLM
 from ui.prompts import prompt_manager, ModelType
-import logging
+from core.logging import get_logger
 import re
 
-logger = logging.getLogger(__name__)
+logger = get_logger("gemini_image_strategy")
 
 
 class GeminiImageStrategy(BaseModelStrategy):

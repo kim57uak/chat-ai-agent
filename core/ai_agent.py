@@ -2,9 +2,9 @@
 # 기존 코드가 계속 작동하도록 하면서 새로운 리팩토링된 구조를 사용
 
 from .ai_agent_v2 import AIAgentV2
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("ai_agent")
 
 
 class AIAgent:

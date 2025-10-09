@@ -1,4 +1,7 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QComboBox, QMessageBox
+from core.logging import get_logger
+
+logger = get_logger("user_prompt_dialog")
 from PyQt6.QtCore import Qt
 from ui.prompts import prompt_manager, ModelType
 from ui.styles.material_theme_manager import material_theme_manager
@@ -96,7 +99,7 @@ class UserPromptDialog(QDialog):
             self.accept()
         except Exception as e:
             QMessageBox.critical(self, '오류', f'저장 중 오류가 발생했습니다: {str(e)}')
-            print(f'유저 프롬프트 저장 오류: {str(e)}')
+            logger.error(f'유저 프롬프트 저장 오류: {str(e)}')
     
     def reset_to_default(self):
         """기본값으로 복원"""

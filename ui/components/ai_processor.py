@@ -1,11 +1,12 @@
 from PyQt6.QtCore import QObject, pyqtSignal
 import threading
-import logging
 import time
 from ui.components.status_display import status_display
 from core.token_logger import TokenLogger
-# from core.ai_logger import ai_logger
 from core.simple_token_accumulator import token_accumulator
+from core.logging import get_logger
+
+logger = get_logger('ui.ai_processor')
 
 
 class AIProcessor(QObject):
@@ -91,10 +92,10 @@ class AIProcessor(QObject):
                         ('model_enhancement', prompt_manager.get_custom_prompt(provider, 'system_enhancement') or '')
                     ]
                 
-                print(f"\n=== PROMPT COMPONENTS LOG ===\nModel: {model} | Mode: {'Agent' if agent_mode else 'Ask'}")
+                logger.debug(f"Prompt components - Model: {model}, Mode: {'Agent' if agent_mode else 'Ask'}")
                 for key, value in prompt_components:
                     if value:
-                        print(f"\n--- {key.upper()} ---\n{value[:200]}{'...' if len(value) > 200 else ''}")
+                        logger.debug(f"{key}: {value[:100]}...")
                 
                 # 언어 감지를 위한 입력 결정
                 input_for_detection = (file_prompt or "") + (user_text or "")
@@ -118,8 +119,7 @@ class AIProcessor(QObject):
                     if processed_user_text:
                         processed_user_text = processed_user_text + language_instruction
                     
-                    print(f"\n=== LANGUAGE DETECTION ===\nKorean ratio: {korean_ratio:.3f} | Threshold: {korean_threshold}")
-                    print(f"Language instruction: {'Korean' if korean_ratio >= korean_threshold else 'English'}")
+                    logger.debug(f"Language detection - Korean ratio: {korean_ratio:.3f}, Threshold: {korean_threshold}, Language: {'Korean' if korean_ratio >= korean_threshold else 'English'}")
                 
                 # 실제 사용자 입력 결정
                 actual_user_input = processed_file_prompt or processed_user_text or ""
@@ -207,8 +207,7 @@ class AIProcessor(QObject):
                     # 토큰 트래커 시작 (대화 추적)
                     from core.token_tracker import token_tracker, StepType
                     
-                    # 토큰 누적기 상태 확인
-                    print(f"[AI_PROCESSOR] 토큰 누적기 초기 상태: {token_accumulator.get_total()}")
+                    logger.debug(f"Token accumulator initial state: {token_accumulator.get_total()}")
                     
                     # 대화 시작 (아직 시작되지 않았다면)
                     if not token_tracker.current_conversation:
@@ -220,7 +219,7 @@ class AIProcessor(QObject):
                     if hasattr(client, '_last_response'):
                         actual_input_tokens, actual_output_tokens = TokenLogger.extract_actual_tokens(client._last_response)
                     
-                    print(f"[AI_PROCESSOR] 실제 토큰 추출: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
+                    logger.debug(f"Actual tokens extracted: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
                     
                     # 실제 토큰이 없으면 추정치 사용
                     if actual_input_tokens == 0 and actual_output_tokens == 0:
@@ -237,9 +236,9 @@ class AIProcessor(QObject):
                         
                         actual_input_tokens = TokenLogger.estimate_tokens(input_text, model)
                         actual_output_tokens = TokenLogger.estimate_tokens(response, model)
-                        print(f"[AI_PROCESSOR] 추정 토큰 사용: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
+                        logger.debug(f"Estimated tokens: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
                     else:
-                        print(f"[AI_PROCESSOR] 실제 토큰 사용: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
+                        logger.debug(f"Actual tokens: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
                     
                     # 토큰 트래커에 단계 기록
                     step_name = "Agent Response" if agent_mode else "Simple Response"
@@ -276,7 +275,7 @@ class AIProcessor(QObject):
                     
                     # 토큰 누적기에 토큰 추가
                     token_accumulator.add(actual_input_tokens, actual_output_tokens)
-                    print(f"[AI_PROCESSOR] 토큰 누적기에 추가: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
+                    logger.debug(f"Tokens added to accumulator: IN:{actual_input_tokens}, OUT:{actual_output_tokens}")
                     
                     # 대화 종료
                     token_tracker.end_conversation(response)
@@ -298,19 +297,9 @@ class AIProcessor(QObject):
                     #         response_time=response_time
                     #     )
                     
-                    # 추가 상세 로깅
-                    print(f"\n=== AI THINKING PROCESS LOG ===\nRequest ID: {request_id}")
-                    print(f"Model: {model} | Agent Mode: {agent_mode}")
-                    print(f"Input Length: {len(actual_user_input)} chars")
-                    print(f"Response Length: {len(str(response))} chars")
-                    print(f"Tools Used: {used_tools}")
-                    print(f"Response Time: {response_time:.2f}s")
-                    print(f"Tokens: IN:{token_usage.get('input_tokens', 0)} OUT:{token_usage.get('output_tokens', 0)}")
-                    if hasattr(client, '_last_response') and client._last_response:
-                        print(f"\n--- RAW AI RESPONSE ---\n{str(client._last_response)[:500]}...")
-                    
-                    # 응답 타입과 내용 로깅 (디버깅용)
-                    print(f"\n=== RESPONSE DEBUG ===\nType: {type(response)}\nContent: {str(response)[:200]}...\nTools: {used_tools}")
+                    # AI 사고 프로세스 로깅
+                    logger.info(f"AI Response - Model: {model}, Agent: {agent_mode}, Time: {response_time:.2f}s, Tokens: IN:{token_usage.get('input_tokens', 0)} OUT:{token_usage.get('output_tokens', 0)}, Tools: {len(used_tools)}")
+                    logger.debug(f"Response type: {type(response)}, Length: {len(str(response))} chars")
                     
                     # 응답이 문자열이 아닌 경우 문자열로 변환
                     if not isinstance(response, str):
@@ -323,7 +312,7 @@ class AIProcessor(QObject):
 
                     
                     # 상태 표시에 실제 토큰 정보 업데이트
-                    print(f"[AI_PROCESSOR] status_display.update_tokens() 호출: {actual_input_tokens}/{actual_output_tokens}")
+                    logger.debug(f"Updating status display tokens: {actual_input_tokens}/{actual_output_tokens}")
                     status_display.update_tokens(actual_input_tokens, actual_output_tokens)
                     
                     # 로그에 실제 토큰 사용량 기록
@@ -353,23 +342,15 @@ class AIProcessor(QObject):
                     self.conversation_completed.emit(None)
                 elif not self._cancelled:
                     status_display.finish_processing(False)
-                    print(f"[AI_PROCESSOR] 응답 생성 실패")
+                    logger.warning("Failed to generate response")
                     self.error.emit("응답을 생성할 수 없습니다.")
                     
             except Exception as e:
                 if not self._cancelled:
                     status_display.finish_processing(False)
                     error_msg = f'오류 발생: {str(e)}'
-                    print(f"[AI_PROCESSOR] 오류 발생")
+                    logger.error(f"AI processing error - Model: {model}, Agent: {agent_mode}", exc_info=True)
                     self.error.emit(error_msg)
-                    
-                    # 오류 상세 로깅
-                    print(f"\n=== ERROR LOG ===\nRequest ID: {request_id}")
-                    print(f"Model: {model} | Agent Mode: {agent_mode}")
-                    print(f"Error: {str(e)}")
-                    print(f"Error Type: {type(e).__name__}")
-                    import traceback
-                    print(f"Traceback:\n{traceback.format_exc()}")
                     
                     # if request_id:
                     #     ai_logger.log_response(

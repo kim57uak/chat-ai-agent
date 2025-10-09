@@ -6,10 +6,10 @@ Memory Security Manager
 import gc
 import sys
 import ctypes
-import logging
+from core.logging import get_logger
 from typing import Any, Optional
 
-logger = logging.getLogger(__name__)
+logger = get_logger("memory_security")
 
 
 class MemorySecurityManager:

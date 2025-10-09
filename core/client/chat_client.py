@@ -2,9 +2,9 @@
 
 from typing import List, Dict, Any, Tuple, Optional, Callable
 from core.ai_agent import AIAgent
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("chat_client")
 
 
 class ChatClient:

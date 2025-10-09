@@ -2,11 +2,11 @@
 from typing import List, Any, Dict
 from .tool_result_formatter import ToolResultFormatter
 from ui.prompts import prompt_manager
-import logging
+from core.logging import get_logger
 import json
 import re
 
-logger = logging.getLogger(__name__)
+logger = get_logger("complete_output_formatter")
 
 
 class CompleteOutputFormatter(ToolResultFormatter):

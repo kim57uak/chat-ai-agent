@@ -3,9 +3,9 @@
 from typing import Dict
 from core.config import ConfigManager
 from ui.prompts import prompt_manager as central_prompt_manager, ModelType
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("prompt_manager")
 
 
 class PromptManager:

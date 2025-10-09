@@ -1,4 +1,7 @@
 """
+from core.logging import get_logger
+
+logger = get_logger("pdf_exporter")
 PDF Export functionality for chat conversations
 HTML 대화 내용을 PDF로 변환하는 기능
 """
@@ -65,7 +68,7 @@ class PDFExportWorker(QObject):
                                 f.write(pdf_data)
                             self._on_print_finished(True, temp_html_path)
                         except Exception as e:
-                            print(f"PDF 저장 오류: {e}")
+                            logger.debug(f"PDF 저장 오류: {e}")
                             self._on_print_finished(False, temp_html_path)
                     
                     # PyQt6에서는 printToPdf 사용
@@ -445,7 +448,7 @@ class PDFExporter:
                                 f.write(pdf_data)
                             print_success = True
                         except Exception as e:
-                            print(f"PDF 저장 오류: {e}")
+                            logger.debug(f"PDF 저장 오류: {e}")
                             print_success = False
                     
                     # PyQt6에서는 printToPdf 사용

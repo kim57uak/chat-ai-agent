@@ -6,6 +6,9 @@ from ui.performance_optimizer import performance_optimizer
 import json
 import uuid
 
+from core.logging import get_logger
+
+logger = get_logger("chat_display")
 
 class ChatDisplay:
     """채팅 표시를 담당하는 클래스 (SRP)"""
@@ -53,14 +56,14 @@ class ChatDisplay:
                 settings.WebAttribute.AllowRunningInsecureContent, True
             )
         except (AttributeError, RuntimeError) as e:
-            print(f"AllowRunningInsecureContent 설정 실패 (무시됨): {e}")
+            logger.debug(f"AllowRunningInsecureContent 설정 실패 (무시됨): {e}")
         
         try:
             settings.setAttribute(
                 settings.WebAttribute.PlaybackRequiresUserGesture, False
             )
         except (AttributeError, RuntimeError) as e:
-            print(f"PlaybackRequiresUserGesture 설정 실패 (무시됨): {e}")
+            logger.debug(f"PlaybackRequiresUserGesture 설정 실패 (무시됨): {e}")
 
         # 웹뷰 배경 설정 (안전한 방식으로 변경)
         try:
@@ -78,7 +81,7 @@ class ChatDisplay:
             # self.web_view.page().setBackgroundColor(bg_color)  # 크래시 원인
             
         except Exception as e:
-            print(f"웹뷰 배경 설정 오류 (무시됨): {e}")
+            logger.debug(f"웹뷰 배경 설정 오류 (무시됨): {e}")
         
         # 성능 최적화 적용
         performance_optimizer.optimize_webview(self.web_view)
@@ -172,7 +175,7 @@ class ChatDisplay:
                 return  # 완전히 무시
         
         # 일반 메시지만 출력
-        print(f"[JS Console] {message} (line: {line_number})")
+        logger.debug(f"JS Console] {message} (line: {line_number})")
 
     def _load_html_template(self):
         """HTML 템플릿 로드"""
@@ -715,7 +718,7 @@ class ChatDisplay:
         """테마 업데이트 - HTML 템플릿 완전 재로드"""
         try:
             from ui.styles.theme_manager import theme_manager
-            print(f"테마 업데이트 시작: {theme_manager.material_manager.current_theme_key}")
+            logger.debug(f"테마 업데이트 시작: {theme_manager.material_manager.current_theme_key}")
             
             # 기존 메시지 내용 백업
             backup_js = """
@@ -743,7 +746,7 @@ class ChatDisplay:
             QTimer.singleShot(100, self._reload_with_backup)
             
         except Exception as e:
-            print(f"채팅 디스플레이 테마 업데이트 오류: {e}")
+            logger.debug(f"채팅 디스플레이 테마 업데이트 오류: {e}")
     
     def _reload_with_backup(self):
         """백업된 메시지와 함께 HTML 재로드"""
@@ -755,7 +758,7 @@ class ChatDisplay:
             QTimer.singleShot(200, self._restore_messages)
             
         except Exception as e:
-            print(f"HTML 재로드 오류: {e}")
+            logger.debug(f"HTML 재로드 오류: {e}")
     
     def _restore_messages(self):
         """백업된 메시지 복원"""
@@ -785,7 +788,7 @@ class ChatDisplay:
         """
         
         self.web_view.page().runJavaScript(restore_js)
-        print("채팅 디스플레이 테마 업데이트 완료")
+        logger.debug("채팅 디스플레이 테마 업데이트 완료")
 
     def _setup_link_handler(self):
         """링크 클릭 핸들러 안전 설정"""
@@ -797,10 +800,10 @@ class ChatDisplay:
             self.link_handler = LinkHandler()
             self.channel.registerObject("pyqt_bridge", self.link_handler)
             self.web_view.page().setWebChannel(self.channel)
-            print("웹 채널 설정 완료")
+            logger.debug("웹 채널 설정 완료")
             
         except Exception as e:
-            print(f"웹 채널 설정 오류: {e}")
+            logger.debug(f"웹 채널 설정 오류: {e}")
             # 채널 설정 실패 시 기본 핸들러만 생성
             self.link_handler = LinkHandler()
 
@@ -1034,7 +1037,7 @@ class LinkHandler(QObject):
         try:
             QDesktopServices.openUrl(QUrl(url))
         except Exception as e:
-            print(f"URL 열기 오류: {e}")
+            logger.debug(f"URL 열기 오류: {e}")
 
     @pyqtSlot(str)
     def copyToClipboard(self, text):
@@ -1050,12 +1053,12 @@ class LinkHandler(QObject):
                 clipboard.setText(text)
                 
                 # 즉시 토스트 메시지 표시
-                print(f"[DEBUG] chat_widget 존재: {hasattr(self, 'chat_widget')}")
-                print(f"[DEBUG] chat_widget 값: {self.chat_widget}")
+                logger.debug(f" chat_widget 존재: {hasattr(self, 'chat_widget')}")
+                logger.debug(f" chat_widget 값: {self.chat_widget}")
                 if hasattr(self, 'chat_widget') and self.chat_widget:
-                    print(f"[DEBUG] chat_display 존재: {hasattr(self.chat_widget, 'chat_display')}")
+                    logger.debug(f" chat_display 존재: {hasattr(self.chat_widget, 'chat_display')}")
                     if hasattr(self.chat_widget, 'chat_display'):
-                        print(f"[DEBUG] JavaScript 실행 시도")
+                        logger.debug(f" JavaScript 실행 시도")
                         # 직접 토스트 생성 (showToast 함수 의존성 제거)
                         toast_js = """
                         try {
@@ -1068,18 +1071,18 @@ class LinkHandler(QObject):
                         """
                         self.chat_widget.chat_display.web_view.page().runJavaScript(toast_js)
                     else:
-                        print(f"[DEBUG] chat_display 없음")
+                        logger.debug(f" chat_display 없음")
                 else:
-                    print(f"[DEBUG] chat_widget 없음 또는 None")
-                print(f"[COPY] 클립보드 복사 시도: {len(text)}자")
+                    logger.debug(f" chat_widget 없음 또는 None")
+                logger.debug(f"COPY] 클립보드 복사 시도: {len(text)}자")
             else:
-                print(f"[COPY] QApplication 인스턴스 없음")
+                logger.debug(f"COPY] QApplication 인스턴스 없음")
                 if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
                     self.chat_widget.chat_display.web_view.page().runJavaScript(
                         "showToast('복사에 실패했습니다.');"
                     )
         except Exception as e:
-            print(f"[COPY] 클립보드 복사 오류: {e}")
+            logger.debug(f"COPY] 클립보드 복사 오류: {e}")
             if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
                 self.chat_widget.chat_display.web_view.page().runJavaScript(
                     "showToast('복사에 실패했습니다.');"
@@ -1105,9 +1108,9 @@ class LinkHandler(QObject):
                 clipboard.setMimeData(mime_data)
                 
                 # 즉시 토스트 메시지 표시
-                print(f"[DEBUG HTML] chat_widget 존재: {hasattr(self, 'chat_widget')}")
+                logger.debug(f"DEBUG HTML] chat_widget 존재: {hasattr(self, 'chat_widget')}")
                 if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
-                    print(f"[DEBUG HTML] JavaScript 실행 시도")
+                    logger.debug(f"DEBUG HTML] JavaScript 실행 시도")
                     # 직접 토스트 생성 (showToast 함수 의존성 제거)
                     toast_js = """
                     try {
@@ -1120,16 +1123,16 @@ class LinkHandler(QObject):
                     """
                     self.chat_widget.chat_display.web_view.page().runJavaScript(toast_js)
                 else:
-                    print(f"[DEBUG HTML] chat_widget 또는 chat_display 없음")
-                print(f"[COPY_HTML] HTML 클립보드 복사 시도: {len(html)}자")
+                    logger.debug(f"DEBUG HTML] chat_widget 또는 chat_display 없음")
+                logger.debug(f"COPY_HTML] HTML 클립보드 복사 시도: {len(html)}자")
             else:
-                print(f"[COPY_HTML] QApplication 인스턴스 없음")
+                logger.debug(f"COPY_HTML] QApplication 인스턴스 없음")
                 if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
                     self.chat_widget.chat_display.web_view.page().runJavaScript(
                         "showToast('HTML 복사에 실패했습니다.');"
                     )
         except Exception as e:
-            print(f"[COPY_HTML] HTML 클립보드 복사 오류: {e}")
+            logger.debug(f"COPY_HTML] HTML 클립보드 복사 오류: {e}")
             if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
                 self.chat_widget.chat_display.web_view.page().runJavaScript(
                     "showToast('HTML 복사에 실패했습니다.');"
@@ -1146,17 +1149,17 @@ class LinkHandler(QObject):
             encoded_word = urllib.parse.quote(word)
             url = f"https://www.google.com/search?q={encoded_word}+meaning"
             
-            print(f"[사전검색] 단어: {word}, URL: {url}")
+            logger.debug(f"사전검색] 단어: {word}, URL: {url}")
             QDesktopServices.openUrl(QUrl(url))
             
         except Exception as e:
-            print(f"[사전검색] 오류: {e}")
+            logger.debug(f"사전검색] 오류: {e}")
     
     @pyqtSlot(str)
     def deleteMessage(self, message_id):
         """메시지 삭제"""
         try:
-            print(f"[DELETE] 삭제 요청: {message_id}")
+            logger.debug(f"DELETE] 삭제 요청: {message_id}")
 
             # 먼저 DOM에서 제거 (즉시 시각적 피드백)
             if (
@@ -1167,17 +1170,17 @@ class LinkHandler(QObject):
                 self.chat_widget.chat_display.web_view.page().runJavaScript(
                     f"removeMessageFromDOM('{message_id}')"
                 )
-                print(f"[DELETE] DOM에서 제거 완료: {message_id}")
+                logger.debug(f"DELETE] DOM에서 제거 완료: {message_id}")
 
             # 데이터에서 삭제
             if self.chat_widget and hasattr(self.chat_widget, "delete_message"):
                 success = self.chat_widget.delete_message(message_id)
-                print(f"[DELETE] 데이터 삭제 결과: {success}")
+                logger.debug(f"DELETE] 데이터 삭제 결과: {success}")
             else:
-                print(f"[DELETE] delete_message 메소드 없음")
+                logger.debug(f"DELETE] delete_message 메소드 없음")
 
         except Exception as e:
-            print(f"[DELETE] 오류: {e}")
+            logger.debug(f"DELETE] 오류: {e}")
             import traceback
 
             traceback.print_exc()
@@ -1193,7 +1196,7 @@ class LinkHandler(QObject):
             executor.executeCode(code, language)
             
         except Exception as e:
-            print(f"[EXECUTE] 코드 실행 오류: {e}")
+            logger.debug(f"EXECUTE] 코드 실행 오류: {e}")
             self._show_execution_result("", f"실행 오류: {str(e)}")
     
     def _on_execution_finished(self, output, error):
@@ -1221,4 +1224,4 @@ class LinkHandler(QObject):
                         progressive=False
                     )
         except Exception as e:
-            print(f"[EXECUTE] 결과 표시 오류: {e}")
+            logger.debug(f"EXECUTE] 결과 표시 오류: {e}")

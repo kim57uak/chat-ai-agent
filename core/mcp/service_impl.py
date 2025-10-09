@@ -3,9 +3,9 @@
 from typing import Dict, Any, List
 from .interfaces import MCPService
 from mcp.client.mcp_client import mcp_manager
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("service_impl")
 
 
 class MCPServiceImpl(MCPService):

@@ -7,11 +7,11 @@ import sqlite3
 import json
 from typing import Dict, List, Optional, Any
 from pathlib import Path
-import logging
+from core.logging import get_logger
 
 from ..auth.auth_manager import AuthManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger("version_manager")
 
 
 class VersionManager:

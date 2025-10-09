@@ -4,11 +4,11 @@ Message Management Utilities
 """
 
 from typing import List, Dict, Optional
-import logging
+from core.logging import get_logger
 import re
 from .session_manager import session_manager
 
-logger = logging.getLogger(__name__)
+logger = get_logger("message_manager")
 
 
 class MessageManager:

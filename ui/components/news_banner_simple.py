@@ -3,7 +3,7 @@
 """
 
 import json
-import logging
+from core.logging import get_logger
 import threading
 from datetime import datetime
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
@@ -12,7 +12,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QUrl
 from PyQt6.QtGui import QDesktopServices
 from core.news.rss_parser import RSSParser
 
-logger = logging.getLogger(__name__)
+logger = get_logger("news_banner_simple")
 
 
 class NewsLoader(QObject):

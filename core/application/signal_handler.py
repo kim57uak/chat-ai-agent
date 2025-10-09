@@ -3,6 +3,9 @@
 import signal
 from typing import Callable
 from PyQt6.QtWidgets import QApplication
+from core.logging import get_logger
+
+logger = get_logger('app.signal')
 
 
 class SignalHandler:
@@ -23,5 +26,5 @@ class SignalHandler:
     
     def _handle_signal(self, signum: int, frame) -> None:
         """Handle received signals."""
-        print(f"Signal {signum} received, shutting down gracefully...")
+        logger.info(f"Signal {signum} received, shutting down gracefully")
         self._quit_callback()

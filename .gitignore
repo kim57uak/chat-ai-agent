@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 *.pyo
+*.bak
 .env
 config_local.json
 *.log

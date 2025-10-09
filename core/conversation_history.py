@@ -5,6 +5,9 @@ from datetime import datetime
 from typing import List, Dict
 from core.file_utils import load_config
 from utils.config_path import config_path_manager
+from core.logging import get_logger
+
+logger = get_logger('conversation.history')
 
 
 class ConversationHistory:
@@ -206,7 +209,7 @@ class ConversationHistory:
             self.current_session = valid_messages[-self.max_history_length:]
             
         except Exception as e:
-            print(f"History load failed: {e}")
+            logger.error(f"History load failed: {e}", exc_info=True)
             self.current_session = []
     
     def _clean_excessive_separators(self, content: str) -> str:
@@ -284,7 +287,7 @@ class ConversationHistory:
                 return True
             return False
         except Exception as e:
-            print(f"Message deletion failed: {e}")
+            logger.error(f"Message deletion failed: {e}", exc_info=True)
             return False
     
     def _clean_content_for_ai(self, content: str) -> str:

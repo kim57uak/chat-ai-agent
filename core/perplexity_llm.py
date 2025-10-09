@@ -1,9 +1,9 @@
 import requests
-import logging
+from core.logging import get_logger
 from typing import Optional, Dict, Any, List
 from abc import ABC, abstractmethod
 
-logger = logging.getLogger(__name__)
+logger = get_logger("perplexity_llm")
 
 
 class LLMInterface(ABC):
@@ -66,12 +66,18 @@ class PerplexityLLM(LLMInterface):
     
     def _build_payload(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """API 요청 페이로드 구성"""
-        return {
+        payload = {
             "model": self.model_name,
             "messages": messages,
             "temperature": kwargs.get("temperature", self.DEFAULT_TEMPERATURE),
             "max_tokens": kwargs.get("max_tokens", self.DEFAULT_MAX_TOKENS)
         }
+        
+        # Perplexity는 top_p만 추가 지원
+        if "top_p" in kwargs:
+            payload["top_p"] = kwargs["top_p"]
+        
+        return payload
     
     def _make_request(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """HTTP 요청 실행"""

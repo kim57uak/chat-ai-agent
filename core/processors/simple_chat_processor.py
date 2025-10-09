@@ -4,9 +4,9 @@ from core.enhanced_system_prompts import SystemPrompts
 from core.processors.message_converter import StandardMessageConverter
 from core.processors.image_processor import StandardImageProcessor
 from core.file_utils import load_config
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("simple_chat_processor")
 
 
 class SimpleChatProcessor:

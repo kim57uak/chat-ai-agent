@@ -2,9 +2,9 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
-import logging
+from core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("message_converter")
 
 
 class MessageConverter(ABC):

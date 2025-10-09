@@ -6,11 +6,28 @@ from langchain_perplexity import ChatPerplexity
 from core.perplexity_wrapper import PerplexityWrapper
 from core.llm.claude.claude_wrapper import ClaudeWrapper
 from core.llm.claude.claude_api_wrapper import ClaudeAPIWrapper
-from core.file_utils import load_config
-import logging
+from core.file_utils import load_config, load_prompt_config
+from core.logging import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger("llm_factory")
+
+
+def _get_ai_parameters():
+    """AI 파라미터 설정 로드"""
+    prompt_config = load_prompt_config()
+    ai_params = prompt_config.get('ai_parameters', {})
+    response_settings = prompt_config.get('response_settings', {})
+    
+    return {
+        'temperature': ai_params.get('temperature', 0.1),
+        'max_tokens': response_settings.get('max_tokens', 4096),
+        'top_p': ai_params.get('top_p', 0.9),
+        'top_k': ai_params.get('top_k', 40),
+        'frequency_penalty': ai_params.get('frequency_penalty', 0.0),
+        'presence_penalty': ai_params.get('presence_penalty', 0.0),
+        'stop_sequences': ai_params.get('stop_sequences', [])
+    }
 
 
 class LLMFactory(ABC):
@@ -26,56 +43,64 @@ class OpenAILLMFactory(LLMFactory):
     
     def create_llm(self, api_key: str, model_name: str, streaming: bool = False) -> ChatOpenAI:
         config = load_config()
-        response_settings = config.get("response_settings", {})
-        max_tokens = response_settings.get("max_tokens", 4000)  # 대용량 응답 지원
+        params = _get_ai_parameters()
         
         # OpenRouter 모델인지 확인
         models = config.get('models', {})
         model_config = models.get(model_name, {})
         provider = model_config.get('provider')
         
+        # 공통 파라미터
+        common_params = {
+            'model': model_name,
+            'openai_api_key': api_key,
+            'temperature': params['temperature'],
+            'max_tokens': params['max_tokens'],
+            'top_p': params['top_p'],
+            'frequency_penalty': params['frequency_penalty'],
+            'presence_penalty': params['presence_penalty'],
+            'streaming': streaming,
+            'request_timeout': 120
+        }
+        
+        # stop_sequences 추가 (있는 경우에만)
+        if params['stop_sequences']:
+            common_params['stop'] = params['stop_sequences']
+        
         if provider == 'openrouter':
-            logger.info(f"OpenRouter LLM 생성 - model: {model_name}, streaming: {streaming}, max_tokens: {max_tokens}")
-            return ChatOpenAI(
-                model=model_name,
-                openai_api_key=api_key,
-                openai_api_base="https://openrouter.ai/api/v1",
-                temperature=0.1,
-                max_tokens=max_tokens,
-                streaming=streaming,
-                request_timeout=120
-            )
+            logger.info(f"OpenRouter LLM 생성 - model: {model_name}, temp: {params['temperature']}, max_tokens: {params['max_tokens']}")
+            common_params['openai_api_base'] = "https://openrouter.ai/api/v1"
+            return ChatOpenAI(**common_params)
         else:
-            logger.info(f"OpenAI LLM 생성 - streaming: {streaming}, max_tokens: {max_tokens}")
-            return ChatOpenAI(
-                model=model_name,
-                openai_api_key=api_key,
-                temperature=0.1,
-                max_tokens=max_tokens,
-                streaming=streaming,
-                request_timeout=120  # 대용량 응답을 위한 타임아웃 증가
-            )
+            logger.info(f"OpenAI LLM 생성 - temp: {params['temperature']}, max_tokens: {params['max_tokens']}")
+            return ChatOpenAI(**common_params)
 
 
 class GeminiLLMFactory(LLMFactory):
     """Gemini LLM 팩토리"""
     
     def create_llm(self, api_key: str, model_name: str, streaming: bool = False) -> ChatGoogleGenerativeAI:
-        config = load_config()
-        response_settings = config.get("response_settings", {})
-        max_tokens = response_settings.get("max_tokens", 4000)  # 대용량 응답 지원
+        params = _get_ai_parameters()
         
-        logger.info(f"Gemini LLM 생성 - streaming: {streaming}, max_tokens: {max_tokens}")
+        logger.info(f"Gemini LLM 생성 - temp: {params['temperature']}, max_tokens: {params['max_tokens']}, top_k: {params['top_k']}")
         
-        return ChatGoogleGenerativeAI(
-            model=model_name,
-            google_api_key=api_key,
-            temperature=0.1,
-            convert_system_message_to_human=True,
-            max_tokens=max_tokens,
-            streaming=streaming,
-            request_timeout=120  # 대용량 응답을 위한 타임아웃 증가
-        )
+        gemini_params = {
+            'model': model_name,
+            'google_api_key': api_key,
+            'temperature': params['temperature'],
+            'convert_system_message_to_human': True,
+            'max_tokens': params['max_tokens'],
+            'top_p': params['top_p'],
+            'top_k': params['top_k'],
+            'streaming': streaming,
+            'request_timeout': 120
+        }
+        
+        # stop_sequences 추가 (있는 경우에만)
+        if params['stop_sequences']:
+            gemini_params['stop'] = params['stop_sequences']
+        
+        return ChatGoogleGenerativeAI(**gemini_params)
 
 
 
@@ -83,17 +108,16 @@ class PerplexityLLMFactory(LLMFactory):
     """Perplexity LLM 팩토리"""
     
     def create_llm(self, api_key: str, model_name: str, streaming: bool = False) -> PerplexityWrapper:
-        config = load_config()
-        response_settings = config.get("response_settings", {})
-        max_tokens = response_settings.get("max_tokens", 4000)
+        params = _get_ai_parameters()
         
-        logger.info(f"Perplexity LLM 생성 - model: {model_name}, max_tokens: {max_tokens}")
+        logger.info(f"Perplexity LLM 생성 - model: {model_name}, temp: {params['temperature']}, max_tokens: {params['max_tokens']}")
         
         return PerplexityWrapper(
             model=model_name,
             pplx_api_key=api_key,
-            temperature=0.1,
-            max_tokens=max_tokens,
+            temperature=params['temperature'],
+            max_tokens=params['max_tokens'],
+            top_p=params['top_p'],
             streaming=streaming,
             request_timeout=120
         )
@@ -103,11 +127,9 @@ class ClaudeLLMFactory(LLMFactory):
     """Claude LLM 팩토리"""
     
     def create_llm(self, api_key: str, model_name: str, streaming: bool = False) -> ClaudeWrapper:
-        config = load_config()
-        response_settings = config.get("response_settings", {})
-        max_tokens = response_settings.get("max_tokens", 4000)
+        params = _get_ai_parameters()
         
-        logger.info(f"Claude LLM 생성 - model: {model_name}, max_tokens: {max_tokens}")
+        logger.info(f"Claude LLM 생성 - model: {model_name}, temp: {params['temperature']}, max_tokens: {params['max_tokens']}")
         
         # Claude 모델명을 Bedrock API 형식으로 변환
         bedrock_model_map = {
@@ -125,8 +147,9 @@ class ClaudeLLMFactory(LLMFactory):
         return ClaudeWrapper(
             model=bedrock_model,
             aws_access_key_id=api_key,
-            temperature=0.1,
-            max_tokens=max_tokens,
+            temperature=params['temperature'],
+            max_tokens=params['max_tokens'],
+            top_p=params['top_p'],
             streaming=streaming,
             request_timeout=120
         )

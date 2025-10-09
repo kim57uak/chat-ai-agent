@@ -2,11 +2,11 @@
 from abc import ABC, abstractmethod
 from langchain.schema import HumanMessage
 from ui.prompts import prompt_manager
-import logging
+from core.logging import get_logger
 import re
 import base64
 
-logger = logging.getLogger(__name__)
+logger = get_logger("image_processor")
 
 
 class ImageProcessor(ABC):

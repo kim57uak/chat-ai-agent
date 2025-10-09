@@ -1,13 +1,13 @@
 {
   "osm-mcp-server": false,
-  "hanatourApi": true,
+  "hanatourApi": false,
   "mysql": false,
   "bitbucket": false,
   "mcp-atlassian": false,
   "notionApi": false,
   "ppt": false,
   "excel-stdio": false,
-  "gmail": false,
+  "gmail": true,
   "json-mcp-server": false,
   "search-mcp-server": true,
   "github": false,
@@ -15,7 +15,8 @@
   "youtube_transcript": false,
   "wikipedia-mcp": false,
   "duckduckgo": false,
-  "sale-product-search": false,
+  "sale-product-search": true,
   "pollinations": false,
-  "taskmaster-ai": false
+  "taskmaster-ai": false,
+  "korea-stock-analyzer": false
 }

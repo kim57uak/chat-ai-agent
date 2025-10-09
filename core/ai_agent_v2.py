@@ -9,11 +9,13 @@ from mcp.servers.mcp import get_all_mcp_tools
 from mcp.tools.tool_manager import tool_manager
 from core.logging import get_logger
 
-logger = get_logger("ai_agent_v2")
+_logger = get_logger("ai_agent_v2")
 
 
 class AIAgentV2:
     """리팩토링된 AI 에이전트 - SOLID 원칙 적용"""
+    
+    logger = _logger
     
     def __init__(self, api_key: str, model_name: str = "gpt-3.5-turbo"):
         self.api_key = api_key
@@ -44,12 +46,12 @@ class AIAgentV2:
             if all_mcp_tools:
                 self.tools = tool_registry.register_mcp_tools(all_mcp_tools)
                 tool_manager.register_tools(all_mcp_tools)
-                logger.info(f"AI 에이전트에 {len(self.tools)}개 도구 로드됨")
+                self.logger.info(f"AI 에이전트에 {len(self.tools)}개 도구 로드됨")
             else:
-                logger.warning("사용 가능한 MCP 도구가 없습니다")
+                self.logger.warning("사용 가능한 MCP 도구가 없습니다")
                 
         except Exception as e:
-            logger.error(f"MCP 도구 로드 실패: {e}")
+            self.logger.error(f"MCP 도구 로드 실패: {e}")
             self.tools = []
     
     def process_message(self, user_input: str) -> Tuple[str, List]:
@@ -79,7 +81,7 @@ class AIAgentV2:
             return response, used_tools
             
         except Exception as e:
-            logger.error(f"메시지 처리 오류: {e}")
+            self.logger.error(f"메시지 처리 오류: {e}")
             error_response = f"메시지 처리 중 오류가 발생했습니다: {str(e)[:100]}..."
             
             # 오류 시에도 대화 토큰 트래킹 종료
@@ -101,7 +103,7 @@ class AIAgentV2:
                 return self._process_simple(user_input, conversation_history)
                 
         except Exception as e:
-            logger.error(f"히스토리 포함 메시지 처리 오류: {e}")
+            self.logger.error(f"히스토리 포함 메시지 처리 오류: {e}")
             return f"메시지 처리 중 오류가 발생했습니다: {str(e)[:100]}...", []
     
     def simple_chat(self, user_input: str) -> str:
@@ -117,7 +119,7 @@ class AIAgentV2:
     def _should_use_tools(self, user_input: str) -> bool:
         """도구 사용 여부 결정"""
         if not self.tools:
-            logger.info(f"도구가 없어서 도구 사용 안함: {len(self.tools)}개")
+            self.logger.info(f"도구가 없어서 도구 사용 안함: {len(self.tools)}개")
             return False
         
         # 도구 정보를 전략에 전달
@@ -128,7 +130,7 @@ class AIAgentV2:
         
         # 모델별 전략에 위임
         result = self.model_strategy.should_use_tools(user_input)
-        logger.info(f"도구 사용 판단: '{user_input}' -> {result} (도구 {len(self.tools)}개 사용 가능)")
+        self.logger.info(f"도구 사용 판단: '{user_input}' -> {result} (도구 {len(self.tools)}개 사용 가능)")
         return result
     
     def _process_with_tools(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:

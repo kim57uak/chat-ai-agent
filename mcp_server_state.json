@@ -1,6 +1,6 @@
 {
   "osm-mcp-server": false,
-  "hanatourApi": false,
+  "hanatourApi": true,
   "mysql": false,
   "bitbucket": false,
   "mcp-atlassian": false,
@@ -17,5 +17,6 @@
   "duckduckgo": false,
   "sale-product-search": false,
   "pollinations": false,
-  "taskmaster-ai": false
+  "taskmaster-ai": false,
+  "korea-stock-analyzer": true
 }

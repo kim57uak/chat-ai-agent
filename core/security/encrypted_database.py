@@ -83,12 +83,12 @@ class EncryptedDatabase:
             """
             )
 
-            # 세션 테이블 (암호화 버전 추가)
+            # 세션 테이블 (title은 평문, 나머지는 암호화)
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title BLOB,
+                    title TEXT,
                     topic_category BLOB,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -184,10 +184,9 @@ class EncryptedDatabase:
     def create_session(
         self, title: str, topic_category: str = None, model_used: str = None
     ) -> int:
-        """새 세션 생성"""
+        """새 세션 생성 (title은 평문 저장)"""
         with sqlite3.connect(self.db_path) as conn:
-            # 데이터 암호화
-            title_encrypted = self._encrypt_data(title)
+            # title은 평문, 나머지는 암호화
             topic_category_encrypted = (
                 self._encrypt_data(topic_category) if topic_category else None
             )
@@ -203,7 +202,7 @@ class EncryptedDatabase:
                 ) VALUES (?, ?, ?, ?)
             """,
                 (
-                    title_encrypted,
+                    title,
                     topic_category_encrypted,
                     model_used_encrypted,
                     self.CURRENT_ENCRYPTION_VERSION,
@@ -231,11 +230,11 @@ class EncryptedDatabase:
             if not row:
                 return None
 
-            # 데이터 복호화
+            # 데이터 복호화 (title은 평문)
             try:
                 return {
                     "id": row["id"],
-                    "title": self._decrypt_data(row["title"]) if row["title"] else "",
+                    "title": row["title"] if row["title"] else "",
                     "topic_category": (
                         self._decrypt_data(row["topic_category"])
                         if row["topic_category"]
@@ -276,9 +275,7 @@ class EncryptedDatabase:
                 try:
                     session = {
                         "id": row["id"],
-                        "title": (
-                            self._decrypt_data(row["title"]) if row["title"] else ""
-                        ),
+                        "title": row["title"] if row["title"] else "",
                         "topic_category": (
                             self._decrypt_data(row["topic_category"])
                             if row["topic_category"]

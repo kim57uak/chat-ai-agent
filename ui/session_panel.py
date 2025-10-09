@@ -571,8 +571,12 @@ class SessionPanel(QWidget):
             else:
                 widget.set_selected(False)
         
-        # 세션 목록 새로고침 (순서 업데이트)
-        QTimer.singleShot(100, self.load_sessions)
+        # 검색 중이면 검색 결과 유지, 아니면 전체 목록 새로고침
+        search_query = self.search_edit.text().strip()
+        if search_query:
+            QTimer.singleShot(100, lambda: self.search_sessions(search_query))
+        else:
+            QTimer.singleShot(100, self.load_sessions)
         
         self.session_selected.emit(session_id)
         logger.info(f"세션 선택: {session_id}")

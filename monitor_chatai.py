@@ -25,6 +25,32 @@ def format_bytes(bytes_val):
         bytes_val /= 1024.0
     return f"{bytes_val:.1f}TB"
 
+def get_fd_count(pid):
+    """파일 디스크립터 개수 조회"""
+    try:
+        if sys.platform == 'darwin':  # macOS
+            import subprocess
+            result = subprocess.run(['lsof', '-p', str(pid)], 
+                                  capture_output=True, text=True, timeout=1)
+            return len(result.stdout.strip().split('\n')) - 1 if result.stdout else 0
+        elif sys.platform.startswith('linux'):
+            fd_dir = f"/proc/{pid}/fd"
+            import os
+            if os.path.exists(fd_dir):
+                return len(os.listdir(fd_dir))
+    except:
+        pass
+    return None
+
+def get_fd_limit():
+    """파일 디스크립터 제한 조회"""
+    try:
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        return soft
+    except:
+        return None
+
 def monitor_process(interval=2):
     """프로세스 모니터링 (메모리 누수 감지 포함)"""
     print("🔍 Chat AI Agent 프로세스 검색 중...")
@@ -36,8 +62,14 @@ def monitor_process(interval=2):
         return
     
     print(f"✅ 프로세스 발견: PID {proc.pid}")
+    
+    # 파일 디스크립터 제한 확인
+    fd_limit = get_fd_limit()
+    if fd_limit:
+        print(f"📁 파일 디스크립터 제한: {fd_limit}")
+    
     print(f"📊 모니터링 시작 (Ctrl+C로 종료)\n")
-    print("=" * 80)
+    print("=" * 100)
     
     # 메모리 누수 감지용 변수
     mem_history = []  # 실시간 표시용 (최근 30개)
@@ -124,12 +156,24 @@ def monitor_process(interval=2):
                 else:
                     leak_status = " ⏳ 분석중..."
                 
+                # 파일 디스크립터 모니터링
+                fd_count = get_fd_count(proc.pid)
+                fd_status = ""
+                if fd_count and fd_limit:
+                    fd_percent = (fd_count / fd_limit) * 100
+                    if fd_percent >= 80:
+                        fd_status = f" | 🔴FD: {fd_count}/{fd_limit} ({fd_percent:.0f}%)"
+                    elif fd_percent >= 60:
+                        fd_status = f" | 🟡FD: {fd_count}/{fd_limit} ({fd_percent:.0f}%)"
+                    else:
+                        fd_status = f" | FD: {fd_count}/{fd_limit}"
+                
                 # 출력
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 print(f"\r[{timestamp}] "
                       f"CPU: {total_cpu:5.1f}% | "
                       f"메모리: {format_bytes(total_mem):>8} ({total_mem_percent:4.1f}%) | "
-                      f"자식: {len(children):2d}개{leak_status}",
+                      f"자식: {len(children):2d}개{leak_status}{fd_status}",
                       end='', flush=True)
                 
                 iteration += 1
@@ -193,6 +237,10 @@ def show_summary():
     
     total_mem_percent = (total_mem / psutil.virtual_memory().total) * 100
     
+    # 파일 디스크립터 정보
+    fd_count = get_fd_count(proc.pid)
+    fd_limit = get_fd_limit()
+    
     print(f"\n📊 Chat AI Agent 상태 요약")
     print("=" * 60)
     print(f"PID:           {proc.pid}")
@@ -202,6 +250,11 @@ def show_summary():
     print(f"메모리 (메인): {format_bytes(proc.memory_info().rss)}")
     print(f"자식 프로세스: {len(children)}개")
     
+    if fd_count and fd_limit:
+        fd_percent = (fd_count / fd_limit) * 100
+        status_icon = "🔴" if fd_percent >= 80 else "🟡" if fd_percent >= 60 else "✅"
+        print(f"파일 디스크립터: {status_icon} {fd_count}/{fd_limit} ({fd_percent:.1f}%)")
+    
     if children:
         print("\n자식 프로세스 목록:")
         for child in children[:10]:  # 최대 10개만 표시
@@ -210,6 +263,16 @@ def show_summary():
                 print(f"  - PID {child.pid}: {child.name()} ({format_bytes(child_mem)})")
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
+    
+    # 파일 디스크립터 경고
+    if fd_count and fd_limit:
+        fd_percent = (fd_count / fd_limit) * 100
+        if fd_percent >= 80:
+            print("\n⚠️  경고: 파일 디스크립터 사용량이 80%를 초과했습니다!")
+            print("   → 로거 핸들러 중복 또는 파일 누수 가능성")
+        elif fd_percent >= 60:
+            print("\n📊 주의: 파일 디스크립터 사용량이 높습니다.")
+    
     print("=" * 60)
 
 if __name__ == "__main__":

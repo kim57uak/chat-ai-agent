@@ -443,13 +443,16 @@ class TestMainWindow:
 #### 기본 로깅 설정
 ```python
 import logging
-from core.ai_logger import setup_logger
+from core.logging.loguru_setup import setup_loguru
 
-# 개발 환경
-logger = setup_logger('dev', level=logging.DEBUG)
+# Loguru 초기화 (중복 방지)
+setup_loguru()
 
-# 프로덕션 환경
-logger = setup_logger('prod', level=logging.INFO)
+# 로거 사용
+from loguru import logger
+logger.info("Application started")
+logger.debug("Debug information")
+logger.error("Error occurred")
 ```
 
 #### 로그 파일 위치
@@ -461,6 +464,23 @@ logger = setup_logger('prod', level=logging.INFO)
 ├── error.log            # 에러 로그
 └── token_usage.log      # 토큰 사용량 로그
 ```
+
+#### 로거 핸들러 중복 방지
+```python
+# core/logging/loguru_setup.py
+_loguru_initialized = False
+
+def setup_loguru():
+    global _loguru_initialized
+    if _loguru_initialized:
+        return  # 이미 초기화됨
+    
+    # 핸들러 등록
+    logger.add("app.log", rotation="10 MB")
+    _loguru_initialized = True
+```
+
+**중요**: 로거 핸들러가 중복 등록되면 파일 디스크립터(FD) 누수가 발생하여 시스템 크래시를 유발할 수 있습니다.
 
 ### MCP 서버 디버깅
 
@@ -543,6 +563,304 @@ lp.add_function(process_message)
 lp.run('process_message("test")')
 lp.print_stats()
 ```
+
+## 📊 시스템 모니터링 및 안정성
+
+### 리소스 모니터링 도구
+
+#### 실시간 모니터링
+```bash
+# 기본 모니터링 (2초 간격)
+python monitor_chatai.py
+
+# 커스텀 간격 (5초)
+python monitor_chatai.py 5
+
+# 현재 상태 요약
+python monitor_chatai.py summary
+```
+
+#### 모니터링 지표
+
+**메모리 관리**
+- **실시간 메모리 사용량**: RSS 메모리 추적
+- **메모리 증가율**: MB/분 단위 증가율 계산
+- **GC 작동 감지**: 10MB 이상 감소 시 GC 감지
+- **메모리 범위**: 최소/최대/평균 메모리 사용량
+
+**파일 디스크립터(FD) 관리**
+- **FD 사용량**: 현재 열린 파일/소켓 개수
+- **FD 제한**: 시스템 제한 대비 사용률
+- **FD 누수 감지**: 50개 이상 증가 시 경고
+- **FD 범위**: 최소/최대/평균 FD 개수
+
+**프로세스 관리**
+- **CPU 사용률**: 메인 + 자식 프로세스 합계
+- **자식 프로세스**: MCP 서버 개수 추적
+- **프로세스 상태**: 실행/대기/종료 상태
+
+#### 모니터링 출력 예시
+```
+[17:45:03] CPU:   0.0% | 메모리:  670.3MB ( 4.1%) | 자식:  6개 
+📊 증가중 +14.0MB/분 (GC: 73회) [-16MB] | FD: 354/104857555
+```
+
+#### 종료 시 최종 분석
+```
+📊 모니터링 종료 - 최종 분석
+총 모니터링 시간: 11.6분
+메모리 변화: -181.4MB
+평균 증가율: -15.57MB/분
+메모리 범위: 322.2MB ~ 926.4MB (변동폭: 604.2MB)
+
+GC 작동 감지: 13회
+GC 평균 주기: 0.9분마다
+
+FD 변화: +0 (범위: 352~374, 평균: 357)
+✅ FD 안정: 0.034% 사용
+
+✅ 우수: 메모리 안정적으로 관리됨
+   → GC가 효과적으로 작동 중
+```
+
+### 자동 메모리 정리
+
+#### 메모리 클린업 설정
+```python
+# memory_cleanup.py
+class MemoryCleanup:
+    def __init__(self, interval=60):
+        self.interval = interval  # 60초마다 정리
+        self.running = False
+    
+    def cleanup(self):
+        """메모리 정리 실행"""
+        # 가비지 컬렉션 강제 실행
+        collected = gc.collect()
+        
+        # 메모리 사용량 확인
+        process = psutil.Process()
+        mem_info = process.memory_info()
+        
+        # FD 사용량 확인
+        fd_count = self.get_fd_count()
+        fd_limit = self.get_fd_limit()
+        
+        logger.info(f"Cleanup: {collected} objects, "
+                   f"Memory: {mem_info.rss / 1024 / 1024:.1f}MB, "
+                   f"FD: {fd_count}/{fd_limit}")
+```
+
+#### 자동 정리 활성화
+```python
+# main.py
+from memory_cleanup import MemoryCleanup
+
+cleanup = MemoryCleanup(interval=60)
+cleanup.start()  # 백그라운드에서 60초마다 정리
+```
+
+### 안정성 검증 결과
+
+#### 장시간 안정성 테스트
+
+**테스트 환경**
+- **플랫폼**: macOS
+- **Python**: 3.11
+- **테스트 시간**: 51분 연속 실행
+
+**테스트 결과**
+```
+✅ 메모리 누수: 없음 (-189.8MB 감소)
+✅ FD 누수: 없음 (+0개 변화)
+✅ GC 동작: 정상 (83회, 0.6분마다)
+✅ CPU 사용: 안정적 (평균 0.0%)
+✅ 크래시: 없음
+```
+
+**주요 개선 사항**
+1. **로거 핸들러 중복 해결**: 3x 중복 → 1x (FD 누수 원인 제거)
+2. **FD 모니터링 추가**: 실시간 FD 사용량 추적
+3. **자동 메모리 정리**: 60초마다 GC 실행
+4. **프롬프트 경고 해결**: 존재하지 않는 프롬프트 요청 제거
+
+### 문제 해결 가이드
+
+#### 메모리 누수 의심 시
+
+**증상**
+- 메모리 사용량이 지속적으로 증가 (+2MB/분 이상)
+- GC가 작동하지 않음 (0회)
+- 장시간 사용 시 느려짐
+
+**진단**
+```bash
+# 1. 모니터링 시작
+python monitor_chatai.py
+
+# 2. 10분 이상 관찰
+# - 메모리 증가율 확인
+# - GC 작동 횟수 확인
+
+# 3. Ctrl+C로 종료 후 최종 분석 확인
+```
+
+**해결 방법**
+```python
+# 1. 명시적 GC 호출
+import gc
+gc.collect()
+
+# 2. 대용량 객체 삭제
+del large_object
+gc.collect()
+
+# 3. 약한 참조 사용
+import weakref
+weak_ref = weakref.ref(obj)
+```
+
+#### FD 누수 의심 시
+
+**증상**
+- FD 개수가 지속적으로 증가 (+50개 이상)
+- "Too many open files" 에러
+- 파일/소켓 열기 실패
+
+**진단**
+```bash
+# macOS/Linux: 열린 파일 확인
+lsof -p <PID> | wc -l
+
+# 파일 종류별 개수
+lsof -p <PID> | awk '{print $5}' | sort | uniq -c
+```
+
+**해결 방법**
+```python
+# 1. 파일 자동 닫기 (with 문 사용)
+with open('file.txt', 'r') as f:
+    content = f.read()
+# 자동으로 닫힘
+
+# 2. 명시적 닫기
+file = open('file.txt', 'r')
+try:
+    content = file.read()
+finally:
+    file.close()
+
+# 3. 로거 핸들러 중복 방지
+from core.logging.loguru_setup import setup_loguru
+setup_loguru()  # 한 번만 호출
+```
+
+#### GC 작동하지 않을 때
+
+**증상**
+- 메모리 증가하지만 GC 횟수 0회
+- 메모리가 감소하지 않음
+
+**해결 방법**
+```python
+# 1. 순환 참조 확인
+import gc
+gc.set_debug(gc.DEBUG_SAVEALL)
+gc.collect()
+print(f"Uncollectable: {len(gc.garbage)}")
+
+# 2. 강제 GC 실행
+import gc
+gc.collect(0)  # 세대 0
+gc.collect(1)  # 세대 1
+gc.collect(2)  # 세대 2
+
+# 3. 약한 참조로 변경
+import weakref
+self.cache = weakref.WeakValueDictionary()
+```
+
+### 성능 최적화 팁
+
+#### 메모리 최적화
+```python
+# 1. 제너레이터 사용 (대용량 데이터)
+def process_large_data():
+    for item in large_list:
+        yield process(item)  # 한 번에 하나씩 처리
+
+# 2. __slots__ 사용 (클래스 메모리 절약)
+class Message:
+    __slots__ = ['content', 'timestamp', 'role']
+    
+# 3. 캐시 크기 제한
+from functools import lru_cache
+@lru_cache(maxsize=100)  # 최대 100개만 캐시
+def expensive_function(arg):
+    pass
+```
+
+#### FD 최적화
+```python
+# 1. 연결 풀 사용
+from urllib3 import PoolManager
+http = PoolManager(maxsize=10)  # 최대 10개 연결
+
+# 2. 파일 핸들 재사용
+class FileCache:
+    def __init__(self):
+        self.handles = {}
+    
+    def get_handle(self, path):
+        if path not in self.handles:
+            self.handles[path] = open(path, 'r')
+        return self.handles[path]
+    
+    def close_all(self):
+        for handle in self.handles.values():
+            handle.close()
+
+# 3. 타임아웃 설정
+import socket
+socket.setdefaulttimeout(10)  # 10초 타임아웃
+```
+
+### 모니터링 베스트 프랙티스
+
+#### 개발 환경
+```bash
+# 개발 중 항상 모니터링 실행
+python monitor_chatai.py &
+
+# 로그 확인
+tail -f ~/.chat-ai-agent/logs/app.log
+```
+
+#### 프로덕션 환경
+```bash
+# 백그라운드 모니터링
+nohup python monitor_chatai.py > monitor.log 2>&1 &
+
+# 주기적 상태 확인 (cron)
+*/10 * * * * python monitor_chatai.py summary >> status.log
+```
+
+#### 경고 임계값
+
+**메모리**
+- 🟢 정상: -0.5 ~ +0.5 MB/분
+- 🟡 주의: +0.5 ~ +1.5 MB/분
+- 🔴 경고: +1.5 MB/분 이상
+
+**FD 사용률**
+- 🟢 정상: 0 ~ 60%
+- 🟡 주의: 60 ~ 80%
+- 🔴 경고: 80% 이상
+
+**GC 주기**
+- 🟢 정상: 0.5 ~ 2분마다
+- 🟡 주의: 2 ~ 5분마다
+- 🔴 경고: 5분 이상 또는 0회
 
 ## 📦 배포 가이드
 

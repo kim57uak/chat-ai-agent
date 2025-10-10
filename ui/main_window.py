@@ -276,7 +276,10 @@ class MainWindow(QMainWindow):
     def _initialize_mcp(self) -> None:
         """Initialize MCP servers."""
         # MCP 서버 시작 지연 시간을 약간 늘림
-        QTimer.singleShot(200, self._init_mcp_servers)
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(self._init_mcp_servers)
+        timer.start(200)
 
     def _init_mcp_servers(self) -> None:
         """MCP 서버 상태 파일을 읽어서 활성화된 서버만 시작"""
@@ -437,7 +440,10 @@ class MainWindow(QMainWindow):
                 logger.debug("채팅 위젯 테마 업데이트 시작")
                 self.chat_widget.update_theme()
                 # 추가 지연 업데이트
-                QTimer.singleShot(200, lambda: self.chat_widget.update_theme())
+                chat_theme_timer = QTimer(self)
+                chat_theme_timer.setSingleShot(True)
+                chat_theme_timer.timeout.connect(lambda: self.chat_widget.update_theme())
+                chat_theme_timer.start(200)
                 logger.debug("채팅 위젯 테마 업데이트 완료")
             
             # 세션 패널 테마 업데이트
@@ -460,7 +466,10 @@ class MainWindow(QMainWindow):
             self.update()
             
             # 지연 시간을 두고 추가 업데이트
-            QTimer.singleShot(100, self._delayed_theme_update)
+            theme_timer = QTimer(self)
+            theme_timer.setSingleShot(True)
+            theme_timer.timeout.connect(self._delayed_theme_update)
+            theme_timer.start(100)
             
         except Exception as e:
             logger.debug(f"테마 변경 오류: {e}")
@@ -821,11 +830,21 @@ class MainWindow(QMainWindow):
                 self.chat_widget.chat_display.clear_messages()
             
             # 안전한 세션 로드 (타이머로 지연 실행)
-            QTimer.singleShot(100, lambda: self._safe_load_session(session_id))
+            load_timer = QTimer(self)
+            load_timer.setSingleShot(True)
+            load_timer.timeout.connect(lambda: self._safe_load_session(session_id))
+            load_timer.start(100)
             
             # 세션 로드 후 하단 스크롤 보장
-            QTimer.singleShot(1500, self._ensure_scroll_to_bottom)
-            QTimer.singleShot(2500, self._ensure_scroll_to_bottom)
+            scroll_timer1 = QTimer(self)
+            scroll_timer1.setSingleShot(True)
+            scroll_timer1.timeout.connect(self._ensure_scroll_to_bottom)
+            scroll_timer1.start(1500)
+            
+            scroll_timer2 = QTimer(self)
+            scroll_timer2.setSingleShot(True)
+            scroll_timer2.timeout.connect(self._ensure_scroll_to_bottom)
+            scroll_timer2.start(2500)
             
             logger.debug(f"[SESSION_SELECT] 세션 로드 시작: {session['title']}")
             
@@ -846,8 +865,15 @@ class MainWindow(QMainWindow):
             logger.debug(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 완료")
             
             # 세션 로드 완료 후 하단 스크롤 강제 실행
-            QTimer.singleShot(500, self._ensure_scroll_to_bottom)
-            QTimer.singleShot(1000, self._ensure_scroll_to_bottom)
+            scroll_timer3 = QTimer(self)
+            scroll_timer3.setSingleShot(True)
+            scroll_timer3.timeout.connect(self._ensure_scroll_to_bottom)
+            scroll_timer3.start(500)
+            
+            scroll_timer4 = QTimer(self)
+            scroll_timer4.setSingleShot(True)
+            scroll_timer4.timeout.connect(self._ensure_scroll_to_bottom)
+            scroll_timer4.start(1000)
             
         except Exception as e:
             logger.debug(f"[SAFE_LOAD] 안전 로드 오류: {e}")
@@ -1022,8 +1048,9 @@ class MainWindow(QMainWindow):
     
     def _setup_session_timer(self):
         """세션 만료 타이머 설정"""
-        self.session_timer = QTimer()
-        self.session_timer.timeout.connect(self._check_session_expiry)
+        if not hasattr(self, 'session_timer'):
+            self.session_timer = QTimer(self)
+            self.session_timer.timeout.connect(self._check_session_expiry)
         self.session_timer.start(60000)  # 1분마다 체크
     
     def _check_session_expiry(self):

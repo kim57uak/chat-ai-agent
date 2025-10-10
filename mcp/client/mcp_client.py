@@ -129,13 +129,16 @@ class MCPClient:
                         
                     try:
                         response = json.loads(line)
-                        logger.debug(f"MCP 응답 수신: {response}")
+                        # 응답 요약만 로그
+                        if 'result' in response and 'tools' in response.get('result', {}):
+                            tool_count = len(response['result']['tools'])
+                            logger.debug(f"MCP 도구 목록: {tool_count}개")
                         
                         if "id" in response:
                             with self._lock:
                                 self.pending_requests[response["id"]] = response
                     except json.JSONDecodeError:
-                        logger.debug(f"Non-JSON output ignored: {line}")
+                        pass  # Non-JSON 출력 무시
                         
             except Exception as e:
                 logger.error(f"MCP 응답 처리 오류: {e}")
@@ -208,10 +211,7 @@ class MCPClient:
         
         if response and "result" in response:
             if "tools" in response["result"]:
-                # 캐시하지 않고 매번 새로 조회한 결과 반환
-                tools = response["result"]["tools"]
-                logger.debug(f"도구 {len(tools)}개 실시간 조회")
-                return tools
+                return response["result"]["tools"]
             else:
                 logger.info("서버가 도구를 제공하지 않음")
                 return []
@@ -265,11 +265,29 @@ class MCPClient:
         """MCP 클라이언트 종료"""
         if self.process:
             try:
+                # stdin 먼저 닫기
+                if self.process.stdin and not self.process.stdin.closed:
+                    self.process.stdin.close()
+                
+                # 프로세스 종료
                 self.process.terminate()
                 self.process.wait(timeout=5)
             except:
-                self.process.kill()
+                try:
+                    self.process.kill()
+                    self.process.wait(timeout=2)
+                except:
+                    pass
             finally:
+                # 파이프 정리
+                try:
+                    if self.process.stdout:
+                        self.process.stdout.close()
+                    if self.process.stderr:
+                        self.process.stderr.close()
+                except:
+                    pass
+                
                 self.process = None
                 self.initialized = False
 
@@ -339,17 +357,12 @@ class MCPManager:
         for name, client in clients_copy.items():
             if client and client.initialized and client.process and client.process.poll() is None:
                 try:
-                    # 항상 실시간으로 list_tools() 호출
                     tools = client.list_tools()
                     if tools:
-                        all_tools[name] = tools  # 복사본 불필요 - list_tools가 새 리스트 반환
-                        logger.debug(f"서버 '{name}': {len(tools)}개 도구 실시간 조회")
-                    else:
-                        logger.debug(f"서버 '{name}': 도구 없음")
+                        all_tools[name] = tools
                 except Exception as e:
                     logger.error(f"서버 '{name}' 도구 목록 조회 오류: {e}")
         
-        logger.debug(f"총 {len(all_tools)}개 서버에서 도구 조회 완료")
         return all_tools
     
     def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
@@ -363,9 +376,16 @@ class MCPManager:
     
     def close_all(self):
         """모든 MCP 클라이언트 종료"""
+        import time
         for client in self.clients.values():
-            client.close()
+            try:
+                client.close()
+            except Exception as e:
+                logger.error(f"클라이언트 종료 오류: {e}")
+        
         self.clients.clear()
+        # 모든 프로세스가 완전히 종료될 때까지 대기
+        time.sleep(0.5)
     
     def get_server_status(self) -> Dict[str, Dict[str, Any]]:
         """모든 서버의 상태 정보 반환 - 실시간 도구 목록 조회"""
@@ -393,14 +413,11 @@ class MCPManager:
             
             if client and client.initialized and client.process and client.process.poll() is None:
                 try:
-                    # 실시간으로 도구 목록 조회 (캐시 사용 안 함)
                     tools = client.list_tools()
                     if tools:
                         server_type = "tools_provider"
-                        logger.debug(f"서버 '{name}' 도구 {len(tools)}개 조회됨")
                     else:
                         server_type = "no_tools"
-                        logger.debug(f"서버 '{name}' 도구 없음")
                 except Exception as e:
                     logger.warning(f"서버 '{name}' 도구 목록 조회 실패: {e}")
                     server_type = "error"

@@ -306,7 +306,7 @@ class SessionPanel(QWidget):
         self._auto_selection_done = False
         
         # 통계 자동 갱신 타이머 (60초마다)
-        self.stats_refresh_timer = QTimer()
+        self.stats_refresh_timer = QTimer(self)  # 부모 설정
         self.stats_refresh_timer.timeout.connect(self.update_stats)
         self.stats_refresh_timer.start(60000)
     
@@ -838,11 +838,30 @@ class SessionPanel(QWidget):
     
     def update_stats(self):
         """통계 정보 업데이트 - 비동기 처리"""
-        QTimer.singleShot(0, self._update_stats_async)
+        try:
+            # 위젯이 삭제되었는지 확인
+            if not hasattr(self, 'stats_label') or self.stats_label is None:
+                if hasattr(self, 'stats_refresh_timer'):
+                    self.stats_refresh_timer.stop()
+                return
+            QTimer.singleShot(0, self._update_stats_async)
+        except RuntimeError as e:
+            if "wrapped C/C++ object" in str(e):
+                logger.debug(f"통계 업데이트 중 객체 삭제됨: {e}")
+                if hasattr(self, 'stats_refresh_timer'):
+                    self.stats_refresh_timer.stop()
+            else:
+                raise
+        except Exception as e:
+            logger.debug(f"통계 업데이트 오류: {e}")
     
     def _update_stats_async(self):
         """비동기 통계 업데이트"""
         try:
+            # 위젯이 삭제되었는지 확인
+            if not hasattr(self, 'stats_label') or self.stats_label is None:
+                return
+            
             stats = session_manager.get_session_stats()
             self.stats_label.setText(
                 f"세션 {stats['total_sessions']}개 | "
@@ -850,9 +869,20 @@ class SessionPanel(QWidget):
                 f"{stats['db_size_mb']} MB | "
                 f"{stats['active_servers']}개"
             )
+        except RuntimeError as e:
+            if "wrapped C/C++ object" in str(e):
+                logger.debug(f"통계 업데이트 중 객체 삭제됨: {e}")
+                if hasattr(self, 'stats_refresh_timer'):
+                    self.stats_refresh_timer.stop()
+            else:
+                raise
         except Exception as e:
             logger.error(f"통계 업데이트 오류: {e}")
-            self.stats_label.setText("통계 로드 실패")
+            try:
+                if hasattr(self, 'stats_label') and self.stats_label is not None:
+                    self.stats_label.setText("통계 로드 실패")
+            except RuntimeError:
+                pass  # 이미 삭제됨
     
     def get_current_session_id(self) -> Optional[int]:
         """현재 선택된 세션 ID 반환"""
@@ -1428,7 +1458,7 @@ class SessionPanel(QWidget):
             main_window = self._find_main_window()
             if main_window and hasattr(main_window, '_change_theme'):
                 logger.debug(f"메인 윈도우에서 테마 변경 호출")
-                # QTimer를 사용해 즉시 실행
+                # QTimer.singleShot을 사용해 즉시 실행
                 QTimer.singleShot(0, lambda: main_window._change_theme(theme_key))
             else:
                 logger.debug("메인 윈도우를 찾을 수 없거나 _change_theme 메서드가 없음")
@@ -1697,6 +1727,23 @@ class SessionPanel(QWidget):
             widget = self.session_list.itemWidget(item)
             if hasattr(widget, 'apply_theme'):
                 widget.apply_theme()
+    
+    def closeEvent(self, event):
+        """패널 종료 시 타이머 정리"""
+        try:
+            if hasattr(self, 'stats_refresh_timer') and self.stats_refresh_timer is not None:
+                try:
+                    self.stats_refresh_timer.stop()
+                    self.stats_refresh_timer.timeout.disconnect()
+                    self.stats_refresh_timer.deleteLater()
+                    self.stats_refresh_timer = None
+                except RuntimeError:
+                    pass  # 이미 삭제됨
+            logger.debug("SessionPanel 종료 완료")
+        except Exception as e:
+            logger.debug(f"SessionPanel 종료 중 오류: {e}")
+        finally:
+            event.accept()
     
     def _remove_session_item(self, session_id: int):
         """안전하게 세션 아이템 제거"""

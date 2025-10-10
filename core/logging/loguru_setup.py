@@ -10,6 +10,9 @@ from loguru import logger
 # Remove default handler
 logger.remove()
 
+# Setup flag to prevent duplicate initialization
+_loguru_initialized = False
+
 # Detect if running in PyInstaller bundle
 def _is_frozen():
     """Check if running in PyInstaller bundle"""
@@ -17,6 +20,13 @@ def _is_frozen():
 
 def setup_loguru():
     """Setup loguru with optimized configuration"""
+    global _loguru_initialized
+    
+    # Prevent duplicate initialization
+    if _loguru_initialized:
+        return logger
+    
+    _loguru_initialized = True
     
     # Get log directory
     log_dir = _get_log_dir()

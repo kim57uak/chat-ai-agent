@@ -10,6 +10,7 @@ setup_logging()
 
 from core.application import SignalHandler, AppInitializer, AppRunner
 from ui.performance_optimizer import performance_optimizer
+from memory_cleanup import memory_cleanup
 
 
 def qt_message_handler(mode, context, message):
@@ -70,6 +71,9 @@ def main() -> int:
     
     # Apply performance optimizations
     performance_optimizer.optimize_application(app)
+    
+    # 메모리 자동 정리 시작
+    memory_cleanup.start_auto_cleanup()
 
     # Set application icon with error handling
     try:
@@ -101,4 +105,17 @@ def main() -> int:
 if __name__ == "__main__":
     # PyInstaller freeze 지원 (무한 실행 방지)
     multiprocessing.freeze_support()
-    sys.exit(main())
+    
+    # 멀티프로세싱 시작 방법 설정 (macOS 안정성)
+    if sys.platform == 'darwin':
+        multiprocessing.set_start_method('spawn', force=True)
+    
+    try:
+        sys.exit(main())
+    finally:
+        # 세마포어 리소스 정리
+        try:
+            from multiprocessing import resource_tracker
+            resource_tracker._resource_tracker._stop()
+        except:
+            pass

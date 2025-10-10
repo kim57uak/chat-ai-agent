@@ -33,21 +33,10 @@ class NewsLoader(QObject):
         if self.running:
             return
 
-        # 캐시된 뉴스가 있고 번역 강제가 아니면 캐시 사용
+        # 캐시된 뉴스가 있고 번역 강제가 아니면 캐시 사용 (번역 안 함)
         if self.cached_news and not force_translate:
-            logger.info(f"캐시된 뉴스 사용: {len(self.cached_news)}개")
-
-            # 캐시 내용 상세 로그
-            intl_cached = [n for n in self.cached_news if n.get("category") == "해외"]
-            logger.info(f"캐시된 해외 뉴스: {len(intl_cached)}개")
-            for i, item in enumerate(intl_cached):
-                original = item.get("title", "")[:20]
-                translated = item.get("translated_title", "")[:20]
-                logger.info(f"캐시 [{i}]: 원본='{original}...', 번역='{translated}...'")
-
+            logger.info(f"캐시된 뉴스 사용: {len(self.cached_news)}개 (번역 스킵)")
             self.news_ready.emit(self.cached_news)
-            # 백그라운드에서 번역 업데이트 시도
-            self._translate_cached_news_async()
             return
 
         def load_in_thread():
@@ -395,6 +384,7 @@ class NewsBanner(QWidget):
         super().__init__(parent)
         self.news_items = []
         self.current_index = 0
+        self._applying_theme = False  # 테마 적용 중 플래그
         self.news_loader = NewsLoader()
         self.news_loader.news_ready.connect(self.on_news_loaded)
         self.news_loader.translation_updated.connect(self.on_translation_updated)
@@ -547,11 +537,8 @@ class NewsBanner(QWidget):
         </html>
         """
         self.web_view.setHtml(html_template)
-        # 초기 테마 적용 - 즉시 적용 후 지연 적용
-        self.apply_theme()
-        QTimer.singleShot(200, self.apply_theme)
+        # 초기 테마 적용 - 웹뷰 로드 후 1번만
         QTimer.singleShot(500, self.apply_theme)
-        QTimer.singleShot(1000, self.apply_theme)  # 추가 적용
     
     def _setup_web_channel(self):
         """웹채널 설정 - 링크 클릭 처리"""
@@ -744,6 +731,10 @@ class NewsBanner(QWidget):
 
     def apply_theme(self):
         """테마 적용"""
+        if self._applying_theme:
+            return
+        
+        self._applying_theme = True
         try:
             from ui.styles.theme_manager import theme_manager
 
@@ -1025,7 +1016,22 @@ class NewsBanner(QWidget):
                 }
             """
             )
+        finally:
+            self._applying_theme = False
 
     def update_theme(self):
         """테마 업데이트"""
         self.apply_theme()
+    
+    def closeEvent(self, event):
+        """위젯 종료 시 리소스 정리"""
+        try:
+            if hasattr(self, 'timer') and self.timer:
+                self.timer.stop()
+                self.timer.deleteLater()
+            if hasattr(self, 'news_loader'):
+                self.news_loader.running = False
+        except:
+            pass
+        finally:
+            event.accept()

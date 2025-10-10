@@ -5,6 +5,7 @@ from ui.components.modern_progress_bar import ModernProgressBar
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut
+import weakref
 
 from core.file_utils import load_config, load_model_api_key, load_last_model
 from core.conversation_history import ConversationHistory
@@ -26,6 +27,42 @@ from ui.styles.theme_manager import theme_manager
 
 from datetime import datetime
 import os
+
+
+def safe_single_shot(delay, callback, widget=None):
+    """안전한 QTimer.singleShot 래퍼 - 위젯 삭제 시 크래시 방지"""
+    if widget is not None:
+        # weakref를 사용하여 위젯 참조
+        widget_ref = weakref.ref(widget)
+        
+        def safe_callback():
+            try:
+                w = widget_ref()
+                if w is not None:
+                    callback()
+            except RuntimeError as e:
+                if "wrapped C/C++ object" in str(e):
+                    pass  # 위젯이 삭제됨 - 무시
+                else:
+                    raise
+            except Exception as e:
+                logger.debug(f"safe_single_shot 콜백 오류: {e}")
+        
+        QTimer.singleShot(delay, safe_callback)
+    else:
+        # 위젯 없이 직접 호출
+        def safe_callback():
+            try:
+                callback()
+            except RuntimeError as e:
+                if "wrapped C/C++ object" in str(e):
+                    pass
+                else:
+                    raise
+            except Exception as e:
+                logger.debug(f"safe_single_shot 콜백 오류: {e}")
+        
+        QTimer.singleShot(delay, safe_callback)
 
 
 class ChatWidget(QWidget):
@@ -63,8 +100,8 @@ class ChatWidget(QWidget):
         self._load_previous_conversations()
         
         # 테마 적용 (지연 실행)
-        QTimer.singleShot(100, self._apply_initial_theme)
-        QTimer.singleShot(500, self._apply_theme_if_needed)
+        safe_single_shot(100, self._apply_initial_theme, self)
+        safe_single_shot(500, self._apply_theme_if_needed, self)
     
     def _setup_ui(self):
         """UI 구성 - 상단 정보 영역 삭제"""
@@ -255,7 +292,7 @@ class ChatWidget(QWidget):
         self.chat_display_view.loadFinished.connect(self._on_webview_loaded)
         
         # 웹뷰 로드 시간 초과 시 대비책
-        QTimer.singleShot(2000, self._ensure_welcome_message)
+        safe_single_shot(2000, self._ensure_welcome_message, self)
     
     def handle_input_key_press(self, event):
         """입력창 키 이벤트 처리"""
@@ -269,7 +306,7 @@ class ChatWidget(QWidget):
     
     def toggle_mode(self):
         """모드 토글"""
-        QTimer.singleShot(0, self._update_toggle_ui)
+        safe_single_shot(0, self._update_toggle_ui, self)
     
     def _update_toggle_ui(self):
         """토글 UI 업데이트"""
@@ -330,8 +367,8 @@ class ChatWidget(QWidget):
         self.input_text.clear()
         
         # 사용자 메시지 후 맨 하단으로 스크롤 - 더 긴 지연
-        QTimer.singleShot(200, self._scroll_to_bottom)
-        QTimer.singleShot(500, self._scroll_to_bottom)  # 추가 시도
+        safe_single_shot(200, self._scroll_to_bottom, self)
+        safe_single_shot(500, self._scroll_to_bottom, self)  # 추가 시도
         
         model = load_last_model()
         api_key = load_model_api_key(model)
@@ -359,7 +396,7 @@ class ChatWidget(QWidget):
         self.ui_manager.set_ui_enabled(False)
         self.ui_manager.show_loading(True)
         
-        QTimer.singleShot(0, lambda: self._prepare_and_send_request(api_key, model, user_text, file_prompt))
+        safe_single_shot(0, lambda: self._prepare_and_send_request(api_key, model, user_text, file_prompt), self)
     
     def _prepare_and_send_request(self, api_key, model, user_text, file_prompt=None):
         """요청 준비 및 전송 - 모든 모델에 하이브리드 히스토리 사용"""
@@ -399,7 +436,7 @@ class ChatWidget(QWidget):
                 logger.debug(f"AI 요청 준비 오류: {e}")
             except:
                 print(f"AI 요청 준비 오류: {e}")
-            QTimer.singleShot(0, lambda: self.on_ai_error(f"요청 준비 중 오류: {e}"))
+            safe_single_shot(0, lambda: self.on_ai_error(f"요청 준비 중 오류: {e}"), self)
     
     def upload_file(self):
         """파일 업로드"""
@@ -435,8 +472,8 @@ class ChatWidget(QWidget):
             self.chat_display.append_message('시스템', f'파일이 업로드되었습니다. 이제 파일에 대해 무엇을 알고 싶은지 메시지를 입력해주세요.')
             
             # 파일 업로드 후 맨 하단으로 스크롤
-            QTimer.singleShot(300, self._scroll_to_bottom)
-            QTimer.singleShot(700, self._scroll_to_bottom)
+            safe_single_shot(300, self._scroll_to_bottom, self)
+            safe_single_shot(700, self._scroll_to_bottom, self)
             self.input_text.setPlaceholderText(f"{filename}에 대해 무엇을 알고 싶으신가요? (Enter로 전송)")
             
         except Exception as e:
@@ -463,7 +500,7 @@ class ChatWidget(QWidget):
         self.chat_display.append_message('시스템', '요청을 취소했습니다.')
         
         # 취소 메시지 후 맨 하단으로 스크롤
-        QTimer.singleShot(300, self._scroll_to_bottom)
+        safe_single_shot(300, self._scroll_to_bottom, self)
         
         logger.debug("취소 요청 완료")
     
@@ -547,9 +584,9 @@ class ChatWidget(QWidget):
         self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
         
         # AI 응답 후 맨 하단으로 스크롤 - 더 적극적으로
-        QTimer.singleShot(300, self._scroll_to_bottom)
-        QTimer.singleShot(800, self._scroll_to_bottom)
-        QTimer.singleShot(1500, self._scroll_to_bottom)  # 최종 확인
+        safe_single_shot(300, self._scroll_to_bottom, self)
+        safe_single_shot(800, self._scroll_to_bottom, self)
+        safe_single_shot(1500, self._scroll_to_bottom, self)  # 최종 확인
         
         # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
         
@@ -589,7 +626,7 @@ class ChatWidget(QWidget):
         self.chat_display.append_message('시스템', enhanced_msg)
         
         # 오류 메시지 후 맨 하단으로 스크롤
-        QTimer.singleShot(300, self._scroll_to_bottom)
+        safe_single_shot(300, self._scroll_to_bottom, self)
         
         self.ui_manager.set_ui_enabled(True)
         self.ui_manager.show_loading(False)
@@ -630,10 +667,10 @@ class ChatWidget(QWidget):
     def _on_webview_loaded(self, ok):
         """웹뷰 로드 완료"""
         if ok:
-            QTimer.singleShot(500, self._load_previous_conversations)
+            safe_single_shot(500, self._load_previous_conversations, self)
         else:
             # 웹뷰 로드 실패 시에도 웰컴 메시지 표시
-            QTimer.singleShot(1000, self._show_welcome_message)
+            safe_single_shot(1000, self._show_welcome_message, self)
     
     # 상태 표시 업데이트 삭제 - 좌측 패널로 이동
     
@@ -805,9 +842,14 @@ class ChatWidget(QWidget):
                 self.ai_processor.cancel()
             
             # 스크롤 체크 타이머 정리
-            if hasattr(self, 'scroll_check_timer'):
-                self.scroll_check_timer.stop()
-                self.scroll_check_timer.deleteLater()
+            if hasattr(self, 'scroll_check_timer') and self.scroll_check_timer is not None:
+                try:
+                    self.scroll_check_timer.stop()
+                    self.scroll_check_timer.timeout.disconnect()
+                    self.scroll_check_timer.deleteLater()
+                    self.scroll_check_timer = None
+                except RuntimeError:
+                    pass  # 이미 삭제됨
             
             logger.debug("ChatWidget 종료 완료")
             
@@ -1138,7 +1180,7 @@ class ChatWidget(QWidget):
                 self.messages.append(msg)
             
             # 메시지 표시
-            QTimer.singleShot(100, lambda: self._display_session_messages(context_messages))
+            safe_single_shot(100, lambda: self._display_session_messages(context_messages), self)
             
             # 세션 로드 완료 메시지
             if context_messages:
@@ -1149,9 +1191,9 @@ class ChatWidget(QWidget):
                 self.chat_display.append_message('시스템', load_msg)
             
             # 맨 하단으로 스크롤 - 더 긴 지연 시간
-            QTimer.singleShot(600, self._scroll_to_bottom)
-            QTimer.singleShot(1200, self._scroll_to_bottom)
-            QTimer.singleShot(2000, self._scroll_to_bottom)  # 최종 확인
+            safe_single_shot(600, self._scroll_to_bottom, self)
+            safe_single_shot(1200, self._scroll_to_bottom, self)
+            safe_single_shot(2000, self._scroll_to_bottom, self)  # 최종 확인
             
             # 스크롤 이벤트 리스너 추가
             self._setup_scroll_listener()
@@ -1193,21 +1235,43 @@ class ChatWidget(QWidget):
     
     def _check_scroll_position(self):
         """스크롤 위치 체크"""
-        if not self.current_session_id or self.is_loading_more:
-            return
+        try:
+            if not self.current_session_id or self.is_loading_more:
+                return
             
-        # 웹뷰에서 스크롤 위치 확인
-        self.chat_display_view.page().runJavaScript(
-            "window.scrollY",
-            lambda scroll_y: self._handle_scroll_position(scroll_y)
-        )
+            # 위젯이 삭제되었는지 확인
+            if not hasattr(self, 'chat_display_view') or self.chat_display_view is None:
+                return
+                
+            # 웹뷰에서 스크롤 위치 확인
+            self.chat_display_view.page().runJavaScript(
+                "window.scrollY",
+                lambda scroll_y: self._handle_scroll_position(scroll_y)
+            )
+        except RuntimeError as e:
+            if "wrapped C/C++ object" in str(e):
+                logger.debug(f"스크롤 체크 중 객체 삭제됨: {e}")
+                if hasattr(self, 'scroll_check_timer'):
+                    self.scroll_check_timer.stop()
+            else:
+                raise
+        except Exception as e:
+            logger.debug(f"스크롤 위치 체크 오류: {e}")
     
     def _handle_scroll_position(self, scroll_y):
         """스크롤 위치 처리"""
-        # 스크롤이 맨 위에 있고 더 로드할 메시지가 있을 때
-        if scroll_y <= 50 and self.loaded_message_count < self.total_message_count:
-            logger.debug(f"[SCROLL_CHECK] 스크롤 맨 위 감지: {scroll_y}, 더 로드 시도")
-            self.load_more_messages()
+        try:
+            # 스크롤이 맨 위에 있고 더 로드할 메시지가 있을 때
+            if scroll_y <= 50 and self.loaded_message_count < self.total_message_count:
+                logger.debug(f"[SCROLL_CHECK] 스크롤 맨 위 감지: {scroll_y}, 더 로드 시도")
+                self.load_more_messages()
+        except RuntimeError as e:
+            if "wrapped C/C++ object" in str(e):
+                logger.debug(f"스크롤 처리 중 객체 삭제됨: {e}")
+            else:
+                raise
+        except Exception as e:
+            logger.debug(f"스크롤 위치 처리 오류: {e}")
     
     def _find_main_window(self):
         """메인 윈도우 찾기"""
@@ -1236,9 +1300,9 @@ class ChatWidget(QWidget):
             
             # prepend가 아닌 경우(일반 로드)에만 하단 스크롤
             if not prepend:
-                QTimer.singleShot(400, self._scroll_to_bottom)
-                QTimer.singleShot(1000, self._scroll_to_bottom)
-                QTimer.singleShot(1800, self._scroll_to_bottom)  # 최종 확인
+                safe_single_shot(400, self._scroll_to_bottom, self)
+                safe_single_shot(1000, self._scroll_to_bottom, self)
+                safe_single_shot(1800, self._scroll_to_bottom, self)  # 최종 확인
                 
         except Exception as e:
             logger.debug(f"[LOAD_SESSION] 메시지 표시 오류: {e}")
@@ -1576,51 +1640,58 @@ class ChatWidget(QWidget):
     
     def _setup_scroll_listener(self):
         """스크롤 이벤트 리스너 설정"""
-        # 웹뷰에 스크롤 이벤트 리스너 추가
-        self.chat_display_view.page().runJavaScript("""
-            if (!window.scrollListenerAdded) {
-                let isLoading = false;
-                
-                window.addEventListener('scroll', function() {
-                    // 스크롤이 맨 위에 도달했을 때
-                    if (window.scrollY <= 50 && !isLoading) {
-                        isLoading = true;
-                        console.log('스크롤 맨 위 도달 - 더 많은 메시지 로드 요청');
-                        
-                        // Python 측에 더 많은 메시지 로드 요청
-                        if (window.qt && window.qt.webChannelTransport) {
-                            // QWebChannel을 통한 통신
-                            window.qt.webChannelTransport.send(JSON.stringify({
-                                type: 'loadMoreMessages'
-                            }));
-                        } else {
-                            // 대안: 전역 함수 호출
-                            if (typeof loadMoreMessages === 'function') {
-                                loadMoreMessages();
+        try:
+            # 웹뷰에 스크롤 이벤트 리스너 추가
+            self.chat_display_view.page().runJavaScript("""
+                if (!window.scrollListenerAdded) {
+                    let isLoading = false;
+                    
+                    window.addEventListener('scroll', function() {
+                        // 스크롤이 맨 위에 도달했을 때
+                        if (window.scrollY <= 50 && !isLoading) {
+                            isLoading = true;
+                            console.log('스크롤 맨 위 도달 - 더 많은 메시지 로드 요청');
+                            
+                            // Python 측에 더 많은 메시지 로드 요청
+                            if (window.qt && window.qt.webChannelTransport) {
+                                // QWebChannel을 통한 통신
+                                window.qt.webChannelTransport.send(JSON.stringify({
+                                    type: 'loadMoreMessages'
+                                }));
+                            } else {
+                                // 대안: 전역 함수 호출
+                                if (typeof loadMoreMessages === 'function') {
+                                    loadMoreMessages();
+                                }
                             }
+                            
+                            // 로딩 상태 해제 (3초 후)
+                            setTimeout(() => {
+                                isLoading = false;
+                            }, 3000);
                         }
-                        
-                        // 로딩 상태 해제 (3초 후)
-                        setTimeout(() => {
-                            isLoading = false;
-                        }, 3000);
-                    }
-                });
-                
-                // 전역 함수로 Python에서 호출 가능하게 설정
-                window.loadMoreMessages = function() {
-                    console.log('loadMoreMessages 함수 호출됨');
-                };
-                
-                window.scrollListenerAdded = true;
-                console.log('스크롤 리스너 설정 완료');
-            }
-        """)
-        
-        # Python 측에서 스크롤 이벤트 처리를 위한 타이머 설정
-        self.scroll_check_timer = QTimer()
-        self.scroll_check_timer.timeout.connect(self._check_scroll_position)
-        self.scroll_check_timer.start(1000)  # 1초마다 체크
+                    });
+                    
+                    // 전역 함수로 Python에서 호출 가능하게 설정
+                    window.loadMoreMessages = function() {
+                        console.log('loadMoreMessages 함수 호출됨');
+                    };
+                    
+                    window.scrollListenerAdded = true;
+                    console.log('스크롤 리스너 설정 완료');
+                }
+            """)
+            
+            # Python 측에서 스크롤 이벤트 처리를 위한 타이머 설정
+            if hasattr(self, 'scroll_check_timer') and self.scroll_check_timer is not None:
+                self.scroll_check_timer.stop()
+                self.scroll_check_timer.deleteLater()
+            
+            self.scroll_check_timer = QTimer(self)  # 부모 설정
+            self.scroll_check_timer.timeout.connect(self._check_scroll_position)
+            self.scroll_check_timer.start(1000)  # 1초마다 체크
+        except Exception as e:
+            logger.debug(f"스크롤 리스너 설정 오류: {e}")
     
     def load_more_messages(self):
         """더 많은 메시지 로드"""

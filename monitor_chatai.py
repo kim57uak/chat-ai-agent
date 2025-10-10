@@ -82,6 +82,9 @@ def monitor_process(interval=2):
     gc_detected_count = 0
     last_significant_drop = 0
     
+    # FD 추적용
+    all_fd_samples = []  # FD 샘플 저장
+    
     start_time = time.time()
     
     try:
@@ -158,6 +161,9 @@ def monitor_process(interval=2):
                 
                 # 파일 디스크립터 모니터링
                 fd_count = get_fd_count(proc.pid)
+                if fd_count:
+                    all_fd_samples.append(fd_count)  # FD 샘플 저장
+                
                 fd_status = ""
                 if fd_count and fd_limit:
                     fd_percent = (fd_count / fd_limit) * 100
@@ -205,6 +211,26 @@ def monitor_process(interval=2):
             if gc_detected_count > 0:
                 gc_frequency = total_time / gc_detected_count if gc_detected_count > 0 else 0
                 print(f"GC 평균 주기: {gc_frequency:.1f}분마다")
+            
+            # FD 분석
+            if all_fd_samples:
+                fd_change = all_fd_samples[-1] - all_fd_samples[0]
+                min_fd = min(all_fd_samples)
+                max_fd = max(all_fd_samples)
+                avg_fd = sum(all_fd_samples) / len(all_fd_samples)
+                
+                print(f"\nFD 변화: {fd_change:+d} (범위: {min_fd}~{max_fd}, 평균: {avg_fd:.0f})")
+                
+                if fd_limit:
+                    fd_percent = (avg_fd / fd_limit) * 100
+                    if fd_change > 50:
+                        print(f"⚠️  FD 증가 감지: {fd_change}개 증가 - 파일/소켓 누수 가능성")
+                    elif fd_percent >= 80:
+                        print(f"🔴 FD 사용률 높음: {fd_percent:.1f}% - 즉시 확인 필요")
+                    elif fd_percent >= 60:
+                        print(f"🟡 FD 사용률 주의: {fd_percent:.1f}%")
+                    else:
+                        print(f"✅ FD 안정: {fd_percent:.3f}% 사용")
             
             # 최종 판단
             if gc_detected_count == 0:

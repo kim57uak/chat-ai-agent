@@ -59,36 +59,40 @@ class AIProcessor(QObject):
                 # 모드에 따른 시스템 프롬프트 선택
                 system_prompt = prompt_manager.get_system_prompt(provider, use_tools=agent_mode)
                 
-                # 모드별 프롬프트 구성 요소 로깅
+                # 모드별 프롬프트 구성 요소 로깅 (실제 존재하는 키만)
                 if agent_mode:
                     # Agent 모드 프롬프트 구성
                     prompt_components = [
                         ('system_base', prompt_manager.get_prompt('common', 'system_base')),
-                        ('tone_guidelines', prompt_manager.get_prompt('common', 'tone_guidelines')),
-                        ('tool_selection', prompt_manager.get_prompt('common', 'tool_selection')),
-                        ('schema_compliance', prompt_manager.get_prompt('common', 'schema_compliance')),
-                        ('table_formatting', prompt_manager.get_prompt('common', 'table_formatting')),
-                        ('error_handling', prompt_manager.get_prompt('common', 'error_handling')),
-                        ('response_format', prompt_manager.get_prompt('common', 'response_format')),
-                        ('markdown_standard', prompt_manager.get_prompt('common', 'markdown_standard')),
-                        ('readability_enhancement', prompt_manager.get_prompt('common', 'readability_enhancement')),
-                        ('code_block_strict', prompt_manager.get_prompt('common', 'code_block_strict')),
-                        ('mermaid_diagram_rule', prompt_manager.get_prompt('common', 'mermaid_diagram_rule')),
+                        ('context_awareness', prompt_manager.get_prompt('common', 'context_awareness')),
+                        ('response_tone', prompt_manager.get_prompt('common', 'response_tone')),
+                        ('emoji_usage', prompt_manager.get_prompt('common', 'emoji_usage')),
+                        ('tool_usage', prompt_manager.get_prompt('common', 'tool_usage')),
+                        ('formatting', prompt_manager.get_prompt('common', 'formatting')),
+                        ('code_rules', prompt_manager.get_prompt('common', 'code_rules')),
+                        ('mermaid_rules', prompt_manager.get_prompt('common', 'mermaid_rules')),
                         ('agent_base', prompt_manager.get_prompt('common', 'agent_base')),
                         ('react_format', prompt_manager.get_prompt('common', 'react_format')),
-                        ('json_output_format', prompt_manager.get_prompt('common', 'json_output_format')),
-                        ('common_agent_rules', prompt_manager.get_prompt('common', 'common_agent_rules')),
-                        ('model_enhancement', prompt_manager.get_custom_prompt(provider, 'system_enhancement') or '')
+                        ('json_format', prompt_manager.get_prompt('common', 'json_format')),
+                        ('execution_rules', prompt_manager.get_prompt('common', 'execution_rules')),
+                        # 모델별 특수 프롬프트
+                        ('model_enhancement', prompt_manager.get_custom_prompt(provider, 'system_enhancement') or ''),
+                        ('agent_system', prompt_manager.get_custom_prompt(provider, 'agent_system') or ''),
+                        ('react_template', prompt_manager.get_custom_prompt(provider, 'react_template') or ''),
+                        ('tool_decision', prompt_manager.get_custom_prompt(provider, 'tool_decision') or ''),
+                        ('image_generation', prompt_manager.get_custom_prompt(provider, 'image_generation') or '')
                     ]
                 else:
                     # Ask 모드 프롬프트 구성
                     prompt_components = [
                         ('system_base', prompt_manager.get_prompt('common', 'system_base')),
-                        ('tone_guidelines', prompt_manager.get_prompt('common', 'tone_guidelines')),
-                        ('table_formatting', prompt_manager.get_prompt('common', 'table_formatting')),
-                        ('markdown_standard', prompt_manager.get_prompt('common', 'markdown_standard')),
-                        ('readability_enhancement', prompt_manager.get_prompt('common', 'readability_enhancement')),
-                        ('mermaid_diagram_rule', prompt_manager.get_prompt('common', 'mermaid_diagram_rule')),
+                        ('context_awareness', prompt_manager.get_prompt('common', 'context_awareness')),
+                        ('response_tone', prompt_manager.get_prompt('common', 'response_tone')),
+                        ('emoji_usage', prompt_manager.get_prompt('common', 'emoji_usage')),
+                        ('formatting', prompt_manager.get_prompt('common', 'formatting')),
+                        ('mermaid_rules', prompt_manager.get_prompt('common', 'mermaid_rules')),
+                        ('ask_mode', prompt_manager.get_prompt('common', 'ask_mode')),
+                        # 모델별 특수 프롬프트
                         ('model_enhancement', prompt_manager.get_custom_prompt(provider, 'system_enhancement') or '')
                     ]
                 

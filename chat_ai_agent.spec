@@ -90,7 +90,7 @@ a = Analysis(
         'base64',
         'hashlib',
         
-        # Security & Encryption (hiddenimports에서 중복 제거)
+        # Security & Encryption
         'cryptography',
         'cryptography.fernet',
         'cryptography.hazmat',
@@ -104,7 +104,7 @@ a = Analysis(
         'cryptography.hazmat.backends.openssl.backend',
         '_cffi_backend',
         
-        # Logging
+        # Logging (collected via hook)
         'loguru',
         
         # Third-party

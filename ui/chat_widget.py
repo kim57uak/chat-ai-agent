@@ -32,37 +32,35 @@ import os
 def safe_single_shot(delay, callback, widget=None):
     """안전한 QTimer.singleShot 래퍼 - 위젯 삭제 시 크래시 방지"""
     if widget is not None:
-        # weakref를 사용하여 위젯 참조
         widget_ref = weakref.ref(widget)
         
         def safe_callback():
             try:
                 w = widget_ref()
-                if w is not None:
+                if w is not None and not getattr(w, '_is_closing', False):
                     callback()
-            except RuntimeError as e:
-                if "wrapped C/C++ object" in str(e):
-                    pass  # 위젯이 삭제됨 - 무시
-                else:
-                    raise
-            except Exception as e:
-                logger.debug(f"safe_single_shot 콜백 오류: {e}")
+            except (RuntimeError, AttributeError):
+                pass
+            except Exception:
+                pass
         
-        QTimer.singleShot(delay, safe_callback)
+        try:
+            QTimer.singleShot(delay, safe_callback)
+        except RuntimeError:
+            pass
     else:
-        # 위젯 없이 직접 호출
         def safe_callback():
             try:
                 callback()
-            except RuntimeError as e:
-                if "wrapped C/C++ object" in str(e):
-                    pass
-                else:
-                    raise
-            except Exception as e:
-                logger.debug(f"safe_single_shot 콜백 오류: {e}")
+            except (RuntimeError, AttributeError):
+                pass
+            except Exception:
+                pass
         
-        QTimer.singleShot(delay, safe_callback)
+        try:
+            QTimer.singleShot(delay, safe_callback)
+        except RuntimeError:
+            pass
 
 
 class ChatWidget(QWidget):
@@ -70,28 +68,26 @@ class ChatWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        # 하드코딩된 테마 제거 - 동적 테마 적용
+        self._is_closing = False
+        self._timers = []
+        
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(8, 8, 8, 8)
         self.layout.setSpacing(4)
         
-        # 대화 히스토리 관리
         self.conversation_history = ConversationHistory()
         self.conversation_history.load_from_file()
         
-        # 업로드된 파일 정보
         self.uploaded_file_content = None
         self.uploaded_file_name = None
         self.messages = []
         self.request_start_time = None
         
-        # 페이징 관련 변수
         self.current_session_id = None
         self.loaded_message_count = 0
         self.total_message_count = 0
         self.is_loading_more = False
         
-        # prompt_config.json에서 페이징 설정 로드
         self._load_pagination_settings()
         
         self._setup_ui()
@@ -99,7 +95,6 @@ class ChatWidget(QWidget):
         self._setup_connections()
         self._load_previous_conversations()
         
-        # 테마 적용 (지연 실행)
         safe_single_shot(100, self._apply_initial_theme, self)
         safe_single_shot(500, self._apply_theme_if_needed, self)
     
@@ -835,26 +830,36 @@ class ChatWidget(QWidget):
     
     def close(self):
         """위젯 종료"""
-        logger.debug("ChatWidget 종료 시작")
+        self._is_closing = True
         
         try:
             if hasattr(self, 'ai_processor'):
                 self.ai_processor.cancel()
             
-            # 스크롤 체크 타이머 정리
-            if hasattr(self, 'scroll_check_timer') and self.scroll_check_timer is not None:
+            # 모든 타이머 정리
+            for timer in getattr(self, '_timers', []):
                 try:
-                    self.scroll_check_timer.stop()
-                    self.scroll_check_timer.timeout.disconnect()
-                    self.scroll_check_timer.deleteLater()
-                    self.scroll_check_timer = None
+                    if timer and not timer.isNull():
+                        timer.stop()
+                        timer.timeout.disconnect()
+                        timer.deleteLater()
                 except RuntimeError:
-                    pass  # 이미 삭제됨
+                    pass
             
-            logger.debug("ChatWidget 종료 완료")
+            if hasattr(self, 'scroll_check_timer'):
+                try:
+                    if self.scroll_check_timer and not self.scroll_check_timer.isNull():
+                        self.scroll_check_timer.stop()
+                        self.scroll_check_timer.timeout.disconnect()
+                        self.scroll_check_timer.deleteLater()
+                        self.scroll_check_timer = None
+                except RuntimeError:
+                    pass
             
-        except Exception as e:
-            logger.debug(f"ChatWidget 종료 중 오류: {e}")
+            self._timers.clear()
+            
+        except Exception:
+            pass
     
     def delete_message(self, message_id: str) -> bool:
         """메시지 삭제 - 개선된 세션 ID 찾기"""
@@ -1236,27 +1241,23 @@ class ChatWidget(QWidget):
     def _check_scroll_position(self):
         """스크롤 위치 체크"""
         try:
-            if not self.current_session_id or self.is_loading_more:
-                return
-            
-            # 위젯이 삭제되었는지 확인
-            if not hasattr(self, 'chat_display_view') or self.chat_display_view is None:
+            if (self._is_closing or not self.current_session_id or 
+                self.is_loading_more or not hasattr(self, 'chat_display_view') or 
+                self.chat_display_view is None):
                 return
                 
-            # 웹뷰에서 스크롤 위치 확인
             self.chat_display_view.page().runJavaScript(
                 "window.scrollY",
-                lambda scroll_y: self._handle_scroll_position(scroll_y)
+                lambda scroll_y: self._handle_scroll_position(scroll_y) if not self._is_closing else None
             )
-        except RuntimeError as e:
-            if "wrapped C/C++ object" in str(e):
-                logger.debug(f"스크롤 체크 중 객체 삭제됨: {e}")
-                if hasattr(self, 'scroll_check_timer'):
+        except (RuntimeError, AttributeError):
+            if hasattr(self, 'scroll_check_timer'):
+                try:
                     self.scroll_check_timer.stop()
-            else:
-                raise
-        except Exception as e:
-            logger.debug(f"스크롤 위치 체크 오류: {e}")
+                except RuntimeError:
+                    pass
+        except Exception:
+            pass
     
     def _handle_scroll_position(self, scroll_y):
         """스크롤 위치 처리"""
@@ -1641,57 +1642,24 @@ class ChatWidget(QWidget):
     def _setup_scroll_listener(self):
         """스크롤 이벤트 리스너 설정"""
         try:
-            # 웹뷰에 스크롤 이벤트 리스너 추가
-            self.chat_display_view.page().runJavaScript("""
-                if (!window.scrollListenerAdded) {
-                    let isLoading = false;
-                    
-                    window.addEventListener('scroll', function() {
-                        // 스크롤이 맨 위에 도달했을 때
-                        if (window.scrollY <= 50 && !isLoading) {
-                            isLoading = true;
-                            console.log('스크롤 맨 위 도달 - 더 많은 메시지 로드 요청');
-                            
-                            // Python 측에 더 많은 메시지 로드 요청
-                            if (window.qt && window.qt.webChannelTransport) {
-                                // QWebChannel을 통한 통신
-                                window.qt.webChannelTransport.send(JSON.stringify({
-                                    type: 'loadMoreMessages'
-                                }));
-                            } else {
-                                // 대안: 전역 함수 호출
-                                if (typeof loadMoreMessages === 'function') {
-                                    loadMoreMessages();
-                                }
-                            }
-                            
-                            // 로딩 상태 해제 (3초 후)
-                            setTimeout(() => {
-                                isLoading = false;
-                            }, 3000);
-                        }
-                    });
-                    
-                    // 전역 함수로 Python에서 호출 가능하게 설정
-                    window.loadMoreMessages = function() {
-                        console.log('loadMoreMessages 함수 호출됨');
-                    };
-                    
-                    window.scrollListenerAdded = true;
-                    console.log('스크롤 리스너 설정 완료');
-                }
-            """)
-            
-            # Python 측에서 스크롤 이벤트 처리를 위한 타이머 설정
+            if self._is_closing:
+                return
+                
             if hasattr(self, 'scroll_check_timer') and self.scroll_check_timer is not None:
-                self.scroll_check_timer.stop()
-                self.scroll_check_timer.deleteLater()
+                try:
+                    self.scroll_check_timer.stop()
+                    self.scroll_check_timer.timeout.disconnect()
+                    self.scroll_check_timer.deleteLater()
+                except RuntimeError:
+                    pass
             
-            self.scroll_check_timer = QTimer(self)  # 부모 설정
+            self.scroll_check_timer = QTimer(self)
+            self.scroll_check_timer.setSingleShot(False)
             self.scroll_check_timer.timeout.connect(self._check_scroll_position)
-            self.scroll_check_timer.start(1000)  # 1초마다 체크
-        except Exception as e:
-            logger.debug(f"스크롤 리스너 설정 오류: {e}")
+            self.scroll_check_timer.start(2000)
+            self._timers.append(self.scroll_check_timer)
+        except Exception:
+            pass
     
     def load_more_messages(self):
         """더 많은 메시지 로드"""

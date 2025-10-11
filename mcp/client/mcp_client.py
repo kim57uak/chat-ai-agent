@@ -262,20 +262,32 @@ class MCPClient:
             return None
     
     def close(self):
-        """MCP 클라이언트 종료"""
+        """MCP 클라이언트 종료 - 메모리 누수 방지"""
         if self.process:
             try:
+                # 응답 스레드 종료 대기
+                if hasattr(self, 'response_thread') and self.response_thread.is_alive():
+                    self.response_thread.join(timeout=1.0)
+                
                 # stdin 먼저 닫기
                 if self.process.stdin and not self.process.stdin.closed:
-                    self.process.stdin.close()
+                    try:
+                        self.process.stdin.close()
+                    except:
+                        pass
                 
                 # 프로세스 종료
                 self.process.terminate()
-                self.process.wait(timeout=5)
-            except:
+                try:
+                    self.process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+                    self.process.wait(timeout=1)
+            except Exception as e:
+                logger.debug(f"프로세스 종료 중 오류: {e}")
                 try:
                     self.process.kill()
-                    self.process.wait(timeout=2)
+                    self.process.wait(timeout=1)
                 except:
                     pass
             finally:
@@ -287,6 +299,10 @@ class MCPClient:
                         self.process.stderr.close()
                 except:
                     pass
+                
+                # 대기 중인 요청 정리
+                with self._lock:
+                    self.pending_requests.clear()
                 
                 self.process = None
                 self.initialized = False
@@ -375,17 +391,26 @@ class MCPManager:
         return client.call_tool(tool_name, arguments)
     
     def close_all(self):
-        """모든 MCP 클라이언트 종료"""
+        """모든 MCP 클라이언트 종료 - 세마포어 누수 방지"""
         import time
-        for client in self.clients.values():
+        import gc
+        
+        # 복사본으로 작업하여 딕셔너리 변경 오류 방지
+        clients_to_close = list(self.clients.values())
+        
+        for client in clients_to_close:
             try:
                 client.close()
             except Exception as e:
                 logger.error(f"클라이언트 종료 오류: {e}")
         
         self.clients.clear()
-        # 모든 프로세스가 완전히 종료될 때까지 대기
-        time.sleep(0.5)
+        
+        # 프로세스 완전 종료 대기
+        time.sleep(0.3)
+        
+        # 가비지 컬렉션으로 리소스 정리
+        gc.collect()
     
     def get_server_status(self) -> Dict[str, Dict[str, Any]]:
         """모든 서버의 상태 정보 반환 - 실시간 도구 목록 조회"""

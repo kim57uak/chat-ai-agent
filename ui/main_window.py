@@ -19,6 +19,7 @@ from core.session.session_manager import initialize_session_manager
 from core.auth.auth_manager import AuthManager
 from ui.auth.login_dialog import LoginDialog
 from core.logging import get_logger
+from core.safe_timer import safe_timer_manager
 
 logger = get_logger("main_window")
 import os
@@ -30,6 +31,14 @@ class MainWindow(QMainWindow):
         logger.debug(" MainWindow.__init__() 시작")
         super().__init__()
         logger.debug(" super().__init__() 완료")
+        
+        # QTimer 멤버 변수 초기화 (업계 표준)
+        self._mcp_init_timer = None
+        self._chat_theme_timer = None
+        self._theme_update_timer = None
+        self._session_load_timer = None
+        self._scroll_timer = None  # 통합된 스크롤 타이머
+        self.session_timer = None
         
         # 인증 시스템 초기화
         self.auth_manager = AuthManager()
@@ -275,11 +284,12 @@ class MainWindow(QMainWindow):
     
     def _initialize_mcp(self) -> None:
         """Initialize MCP servers."""
-        # MCP 서버 시작 지연 시간을 약간 늘림
-        timer = QTimer(self)
-        timer.setSingleShot(True)
-        timer.timeout.connect(self._init_mcp_servers)
-        timer.start(200)
+        if self._mcp_init_timer is None:
+            self._mcp_init_timer = safe_timer_manager.create_timer(
+                200, self._init_mcp_servers, single_shot=True, parent=self
+            )
+        if self._mcp_init_timer:
+            self._mcp_init_timer.start()
 
     def _init_mcp_servers(self) -> None:
         """MCP 서버 상태 파일을 읽어서 활성화된 서버만 시작"""
@@ -383,23 +393,69 @@ class MainWindow(QMainWindow):
         dlg = ConfigPathDialog(self)
         dlg.exec()
     
+    def _stop_all_timers(self):
+        """모든 QTimer 정리 (업계 표준)"""
+        timers = [
+            self._mcp_init_timer,
+            self._chat_theme_timer,
+            self._theme_update_timer,
+            self._session_load_timer,
+            self._scroll_timer,
+            self.session_timer
+        ]
+        for timer in timers:
+            if timer is not None:
+                try:
+                    timer.stop()
+                    timer.deleteLater()
+                except:
+                    pass
+    
     def closeEvent(self, event):
-        """애플리케이션 종료 처리"""
+        """애플리케이션 종료 처리 - 메모리 누수 및 세마포어 누수 방지"""
         logger.debug("애플리케이션 종료 시작")
         
         try:
-            # 메모리 관리 중지
-            memory_manager.stop_monitoring()
+            # 1. SafeTimer 정리
+            safe_timer_manager.cleanup_all()
             
-            # 스플리터 상태 저장
-            self._save_splitter_state()
+            # 2. QTimer 정리 (업계 표준)
+            self._stop_all_timers()
             
+            # 3. 메모리 관리 중지
+            try:
+                memory_manager.stop_monitoring()
+            except:
+                pass
+            
+            # 4. 스플리터 상태 저장
+            try:
+                self._save_splitter_state()
+            except:
+                pass
+            
+            # 5. 채팅 위젯 종료 (WebEngine 정리)
             if hasattr(self, 'chat_widget'):
-                self.chat_widget.close()
-            stop_mcp_servers()
+                try:
+                    self.chat_widget.close()
+                except:
+                    pass
             
-            # 최종 메모리 정리
-            memory_manager.force_cleanup()
+            # 6. MCP 서버 종료 (세마포어 누수 방지)
+            try:
+                stop_mcp_servers()
+            except:
+                pass
+            
+            # 7. 최종 메모리 정리
+            try:
+                memory_manager.force_cleanup()
+            except:
+                pass
+            
+            # 8. 가비지 컬렉션 강제 실행
+            import gc
+            gc.collect()
             
         except Exception as e:
             try:
@@ -435,15 +491,10 @@ class MainWindow(QMainWindow):
             # 창 제목 업데이트
             self._update_window_title()
             
-            # 채팅 위젯의 웹뷰 CSS 업데이트 - 강화된 업데이트
+            # 채팅 위젯의 웹뷰 CSS 업데이트
             if hasattr(self, 'chat_widget'):
                 logger.debug("채팅 위젯 테마 업데이트 시작")
                 self.chat_widget.update_theme()
-                # 추가 지연 업데이트
-                chat_theme_timer = QTimer(self)
-                chat_theme_timer.setSingleShot(True)
-                chat_theme_timer.timeout.connect(lambda: self.chat_widget.update_theme())
-                chat_theme_timer.start(200)
                 logger.debug("채팅 위젯 테마 업데이트 완료")
             
             # 세션 패널 테마 업데이트
@@ -465,28 +516,29 @@ class MainWindow(QMainWindow):
             self.repaint()
             self.update()
             
-            # 지연 시간을 두고 추가 업데이트
-            theme_timer = QTimer(self)
-            theme_timer.setSingleShot(True)
-            theme_timer.timeout.connect(self._delayed_theme_update)
-            theme_timer.start(100)
+            # 지연 업데이트 (입력 영역 강제 갱신)
+            if self._theme_update_timer is None:
+                def delayed_update():
+                    try:
+                        if hasattr(self, 'chat_widget'):
+                            self.chat_widget.update_theme()
+                            if hasattr(self.chat_widget, 'input_text'):
+                                self.chat_widget.input_text.update()
+                            if hasattr(self.chat_widget, 'input_container'):
+                                self.chat_widget.input_container.update()
+                    except Exception as e:
+                        logger.debug(f"지연 테마 업데이트 오류: {e}")
+                
+                self._theme_update_timer = safe_timer_manager.create_timer(
+                    100, delayed_update, single_shot=True, parent=self
+                )
+            if self._theme_update_timer:
+                self._theme_update_timer.start()
             
         except Exception as e:
             logger.debug(f"테마 변경 오류: {e}")
     
-    def _delayed_theme_update(self):
-        """지연된 테마 업데이트"""
-        try:
-            # 채팅 위젯 추가 업데이트
-            if hasattr(self, 'chat_widget'):
-                self.chat_widget.update_theme()
-                # 입력 영역 강제 업데이트
-                if hasattr(self.chat_widget, 'input_text'):
-                    self.chat_widget.input_text.update()
-                if hasattr(self.chat_widget, 'input_container'):
-                    self.chat_widget.input_container.update()
-        except Exception as e:
-            logger.debug(f"지연된 테마 업데이트 오류: {e}")
+
     
 
     
@@ -829,22 +881,17 @@ class MainWindow(QMainWindow):
             if hasattr(self.chat_widget, 'chat_display'):
                 self.chat_widget.chat_display.clear_messages()
             
-            # 안전한 세션 로드 (타이머로 지연 실행)
-            load_timer = QTimer(self)
-            load_timer.setSingleShot(True)
-            load_timer.timeout.connect(lambda: self._safe_load_session(session_id))
-            load_timer.start(100)
+            # 안전한 세션 로드
+            from functools import partial
+            if self._session_load_timer is None:
+                self._session_load_timer = safe_timer_manager.create_timer(
+                    100, partial(self._safe_load_session, session_id), single_shot=True, parent=self
+                )
+            if self._session_load_timer:
+                self._session_load_timer.start()
             
-            # 세션 로드 후 하단 스크롤 보장
-            scroll_timer1 = QTimer(self)
-            scroll_timer1.setSingleShot(True)
-            scroll_timer1.timeout.connect(self._ensure_scroll_to_bottom)
-            scroll_timer1.start(1500)
-            
-            scroll_timer2 = QTimer(self)
-            scroll_timer2.setSingleShot(True)
-            scroll_timer2.timeout.connect(self._ensure_scroll_to_bottom)
-            scroll_timer2.start(2500)
+            # 세션 로드 후 하단 스크롤 보장 (통합)
+            self._schedule_scroll_to_bottom(1500)
             
             logger.debug(f"[SESSION_SELECT] 세션 로드 시작: {session['title']}")
             
@@ -864,16 +911,8 @@ class MainWindow(QMainWindow):
             
             logger.debug(f"[SAFE_LOAD] 세션 {session_id} 안전 로드 완료")
             
-            # 세션 로드 완료 후 하단 스크롤 강제 실행
-            scroll_timer3 = QTimer(self)
-            scroll_timer3.setSingleShot(True)
-            scroll_timer3.timeout.connect(self._ensure_scroll_to_bottom)
-            scroll_timer3.start(500)
-            
-            scroll_timer4 = QTimer(self)
-            scroll_timer4.setSingleShot(True)
-            scroll_timer4.timeout.connect(self._ensure_scroll_to_bottom)
-            scroll_timer4.start(1000)
+            # 세션 로드 완료 후 하단 스크롤 강제 실행 (통합)
+            self._schedule_scroll_to_bottom(500)
             
         except Exception as e:
             logger.debug(f"[SAFE_LOAD] 안전 로드 오류: {e}")
@@ -997,6 +1036,15 @@ class MainWindow(QMainWindow):
         else:
             logger.debug(f"[AUTO_SESSION] 이미 생성됨 - current_session_id: {self.current_session_id}")
     
+    def _schedule_scroll_to_bottom(self, delay_ms: int):
+        """지연된 스크롤 예약 (통합 타이머)"""
+        if self._scroll_timer is None:
+            self._scroll_timer = safe_timer_manager.create_timer(
+                delay_ms, self._ensure_scroll_to_bottom, single_shot=True, parent=self
+            )
+        if self._scroll_timer:
+            self._scroll_timer.start()
+    
     def _ensure_scroll_to_bottom(self):
         """채팅 위젯 하단 스크롤 보장"""
         try:
@@ -1048,10 +1096,12 @@ class MainWindow(QMainWindow):
     
     def _setup_session_timer(self):
         """세션 만료 타이머 설정"""
-        if not hasattr(self, 'session_timer'):
-            self.session_timer = QTimer(self)
-            self.session_timer.timeout.connect(self._check_session_expiry)
-        self.session_timer.start(60000)  # 1분마다 체크
+        if self.session_timer is None:
+            self.session_timer = safe_timer_manager.create_timer(
+                60000, self._check_session_expiry, single_shot=False, parent=self
+            )
+        if self.session_timer:
+            self.session_timer.start()
     
     def _check_session_expiry(self):
         """세션 만료 체크"""
@@ -1063,7 +1113,7 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QMessageBox
         
         # 세션 타이머 중지
-        if hasattr(self, 'session_timer'):
+        if self.session_timer is not None:
             self.session_timer.stop()
         
         msg_box = QMessageBox(self)
@@ -1082,7 +1132,7 @@ class MainWindow(QMainWindow):
         self.auth_manager.logout()
         
         # 세션 타이머 중지
-        if hasattr(self, 'session_timer'):
+        if self.session_timer is not None:
             self.session_timer.stop()
         
         from PyQt6.QtWidgets import QMessageBox

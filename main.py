@@ -3,6 +3,8 @@ import threading
 import logging
 import os
 import multiprocessing
+import signal
+import atexit
 
 # 로깅 시스템 초기화 (가장 먼저)
 from core.logging import setup_logging
@@ -14,11 +16,11 @@ from memory_cleanup import memory_cleanup
 
 
 def qt_message_handler(mode, context, message):
-    """Qt 메시지 필터링 - CSS 경고 숨기기"""
+    """Qt 메시지 필터링 - CSS 경고 숨기기 + FATAL 방지"""
     # CSS 관련 경고 메시지 필터링
     if 'Unknown property' in message or 'box-shadow' in message or 'transform' in message or 'transition' in message:
         return
-    # 나머지 메시지는 출력
+    # CRITICAL: QtFatalMsg를 Critical로 다운그레이드하여 abort() 방지
     if mode == 0:  # QtDebugMsg
         logging.debug(message)
     elif mode == 1:  # QtWarningMsg
@@ -26,11 +28,38 @@ def qt_message_handler(mode, context, message):
     elif mode == 2:  # QtCriticalMsg
         logging.error(message)
     elif mode == 3:  # QtFatalMsg
-        logging.critical(message)
+        logging.critical(f"[PREVENTED CRASH] {message}")
+        # abort() 호출 방지 - 로그만 남기고 계속 실행
+
+
+def cleanup_resources():
+    """리소스 정리 - 최소화"""
+    try:
+        from core.safe_timer import safe_timer_manager
+        safe_timer_manager.cleanup_all()
+    except:
+        pass
+    
+    try:
+        from mcp.client.mcp_client import mcp_manager
+        mcp_manager.close_all()
+    except:
+        pass
 
 
 def main() -> int:
     """Main application entry point."""
+    # 종료 시 리소스 정리 등록
+    atexit.register(cleanup_resources)
+    
+    # 시그널 핸들러 등록 (SIGABRT 방지)
+    def signal_handler(signum, frame):
+        cleanup_resources()
+        sys.exit(1)
+    
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
     # Load user environment variables for packaged apps (Node.js, npm, npx)
     try:
         from utils.env_loader import load_user_environment
@@ -48,8 +77,16 @@ def main() -> int:
     os.environ['GRPC_VERBOSITY'] = 'ERROR'
     
     # PyQt6 WebEngine 안정성을 위한 환경 변수 설정
-    os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security --disable-features=VizDisplayCompositor'
-    os.environ['QT_LOGGING_RULES'] = 'qt.webenginecontext.debug=false'
+    os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security --disable-features=VizDisplayCompositor --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage'
+    os.environ['QT_LOGGING_RULES'] = 'qt.webenginecontext.debug=false;*.debug=false'
+    os.environ['QT_FATAL_WARNINGS'] = '0'
+    os.environ['QT_ENABLE_HIGHDPI_SCALING'] = '0'
+    
+    # CRITICAL: PyQt6 슬롯 예외를 fatal로 처리하지 않도록 설정
+    os.environ['PYQT_FATAL_EXCEPTIONS'] = '0'
+    
+    # CRITICAL: Prevent Qt event loop conflicts with async logging
+    os.environ['PYTHONUNBUFFERED'] = '1'  # Unbuffered output for logging
     
     # Setup logging
     logging.basicConfig(
@@ -99,7 +136,10 @@ def main() -> int:
         logging.error(f"Application runtime error: {e}")
         import traceback
         traceback.print_exc()
+        cleanup_resources()
         return 1
+    finally:
+        cleanup_resources()
 
 
 if __name__ == "__main__":
@@ -108,14 +148,18 @@ if __name__ == "__main__":
     
     # 멀티프로세싱 시작 방법 설정 (macOS 안정성)
     if sys.platform == 'darwin':
-        multiprocessing.set_start_method('spawn', force=True)
+        try:
+            multiprocessing.set_start_method('spawn', force=True)
+        except RuntimeError:
+            pass  # 이미 설정됨
     
     try:
-        sys.exit(main())
-    finally:
-        # 세마포어 리소스 정리
-        try:
-            from multiprocessing import resource_tracker
-            resource_tracker._resource_tracker._stop()
-        except:
-            pass
+        exit_code = main()
+        sys.exit(exit_code)
+    except KeyboardInterrupt:
+        cleanup_resources()
+        sys.exit(0)
+    except Exception as e:
+        logging.error(f"Fatal error: {e}")
+        cleanup_resources()
+        sys.exit(1)

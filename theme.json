@@ -1,5 +1,5 @@
 {
-  "current_theme": "material_darker",
+  "current_theme": "material_ocean",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -38,11 +38,13 @@
         "glow": "rgba(124, 127, 184, 0.3)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.1,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "blur_intensity": "30px",
+        "saturation": "200%",
+        "border_opacity": 0.2,
+        "shadow_opacity": 0.08,
+        "inset_highlight": "rgba(255, 255, 255, 0.25)",
+        "backdrop_brightness": "105%",
+        "surface_opacity": 0.7
       }
     },
     "material_lighter": {
@@ -82,11 +84,13 @@
         "glow": "rgba(155, 141, 184, 0.3)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
-        "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "blur_intensity": "25px",
+        "saturation": "180%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.06,
+        "inset_highlight": "rgba(255, 255, 255, 0.3)",
+        "backdrop_brightness": "108%",
+        "surface_opacity": 0.65
       }
     },
     "material_palenight": {
@@ -126,11 +130,13 @@
         "glow": "rgba(160, 141, 184, 0.3)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
-        "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "blur_intensity": "28px",
+        "saturation": "190%",
+        "border_opacity": 0.16,
+        "shadow_opacity": 0.07,
+        "inset_highlight": "rgba(255, 255, 255, 0.28)",
+        "backdrop_brightness": "106%",
+        "surface_opacity": 0.68
       }
     },
     "material_dark": {
@@ -170,11 +176,13 @@
         "glow": "rgba(139, 127, 184, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.2,
-        "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "35px",
+        "saturation": "220%",
+        "border_opacity": 0.22,
+        "shadow_opacity": 0.12,
+        "inset_highlight": "rgba(255, 255, 255, 0.12)",
+        "backdrop_brightness": "102%",
+        "surface_opacity": 0.75
       }
     },
     "material_ocean": {
@@ -214,11 +222,13 @@
         "glow": "rgba(107, 141, 181, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "32px",
+        "saturation": "210%",
+        "border_opacity": 0.18,
+        "shadow_opacity": 0.1,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)",
+        "backdrop_brightness": "103%",
+        "surface_opacity": 0.72
       }
     },
     "material_darker": {
@@ -258,11 +268,13 @@
         "glow": "rgba(196, 166, 124, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "33px",
+        "saturation": "215%",
+        "border_opacity": 0.2,
+        "shadow_opacity": 0.11,
+        "inset_highlight": "rgba(255, 255, 255, 0.11)",
+        "backdrop_brightness": "101%",
+        "surface_opacity": 0.73
       }
     },
     "material_forest": {
@@ -302,11 +314,13 @@
         "glow": "rgba(127, 181, 163, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "34px",
+        "saturation": "218%",
+        "border_opacity": 0.19,
+        "shadow_opacity": 0.1,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)",
+        "backdrop_brightness": "102%",
+        "surface_opacity": 0.74
       }
     },
     "material_skyblue": {
@@ -346,11 +360,13 @@
         "glow": "rgba(0, 198, 224, 0.3)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
-        "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "blur_intensity": "26px",
+        "saturation": "185%",
+        "border_opacity": 0.17,
+        "shadow_opacity": 0.06,
+        "inset_highlight": "rgba(255, 255, 255, 0.32)",
+        "backdrop_brightness": "110%",
+        "surface_opacity": 0.62
       }
     },
     "material_sandybeach": {
@@ -390,11 +406,13 @@
         "glow": "rgba(83, 199, 240, 0.3)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
-        "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "blur_intensity": "27px",
+        "saturation": "188%",
+        "border_opacity": 0.16,
+        "shadow_opacity": 0.05,
+        "inset_highlight": "rgba(255, 255, 255, 0.35)",
+        "backdrop_brightness": "112%",
+        "surface_opacity": 0.6
       }
     },
     "material_volcano": {
@@ -434,11 +452,13 @@
         "glow": "rgba(0, 188, 212, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "36px",
+        "saturation": "225%",
+        "border_opacity": 0.21,
+        "shadow_opacity": 0.13,
+        "inset_highlight": "rgba(255, 255, 255, 0.09)",
+        "backdrop_brightness": "100%",
+        "surface_opacity": 0.76
       }
     },
     "material_dracula": {
@@ -478,11 +498,13 @@
         "glow": "rgba(255, 121, 197, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "38px",
+        "saturation": "230%",
+        "border_opacity": 0.23,
+        "shadow_opacity": 0.14,
+        "inset_highlight": "rgba(255, 255, 255, 0.11)",
+        "backdrop_brightness": "99%",
+        "surface_opacity": 0.78
       }
     },
     "material_github": {
@@ -522,11 +544,13 @@
         "glow": "rgba(121, 203, 96, 0.3)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
-        "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "blur_intensity": "24px",
+        "saturation": "175%",
+        "border_opacity": 0.15,
+        "shadow_opacity": 0.05,
+        "inset_highlight": "rgba(255, 255, 255, 0.38)",
+        "backdrop_brightness": "115%",
+        "surface_opacity": 0.58
       }
     },
     "material_one_dark": {
@@ -566,11 +590,13 @@
         "glow": "rgba(41, 121, 255, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "37px",
+        "saturation": "228%",
+        "border_opacity": 0.22,
+        "shadow_opacity": 0.13,
+        "inset_highlight": "rgba(255, 255, 255, 0.1)",
+        "backdrop_brightness": "98%",
+        "surface_opacity": 0.77
       }
     },
     "material_night_owl": {
@@ -610,11 +636,13 @@
         "glow": "rgba(126, 87, 194, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "40px",
+        "saturation": "235%",
+        "border_opacity": 0.24,
+        "shadow_opacity": 0.15,
+        "inset_highlight": "rgba(255, 255, 255, 0.12)",
+        "backdrop_brightness": "97%",
+        "surface_opacity": 0.8
       }
     },
     "deep_dark": {
@@ -654,11 +682,13 @@
         "glow": "rgba(45, 45, 45, 0.6)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.18,
-        "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "blur_intensity": "45px",
+        "saturation": "250%",
+        "border_opacity": 0.28,
+        "shadow_opacity": 0.18,
+        "inset_highlight": "rgba(255, 255, 255, 0.15)",
+        "backdrop_brightness": "95%",
+        "surface_opacity": 0.85
       }
     },
     "maga_theme": {
@@ -698,11 +728,13 @@
         "glow": "rgba(220, 20, 60, 0.6)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.18,
-        "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "blur_intensity": "29px",
+        "saturation": "195%",
+        "border_opacity": 0.19,
+        "shadow_opacity": 0.07,
+        "inset_highlight": "rgba(255, 255, 255, 0.4)",
+        "backdrop_brightness": "118%",
+        "surface_opacity": 0.55
       }
     },
     "mkga_theme": {
@@ -742,11 +774,13 @@
         "glow": "rgba(205, 33, 42, 0.8)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.18,
-        "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "blur_intensity": "42px",
+        "saturation": "240%",
+        "border_opacity": 0.26,
+        "shadow_opacity": 0.16,
+        "inset_highlight": "rgba(255, 255, 255, 0.13)",
+        "backdrop_brightness": "96%",
+        "surface_opacity": 0.82
       }
     },
     "ice_age": {
@@ -786,11 +820,13 @@
         "glow": "rgba(135, 206, 235, 0.6)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.18,
-        "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "blur_intensity": "39px",
+        "saturation": "232%",
+        "border_opacity": 0.24,
+        "shadow_opacity": 0.14,
+        "inset_highlight": "rgba(255, 255, 255, 0.11)",
+        "backdrop_brightness": "98%",
+        "surface_opacity": 0.79
       }
     },
     "crypto_bitcoin": {
@@ -830,11 +866,13 @@
         "glow": "rgba(247, 147, 26, 0.8)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.18,
-        "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "blur_intensity": "43px",
+        "saturation": "245%",
+        "border_opacity": 0.27,
+        "shadow_opacity": 0.17,
+        "inset_highlight": "rgba(255, 255, 255, 0.14)",
+        "backdrop_brightness": "94%",
+        "surface_opacity": 0.83
       }
     },
     "crypto_ethereum": {
@@ -874,11 +912,13 @@
         "glow": "rgba(98, 126, 234, 0.8)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.18,
+        "blur_intensity": "41px",
+        "saturation": "238%",
+        "border_opacity": 0.25,
         "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "inset_highlight": "rgba(255, 255, 255, 0.12)",
+        "backdrop_brightness": "97%",
+        "surface_opacity": 0.81
       }
     },
     "eye_comfort": {
@@ -918,11 +958,13 @@
         "glow": "rgba(74, 144, 164, 0.25)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.18,
-        "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "blur_intensity": "22px",
+        "saturation": "165%",
+        "border_opacity": 0.14,
+        "shadow_opacity": 0.04,
+        "inset_highlight": "rgba(255, 255, 255, 0.42)",
+        "backdrop_brightness": "120%",
+        "surface_opacity": 0.52
       }
     },
     "true_gray": {
@@ -962,11 +1004,13 @@
         "glow": "rgba(107, 114, 128, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "25px",
-        "saturation": "200%",
-        "border_opacity": 0.18,
-        "shadow_opacity": 0.15,
-        "inset_highlight": "rgba(255, 255, 255, 0.1)"
+        "blur_intensity": "44px",
+        "saturation": "248%",
+        "border_opacity": 0.28,
+        "shadow_opacity": 0.18,
+        "inset_highlight": "rgba(255, 255, 255, 0.16)",
+        "backdrop_brightness": "93%",
+        "surface_opacity": 0.84
       }
     },
     "sage_whisper": {
@@ -1006,11 +1050,13 @@
         "glow": "rgba(107, 124, 110, 0.2)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
-        "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "blur_intensity": "23px",
+        "saturation": "170%",
+        "border_opacity": 0.14,
+        "shadow_opacity": 0.04,
+        "inset_highlight": "rgba(255, 255, 255, 0.45)",
+        "backdrop_brightness": "122%",
+        "surface_opacity": 0.5
       }
     },
     "lavender_mist": {
@@ -1050,11 +1096,13 @@
         "glow": "rgba(139, 127, 184, 0.2)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
-        "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "blur_intensity": "21px",
+        "saturation": "162%",
+        "border_opacity": 0.13,
+        "shadow_opacity": 0.04,
+        "inset_highlight": "rgba(255, 255, 255, 0.48)",
+        "backdrop_brightness": "125%",
+        "surface_opacity": 0.48
       }
     },
     "warm_stone": {
@@ -1094,11 +1142,13 @@
         "glow": "rgba(160, 136, 117, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "31px",
+        "saturation": "205%",
+        "border_opacity": 0.19,
+        "shadow_opacity": 0.11,
+        "inset_highlight": "rgba(255, 255, 255, 0.09)",
+        "backdrop_brightness": "104%",
+        "surface_opacity": 0.71
       }
     },
     "dusty_rose": {
@@ -1138,11 +1188,13 @@
         "glow": "rgba(184, 134, 154, 0.2)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
+        "blur_intensity": "20px",
+        "saturation": "160%",
         "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "shadow_opacity": 0.03,
+        "inset_highlight": "rgba(255, 255, 255, 0.5)",
+        "backdrop_brightness": "128%",
+        "surface_opacity": 0.45
       }
     },
     "midnight_blue": {
@@ -1182,11 +1234,13 @@
         "glow": "rgba(107, 141, 181, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
+        "blur_intensity": "35px",
+        "saturation": "222%",
+        "border_opacity": 0.21,
         "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "inset_highlight": "rgba(255, 255, 255, 0.1)",
+        "backdrop_brightness": "101%",
+        "surface_opacity": 0.75
       }
     },
     "soft_amber": {
@@ -1226,11 +1280,13 @@
         "glow": "rgba(181, 149, 107, 0.2)"
       },
       "glassmorphism": {
-        "blur_intensity": "15px",
-        "saturation": "150%",
-        "border_opacity": 0.12,
-        "shadow_opacity": 0.08,
-        "inset_highlight": "rgba(255, 255, 255, 0.15)"
+        "blur_intensity": "19px",
+        "saturation": "158%",
+        "border_opacity": 0.11,
+        "shadow_opacity": 0.03,
+        "inset_highlight": "rgba(255, 255, 255, 0.52)",
+        "backdrop_brightness": "130%",
+        "surface_opacity": 0.43
       }
     },
     "modern_neutral": {
@@ -1270,11 +1326,13 @@
         "glow": "rgba(99, 102, 241, 0.4)"
       },
       "glassmorphism": {
-        "blur_intensity": "20px",
-        "saturation": "180%",
-        "border_opacity": 0.15,
-        "shadow_opacity": 0.12,
-        "inset_highlight": "rgba(255, 255, 255, 0.08)"
+        "blur_intensity": "34px",
+        "saturation": "218%",
+        "border_opacity": 0.2,
+        "shadow_opacity": 0.11,
+        "inset_highlight": "rgba(255, 255, 255, 0.09)",
+        "backdrop_brightness": "103%",
+        "surface_opacity": 0.73
       }
     }
   }

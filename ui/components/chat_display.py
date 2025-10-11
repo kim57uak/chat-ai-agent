@@ -821,6 +821,12 @@ class ChatDisplay:
         prepend=False,
     ):
         """메시지 추가 - progressive=True시 점진적 출력, prepend=True시 상단에 추가"""
+        # 타임스탬프 생성
+        from datetime import datetime
+        now = datetime.now()
+        weekdays = ['월', '화', '수', '목', '금', '토', '일']
+        timestamp = now.strftime(f"%Y-%m-%d %H:%M:%S ({weekdays[now.weekday()]}요일)")
+        
         # 테마에 따른 색상 가져오기
         from ui.styles.theme_manager import theme_manager
 
@@ -922,8 +928,14 @@ class ChatDisplay:
             contentDiv.id = '{display_message_id}_content';
             contentDiv.style.cssText = 'margin: 0; padding: 0; line-height: 1.6; color: {default_text_color} !important; font-size: 15px; word-wrap: break-word; width: 100%;';
             
+            // 타임스탬프 추가
+            var timestampDiv = document.createElement('div');
+            timestampDiv.style.cssText = 'margin-top: 12px; padding-top: 8px; border-top: 1px solid {colors.get("divider", "rgba(255, 255, 255, 0.1)")}; font-size: 11px; color: {colors.get("text_secondary", "rgba(255, 255, 255, 0.6)")} !important; text-align: right; opacity: 0.7;';
+            timestampDiv.textContent = '{timestamp}';
+            
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(timestampDiv);
             
             if ({str(prepend).lower()}) {{
                 // prepend 시에는 기존 첫 번째 메시지 앞에 삽입

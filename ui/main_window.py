@@ -834,7 +834,7 @@ class MainWindow(QMainWindow):
             
             # 메인 윈도우의 현재 세션 ID 업데이트
             self.current_session_id = session_id
-            self._auto_session_created = True  # 세션이 선택되었으므로 자동 생성 플래그 설정
+
             
             # 창 제목 업데이트
             self._update_window_title()
@@ -883,12 +883,17 @@ class MainWindow(QMainWindow):
             
             # 안전한 세션 로드
             from functools import partial
-            if self._session_load_timer is None:
-                self._session_load_timer = safe_timer_manager.create_timer(
-                    100, partial(self._safe_load_session, session_id), single_shot=True, parent=self
-                )
-            if self._session_load_timer:
-                self._session_load_timer.start()
+            # 기존 타이머가 있다면 중지하고 삭제
+            if self._session_load_timer is not None:
+                self._session_load_timer.stop()
+                self._session_load_timer.deleteLater() # QObject의 자원 해제
+                self._session_load_timer = None # 참조 제거
+
+            # 새로운 타이머 생성 및 시작
+            self._session_load_timer = safe_timer_manager.create_timer(
+                100, partial(self._safe_load_session, session_id), single_shot=True, parent=self
+            )
+            self._session_load_timer.start()
             
             # 세션 로드 후 하단 스크롤 보장 (통합)
             self._schedule_scroll_to_bottom(1500)

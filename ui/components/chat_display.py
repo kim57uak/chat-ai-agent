@@ -737,9 +737,11 @@ class ChatDisplay:
         else:
             from ui.styles.flat_theme import FlatTheme
             css = FlatTheme.get_chat_display_css()
-            # Flat 테마를 위한 기본 링크 색상
-            link_color = "#42A5F5" # 표준 파란색
-            hover_color = "#2196F3" # 약간 더 어두운 파란색
+            colors = FlatTheme.get_theme_colors() # Flat 테마 색상 가져오기
+            
+            link_color = colors.get('primary', '#64c8ff') # Flat 테마의 primary 색상 사용
+            hover_color = "#42A5F5" # 호버 시 약간 더 어두운 파란색
+            
             css += f"""
             a {{
                 color: {link_color} !important;

@@ -767,36 +767,40 @@ class ChatDisplay:
             return True  # 기본 테마는 다크 테마로 간주
 
     def update_theme(self):
-        """테마 업데이트 - HTML 템플릿 완전 재로드"""
+        """테마 업데이트 - 화면 깜빡임 없이 CSS만 동적으로 변경"""
         try:
             from ui.styles.theme_manager import theme_manager
-            logger.debug(f"테마 업데이트 시작: {theme_manager.material_manager.current_theme_key}")
+            logger.debug(f"테마 업데이트 시작 (깜빡임 없음): {theme_manager.material_manager.current_theme_key}")
+
+            new_theme_css = self._get_current_theme_css()
             
-            # 기존 메시지 내용 백업
-            backup_js = """
-            try {
-                var messages = [];
-                var messageElements = document.querySelectorAll('.message');
-                for (var i = 0; i < messageElements.length; i++) {
-                    var msg = messageElements[i];
-                    messages.push({
-                        id: msg.id,
-                        innerHTML: msg.innerHTML
-                    });
-                }
-                window.messageBackup = messages;
-                console.log('메시지 백업 완료:', messages.length);
-            } catch(e) {
-                console.error('메시지 백업 오류:', e);
-                window.messageBackup = [];
-            }
+            # 현재 테마의 배경색 가져오기
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                body_bg_color = colors.get("background", "#121212")
+            else:
+                from ui.styles.flat_theme import FlatTheme
+                colors = FlatTheme.get_theme_colors()
+                body_bg_color = colors.get("background", "#1a1a1a")
+
+            # JavaScript를 사용하여 <style> 태그와 body 배경색 업데이트
+            update_js = f"""
+            try {{
+                var styleTag = document.getElementById('theme-style');
+                if (styleTag) {{
+                    styleTag.innerHTML = `{new_theme_css}`;
+                }}
+                document.body.style.backgroundColor = '{body_bg_color}';
+                document.documentElement.style.backgroundColor = '{body_bg_color}';
+                console.log('테마 CSS 및 배경색 업데이트 완료');
+            }} catch(e) {{
+                console.error('테마 CSS 업데이트 오류:', e);
+            }}
             """
+            self.web_view.page().runJavaScript(update_js)
             
-            self.web_view.page().runJavaScript(backup_js)
-            
-            # 100ms 후 HTML 템플릿 재로드
-            QTimer.singleShot(100, self._reload_with_backup)
-            
+            logger.debug("채팅 디스플레이 테마 업데이트 완료 (깜빡임 없음)")
+
         except Exception as e:
             logger.debug(f"채팅 디스플레이 테마 업데이트 오류: {e}")
     

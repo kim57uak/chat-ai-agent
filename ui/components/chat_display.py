@@ -719,10 +719,38 @@ class ChatDisplay:
 
         if theme_manager.use_material_theme:
             css = theme_manager.material_manager.generate_web_css()
+            colors = theme_manager.material_manager.get_theme_colors()
+            link_color = colors.get('secondary', '#03dac6') # 기본 링크 색상
+            hover_color = colors.get('primary', '#bb86fc') # 호버 시 색상
+            css += f"""
+            a {{
+                color: {link_color} !important;
+                text-decoration: underline;
+                transition: color 0.2s ease-in-out;
+            }}
+            a:hover {{
+                color: {hover_color} !important;
+                text-decoration: none;
+            }}
+            """
             return css
         else:
             from ui.styles.flat_theme import FlatTheme
             css = FlatTheme.get_chat_display_css()
+            # Flat 테마를 위한 기본 링크 색상
+            link_color = "#42A5F5" # 표준 파란색
+            hover_color = "#2196F3" # 약간 더 어두운 파란색
+            css += f"""
+            a {{
+                color: {link_color} !important;
+                text-decoration: underline;
+                transition: color 0.2s ease-in-out;
+            }}
+            a:hover {{
+                color: {hover_color} !important;
+                text-decoration: none;
+            }}
+            """
             return css
 
     def is_dark_theme(self) -> bool:

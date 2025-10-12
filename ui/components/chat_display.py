@@ -733,6 +733,9 @@ class ChatDisplay:
                 color: {hover_color} !important;
                 text-decoration: none;
             }}
+            .message {{
+                background-color: {colors.get('surface', '#1e1e1e')} !important;
+            }}
             """
             return css
         else:
@@ -753,6 +756,9 @@ class ChatDisplay:
             a:hover {{
                 color: {hover_color} !important;
                 text-decoration: none;
+            }}
+            .message {{
+                background-color: {colors.get('surface', '#4a4a4f')} !important;
             }}
             """
             return css

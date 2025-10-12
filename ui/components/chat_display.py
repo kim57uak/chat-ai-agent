@@ -780,16 +780,18 @@ class ChatDisplay:
 
             new_theme_css = self._get_current_theme_css()
             
-            # 현재 테마의 배경색 가져오기
+            # 현재 테마의 배경색, 텍스트색, 표면색 가져오기
             if theme_manager.use_material_theme:
                 colors = theme_manager.material_manager.get_theme_colors()
-                body_bg_color = colors.get("background", "#121212")
             else:
                 from ui.styles.flat_theme import FlatTheme
                 colors = FlatTheme.get_theme_colors()
-                body_bg_color = colors.get("background", "#1a1a1a")
+            
+            body_bg_color = colors.get("background", "#121212")
+            text_primary_color = colors.get("text_primary", "#ffffff")
+            surface_color = colors.get("surface", "#1e1e1e")
 
-            # JavaScript를 사용하여 <style> 태그와 body 배경색 업데이트
+            # JavaScript를 사용하여 <style> 태그와 body 배경색, 기존 메시지 스타일 업데이트
             update_js = f"""
             try {{
                 var styleTag = document.getElementById('theme-style');
@@ -798,7 +800,20 @@ class ChatDisplay:
                 }}
                 document.body.style.backgroundColor = '{body_bg_color}';
                 document.documentElement.style.backgroundColor = '{body_bg_color}';
-                console.log('테마 CSS 및 배경색 업데이트 완료');
+
+                // 기존 메시지들의 인라인 스타일 업데이트
+                var messages = document.querySelectorAll('.message');
+                messages.forEach(function(messageDiv) {{
+                    messageDiv.style.backgroundColor = '{surface_color}'; // 메시지 배경색 업데이트
+                    var allElements = messageDiv.getElementsByTagName('*');
+                    for (var i = 0; i < allElements.length; i++) {{
+                        var el = allElements[i];
+                        if (el.tagName !== 'CODE' && el.tagName !== 'PRE') {{
+                            el.style.color = '{text_primary_color}'; // 텍스트 색상 업데이트
+                        }}
+                    }}
+                }});
+                console.log('테마 CSS 및 배경색, 메시지 스타일 업데이트 완료');
             }} catch(e) {{
                 console.error('테마 CSS 업데이트 오류:', e);
             }}

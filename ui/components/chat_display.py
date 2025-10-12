@@ -381,24 +381,24 @@ class ChatDisplay:
                 console.log('HTML 로드 완료');
                 
                 // 외부 링크 클릭 시 기본 브라우저로 열기
-                document.addEventListener('click', function(event) {
+                document.addEventListener('click', function(event) {{
                     var target = event.target;
                     // 클릭된 요소가 <a> 태그이거나 <a> 태그의 자식인 경우
-                    while (target && target.tagName !== 'A') {
+                    while (target && target.tagName !== 'A') {{
                         target = target.parentNode;
-                    }
-                    if (target && target.tagName === 'A' && target.href) {
+                    }}
+                    if (target && target.tagName === 'A' && target.href) {{
                         // 기본 동작 방지 (QWebEngineView 내에서 이동 방지)
                         event.preventDefault();
                         // PyQt 브릿지의 openUrl 함수 호출
-                        if (pyqt_bridge && pyqt_bridge.openUrl) {
+                        if (pyqt_bridge && pyqt_bridge.openUrl) {{
                             pyqt_bridge.openUrl(target.href);
-                        } else {
+                        }} else {{
                             // pyqt_bridge가 없으면 기본 브라우저로 직접 열기 (fallback)
                             window.open(target.href, '_blank');
-                        }
-                    }
-                });
+                        }}
+                    }}
+                }});
                 
                 // Mermaid 초기화 (HTML 로드 후) - 중복 실행 방지
                 setTimeout(function() {{

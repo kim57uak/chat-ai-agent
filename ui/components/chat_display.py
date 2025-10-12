@@ -726,6 +726,7 @@ class ChatDisplay:
             a {{
                 color: {link_color} !important;
                 text-decoration: underline;
+                font-weight: bold;
                 transition: color 0.2s ease-in-out;
             }}
             a:hover {{
@@ -746,6 +747,7 @@ class ChatDisplay:
             a {{
                 color: {link_color} !important;
                 text-decoration: underline;
+                font-weight: bold;
                 transition: color 0.2s ease-in-out;
             }}
             a:hover {{

@@ -41,7 +41,9 @@ class MainWindow(QMainWindow):
         self.session_timer = None
         
         # 인증 시스템 초기화
-        self.auth_manager = AuthManager()
+        from utils.security_config import load_logout_timeout
+        logout_timeout = load_logout_timeout()
+        self.auth_manager = AuthManager(auto_logout_minutes=logout_timeout)
         
         # 인증 체크 및 로그인 다이얼로그 표시
         if not self._check_authentication():

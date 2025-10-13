@@ -25,7 +25,7 @@ class SessionSecurityManager(QObject):
         self.auth_manager = auth_manager
         self.last_activity_time = time.time()
         self.auto_logout_enabled = True
-        self.auto_logout_minutes = 30
+        self.auto_logout_minutes = self._load_timeout_from_config()
         self.system_lock_check_enabled = True
         
         # 타이머 설정

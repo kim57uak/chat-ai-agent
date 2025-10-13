@@ -539,8 +539,14 @@ class ChatWidget(QWidget):
             else:
                 token_info = f" | 📊 {total_tokens:,}토큰"
         
+        # 테마 색상 가져오기
+        colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+        is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
+        text_color = colors.get('on_surface', colors.get('text_primary', '#1a1a1a' if is_light else '#ffffff'))
+        text_dim = colors.get('text_secondary', '#666666' if is_light else '#a0a0a0')
+        
         # Material Design 스타일 적용된 하단 정보
-        enhanced_text = f"{text}{tools_info}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 {current_model}{response_time}{token_info}</div>\n<div class='ai-warning'>⚠️ AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</div>\n</div>"
+        enhanced_text = f"{text}{tools_info}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 {current_model}{response_time}{token_info}</div>\n<div class='ai-warning' style='color: {text_dim};'>⚠️ AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</div>\n</div>"
         
         # 표시용 sender 결정
         display_sender = '에이전트' if '에이전트' in sender else 'AI'
@@ -718,13 +724,18 @@ class ChatWidget(QWidget):
                             elif msg.get('token_count', 0) > 0:
                                 token_info = f" | 📊 {msg['token_count']:,}토큰"
                             
+                            # 테마 색상 가져오기
+                            colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+                            is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
+                            text_dim = colors.get('text_secondary', '#666666' if is_light else '#a0a0a0')
+                            
                             # 모델 정보가 있으면 표시하고 센더 정보로 모델명 전달
                             if model and model != 'unknown':
-                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 {model}{token_info}</div>\n</div>"
+                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 {model}{token_info}</div>\n</div>"
                                 # 모델명을 original_sender로 전달하여 포맷팅에 활용
                                 self.chat_display.append_message('AI', enhanced_content, original_sender=model, message_id=msg.get('id'))
                             else:
-                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 AI{token_info}</div>\n</div>" if token_info else content
+                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 AI{token_info}</div>\n</div>" if token_info else content
                                 self.chat_display.append_message('AI', enhanced_content, message_id=msg.get('id'))
                     
                     # 이전 대화 로드 후 웰컴 메시지 표시
@@ -741,24 +752,20 @@ class ChatWidget(QWidget):
                         if model_breakdown:
                             token_summary += f" ({', '.join(model_breakdown)})"
                     
-                    welcome_msg = f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🔄 **이전 대화**: {len(unique_messages)}개 메시지 로드됨\n{token_summary}\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!'
+                    welcome_msg = self._generate_welcome_message(len(unique_messages), token_summary)
                     self.chat_display.append_message('시스템', welcome_msg)
                 else:
                     # 빈 히스토리일 때도 토큰 통계 표시
                     stats = self.conversation_history.get_stats()
                     total_tokens = stats.get('total_tokens', 0)
-                    if total_tokens > 0:
-                        self.chat_display.append_message('시스템', f'🎉 안녕하세요! 새로운 대화를 시작합니다 😊\n\n📊 전체 토큰: {total_tokens:,}개\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다 📋')
-                    else:
-                        self.chat_display.append_message('시스템', '🎉 안녕하세요! 새로운 대화를 시작합니다 😊\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다 📋')
+                    welcome_msg = self._generate_welcome_message(0, f"📊 전체 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
+                    self.chat_display.append_message('시스템', welcome_msg)
             else:
                 # 빈 히스토리일 때도 토큰 통계 표시
                 stats = self.conversation_history.get_stats()
                 total_tokens = stats.get('total_tokens', 0)
-                if total_tokens > 0:
-                    self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
-                else:
-                    self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                welcome_msg = self._generate_welcome_message(0, f"📊 누적 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
+                self.chat_display.append_message('시스템', welcome_msg)
                 
         except Exception as e:
             logger.debug(f"대화 기록 로드 오류: {e}")
@@ -766,25 +773,23 @@ class ChatWidget(QWidget):
             try:
                 stats = self.conversation_history.get_stats()
                 total_tokens = stats.get('total_tokens', 0)
-                if total_tokens > 0:
-                    self.chat_display.append_message('시스템', f'새로운 대화를 시작합니다. 📊 전체 토큰: {total_tokens:,}개\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
-                else:
-                    self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                welcome_msg = self._generate_welcome_message(0, f"📊 전체 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
+                self.chat_display.append_message('시스템', welcome_msg)
             except:
-                self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                welcome_msg = self._generate_welcome_message(0, None)
+                self.chat_display.append_message('시스템', welcome_msg)
     
     def _show_welcome_message(self):
         """웰컴 메시지 표시"""
         try:
             stats = self.conversation_history.get_stats()
             total_tokens = stats.get('total_tokens', 0)
-            if total_tokens > 0:
-                self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
-            else:
-                self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+            welcome_msg = self._generate_welcome_message(0, f"📊 누적 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
+            self.chat_display.append_message('시스템', welcome_msg)
         except Exception as e:
             logger.debug(f"웰컴 메시지 표시 오류: {e}")
-            self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖')
+            welcome_msg = self._generate_welcome_message(0, None)
+            self.chat_display.append_message('시스템', welcome_msg)
     
     def _ensure_welcome_message(self):
         """웰컴 메시지 보장 (웹뷰 로드 시간 초과 시 대비책)"""
@@ -794,6 +799,55 @@ class ChatWidget(QWidget):
                 self._show_welcome_message()
         except Exception as e:
             logger.debug(f"웰컴 메시지 보장 오류: {e}")
+    
+    def _generate_welcome_message(self, message_count=0, token_info=None):
+        """테마 색상이 적용된 환영 메시지 생성"""
+        try:
+            # 테마 색상 가져오기
+            colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+            primary_color = colors.get('primary', '#bb86fc')
+            is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
+            text_color = colors.get('on_surface', colors.get('text_primary', '#1a1a1a' if is_light else '#ffffff'))
+            
+            # 기본 환영 메시지
+            welcome_parts = [
+                f'<div style="color: {primary_color}; font-weight: bold; font-size: 1.2em;">🚀 Chat AI Agent에 오신 것을 환영합니다! 🤖</div>',
+                '',
+                f'<span style="color: {text_color};">✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다</span>',
+                ''
+            ]
+            
+            # 이전 대화 정보 추가
+            if message_count > 0:
+                welcome_parts.append(f'🔄 **이전 대화**: {message_count}개 메시지 로드됨')
+            
+            # 토큰 정보 추가
+            if token_info:
+                welcome_parts.append(token_info)
+            
+            if message_count > 0 or token_info:
+                welcome_parts.append('')
+            
+            # 기능 안내
+            welcome_parts.extend([
+                f'<div style="color: {primary_color}; font-weight: bold;">🎯 사용 가능한 기능:</div>',
+                f'<span style="color: {text_color};">• 💬 **Ask 모드**: 일반 대화 및 질문</span>',
+                f'<span style="color: {text_color};">• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)</span>',
+                f'<span style="color: {text_color};">• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석</span>',
+                '',
+                f'<span style="color: {text_color};">⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</span>',
+                '',
+                f'<span style="color: {text_color};">💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!</span>'
+            ])
+            
+            return '\n'.join(welcome_parts)
+            
+        except Exception as e:
+            logger.debug(f"환영 메시지 생성 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            # 오류 시 기본 메시지 반환
+            return '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다'
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""

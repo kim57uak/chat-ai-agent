@@ -178,21 +178,23 @@ class ChatDisplay:
         logger.debug(f"JS Console] {message} (line: {line_number})")
 
     def _load_html_template(self):
-        """HTML 템플릿 로드"""
-        theme_css = self._get_current_theme_css()
-        mermaid_theme = "dark" if self.is_dark_theme() else "default"
-
-        # 현재 테마의 배경색 가져오기
+        """HTML 템플릿 로드 - CSS 변수 기반"""
+        from ui.components.chat_theme_vars import generate_css_variables, generate_base_css
         from ui.styles.theme_manager import theme_manager
-
+        
+        mermaid_theme = "dark" if self.is_dark_theme() else "default"
+        
+        # 테마 색상 가져오기
         if theme_manager.use_material_theme:
             colors = theme_manager.material_manager.get_theme_colors()
-            body_bg_color = colors.get("background", "#121212")
         else:
             from ui.styles.flat_theme import FlatTheme
-
             colors = FlatTheme.get_theme_colors()
-            body_bg_color = colors.get("background", "#1a1a1a")
+        
+        # CSS 변수 생성
+        is_dark = self.is_dark_theme()
+        css_variables = generate_css_variables(colors, is_dark)
+        base_css = generate_base_css()
 
         html_template = f"""
         <!DOCTYPE html>
@@ -297,63 +299,14 @@ class ChatDisplay:
                 }});
             </script>
             <style id="theme-style">
-                {theme_css}
+                /* CSS 변수 정의 */
+                {css_variables}
+                
+                /* 기본 스타일 */
+                {base_css}
                 
                 /* 성능 최적화 CSS */
                 {performance_optimizer.get_optimized_css()}
-                
-                html, body {{
-                    background: {body_bg_color} !important;
-                    color: {colors.get('text_primary', '#ffffff')} !important;
-                    margin: 0;
-                    padding: 0;
-                    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
-                    font-size: 15px !important;
-                    line-height: 1.6 !important;
-                    /* 스크롤 성능 최적화 */
-                    scroll-behavior: smooth;
-                    -webkit-overflow-scrolling: touch;
-                    transform: translateZ(0);
-                    will-change: scroll-position;
-                }}
-                
-                #messages {{
-                    min-height: calc(100vh - 120px);
-                    height: auto;
-                    overflow-y: visible;
-                    padding-bottom: 120px;
-                    /* 스크롤 성능 최적화 */
-                    contain: layout style paint;
-                    transform: translateZ(0);
-                    backface-visibility: hidden;
-                    perspective: 1000px;
-                }}
-                
-                .message {{
-                    margin: 16px 0;
-                    padding: 24px;
-                    background: {colors.get('surface', 'rgba(255, 255, 255, 0.05)')};
-                    border: 1px solid {colors.get('divider', 'rgba(255, 255, 255, 0.1)')};
-                    border-radius: 16px;
-                    position: relative;
-                    color: {colors.get('text_primary', '#ffffff')} !important;
-                    min-height: auto;
-                    height: auto;
-                    overflow: visible;
-                    /* 렌더링 성능 최적화 */
-                    contain: layout style;
-                    transform: translateZ(0);
-                    will-change: transform;
-                    transition: transform 0.2s ease;
-                }}
-                
-                .message:hover {{
-                    transform: translateZ(0) translateY(-1px);
-                }}
-                
-                .message * {{
-                    color: {colors.get('text_primary', '#ffffff')} !important;
-                }}
             </style>
         </head>
         <body>
@@ -499,11 +452,11 @@ class ChatDisplay:
                     }}
                 }}
                 
-                function showToast(message) {{
+                function showToast(message, type) {{
                     var toast = document.createElement('div');
                     toast.textContent = message;
-                    toast.style.cssText = 'position: fixed !important; top: 20px !important; right: 20px !important; background: #4CAF50 !important; color: white !important; padding: 16px 24px !important; border-radius: 8px !important; z-index: 999999 !important; font-size: 16px !important; font-weight: 600 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; border: 2px solid white !important;';
-                    console.log('토스트 생성됨:', message);
+                    toast.className = 'toast' + (type ? ' ' + type : '');
+                    
                     if (!document.body) {{
                         console.error('document.body is null');
                         return;
@@ -556,7 +509,6 @@ class ChatDisplay:
                 }});
                 
                 function showContextMenu(x, y, selectedText) {{
-                    // 기존 컨텍스트 메뉴 제거
                     var existingMenu = document.getElementById('context-menu');
                     if (existingMenu) {{
                         existingMenu.remove();
@@ -564,30 +516,24 @@ class ChatDisplay:
                     
                     var menu = document.createElement('div');
                     menu.id = 'context-menu';
-                    menu.style.cssText = 'position: absolute; background: rgba(45, 45, 45, 0.95); border: 1px solid #444444; border-radius: 8px; padding: 8px 0; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-width: 120px; backdrop-filter: blur(10px);';
+                    menu.className = 'context-menu';
                     menu.style.left = x + 'px';
                     menu.style.top = y + 'px';
                     
-                    // 복사 메뉴 항목
                     var copyItem = document.createElement('div');
                     copyItem.textContent = '📋 복사';
-                    copyItem.style.cssText = 'padding: 8px 16px; cursor: pointer; color: #ffffff; font-size: 14px; transition: background 0.2s;';
-                    copyItem.onmouseover = function() {{ this.style.background = 'rgba(187, 134, 252, 0.3)'; }};
-                    copyItem.onmouseout = function() {{ this.style.background = 'transparent'; }};
+                    copyItem.className = 'context-menu-item';
                     copyItem.onclick = function() {{
                         if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
                             pyqt_bridge.copyToClipboard(selectedText);
-                            showToast('텍스트가 복사되었습니다!');
+                            showToast('텍스트가 복사되었습니다!', 'success');
                         }}
                         menu.remove();
                     }};
                     
-                    // 찾기 메뉴 항목
                     var searchItem = document.createElement('div');
                     searchItem.textContent = '🔍 찾기';
-                    searchItem.style.cssText = 'padding: 8px 16px; cursor: pointer; color: #ffffff; font-size: 14px; transition: background 0.2s;';
-                    searchItem.onmouseover = function() {{ this.style.background = 'rgba(187, 134, 252, 0.3)'; }};
-                    searchItem.onmouseout = function() {{ this.style.background = 'transparent'; }};
+                    searchItem.className = 'context-menu-item';
                     searchItem.onclick = function() {{
                         var cleanWord = selectedText.replace(/[^a-zA-Z가-힣]/g, '');
                         if (cleanWord.length >= 2) {{
@@ -604,7 +550,6 @@ class ChatDisplay:
                     menu.appendChild(searchItem);
                     document.body.appendChild(menu);
                     
-                    // 메뉴 외부 클릭 시 닫기
                     setTimeout(function() {{
                         document.addEventListener('click', function closeMenu(e) {{
                             if (!menu.contains(e.target)) {{
@@ -713,55 +658,7 @@ class ChatDisplay:
         """
         self.web_view.setHtml(html_template)
 
-    def _get_current_theme_css(self) -> str:
-        """현재 테마 CSS 반환"""
-        from ui.styles.theme_manager import theme_manager
 
-        if theme_manager.use_material_theme:
-            css = theme_manager.material_manager.generate_web_css()
-            colors = theme_manager.material_manager.get_theme_colors()
-            link_color = colors.get('secondary', '#03dac6') # 기본 링크 색상
-            hover_color = colors.get('primary', '#bb86fc') # 호버 시 색상
-            css += f"""
-            a {{
-                color: {link_color} !important;
-                text-decoration: underline;
-                font-weight: bold;
-                transition: color 0.2s ease-in-out;
-            }}
-            a:hover {{
-                color: {hover_color} !important;
-                text-decoration: none;
-            }}
-            .message {{
-                background-color: {colors.get('surface', '#1e1e1e')} !important;
-            }}
-            """
-            return css
-        else:
-            from ui.styles.flat_theme import FlatTheme
-            css = FlatTheme.get_chat_display_css()
-            colors = FlatTheme.get_theme_colors() # Flat 테마 색상 가져오기
-            
-            link_color = colors.get('primary', '#64c8ff') # Flat 테마의 primary 색상 사용
-            hover_color = "#42A5F5" # 호버 시 약간 더 어두운 파란색
-            
-            css += f"""
-            a {{
-                color: {link_color} !important;
-                text-decoration: underline;
-                font-weight: bold;
-                transition: color 0.2s ease-in-out;
-            }}
-            a:hover {{
-                color: {hover_color} !important;
-                text-decoration: none;
-            }}
-            .message {{
-                background-color: {colors.get('surface', '#4a4a4f')} !important;
-            }}
-            """
-            return css
 
     def is_dark_theme(self) -> bool:
         """현재 테마가 다크 테마인지 확인"""
@@ -773,54 +670,42 @@ class ChatDisplay:
             return True  # 기본 테마는 다크 테마로 간주
 
     def update_theme(self):
-        """테마 업데이트 - 화면 깜빡임 없이 CSS만 동적으로 변경"""
+        """테마 업데이트 - CSS 변수만 업데이트 (단순화)"""
         try:
             from ui.styles.theme_manager import theme_manager
-            logger.debug(f"테마 업데이트 시작 (깜빡임 없음): {theme_manager.material_manager.current_theme_key}")
-
-            new_theme_css = self._get_current_theme_css()
+            from ui.components.chat_theme_vars import generate_css_variables
             
-            # 현재 테마의 배경색, 텍스트색, 표면색 가져오기
+            logger.debug(f"테마 업데이트 시작: {theme_manager.material_manager.current_theme_key}")
+
+            # 현재 테마 색상 가져오기
             if theme_manager.use_material_theme:
                 colors = theme_manager.material_manager.get_theme_colors()
             else:
                 from ui.styles.flat_theme import FlatTheme
                 colors = FlatTheme.get_theme_colors()
             
-            body_bg_color = colors.get("background", "#121212")
-            text_primary_color = colors.get("text_primary", "#ffffff")
-            surface_color = colors.get("surface", "#1e1e1e")
+            # CSS 변수 생성
+            is_dark = theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else True
+            css_variables = generate_css_variables(colors, is_dark)
 
-            # JavaScript를 사용하여 <style> 태그와 body 배경색, 기존 메시지 스타일 업데이트
+            # CSS 변수만 업데이트 (단일 레이어)
             update_js = f"""
             try {{
                 var styleTag = document.getElementById('theme-style');
                 if (styleTag) {{
-                    styleTag.innerHTML = `{new_theme_css}`;
+                    var currentCSS = styleTag.innerHTML;
+                    var newVariables = `{css_variables}`;
+                    var updatedCSS = currentCSS.replace(/:root \\{{[^}}]*\\}}/s, newVariables);
+                    styleTag.innerHTML = updatedCSS;
+                    console.log('CSS 변수 업데이트 완료');
                 }}
-                document.body.style.backgroundColor = '{body_bg_color}';
-                document.documentElement.style.backgroundColor = '{body_bg_color}';
-
-                // 기존 메시지들의 인라인 스타일 업데이트
-                var messages = document.querySelectorAll('.message');
-                messages.forEach(function(messageDiv) {{
-                    messageDiv.style.backgroundColor = '{surface_color}'; // 메시지 배경색 업데이트
-                    var allElements = messageDiv.getElementsByTagName('*');
-                    for (var i = 0; i < allElements.length; i++) {{
-                        var el = allElements[i];
-                        if (el.tagName !== 'CODE' && el.tagName !== 'PRE') {{
-                            el.style.color = '{text_primary_color}'; // 텍스트 색상 업데이트
-                        }}
-                    }}
-                }});
-                console.log('테마 CSS 및 배경색, 메시지 스타일 업데이트 완료');
             }} catch(e) {{
-                console.error('테마 CSS 업데이트 오류:', e);
+                console.error('CSS 변수 업데이트 오류:', e);
             }}
             """
             self.web_view.page().runJavaScript(update_js)
             
-            logger.debug("채팅 디스플레이 테마 업데이트 완료 (깜빡임 없음)")
+            logger.debug("채팅 디스플레이 테마 업데이트 완료")
 
         except Exception as e:
             logger.debug(f"채팅 디스플레이 테마 업데이트 오류: {e}")
@@ -943,7 +828,6 @@ class ChatDisplay:
             console.log('=== 메시지 생성 시작 ===');
             console.log('메시지 ID: {display_message_id}');
             console.log('발신자: {sender}');
-            console.log('테마 색상: {default_text_color}');
             
             var messagesDiv = document.getElementById('messages');
             
@@ -951,38 +835,37 @@ class ChatDisplay:
             messageDiv.id = '{display_message_id}';
             messageDiv.setAttribute('data-message-id', '{message_id or display_message_id}');
             messageDiv.className = 'message';
-            messageDiv.style.cssText = 'position: relative; margin: 16px 0; padding: 24px; background: {colors.get("surface", "rgba(255, 255, 255, 0.05)")}; border: 1px solid {colors.get("divider", "rgba(255, 255, 255, 0.1)")}; border-radius: 16px; color: {default_text_color} !important;';
             
             var headerDiv = document.createElement('div');
-            headerDiv.style.cssText = 'margin: 0 0 12px 0; font-weight: 600; color: {default_text_color} !important; font-size: 13px; display: flex; align-items: center; justify-content: space-between;';
+            headerDiv.className = 'message-header';
             
             var senderInfo = document.createElement('div');
-            senderInfo.style.cssText = 'display: flex; align-items: center; gap: 8px;';
-            senderInfo.innerHTML = '<span style="font-size:16px;">{icon}</span><span>{sender}</span>';
+            senderInfo.className = 'message-sender-info';
+            senderInfo.innerHTML = '<span class="message-icon">{icon}</span><span>{sender}</span>';
             
             // 개별 메시지 버튼 컨테이너
             var buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = 'display: flex; gap: 4px; opacity: 0.7; transition: opacity 0.2s ease;';
+            buttonContainer.className = 'message-buttons';
             
             // 복사 버튼
             var copyBtn = document.createElement('button');
             copyBtn.innerHTML = '📋';
             copyBtn.title = '텍스트 복사';
-            copyBtn.style.cssText = 'background: {colors.get("primary", "#bb86fc")}; color: {colors.get("on_primary", "#000000")}; border: none; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; transition: all 0.2s ease;';
+            copyBtn.className = 'btn-primary message-btn';
             copyBtn.onclick = function() {{ copyMessage('{display_message_id}'); }};
             
             // HTML 복사 버튼
             var htmlCopyBtn = document.createElement('button');
             htmlCopyBtn.innerHTML = '🏷️';
             htmlCopyBtn.title = 'HTML 복사';
-            htmlCopyBtn.style.cssText = 'background: {colors.get("secondary", "#03dac6")}; color: {colors.get("on_secondary", "#000000")}; border: none; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; transition: all 0.2s ease;';
+            htmlCopyBtn.className = 'btn-secondary message-btn';
             htmlCopyBtn.onclick = function() {{ copyHtmlMessage('{display_message_id}'); }};
             
             // 삭제 버튼
             var deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '🗑️';
             deleteBtn.title = '메시지 삭제';
-            deleteBtn.style.cssText = 'background: {colors.get("error", "#cf6679")}; color: {colors.get("on_error", "#000000")}; border: none; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; transition: all 0.2s ease;';
+            deleteBtn.className = 'btn-error message-btn';
             deleteBtn.onclick = function() {{ 
                 if (confirm('이 메시지를 삭제하시겠습니까?')) {{
                     deleteMessage('{message_id or display_message_id}'); 
@@ -994,20 +877,16 @@ class ChatDisplay:
             buttonContainer.appendChild(htmlCopyBtn);
             buttonContainer.appendChild(deleteBtn);
             
-            // 호버 효과
-            messageDiv.onmouseenter = function() {{ buttonContainer.style.opacity = '1'; }};
-            messageDiv.onmouseleave = function() {{ buttonContainer.style.opacity = '0.7'; }};
-            
             headerDiv.appendChild(senderInfo);
             headerDiv.appendChild(buttonContainer);
             
             var contentDiv = document.createElement('div');
             contentDiv.id = '{display_message_id}_content';
-            contentDiv.style.cssText = 'margin: 0; padding: 0; line-height: 1.6; color: {default_text_color} !important; font-size: 15px; word-wrap: break-word; width: 100%;';
+            contentDiv.className = 'message-content';
             
             // 타임스탬프 추가
             var timestampDiv = document.createElement('div');
-            timestampDiv.style.cssText = 'margin-top: 12px; padding-top: 8px; border-top: 1px solid {colors.get("divider", "rgba(255, 255, 255, 0.1)")}; font-size: 11px; color: {colors.get("text_secondary", "rgba(255, 255, 255, 0.6)")} !important; text-align: right; opacity: 0.7;';
+            timestampDiv.className = 'message-timestamp';
             timestampDiv.textContent = '{timestamp}';
             
             messageDiv.appendChild(headerDiv);
@@ -1023,16 +902,6 @@ class ChatDisplay:
             }}
             
             contentDiv.innerHTML = {safe_content};
-            
-            // 색상 강제 적용
-            contentDiv.style.color = '{default_text_color}';
-            var allElements = contentDiv.getElementsByTagName('*');
-            for (var i = 0; i < allElements.length; i++) {{
-                var el = allElements[i];
-                if (el.tagName !== 'CODE' && el.tagName !== 'PRE') {{
-                    el.style.color = '{default_text_color}';
-                }}
-            }}
             
             console.log('메시지 생성 완료: {display_message_id}');
             
@@ -1149,15 +1018,7 @@ class LinkHandler(QObject):
                     if hasattr(self.chat_widget, 'chat_display'):
                         logger.debug(f" JavaScript 실행 시도")
                         # 직접 토스트 생성 (showToast 함수 의존성 제거)
-                        toast_js = """
-                        try {
-                            var toast = document.createElement('div');
-                            toast.textContent = '텍스트가 복사되었습니다!';
-                            toast.style.cssText = 'position: fixed !important; top: 20px !important; right: 20px !important; background: #4CAF50 !important; color: white !important; padding: 16px 24px !important; border-radius: 8px !important; z-index: 999999 !important; font-size: 16px !important; font-weight: 600 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;';
-                            document.body.appendChild(toast);
-                            setTimeout(function() { if(toast.parentNode) toast.parentNode.removeChild(toast); }, 2000);
-                        } catch(e) { console.error('Toast error:', e); }
-                        """
+                        toast_js = "showToast('텍스트가 복사되었습니다!', 'success');"
                         self.chat_widget.chat_display.web_view.page().runJavaScript(toast_js)
                     else:
                         logger.debug(f" chat_display 없음")
@@ -1201,15 +1062,7 @@ class LinkHandler(QObject):
                 if hasattr(self, 'chat_widget') and self.chat_widget and hasattr(self.chat_widget, 'chat_display'):
                     logger.debug(f"DEBUG HTML] JavaScript 실행 시도")
                     # 직접 토스트 생성 (showToast 함수 의존성 제거)
-                    toast_js = """
-                    try {
-                        var toast = document.createElement('div');
-                        toast.textContent = 'HTML이 복사되었습니다!';
-                        toast.style.cssText = 'position: fixed !important; top: 20px !important; right: 20px !important; background: #03DAC6 !important; color: white !important; padding: 16px 24px !important; border-radius: 8px !important; z-index: 999999 !important; font-size: 16px !important; font-weight: 600 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;';
-                        document.body.appendChild(toast);
-                        setTimeout(function() { if(toast.parentNode) toast.parentNode.removeChild(toast); }, 2000);
-                    } catch(e) { console.error('Toast error:', e); }
-                    """
+                    toast_js = "showToast('HTML이 복사되었습니다!', 'success');"
                     self.chat_widget.chat_display.web_view.page().runJavaScript(toast_js)
                 else:
                     logger.debug(f"DEBUG HTML] chat_widget 또는 chat_display 없음")

@@ -1,19 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""
-ChatAI Agent - PyInstaller Spec File
-Version: 1.0.0-beta
-Target: macOS ARM64 (Apple Silicon)
-Minimum macOS: 11.0 (Big Sur)
-
-Build Instructions:
-    pyinstaller --clean --noconfirm chat_ai_agent.spec
-    
-Features:
-    - ARM64 전용 빌드 (M1/M2/M3/M4 Mac)
-    - cryptography 패키지 완전 포함
-    - 런치패드 실행 지원
-    - 최소 macOS 11.0 요구
-"""
 
 import os
 import sys
@@ -22,15 +7,10 @@ from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
-# Version info
-VERSION = '1.0.0-beta'
-APP_NAME = 'ChatAIAgent'
-BUNDLE_ID = 'com.chataiagent.beta.app'
-
-# Collect security packages completely
+# Collect packages completely
 cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
-keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
 loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
+keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
 
 # Data files to include
 datas = [
@@ -69,12 +49,12 @@ datas = filtered_datas
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=cryptography_binaries + keyring_binaries + loguru_binaries,
-    datas=datas + cryptography_datas + keyring_datas + loguru_datas,
+    binaries=cryptography_binaries + loguru_binaries + keyring_binaries,
+    datas=datas + cryptography_datas + loguru_datas + keyring_datas,
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore',
-        'PyQt6.QtGui',
+        'PyQt6.QtGui', 
         'PyQt6.QtWidgets',
         'PyQt6.QtWebEngineWidgets',
         'PyQt6.QtWebChannel',
@@ -91,20 +71,10 @@ a = Analysis(
         'hashlib',
         
         # Security & Encryption
-        'cryptography',
-        'cryptography.fernet',
-        'cryptography.hazmat',
-        'cryptography.hazmat.primitives',
-        'cryptography.hazmat.primitives.kdf',
-        'cryptography.hazmat.primitives.kdf.pbkdf2',
-        'cryptography.hazmat.primitives.ciphers',
-        'cryptography.hazmat.primitives.ciphers.aead',
-        'cryptography.hazmat.backends',
-        'cryptography.hazmat.backends.openssl',
-        'cryptography.hazmat.backends.openssl.backend',
-        '_cffi_backend',
+        'keyring',
+        'keyring.backends',
         
-        # Logging (collected via hook)
+        # Logging
         'loguru',
         
         # Third-party
@@ -119,11 +89,12 @@ a = Analysis(
         'core',
         'core.security',
         'core.session',
+        'core.logging',
         'ui',
         'mcp',
         'tools',
         'utils',
-    ] + cryptography_hiddenimports + keyring_hiddenimports + loguru_hiddenimports,
+    ] + cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports,
     hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],
@@ -229,12 +200,10 @@ elif sys.platform == 'darwin':
     
     app = BUNDLE(
         coll,
-        name=f'{APP_NAME}_beta.app',
+        name='ChatAIAgent_beta.app',
         icon='image/Agentic_AI_transparent.png' if Path('image/Agentic_AI_transparent.png').exists() else None,
-        bundle_identifier=BUNDLE_ID,
+        bundle_identifier='com.chataiagent.beta.app',
         info_plist={
-            'CFBundleShortVersionString': VERSION,
-            'CFBundleVersion': VERSION,
             'NSPrincipalClass': 'NSApplication',
             'NSAppleScriptEnabled': False,
             'LSMinimumSystemVersion': '11.0',

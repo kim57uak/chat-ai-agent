@@ -219,8 +219,8 @@ class PackageBuilder:
         print("✓ Reset user_config_path.json (외부 경로 초기화)")
 
     def clean_build(self):
-        """완전한 빌드 환경 정리"""
-        print("🧹 완전한 빌드 환경 정리 중...")
+        """빌드 디렉토리 및 캐시 정리 (venv는 build.sh에서 처리)"""
+        print("🧹 빌드 환경 정리 중...")
 
         # 1. 기존 빌드 디렉토리 삭제
         dirs_to_clean = ["build", "dist"]
@@ -228,7 +228,6 @@ class PackageBuilder:
             dir_path = self.project_root / dir_name
             if dir_path.exists():
                 try:
-                    # 권한 문제 해결을 위해 chmod 후 삭제
                     subprocess.run(["chmod", "-R", "755", str(dir_path)], check=False)
                     shutil.rmtree(dir_path)
                     print(f"✓ Cleaned {dir_name}")
@@ -238,39 +237,14 @@ class PackageBuilder:
         # 2. __pycache__ 재귀적 삭제
         try:
             subprocess.run(
-                [
-                    "find",
-                    str(self.project_root),
-                    "-name",
-                    "__pycache__",
-                    "-type",
-                    "d",
-                    "-exec",
-                    "rm",
-                    "-rf",
-                    "{}",
-                    "+",
-                ],
-                check=False,
-                capture_output=True,
+                ["find", str(self.project_root), "-name", "__pycache__", "-type", "d", "-exec", "rm", "-rf", "{}", "+"],
+                check=False, capture_output=True
             )
-            print("✓ Cleaned __pycache__ directories")
+            print("✓ Cleaned __pycache__")
         except Exception as e:
             print(f"⚠ __pycache__ 정리 중 오류: {e}")
 
-        # 3. pip 캐시 정리
-        try:
-            result = subprocess.run(
-                ["pip", "cache", "purge"], capture_output=True, text=True, check=False
-            )
-            if result.returncode == 0 and result.stdout:
-                print(f"✓ Pip cache purged: {result.stdout.strip()}")
-            else:
-                print("✓ Pip cache already clean")
-        except Exception as e:
-            print(f"⚠ Pip 캐시 정리 중 오류: {e}")
-
-        # 4. PyInstaller 캐시 정리 (있다면)
+        # 3. PyInstaller 캐시 정리
         pyinstaller_cache = Path.home() / ".pyinstaller_cache"
         if pyinstaller_cache.exists():
             try:
@@ -279,7 +253,7 @@ class PackageBuilder:
             except Exception as e:
                 print(f"⚠ PyInstaller 캐시 정리 중 오류: {e}")
 
-        print("✅ 완전한 빌드 환경 정리 완료")
+        print("✅ 빌드 환경 정리 완료")
 
     def update_spec_file(self):
         """Update PyInstaller spec file for cross-platform compatibility"""
@@ -426,11 +400,6 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
-
-# Ensure cryptography is in pure Python modules
-for item in cryptography_hiddenimports:
-    if item not in [mod[0] for mod in a.pure]:
-        a.pure.append((item, '', 'PYMODULE'))
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -887,13 +856,9 @@ else:
                         print(f"❌ {task_name} failed: {e}")
                         raise
 
-            # 4. PyInstaller 캐시 정리
-            print("\n🗑️  Step 3: PyInstaller 캐시 정리...")
-            cache_dir = Path.home() / ".pyinstaller_cache"
-            if cache_dir.exists():
-                import shutil
-                shutil.rmtree(cache_dir, ignore_errors=True)
-                print("✓ 캐시 정리 완료")
+            # 4. spec 파일 업데이트
+            print("\n📝 Step 3: Updating spec file...")
+            self.update_spec_file()
 
             # 5. Build executable (병렬 처리 적용)
             print("\n🔨 Step 4: Building executable with parallel processing...")

@@ -291,6 +291,10 @@ datas = [
     ('image/Agentic_AI_transparent.png', 'image'),
     ('image/Agentic_AI.png', 'image'),
     ('agentic_ai_128X128.png', '.'),
+    
+    # Web templates and static files
+    ('ui/components/web/templates', 'ui/components/web/templates'),
+    ('ui/components/web/static', 'ui/components/web/static'),
 ]
 
 # Filter existing files

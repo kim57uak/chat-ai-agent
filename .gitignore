@@ -6,6 +6,8 @@ __pycache__/
 config_local.json
 *.log
 *.html
+!ui/components/web/templates/*.html
+!ui/settings/*.html
 *.toc
 *.zip
 *.pyz

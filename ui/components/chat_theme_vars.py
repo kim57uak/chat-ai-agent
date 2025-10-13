@@ -203,15 +203,25 @@ def generate_base_css() -> str:
             border-collapse: collapse;
             width: 100%;
             margin: 12px 0;
+            background: transparent;
         }
         
         th, td {
             border: 1px solid var(--border);
             padding: 8px;
             text-align: left;
+            color: var(--text) !important;
         }
         
-        th { font-weight: 600; background: var(--border); }
+        th { 
+            font-weight: 600; 
+            background: var(--primary);
+            color: var(--text) !important;
+        }
+        
+        td {
+            background: transparent;
+        }
         
         blockquote {
             border-left: 3px solid var(--primary);

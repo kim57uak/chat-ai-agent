@@ -679,7 +679,7 @@ class SettingsDialog(QDialog):
         international_layout = QHBoxLayout()
         international_layout.addWidget(QLabel('해외 뉴스 개수:'))
         self.international_count_spin = QSpinBox()
-        self.international_count_spin.setRange(1, 20)
+        self.international_count_spin.setRange(1, 100)
         self.international_count_spin.setValue(5)
         self.international_count_spin.setSuffix(' 개')
         self.international_count_spin.setMinimumHeight(40)

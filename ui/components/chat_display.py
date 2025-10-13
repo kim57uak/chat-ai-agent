@@ -85,45 +85,6 @@ class ChatDisplay:
         
         # 성능 최적화 적용
         performance_optimizer.optimize_webview(self.web_view)
-        
-        # 스크롤바 스타일 적용
-        self._apply_scrollbar_style()
-    
-    def _apply_scrollbar_style(self):
-        """PyQt6 스크롤바 스타일 적용"""
-        from ui.styles.theme_manager import theme_manager
-        
-        if theme_manager.use_material_theme:
-            colors = theme_manager.material_manager.get_theme_colors()
-            primary_color = colors.get('primary', '#bb86fc')
-            surface_color = colors.get('surface', '#1e1e1e')
-            
-            scrollbar_style = f"""
-            QScrollBar:vertical {{
-                background: {surface_color};
-                width: 8px;
-                border-radius: 4px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 rgba(255,255,255,0.3), 
-                    stop:1 {primary_color});
-                border-radius: 4px;
-                min-height: 20px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background: {primary_color};
-            }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-                border: none;
-                background: none;
-            }}
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-                background: none;
-            }}
-            """
-            
-            self.web_view.setStyleSheet(scrollbar_style)
 
         # 스크롤 성능 향상을 위한 추가 설정
         from PyQt6.QtCore import QUrl
@@ -381,7 +342,6 @@ class ChatDisplay:
                         
                         // 새로운 메시지 선택
                         messageElement.classList.add('selected');
-                        messageElement.style.border = '2px solid #bb86fc';
                         currentSelectedMessage = messageElement.id;
                         
                         // 버튼 표시
@@ -912,40 +872,16 @@ class ChatDisplay:
                 }}
             }}, 50);
             
-            // 스크롤 조정 - 강화된 하단 스크롤
+            // 스크롤 조정 - 하단 스크롤
             setTimeout(function() {{
                 if (!{str(prepend).lower()}) {{
-                    // 여러 방법으로 하단 스크롤 시도
-                    const scrollToBottom = () => {{
-                        const maxScroll = Math.max(
-                            document.body.scrollHeight,
-                            document.documentElement.scrollHeight,
-                            document.body.offsetHeight,
-                            document.documentElement.offsetHeight
-                        );
-                        
-                        // 즉시 스크롤
-                        window.scrollTo(0, maxScroll);
-                        document.documentElement.scrollTop = maxScroll;
-                        document.body.scrollTop = maxScroll;
-                        
-                        // 부드러운 스크롤도 시도
-                        window.scrollTo({{
-                            top: maxScroll,
-                            behavior: 'smooth'
-                        }});
-                    }};
-                    
-                    // 즉시 실행
-                    scrollToBottom();
-                    
-                    // 100ms 후 다시 시도
-                    setTimeout(scrollToBottom, 100);
-                    
-                    // 300ms 후 마지막 시도
-                    setTimeout(scrollToBottom, 300);
+                    const maxScroll = Math.max(
+                        document.body.scrollHeight,
+                        document.documentElement.scrollHeight
+                    );
+                    window.scrollTo(0, maxScroll);
                 }}
-            }}, 50);
+            }}, 100);
             
         }} catch(e) {{
             console.error('메시지 생성 오류:', e);

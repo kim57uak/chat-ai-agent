@@ -38,6 +38,10 @@ def generate_css_variables(colors: dict, is_dark: bool = True) -> str:
     secondary = colors.get('secondary', '#03dac6' if auto_dark else '#0891b2')
     error = colors.get('error', '#cf6679' if auto_dark else '#dc2626')
     
+    # primary RGB 추출
+    primary_hex = primary.lstrip('#')
+    primary_rgb = f"{int(primary_hex[0:2], 16)}, {int(primary_hex[2:4], 16)}, {int(primary_hex[4:6], 16)}"
+    
     # 글래스모피즘 설정
     glass = colors.get('glass', {})
     glass_bg = glass.get('background', surface)
@@ -53,6 +57,7 @@ def generate_css_variables(colors: dict, is_dark: bool = True) -> str:
             --text-dim: {text_dim};
             --border: {border};
             --primary: {primary};
+            --primary-rgb: {primary_rgb};
             --secondary: {secondary};
             --error: {error};
             --glass-bg: {glass_bg};
@@ -91,6 +96,12 @@ def generate_base_css() -> str:
             backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
             -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .message.selected {
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15), 0 8px 32px rgba(0, 0, 0, 0.15);
         }
         
         .message-header {
@@ -213,6 +224,26 @@ def generate_base_css() -> str:
             border-radius: 6px;
             overflow-x: auto;
             margin: 12px 0;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--surface);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(to right, var(--text-dim), var(--primary));
+            border-radius: 4px;
+            min-height: 20px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
         }
         
         pre code {

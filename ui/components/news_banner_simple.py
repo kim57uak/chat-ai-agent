@@ -246,16 +246,16 @@ class NewsBanner(QWidget):
 
         # 새로고침 버튼
         self.refresh_btn = QPushButton("↻")
-        self.refresh_btn.setFixedSize(36, 36)
+        self.refresh_btn.setFixedSize(44, 44)
         self.refresh_btn.clicked.connect(self.load_news)
         self.refresh_btn.setToolTip("뉴스 새로고침")
         self.refresh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-        layout.addWidget(self.news_label, 1, Qt.AlignmentFlag.AlignVCenter)
-        layout.addWidget(self.refresh_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(self.news_label, 1)
+        layout.addWidget(self.refresh_btn, 0)
         self.setLayout(layout)
-        self.setMaximumHeight(52)
-        self.setMinimumHeight(52)
+        self.setMaximumHeight(60)
+        self.setMinimumHeight(60)
         self.apply_theme()
 
     def load_news(self):
@@ -345,9 +345,10 @@ class NewsBanner(QWidget):
                         color: {text_color};
                         border: 1px solid {primary_color};
                         border-radius: 8px;
-                        padding: 8px 16px;
-                        font-size: 13px;
+                        padding: 8px 12px;
+                        font-size: 14px;
                         font-weight: 500;
+                        line-height: 1.5;
                     }}
                 """)
 
@@ -356,14 +357,14 @@ class NewsBanner(QWidget):
                         background-color: {bg_color};
                         border: 1px solid {primary_color};
                         border-radius: 8px;
-                        font-size: 18px;
+                        font-size: 20px;
                         font-weight: bold;
                         color: {primary_color};
                         padding: 0px;
-                        min-width: 36px;
-                        max-width: 36px;
-                        min-height: 36px;
-                        max-height: 36px;
+                        min-width: 44px;
+                        max-width: 44px;
+                        min-height: 44px;
+                        max-height: 44px;
                     }}
                     QPushButton:hover {{
                         background-color: {primary_color};

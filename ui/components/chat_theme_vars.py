@@ -118,20 +118,51 @@ def generate_base_css() -> str:
         .message:hover .message-buttons { opacity: 1; }
         
         .message-btn {
-            border: none;
-            background: transparent;
+            border: 1px solid var(--border);
+            background: var(--surface);
             padding: 4px 8px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
             color: var(--text);
+            transition: all 0.2s;
         }
         
-        .message-btn:hover { background: var(--border); }
+        .message-btn:hover { 
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--bg);
+        }
         
-        .btn-primary { color: var(--primary); }
-        .btn-secondary { color: var(--secondary); }
-        .btn-error { color: var(--error); }
+        .btn-primary { 
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary);
+            color: var(--bg);
+        }
+        
+        .btn-secondary { 
+            color: var(--secondary);
+            border-color: var(--secondary);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--secondary);
+            color: var(--bg);
+        }
+        
+        .btn-error { 
+            color: var(--error);
+            border-color: var(--error);
+        }
+        
+        .btn-error:hover {
+            background: var(--error);
+            color: var(--bg);
+        }
         
         .message-content {
             color: var(--text) !important;

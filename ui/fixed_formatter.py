@@ -397,7 +397,7 @@ class FixedFormatter:
                     lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{current_lang or "code"}</div>' if current_lang else ''
                     
                     # 버튼들
-                    copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: {"60px" if is_executable else "8px"}; background: #444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';">📋 복사</button>'
+                    copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: {"60px" if is_executable else "8px"}; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
                     
                     exec_btn = ''
                     if is_executable:

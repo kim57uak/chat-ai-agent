@@ -176,24 +176,99 @@ def generate_base_css() -> str:
         a:hover { color: var(--primary); }
         
         pre {
-            background: var(--border);
+            background: var(--surface) !important;
+            border: 1px solid var(--border);
             padding: 12px;
             border-radius: 6px;
             overflow-x: auto;
             margin: 12px 0;
         }
         
+        pre code {
+            background: transparent !important;
+            color: var(--text) !important;
+        }
+        
         code {
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
             color: var(--text) !important;
+            background: transparent;
         }
         
         p code {
-            background: var(--border);
+            background: var(--surface) !important;
+            border: 1px solid var(--border);
             padding: 2px 6px;
             border-radius: 3px;
             color: var(--text) !important;
+        }
+        
+        .mermaid {
+            background: var(--surface) !important;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+        
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+            background: transparent !important;
+        }
+        
+        .mermaid .node rect,
+        .mermaid .node circle,
+        .mermaid .node ellipse,
+        .mermaid .node polygon,
+        .mermaid .node path {
+            fill: var(--surface) !important;
+            stroke: var(--primary) !important;
+            stroke-width: 2px !important;
+        }
+        
+        .mermaid text,
+        .mermaid .nodeLabel,
+        .mermaid .label,
+        .mermaid .node .label,
+        .mermaid tspan {
+            fill: var(--text) !important;
+            color: var(--text) !important;
+            font-weight: 500 !important;
+        }
+        
+        .mermaid .edgeLabel,
+        .mermaid .edgeLabel rect,
+        .mermaid .edgeLabel span {
+            background-color: var(--surface) !important;
+            fill: var(--surface) !important;
+            color: var(--text) !important;
+        }
+        
+        .mermaid .edgeLabel text {
+            fill: var(--text) !important;
+        }
+        
+        .mermaid .edgePath .path,
+        .mermaid .flowchart-link {
+            stroke: var(--text-dim) !important;
+            stroke-width: 2px !important;
+        }
+        
+        .mermaid .marker,
+        .mermaid .arrowheadPath {
+            fill: var(--text-dim) !important;
+            stroke: var(--text-dim) !important;
+        }
+        
+        .mermaid .cluster rect {
+            fill: var(--surface) !important;
+            stroke: var(--border) !important;
+        }
+        
+        .mermaid .cluster text {
+            fill: var(--text) !important;
         }
         
         ul, ol { margin: 8px 0; padding-left: 24px; }

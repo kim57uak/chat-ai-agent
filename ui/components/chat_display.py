@@ -182,7 +182,7 @@ class ChatDisplay:
         from ui.components.chat_theme_vars import generate_css_variables, generate_base_css
         from ui.styles.theme_manager import theme_manager
         
-        mermaid_theme = "dark" if self.is_dark_theme() else "default"
+        mermaid_theme = "base"
         
         # 테마 색상 가져오기
         if theme_manager.use_material_theme:
@@ -214,7 +214,7 @@ class ChatDisplay:
                             // 오류 로깅 비활성화
                             mermaid.initialize({{
                                 startOnLoad: false,
-                                theme: '{mermaid_theme}',
+                                theme: 'base',
                                 securityLevel: 'loose',
                                 logLevel: 'fatal',  // 오류 로깅 비활성화
                                 suppressErrorRendering: true  // 오류 렌더링 비활성화

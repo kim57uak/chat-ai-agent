@@ -326,13 +326,14 @@ class FixedFormatter:
     
     def _clean_html_code(self, text):
         """코드 블록에서 HTML 태그 제거"""
-        # HTML 태그 제거
         import re
+        # HTML 태그 제거
         text = re.sub(r'<[^>]+>', '', text)
         # HTML 엔티티 디코딩
         text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
         text = text.replace('&quot;', '"').replace('&#x27;', "'")
-        return text
+        # 태그 제거 후 빈 문자열이 된 경우 빈 문자열 반환 (빈 줄 방지)
+        return text if text.strip() else ''
     
     def _convert_image_urls(self, text):
         """이미지 URL을 img 태그로 변환 (로딩 애니메이션 포함)"""
@@ -369,9 +370,20 @@ class FixedFormatter:
             # HTML 엔티티 디코딩
             content = content.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
             content = content.replace('&quot;', '"').replace('&#x27;', "'")
-            # 불필요한 공백 제거
-            lines = [line.rstrip() for line in content.split('\n')]
-            content = '\n'.join(lines)
+            # 불필요한 공백 제거 및 빈 줄 제거
+            lines = [line.rstrip() for line in content.split('\n') if line.strip() or line == '']
+            # 연속된 빈 줄 제거
+            cleaned_lines = []
+            prev_empty = False
+            for line in lines:
+                if line.strip() == '':
+                    if not prev_empty:
+                        cleaned_lines.append(line)
+                    prev_empty = True
+                else:
+                    cleaned_lines.append(line)
+                    prev_empty = False
+            content = '\n'.join(cleaned_lines)
             return f'```\n{content}\n```'
         
         # HTML highlight 블록 처리

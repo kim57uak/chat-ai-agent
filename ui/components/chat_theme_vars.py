@@ -277,9 +277,10 @@ def generate_base_css() -> str:
         .mermaid svg {
             max-width: 100%;
             height: auto;
-            background: transparent !important;
+            background: var(--surface) !important;
         }
         
+        /* Mermaid 노드 스타일 */
         .mermaid .node rect,
         .mermaid .node circle,
         .mermaid .node ellipse,
@@ -290,46 +291,113 @@ def generate_base_css() -> str:
             stroke-width: 2px !important;
         }
         
+        /* Mermaid 텍스트 스타일 - 가독성 최우선 */
         .mermaid text,
         .mermaid .nodeLabel,
         .mermaid .label,
         .mermaid .node .label,
-        .mermaid tspan {
+        .mermaid tspan,
+        .mermaid foreignObject,
+        .mermaid foreignObject div,
+        .mermaid foreignObject span,
+        .mermaid foreignObject p {
             fill: var(--text) !important;
             color: var(--text) !important;
-            font-weight: 500 !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
         }
         
+        /* Edge 레이블 배경 */
         .mermaid .edgeLabel,
         .mermaid .edgeLabel rect,
-        .mermaid .edgeLabel span {
+        .mermaid .edgeLabel span,
+        .mermaid .edgeLabel foreignObject {
             background-color: var(--surface) !important;
             fill: var(--surface) !important;
-            color: var(--text) !important;
         }
         
-        .mermaid .edgeLabel text {
+        /* Edge 레이블 텍스트 */
+        .mermaid .edgeLabel text,
+        .mermaid .edgeLabel tspan,
+        .mermaid .edgeLabel div,
+        .mermaid .edgeLabel span,
+        .mermaid .edgeLabel p {
             fill: var(--text) !important;
+            color: var(--text) !important;
+            font-weight: 600 !important;
         }
         
+        /* Edge 경로 */
         .mermaid .edgePath .path,
-        .mermaid .flowchart-link {
-            stroke: var(--text-dim) !important;
+        .mermaid .flowchart-link,
+        .mermaid path.path {
+            stroke: var(--primary) !important;
             stroke-width: 2px !important;
         }
         
+        /* 화살표 */
         .mermaid .marker,
-        .mermaid .arrowheadPath {
-            fill: var(--text-dim) !important;
-            stroke: var(--text-dim) !important;
+        .mermaid .arrowheadPath,
+        .mermaid marker path {
+            fill: var(--primary) !important;
+            stroke: var(--primary) !important;
         }
         
+        /* 클러스터 */
         .mermaid .cluster rect {
-            fill: var(--surface) !important;
-            stroke: var(--border) !important;
+            fill: var(--bg) !important;
+            stroke: var(--primary) !important;
+            stroke-width: 2px !important;
         }
         
-        .mermaid .cluster text {
+        .mermaid .cluster text,
+        .mermaid .cluster .label,
+        .mermaid .cluster tspan {
+            fill: var(--text) !important;
+            color: var(--text) !important;
+            font-weight: 700 !important;
+        }
+        
+        /* 시퀀스 다이어그램 */
+        .mermaid .actor,
+        .mermaid .actor-box {
+            fill: var(--surface) !important;
+            stroke: var(--primary) !important;
+        }
+        
+        .mermaid .actor text,
+        .mermaid .actor-box text {
+            fill: var(--text) !important;
+        }
+        
+        .mermaid .messageLine0,
+        .mermaid .messageLine1 {
+            stroke: var(--primary) !important;
+        }
+        
+        .mermaid .messageText {
+            fill: var(--text) !important;
+            stroke: none !important;
+        }
+        
+        .mermaid .labelBox {
+            fill: var(--surface) !important;
+            stroke: var(--primary) !important;
+        }
+        
+        .mermaid .labelText,
+        .mermaid .loopText,
+        .mermaid .loopLine {
+            fill: var(--text) !important;
+            stroke: var(--primary) !important;
+        }
+        
+        .mermaid .note {
+            fill: var(--surface) !important;
+            stroke: var(--secondary) !important;
+        }
+        
+        .mermaid .noteText {
             fill: var(--text) !important;
         }
         

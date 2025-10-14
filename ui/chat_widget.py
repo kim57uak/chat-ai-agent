@@ -1031,37 +1031,73 @@ class ChatWidget(QWidget):
             logger.debug(f"버튼 스타일 업데이트 오류: {e}")
     
     def _get_cancel_button_style(self):
-        """취소 버튼 전용 빨간색 스타일"""
-        return """
-        QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 #FF5252, 
-                stop:1 #D32F2F);
-            color: #FFFFFF;
-            border: none;
-            border-radius: 12px;
-            font-weight: 800;
-            font-size: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            transition: all 0.3s ease;
-        }
-        QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 #D32F2F, 
-                stop:1 #FF5252);
-            transform: translateY(-2px);
-            font-size: 22px;
-        }
-        QPushButton:pressed {
-            background: #B71C1C;
-            transform: translateY(0px);
-            font-size: 18px;
-        }
-        QPushButton:disabled {
-            background: rgba(255, 82, 82, 0.5);
-            opacity: 0.5;
-        }
-        """
+        """취소 버튼 전용 빨간색 테두리 스타일"""
+        try:
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                bg_color = colors.get('surface', '#1e1e1e')
+                
+                return f"""
+                QPushButton {{
+                    background-color: {bg_color};
+                    border: 1px solid #FF5252;
+                    border-radius: 12px;
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #FF5252;
+                    padding: 0px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                }}
+                QPushButton:hover {{
+                    background-color: #FF5252;
+                    color: {bg_color};
+                    border-color: #FF5252;
+                    font-size: 22px;
+                }}
+                QPushButton:pressed {{
+                    background-color: #D32F2F;
+                    transform: scale(0.95);
+                    font-size: 18px;
+                }}
+                QPushButton:disabled {{
+                    background-color: {bg_color};
+                    border-color: #666666;
+                    color: #666666;
+                    opacity: 0.5;
+                }}
+                """
+            else:
+                return """
+                QPushButton {
+                    background-color: transparent;
+                    border: 1px solid #FF5252;
+                    border-radius: 12px;
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #FF5252;
+                }
+                QPushButton:hover {
+                    background-color: #FF5252;
+                    color: #FFFFFF;
+                    font-size: 22px;
+                }
+                QPushButton:pressed {
+                    background-color: #D32F2F;
+                    font-size: 18px;
+                }
+                QPushButton:disabled {
+                    opacity: 0.5;
+                }
+                """
+        except Exception as e:
+            logger.debug(f"취소 버튼 스타일 생성 오류: {e}")
+            return """
+            QPushButton {
+                background-color: transparent;
+                border: 1px solid #FF5252;
+                color: #FF5252;
+            }
+            """
     
     def _apply_material_theme_styles(self):
         """재료 테마 스타일 적용"""
@@ -1346,10 +1382,11 @@ class ChatWidget(QWidget):
             for i, msg in enumerate(display_messages):
                 logger.debug(f"[LOAD_SESSION] 메시지 {i+1} 표시: role={msg['role']}, content={msg['content'][:30]}...")
                 msg_id = str(msg.get('id', f"session_msg_{i}"))
+                timestamp = msg.get('timestamp')  # DB에서 저장된 timestamp 가져오기
                 if msg['role'] == 'user':
-                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id, prepend=prepend)
+                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id, prepend=prepend, timestamp=timestamp)
                 elif msg['role'] == 'assistant':
-                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id, prepend=prepend)
+                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id, prepend=prepend, timestamp=timestamp)
             
             logger.debug(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
             
@@ -1606,70 +1643,67 @@ class ChatWidget(QWidget):
         self._dragging = False
     
     def _get_themed_button_style(self, colors=None):
-        """테마 색상을 적용한 버튼 스타일 생성 - 세션 패널과 동일한 스타일"""
+        """테마 색상을 적용한 버튼 스타일 생성 - 뉴스 재조회 버튼과 동일한 스타일"""
         try:
             if theme_manager.use_material_theme:
                 if not colors:
                     colors = theme_manager.material_manager.get_theme_colors()
                 
+                bg_color = colors.get('surface', '#1e1e1e')
                 primary_color = colors.get('primary', '#bb86fc')
                 primary_variant = colors.get('primary_variant', '#3700b3')
-                on_primary = colors.get('on_primary', '#000000')
                 
-                # 세션 패널과 동일한 그라디언트 스타일
+                # 뉴스 재조회 버튼과 동일한 테두리 스타일
                 return f"""
                 QPushButton {{
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                        stop:0 {primary_color}, 
-                        stop:1 {primary_variant});
-                    color: {on_primary};
-                    border: none;
+                    background-color: {bg_color};
+                    border: 1px solid {primary_color};
                     border-radius: 12px;
-                    font-weight: 800;
                     font-size: 20px;
+                    font-weight: bold;
+                    color: {primary_color};
+                    padding: 0px;
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                    transition: all 0.3s ease;
                 }}
                 QPushButton:hover {{
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                        stop:0 {primary_variant}, 
-                        stop:1 {primary_color});
-                    transform: translateY(-2px);
+                    background-color: {primary_color};
+                    color: {bg_color};
+                    border-color: {primary_color};
                     font-size: 22px;
                 }}
                 QPushButton:pressed {{
-                    background: {primary_variant};
-                    transform: translateY(0px);
+                    background-color: {primary_variant};
+                    transform: scale(0.95);
                     font-size: 18px;
                 }}
                 QPushButton:disabled {{
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                        stop:0 #9E9E9E, 
-                        stop:1 #757575);
-                    color: #BDBDBD;
-                    opacity: 0.6;
+                    background-color: {bg_color};
+                    border-color: #666666;
+                    color: #666666;
+                    opacity: 0.5;
                 }}
                 """
             else:
                 # Flat 테마 기본 스타일
                 return """
                 QPushButton {
-                    background: transparent;
-                    border: none;
+                    background-color: transparent;
+                    border: 1px solid #666666;
+                    border-radius: 12px;
                     font-size: 20px;
+                    color: #666666;
                 }
                 QPushButton:hover {
-                    background: transparent;
+                    background-color: #666666;
+                    color: #FFFFFF;
                     font-size: 22px;
                 }
                 QPushButton:pressed {
-                    background: transparent;
+                    background-color: #444444;
                     font-size: 18px;
                 }
                 QPushButton:disabled {
-                    background: #E0E0E0;
-                    color: #9E9E9E;
-                    opacity: 0.6;
+                    opacity: 0.5;
                 }
                 """
         except Exception as e:

@@ -224,12 +224,26 @@ class NewsBanner(QWidget):
         super().__init__(parent)
         self.news_items = []
         self.current_index = 0
-        self.display_duration = 5000
+        self.display_duration = self._load_display_duration()
         self.news_loader = NewsLoader()
         self.news_loader.news_ready.connect(self.on_news_loaded)
         self.news_loader.translation_updated.connect(self.on_translation_updated)
         self.setup_ui()
         QTimer.singleShot(1000, self.load_news)
+
+    def _load_display_duration(self):
+        """설정 파일에서 롤링 시간 로드"""
+        try:
+            from utils.config_path import config_path_manager
+            config_path = config_path_manager.get_config_path('news_config.json')
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            duration = config.get("display_settings", {}).get("display_duration", 5000)
+            logger.info(f"뉴스 롤링 시간: {duration}ms")
+            return duration
+        except Exception as e:
+            logger.error(f"롤링 시간 로드 실패: {e}")
+            return 5000
 
     def setup_ui(self):
         """UI 설정"""

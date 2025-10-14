@@ -175,7 +175,7 @@ class SettingsDialog(QDialog):
         timeout_layout = QHBoxLayout()
         timeout_layout.addWidget(QLabel('로그아웃 시간:'))
         self.logout_timeout_spin = QSpinBox()
-        self.logout_timeout_spin.setRange(5, 120)
+        self.logout_timeout_spin.setRange(5, 360)
         self.logout_timeout_spin.setValue(30)
         self.logout_timeout_spin.setSuffix(' 분')
         self.logout_timeout_spin.setMinimumHeight(40)

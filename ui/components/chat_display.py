@@ -143,8 +143,6 @@ class ChatDisplay:
         from ui.components.chat_theme_vars import generate_css_variables, generate_base_css
         from ui.styles.theme_manager import theme_manager
         
-        mermaid_theme = "base"
-        
         # 테마 색상 가져오기
         if theme_manager.use_material_theme:
             colors = theme_manager.material_manager.get_theme_colors()
@@ -156,6 +154,9 @@ class ChatDisplay:
         is_dark = self.is_dark_theme()
         css_variables = generate_css_variables(colors, is_dark)
         base_css = generate_base_css()
+        
+        # Mermaid 테마 결정
+        mermaid_theme = "dark" if is_dark else "default"
 
         html_template = f"""
         <!DOCTYPE html>
@@ -175,10 +176,26 @@ class ChatDisplay:
                             // 오류 로깅 비활성화
                             mermaid.initialize({{
                                 startOnLoad: false,
-                                theme: 'base',
+                                theme: '{mermaid_theme}',
                                 securityLevel: 'loose',
-                                logLevel: 'fatal',  // 오류 로깅 비활성화
-                                suppressErrorRendering: true  // 오류 렌더링 비활성화
+                                logLevel: 'fatal',
+                                suppressErrorRendering: true,
+                                themeVariables: {{
+                                    darkMode: {str(is_dark).lower()},
+                                    background: '{colors.get("surface", "#1e1e1e" if is_dark else "#ffffff")}',
+                                    primaryColor: '{colors.get("primary", "#bb86fc" if is_dark else "#5b21b6")}',
+                                    primaryTextColor: '{colors.get("text_primary", "#ffffff" if is_dark else "#1a1a1a")}',
+                                    primaryBorderColor: '{colors.get("primary", "#bb86fc" if is_dark else "#5b21b6")}',
+                                    lineColor: '{colors.get("text_secondary", "#a0a0a0" if is_dark else "#666666")}',
+                                    secondaryColor: '{colors.get("surface", "#1e1e1e" if is_dark else "#f8fafc")}',
+                                    tertiaryColor: '{colors.get("background", "#121212" if is_dark else "#ffffff")}',
+                                    mainBkg: '{colors.get("surface", "#1e1e1e" if is_dark else "#ffffff")}',
+                                    textColor: '{colors.get("text_primary", "#ffffff" if is_dark else "#1a1a1a")}',
+                                    nodeBorder: '{colors.get("primary", "#bb86fc" if is_dark else "#5b21b6")}',
+                                    clusterBkg: '{colors.get("surface", "#1e1e1e" if is_dark else "#f8fafc")}',
+                                    clusterBorder: '{colors.get("divider", "rgba(255,255,255,0.12)" if is_dark else "rgba(0,0,0,0.12)")}',
+                                    edgeLabelBackground: '{colors.get("surface", "#1e1e1e" if is_dark else "#ffffff")}'
+                                }}
                             }});
                             renderMermaidDiagrams();
                         }} else {{
@@ -741,13 +758,26 @@ class ChatDisplay:
         progressive=False,
         message_id=None,
         prepend=False,
+        timestamp=None,
     ):
         """메시지 추가 - progressive=True시 점진적 출력, prepend=True시 상단에 추가"""
-        # 타임스탬프 생성
+        # 타임스탬프 생성 (전달된 timestamp가 없으면 현재 시간 사용)
         from datetime import datetime
-        now = datetime.now()
+        if timestamp:
+            # DB에서 로드된 timestamp 사용 (문자열 또는 datetime 객체)
+            if isinstance(timestamp, str):
+                try:
+                    dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    dt = datetime.now()
+            else:
+                dt = timestamp
+        else:
+            # 실시간 대화: 현재 시간 사용
+            dt = datetime.now()
+        
         weekdays = ['월', '화', '수', '목', '금', '토', '일']
-        timestamp = now.strftime(f"%Y-%m-%d %H:%M:%S ({weekdays[now.weekday()]}요일)")
+        timestamp_str = dt.strftime(f"%Y-%m-%d %H:%M:%S ({weekdays[dt.weekday()]}요일)")
         
         # 테마에 따른 색상 가져오기
         from ui.styles.theme_manager import theme_manager
@@ -847,7 +877,7 @@ class ChatDisplay:
             // 타임스탬프 추가
             var timestampDiv = document.createElement('div');
             timestampDiv.className = 'message-timestamp';
-            timestampDiv.textContent = '{timestamp}';
+            timestampDiv.textContent = '{timestamp_str}';
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(contentDiv);

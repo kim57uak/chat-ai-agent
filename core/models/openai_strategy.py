@@ -45,20 +45,14 @@ class OpenAIStrategy(BaseModelStrategy):
         """OpenAI 메시지 형식 생성 - 대화 히스토리 포함"""
         messages = []
         
-        # 사용자 입력에서 언어 감지 (원본 텍스트만 사용)
+        # 사용자 입력에서 언어 감지
         user_language = self.detect_user_language(user_input)
         
-        # 시스템 프롬프트 생성
+        # 시스템 프롬프트 생성 (언어 지침 포함)
         if system_prompt:
             enhanced_prompt = self.enhance_prompt_with_format(system_prompt)
         else:
-            enhanced_prompt = self.get_default_system_prompt()
-        
-        # 언어별 응답 지침 추가
-        if user_language == "ko":
-            enhanced_prompt += "\n\n**중요**: 사용자가 한국어로 질문했으므로 반드시 한국어로 응답하세요."
-        else:
-            enhanced_prompt += "\n\n**Important**: The user asked in English, so please respond in English."
+            enhanced_prompt = self.get_default_system_prompt(user_language)
         
         messages.append(SystemMessage(content=enhanced_prompt))
         

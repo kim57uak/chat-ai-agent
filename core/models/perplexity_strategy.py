@@ -31,20 +31,14 @@ class PerplexityStrategy(BaseModelStrategy):
         """Perplexity 메시지 형식 생성 - 대화 히스토리 포함"""
         messages = []
         
-        # 사용자 입력에서 언어 감지 (원본 텍스트만 사용)
+        # 사용자 입력에서 언어 감지
         user_language = self.detect_user_language(user_input)
         
-        # 시스템 프롬프트 생성
+        # 시스템 프롬프트 생성 (언어 지침 포함)
         if system_prompt:
             enhanced_prompt = self.enhance_prompt_with_format(system_prompt)
         else:
-            enhanced_prompt = self.get_perplexity_system_prompt()
-        
-        # 언어별 응답 지침 추가
-        if user_language == "ko":
-            enhanced_prompt += "\n\n**중요**: 사용자가 한국어로 질문했으므로 반드시 한국어로 응답하세요."
-        else:
-            enhanced_prompt += "\n\n**Important**: The user asked in English, so please respond in English."
+            enhanced_prompt = self.get_perplexity_system_prompt(user_language)
         
         # 대화 히스토리가 있으면 시스템 프롬프트에 컨텍스트 강조 추가
         if conversation_history:
@@ -125,83 +119,20 @@ class PerplexityStrategy(BaseModelStrategy):
         return HumanMessage(content=cleaned_input.strip() or "이미지 처리는 지원되지 않습니다.")
     
     def should_use_tools(self, user_input: str) -> bool:
-        """도구 사용 여부 결정 - 강화된 컨텍스트 이해"""
+        """도구 사용 여부 결정 - AI 컨텍스트 기반"""
         try:
-            # 키워드 기반 1차 필터링
-            tool_keywords = [
-                '검색', 'search', '찾아', '조회', '확인', 'check', '가져와', 'get',
-                '데이터베이스', 'database', 'mysql', 'sql', '쿼리', 'query',
-                '이메일', 'email', 'gmail', '메일', 'mail',
-                '파일', 'file', '엑셀', 'excel', '문서', 'document',
-                '지라', 'jira', '이슈', 'issue', '티켓', 'ticket',
-                '컨플루언스', 'confluence', '위키', 'wiki',
-                '여행', 'travel', '하나투어', 'hanatour', '상품', 'product',
-                '지도', 'map', '위치', 'location', '주소', 'address',
-                '날씨', 'weather', '뉴스', 'news', '최신', 'latest', '현재', 'current',
-                '오늘', 'today', '어제', 'yesterday', '최근', 'recent',
-                '생성', 'create', '만들어', 'make', '작성', 'write',
-                '업데이트', 'update', '수정', 'modify', '변경', 'change',
-                '삭제', 'delete', '제거', 'remove',
-                '다운로드', 'download', '업로드', 'upload',
-                '실행', 'execute', '실시간', 'realtime', 'real-time'
-            ]
-            
-            user_lower = user_input.lower()
-            has_tool_keywords = any(keyword in user_lower for keyword in tool_keywords)
-            
-            if not has_tool_keywords:
-                logger.info(f"🚫 키워드 기반 필터링: 도구 사용 불필요 - '{user_input}'")
-                return False
-            
-            # 사용 가능한 도구 정보 수집
-            available_tools = []
-            if hasattr(self, 'tools') and self.tools:
-                for tool in self.tools[:15]:  # 더 많은 도구 표시
-                    tool_desc = getattr(tool, 'description', tool.name)
-                    available_tools.append(f"- {tool.name}: {tool_desc[:120]}")
-            
+            available_tools = getattr(self, 'tools', [])
             if not available_tools:
-                logger.info(f"🚫 사용 가능한 도구 없음")
                 return False
             
-            tools_info = "\n".join(available_tools)
+            # 중앙관리 시스템에서 프롬프트 가져오기
+            decision_prompt = prompt_manager.get_tool_decision_prompt(
+                ModelType.PERPLEXITY.value, user_input, available_tools
+            )
             
-            # 강화된 도구 판단 프롬프트
-            decision_prompt = f"""TASK: Determine if the user request requires external tools or data.
-
-USER REQUEST: "{user_input}"
-
-AVAILABLE TOOLS:
-{tools_info}
-
-**DECISION CRITERIA:**
-
-USE TOOLS (Answer YES) when request involves:
-✅ External data retrieval (search, database queries, file access)
-✅ Real-time information (current news, weather, stock prices)
-✅ Specific system operations (Jira issues, email management)
-✅ File operations (Excel, documents, downloads)
-✅ API calls to external services
-✅ Time-sensitive data (today's data, recent updates)
-✅ User's personal/work data (my files, assigned issues)
-
-NO TOOLS (Answer NO) when request is:
-❌ General knowledge questions I can answer directly
-❌ Explanations, concepts, tutorials
-❌ Creative writing, brainstorming
-❌ Code examples without external data
-❌ Mathematical calculations
-❌ Theoretical discussions
-
-**CRITICAL**: If the request mentions specific external systems, data sources, or requires current information, ALWAYS use tools.
-
-Answer with ONLY: YES or NO"""
-            
-            # Perplexity LLM에 직접 요청
             response = self.llm._call(decision_prompt)
             decision = response.strip().upper()
             
-            # 토큰 사용량 로깅
             TokenLogger.log_token_usage(
                 self.model_name, decision_prompt, decision, "tool_decision"
             )
@@ -212,9 +143,7 @@ Answer with ONLY: YES or NO"""
             
         except Exception as e:
             logger.error(f"Perplexity 도구 사용 판단 오류: {e}")
-            # 오류 시 키워드 기반으로 판단
-            tool_keywords = ['검색', 'search', '찾아', '조회', '확인', 'check', '가져와', 'get', '데이터베이스', 'mysql', 'jira', 'email']
-            return any(keyword in user_input.lower() for keyword in tool_keywords)
+            return True
     
     def create_agent_executor(self, tools: List) -> Optional[AgentExecutor]:
         """Perplexity ReAct 에이전트 생성 - 단순화된 구현"""
@@ -287,9 +216,9 @@ Thought:{{agent_scratchpad}}"""
             logger.error(f"Perplexity agent creation failed: {e}")
             return None
     
-    def get_perplexity_system_prompt(self) -> str:
+    def get_perplexity_system_prompt(self, user_language: str = None) -> str:
         """Perplexity 전용 시스템 프롬프트 - 도구 인식 강화"""
-        base_prompt = prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value)
+        base_prompt = prompt_manager.get_system_prompt(ModelType.PERPLEXITY.value, use_tools=True, user_language=user_language)
         
         # 도구가 있을 때 도구 인식 강화 프롬프트 추가
         if hasattr(self, 'tools') and self.tools:

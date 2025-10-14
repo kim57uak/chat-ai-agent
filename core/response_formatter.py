@@ -101,31 +101,3 @@ class ResponseFormatter:
         content = re.sub(r'```(\w*)\n(.*?)\n```', r'```\1\n\2\n```', content, flags=re.DOTALL)
         
         return content
-
-
-class SystemPromptEnhancer:
-    """Enhances system prompts for consistent output format"""
-    
-    @staticmethod
-    def get_format_instructions() -> str:
-        """Universal format instructions for all AI models"""
-        return """
-**Output Format Guidelines:**
-- Respond naturally in Korean language
-- Use ### for headers
-- Use **bold text** for important content
-- Use - for bullet lists, 1. for numbered lists
-- Use `inline code` or ```code blocks``` for code
-- Use markdown table format for tables
-- Remove meta text like "답변:", "AI:", "Assistant:"
-- Structure information logically
-- Explain technical terms simply
-- Include all essential information
-- Be helpful and user-friendly
-"""
-    
-    @staticmethod
-    def enhance_prompt(original_prompt: str) -> str:
-        """Add format instructions to existing prompt"""
-        format_instructions = SystemPromptEnhancer.get_format_instructions()
-        return f"{original_prompt}\n\n{format_instructions}"

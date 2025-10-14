@@ -26,20 +26,14 @@ class ClaudeStrategy(BaseModelStrategy):
         """Claude 메시지 형식 생성 - 대화 히스토리 포함"""
         messages = []
         
-        # 사용자 입력에서 언어 감지 (원본 텍스트만 사용)
+        # 사용자 입력에서 언어 감지
         user_language = self.detect_user_language(user_input)
         
-        # 시스템 프롬프트 생성
+        # 시스템 프롬프트 생성 (언어 지침 포함)
         if system_prompt:
             enhanced_prompt = self.enhance_prompt_with_format(system_prompt)
         else:
-            enhanced_prompt = self.get_claude_system_prompt()
-        
-        # 언어별 응답 지침 추가
-        if user_language == "ko":
-            enhanced_prompt += "\n\n**중요**: 사용자가 한국어로 질문했으므로 반드시 한국어로 응답하세요."
-        else:
-            enhanced_prompt += "\n\n**Important**: The user asked in English, so please respond in English."
+            enhanced_prompt = self.get_claude_system_prompt(user_language)
         
         messages.append(SystemMessage(content=enhanced_prompt))
         
@@ -103,29 +97,13 @@ class ClaudeStrategy(BaseModelStrategy):
             if not available_tools:
                 return False
             
-            # AI가 컴텍스트를 파악하여 도구 사용 결정
-            decision_prompt = f"""Analyze this user request and determine if external tools are needed.
-
-User request: "{user_input}"
-
-Available tools: {len(available_tools)} tools including data retrieval, search, file operations, etc.
-
-Does this request require:
-- External data that I don't have access to?
-- Real-time or current information?
-- Specific system operations (database queries, file operations, API calls)?
-- User's personal/work data?
-- Actions on external services?
-
-If YES to any above, respond with "USE_TOOLS".
-If this is general knowledge, explanation, or creative task I can handle myself, respond with "NO_TOOLS".
-
-Be AGGRESSIVE in tool usage - when in doubt, use tools to provide better value.
-
-Response (USE_TOOLS or NO_TOOLS):"""
+            # 중앙관리 시스템에서 프롬프트 가져오기
+            decision_prompt = prompt_manager.get_tool_decision_prompt(
+                ModelType.CLAUDE.value, user_input, available_tools
+            )
 
             messages = [
-                SystemMessage(content="You are an expert at analyzing user requests to determine optimal tool usage. Be proactive with tool usage."),
+                SystemMessage(content="You are an expert at analyzing user requests to determine optimal tool usage."),
                 HumanMessage(content=decision_prompt)
             ]
 
@@ -133,15 +111,15 @@ Response (USE_TOOLS or NO_TOOLS):"""
                 response = self.llm.invoke(messages)
                 decision = response.content.strip().upper()
                 
-                result = "USE_TOOLS" in decision
+                result = "YES" in decision
                 logger.info(f"Claude AI tool decision: {decision} -> {result}")
                 return result
             else:
-                return True  # LLM 없으면 기본적으로 도구 사용
+                return True
 
         except Exception as e:
             logger.error(f"Claude tool usage decision error: {e}")
-            return True  # 오류 시 도구 사용 선택
+            return True
     
     def create_agent_executor(self, tools: List) -> Optional:
         """Claude 에이전트 생성"""
@@ -228,9 +206,9 @@ Final Answer: [Korean response with markdown]
             logger.error(f"Claude 에이전트 생성 실패: {e}")
             return None
     
-    def get_claude_system_prompt(self) -> str:
+    def get_claude_system_prompt(self, user_language: str = None) -> str:
         """Claude 전용 시스템 프롬프트"""
-        return prompt_manager.get_system_prompt(ModelType.CLAUDE.value)
+        return prompt_manager.get_system_prompt(ModelType.CLAUDE.value, use_tools=True, user_language=user_language)
     
     def supports_streaming(self) -> bool:
         """Claude 스트리밍 지원"""

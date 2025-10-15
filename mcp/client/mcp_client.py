@@ -35,8 +35,36 @@ class MCPClient:
             full_env = os.environ.copy()
             full_env.update(self.env)
             
+            # Python 명령어 특별 처리: 가상환경 자동 감지
+            command = self.command
+            if self.command in ['python', 'python3'] and self.args:
+                from pathlib import Path
+                script_path = Path(self.args[0])
+                if script_path.exists():
+                    project_dir = script_path.parent
+                    venv_python = project_dir / 'venv' / 'bin' / 'python'
+                    
+                    if venv_python.exists():
+                        command = str(venv_python)
+                        logger.info(f"가상환경 Python 감지: {command}")
+                    else:
+                        logger.debug(f"가상환경 없음, 시스템 Python 사용: {command}")
+                
+                # PYTHONPATH 설정
+                if 'PYTHONPATH' in self.env:
+                    pythonpath = self.env['PYTHONPATH']
+                    if 'PYTHONPATH' in full_env:
+                        full_env['PYTHONPATH'] = f"{pythonpath}:{full_env['PYTHONPATH']}"
+                    else:
+                        full_env['PYTHONPATH'] = pythonpath
+                
+                full_env['PYTHONIOENCODING'] = 'utf-8'
+                full_env['PYTHONUNBUFFERED'] = '1'
+            
+            logger.info(f"MCP 서버 실행: {command} {' '.join(self.args)}")
+            
             self.process = subprocess.Popen(
-                [self.command] + self.args,
+                [command] + self.args,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -48,6 +76,10 @@ class MCPClient:
             # 응답 처리 스레드 시작
             self.response_thread = threading.Thread(target=self._handle_responses, daemon=True)
             self.response_thread.start()
+            
+            # stderr 로깅 스레드 시작
+            self.stderr_thread = threading.Thread(target=self._handle_stderr, daemon=True)
+            self.stderr_thread.start()
             
             return True
         except Exception as e:
@@ -107,6 +139,16 @@ class MCPClient:
             logger.debug(f"MCP 알림 전송: {method}")
         except Exception as e:
             logger.error(f"MCP 알림 전송 실패: {e}")
+    
+    def _handle_stderr(self):
+        """에러 출력 로깅"""
+        try:
+            for line in self.process.stderr:
+                line = line.strip()
+                if line:
+                    logger.warning(f"MCP stderr: {line}")
+        except:
+            pass
     
     def _handle_responses(self):
         """응답 처리 스레드"""

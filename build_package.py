@@ -627,28 +627,9 @@ else:
             if app_path.exists():
                 print(f"✓ macOS app created: {app_path}")
 
-                # Create DMG
+                # Create DMG with drag-and-drop UI
                 try:
-                    dmg_path = dist_dir / "ChatAIAgent-macOS_beta.dmg"
-                    if dmg_path.exists():
-                        dmg_path.unlink()
-
-                    subprocess.run(
-                        [
-                            "hdiutil",
-                            "create",
-                            "-volname",
-                            "ChatAIAgent",
-                            "-srcfolder",
-                            str(app_path),
-                            "-ov",
-                            "-format",
-                            "UDZO",
-                            str(dmg_path),
-                        ],
-                        check=True,
-                    )
-                    print(f"✓ DMG created: {dmg_path}")
+                    self._create_dmg_with_ui(app_path, dist_dir)
                 except Exception as e:
                     print(f"⚠ DMG creation failed: {e}")
 
@@ -746,6 +727,109 @@ else:
 
         return True
 
+    def _create_dmg_with_ui(self, app_path: Path, dist_dir: Path):
+        """드래그 앤 드롭 UI가 있는 DMG 생성"""
+        dmg_name = "ChatAIAgent-macOS_beta"
+        temp_dmg = dist_dir / f"{dmg_name}-temp.dmg"
+        final_dmg = dist_dir / f"{dmg_name}.dmg"
+        temp_dir = self.project_root / "temp_dmg"
+        
+        # 정리
+        for f in [temp_dmg, final_dmg]:
+            if f.exists():
+                f.unlink()
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        
+        # 앱 번들 실제 디스크 사용량 확인
+        result = subprocess.run(['du', '-sh', str(app_path)], capture_output=True, text=True)
+        app_size_str = result.stdout.split()[0] if result.returncode == 0 else "Unknown"
+        print(f"📦 앱 번들 실제 크기: {app_size_str}")
+        print(f"   (설치 시 이 크기만큼 디스크 공간 사용)")
+        
+        # 임시 디렉토리 생성 (심볼릭 링크 유지)
+        temp_dir.mkdir(exist_ok=True)
+        shutil.copytree(app_path, temp_dir / app_path.name, symlinks=True)
+        (temp_dir / "Applications").symlink_to("/Applications")
+        print("✓ Applications 심볼릭 링크 생성 (앱 내부 심볼릭 링크 유지)")
+        
+        # 임시 DMG 생성
+        subprocess.run([
+            "hdiutil", "create", "-volname", "ChatAIAgent",
+            "-srcfolder", str(temp_dir), "-ov", "-format", "UDRW",
+            str(temp_dmg)
+        ], check=True)
+        
+        # DMG 마운트
+        mount_result = subprocess.run([
+            "hdiutil", "attach", "-readwrite", "-noverify", "-noautoopen",
+            str(temp_dmg)
+        ], capture_output=True, text=True, check=True)
+        
+        mount_point = None
+        for line in mount_result.stdout.split('\n'):
+            if '/Volumes/' in line:
+                mount_point = line.split('/Volumes/')[-1].strip()
+                mount_point = f"/Volumes/{mount_point}"
+                break
+        
+        if not mount_point:
+            raise Exception("DMG 마운트 실패")
+        
+        print(f"✓ DMG 마운트: {mount_point}")
+        
+        # Finder 설정 적용
+        applescript = f'''
+tell application "Finder"
+    tell disk "ChatAIAgent"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set the bounds of container window to {{100, 100, 700, 500}}
+        set viewOptions to the icon view options of container window
+        set arrangement of viewOptions to not arranged
+        set icon size of viewOptions to 128
+        set position of item "ChatAIAgent_beta.app" of container window to {{150, 200}}
+        set position of item "Applications" of container window to {{450, 200}}
+        close
+        open
+        update without registering applications
+        delay 2
+    end tell
+end tell
+'''
+        
+        try:
+            subprocess.run(["osascript", "-e", applescript], check=True)
+            print("✓ Finder 설정 적용 (드래그 앤 드롭 UI)")
+        except Exception as e:
+            print(f"⚠ Finder 설정 적용 실패: {e}")
+        
+        # 동기화 및 언마운트
+        subprocess.run(["sync"], check=True)
+        subprocess.run(["hdiutil", "detach", mount_point], check=True)
+        print("✓ DMG 언마운트")
+        
+        # 압축 DMG 변환 (ULFO 포맷으로 최대 압축)
+        print("🗜️ DMG 압축 중... (시간이 걸릴 수 있습니다)")
+        subprocess.run([
+            "hdiutil", "convert", str(temp_dmg),
+            "-format", "ULFO",
+            "-o", str(final_dmg)
+        ], check=True)
+        
+        # 정리
+        temp_dmg.unlink()
+        shutil.rmtree(temp_dir)
+        
+        dmg_size = final_dmg.stat().st_size / (1024 * 1024)
+        print(f"✓ DMG 생성 완료: {final_dmg.name} ({dmg_size:.1f}MB)")
+        print(f"  📝 다운로드 크기: {dmg_size:.1f}MB")
+        print(f"  💾 설치 후 크기: {app_size_str} (심볼릭 링크 유지)")
+        print("  📌 사용자는 DMG를 열고 앱을 Applications 폴더로 드래그하여 설치")
+        print("  ⚠️  기존 설치된 앱이 있다면 삭제 후 재설치 권장")
+
     def test_executable(self):
         """빌드된 실행 파일 테스트"""
         dist_dir = self.project_root / "dist"
@@ -798,6 +882,10 @@ else:
                 if item.is_file():
                     size_mb = item.stat().st_size / (1024 * 1024)
                     print(f"   - {item.name} ({size_mb:.1f}MB)")
+                elif item.is_dir() and item.suffix == '.app':
+                    result = subprocess.run(['du', '-sh', str(item)], capture_output=True, text=True)
+                    size_str = result.stdout.split()[0] if result.returncode == 0 else "Unknown"
+                    print(f"   - {item.name}/ ({size_str})")
                 else:
                     print(f"   - {item.name}/ (directory)")
 

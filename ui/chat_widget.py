@@ -32,37 +32,35 @@ import os
 def safe_single_shot(delay, callback, widget=None):
     """안전한 QTimer.singleShot 래퍼 - 위젯 삭제 시 크래시 방지"""
     if widget is not None:
-        # weakref를 사용하여 위젯 참조
         widget_ref = weakref.ref(widget)
         
         def safe_callback():
             try:
                 w = widget_ref()
-                if w is not None:
+                if w is not None and not getattr(w, '_is_closing', False):
                     callback()
-            except RuntimeError as e:
-                if "wrapped C/C++ object" in str(e):
-                    pass  # 위젯이 삭제됨 - 무시
-                else:
-                    raise
-            except Exception as e:
-                logger.debug(f"safe_single_shot 콜백 오류: {e}")
+            except (RuntimeError, AttributeError):
+                pass
+            except Exception:
+                pass
         
-        QTimer.singleShot(delay, safe_callback)
+        try:
+            QTimer.singleShot(delay, safe_callback)
+        except RuntimeError:
+            pass
     else:
-        # 위젯 없이 직접 호출
         def safe_callback():
             try:
                 callback()
-            except RuntimeError as e:
-                if "wrapped C/C++ object" in str(e):
-                    pass
-                else:
-                    raise
-            except Exception as e:
-                logger.debug(f"safe_single_shot 콜백 오류: {e}")
+            except (RuntimeError, AttributeError):
+                pass
+            except Exception:
+                pass
         
-        QTimer.singleShot(delay, safe_callback)
+        try:
+            QTimer.singleShot(delay, safe_callback)
+        except RuntimeError:
+            pass
 
 
 class ChatWidget(QWidget):
@@ -70,28 +68,26 @@ class ChatWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        # 하드코딩된 테마 제거 - 동적 테마 적용
+        self._is_closing = False
+        self._timers = []
+        
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(8, 8, 8, 8)
         self.layout.setSpacing(4)
         
-        # 대화 히스토리 관리
         self.conversation_history = ConversationHistory()
         self.conversation_history.load_from_file()
         
-        # 업로드된 파일 정보
         self.uploaded_file_content = None
         self.uploaded_file_name = None
         self.messages = []
         self.request_start_time = None
         
-        # 페이징 관련 변수
         self.current_session_id = None
         self.loaded_message_count = 0
         self.total_message_count = 0
         self.is_loading_more = False
         
-        # prompt_config.json에서 페이징 설정 로드
         self._load_pagination_settings()
         
         self._setup_ui()
@@ -99,7 +95,6 @@ class ChatWidget(QWidget):
         self._setup_connections()
         self._load_previous_conversations()
         
-        # 테마 적용 (지연 실행)
         safe_single_shot(100, self._apply_initial_theme, self)
         safe_single_shot(500, self._apply_theme_if_needed, self)
     
@@ -544,8 +539,14 @@ class ChatWidget(QWidget):
             else:
                 token_info = f" | 📊 {total_tokens:,}토큰"
         
+        # 테마 색상 가져오기
+        colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+        is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
+        text_color = colors.get('on_surface', colors.get('text_primary', '#1a1a1a' if is_light else '#ffffff'))
+        text_dim = colors.get('text_secondary', '#666666' if is_light else '#a0a0a0')
+        
         # Material Design 스타일 적용된 하단 정보
-        enhanced_text = f"{text}{tools_info}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 {current_model}{response_time}{token_info}</div>\n<div class='ai-warning'>⚠️ AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</div>\n</div>"
+        enhanced_text = f"{text}{tools_info}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 {current_model}{response_time}{token_info}</div>\n<div class='ai-warning' style='color: {text_dim};'>⚠️ AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</div>\n</div>"
         
         # 표시용 sender 결정
         display_sender = '에이전트' if '에이전트' in sender else 'AI'
@@ -723,13 +724,18 @@ class ChatWidget(QWidget):
                             elif msg.get('token_count', 0) > 0:
                                 token_info = f" | 📊 {msg['token_count']:,}토큰"
                             
+                            # 테마 색상 가져오기
+                            colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+                            is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
+                            text_dim = colors.get('text_secondary', '#666666' if is_light else '#a0a0a0')
+                            
                             # 모델 정보가 있으면 표시하고 센더 정보로 모델명 전달
                             if model and model != 'unknown':
-                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 {model}{token_info}</div>\n</div>"
+                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 {model}{token_info}</div>\n</div>"
                                 # 모델명을 original_sender로 전달하여 포맷팅에 활용
                                 self.chat_display.append_message('AI', enhanced_content, original_sender=model, message_id=msg.get('id'))
                             else:
-                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info'>🤖 AI{token_info}</div>\n</div>" if token_info else content
+                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 AI{token_info}</div>\n</div>" if token_info else content
                                 self.chat_display.append_message('AI', enhanced_content, message_id=msg.get('id'))
                     
                     # 이전 대화 로드 후 웰컴 메시지 표시
@@ -746,24 +752,20 @@ class ChatWidget(QWidget):
                         if model_breakdown:
                             token_summary += f" ({', '.join(model_breakdown)})"
                     
-                    welcome_msg = f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🔄 **이전 대화**: {len(unique_messages)}개 메시지 로드됨\n{token_summary}\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!'
+                    welcome_msg = self._generate_welcome_message(len(unique_messages), token_summary)
                     self.chat_display.append_message('시스템', welcome_msg)
                 else:
                     # 빈 히스토리일 때도 토큰 통계 표시
                     stats = self.conversation_history.get_stats()
                     total_tokens = stats.get('total_tokens', 0)
-                    if total_tokens > 0:
-                        self.chat_display.append_message('시스템', f'🎉 안녕하세요! 새로운 대화를 시작합니다 😊\n\n📊 전체 토큰: {total_tokens:,}개\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다 📋')
-                    else:
-                        self.chat_display.append_message('시스템', '🎉 안녕하세요! 새로운 대화를 시작합니다 😊\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다 📋')
+                    welcome_msg = self._generate_welcome_message(0, f"📊 전체 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
+                    self.chat_display.append_message('시스템', welcome_msg)
             else:
                 # 빈 히스토리일 때도 토큰 통계 표시
                 stats = self.conversation_history.get_stats()
                 total_tokens = stats.get('total_tokens', 0)
-                if total_tokens > 0:
-                    self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
-                else:
-                    self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+                welcome_msg = self._generate_welcome_message(0, f"📊 누적 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
+                self.chat_display.append_message('시스템', welcome_msg)
                 
         except Exception as e:
             logger.debug(f"대화 기록 로드 오류: {e}")
@@ -771,25 +773,23 @@ class ChatWidget(QWidget):
             try:
                 stats = self.conversation_history.get_stats()
                 total_tokens = stats.get('total_tokens', 0)
-                if total_tokens > 0:
-                    self.chat_display.append_message('시스템', f'새로운 대화를 시작합니다. 📊 전체 토큰: {total_tokens:,}개\n\n**팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
-                else:
-                    self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                welcome_msg = self._generate_welcome_message(0, f"📊 전체 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
+                self.chat_display.append_message('시스템', welcome_msg)
             except:
-                self.chat_display.append_message('시스템', '새로운 대화를 시작합니다. **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다.')
+                welcome_msg = self._generate_welcome_message(0, None)
+                self.chat_display.append_message('시스템', welcome_msg)
     
     def _show_welcome_message(self):
         """웰컴 메시지 표시"""
         try:
             stats = self.conversation_history.get_stats()
             total_tokens = stats.get('total_tokens', 0)
-            if total_tokens > 0:
-                self.chat_display.append_message('시스템', f'🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n📊 **누적 토큰**: {total_tokens:,}개\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
-            else:
-                self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다\n\n🎯 **사용 가능한 기능**:\n• 💬 **Ask 모드**: 일반 대화 및 질문\n• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)\n• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석\n⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.\n\n💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!')
+            welcome_msg = self._generate_welcome_message(0, f"📊 누적 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
+            self.chat_display.append_message('시스템', welcome_msg)
         except Exception as e:
             logger.debug(f"웰컴 메시지 표시 오류: {e}")
-            self.chat_display.append_message('시스템', '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖')
+            welcome_msg = self._generate_welcome_message(0, None)
+            self.chat_display.append_message('시스템', welcome_msg)
     
     def _ensure_welcome_message(self):
         """웰컴 메시지 보장 (웹뷰 로드 시간 초과 시 대비책)"""
@@ -799,6 +799,55 @@ class ChatWidget(QWidget):
                 self._show_welcome_message()
         except Exception as e:
             logger.debug(f"웰컴 메시지 보장 오류: {e}")
+    
+    def _generate_welcome_message(self, message_count=0, token_info=None):
+        """테마 색상이 적용된 환영 메시지 생성"""
+        try:
+            # 테마 색상 가져오기
+            colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+            primary_color = colors.get('primary', '#bb86fc')
+            is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
+            text_color = colors.get('on_surface', colors.get('text_primary', '#1a1a1a' if is_light else '#ffffff'))
+            
+            # 기본 환영 메시지
+            welcome_parts = [
+                f'<div style="color: {primary_color}; font-weight: bold; font-size: 1.2em;">🚀 Chat AI Agent에 오신 것을 환영합니다! 🤖</div>',
+                '',
+                f'<span style="color: {text_color};">✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다</span>',
+                ''
+            ]
+            
+            # 이전 대화 정보 추가
+            if message_count > 0:
+                welcome_parts.append(f'🔄 **이전 대화**: {message_count}개 메시지 로드됨')
+            
+            # 토큰 정보 추가
+            if token_info:
+                welcome_parts.append(token_info)
+            
+            if message_count > 0 or token_info:
+                welcome_parts.append('')
+            
+            # 기능 안내
+            welcome_parts.extend([
+                f'<div style="color: {primary_color}; font-weight: bold;">🎯 사용 가능한 기능:</div>',
+                f'<span style="color: {text_color};">• 💬 **Ask 모드**: 일반 대화 및 질문</span>',
+                f'<span style="color: {text_color};">• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)</span>',
+                f'<span style="color: {text_color};">• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석</span>',
+                '',
+                f'<span style="color: {text_color};">⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</span>',
+                '',
+                f'<span style="color: {text_color};">💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!</span>'
+            ])
+            
+            return '\n'.join(welcome_parts)
+            
+        except Exception as e:
+            logger.debug(f"환영 메시지 생성 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            # 오류 시 기본 메시지 반환
+            return '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다'
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""
@@ -835,26 +884,36 @@ class ChatWidget(QWidget):
     
     def close(self):
         """위젯 종료"""
-        logger.debug("ChatWidget 종료 시작")
+        self._is_closing = True
         
         try:
             if hasattr(self, 'ai_processor'):
                 self.ai_processor.cancel()
             
-            # 스크롤 체크 타이머 정리
-            if hasattr(self, 'scroll_check_timer') and self.scroll_check_timer is not None:
+            # 모든 타이머 정리
+            for timer in getattr(self, '_timers', []):
                 try:
-                    self.scroll_check_timer.stop()
-                    self.scroll_check_timer.timeout.disconnect()
-                    self.scroll_check_timer.deleteLater()
-                    self.scroll_check_timer = None
+                    if timer and not timer.isNull():
+                        timer.stop()
+                        timer.timeout.disconnect()
+                        timer.deleteLater()
                 except RuntimeError:
-                    pass  # 이미 삭제됨
+                    pass
             
-            logger.debug("ChatWidget 종료 완료")
+            if hasattr(self, 'scroll_check_timer'):
+                try:
+                    if self.scroll_check_timer and not self.scroll_check_timer.isNull():
+                        self.scroll_check_timer.stop()
+                        self.scroll_check_timer.timeout.disconnect()
+                        self.scroll_check_timer.deleteLater()
+                        self.scroll_check_timer = None
+                except RuntimeError:
+                    pass
             
-        except Exception as e:
-            logger.debug(f"ChatWidget 종료 중 오류: {e}")
+            self._timers.clear()
+            
+        except Exception:
+            pass
     
     def delete_message(self, message_id: str) -> bool:
         """메시지 삭제 - 개선된 세션 ID 찾기"""
@@ -972,37 +1031,73 @@ class ChatWidget(QWidget):
             logger.debug(f"버튼 스타일 업데이트 오류: {e}")
     
     def _get_cancel_button_style(self):
-        """취소 버튼 전용 빨간색 스타일"""
-        return """
-        QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 #FF5252, 
-                stop:1 #D32F2F);
-            color: #FFFFFF;
-            border: none;
-            border-radius: 12px;
-            font-weight: 800;
-            font-size: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-            transition: all 0.3s ease;
-        }
-        QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 #D32F2F, 
-                stop:1 #FF5252);
-            transform: translateY(-2px);
-            font-size: 22px;
-        }
-        QPushButton:pressed {
-            background: #B71C1C;
-            transform: translateY(0px);
-            font-size: 18px;
-        }
-        QPushButton:disabled {
-            background: rgba(255, 82, 82, 0.5);
-            opacity: 0.5;
-        }
-        """
+        """취소 버튼 전용 빨간색 테두리 스타일"""
+        try:
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                bg_color = colors.get('surface', '#1e1e1e')
+                
+                return f"""
+                QPushButton {{
+                    background-color: {bg_color};
+                    border: 1px solid #FF5252;
+                    border-radius: 12px;
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #FF5252;
+                    padding: 0px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                }}
+                QPushButton:hover {{
+                    background-color: #FF5252;
+                    color: {bg_color};
+                    border-color: #FF5252;
+                    font-size: 22px;
+                }}
+                QPushButton:pressed {{
+                    background-color: #D32F2F;
+                    transform: scale(0.95);
+                    font-size: 18px;
+                }}
+                QPushButton:disabled {{
+                    background-color: {bg_color};
+                    border-color: #666666;
+                    color: #666666;
+                    opacity: 0.5;
+                }}
+                """
+            else:
+                return """
+                QPushButton {
+                    background-color: transparent;
+                    border: 1px solid #FF5252;
+                    border-radius: 12px;
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #FF5252;
+                }
+                QPushButton:hover {
+                    background-color: #FF5252;
+                    color: #FFFFFF;
+                    font-size: 22px;
+                }
+                QPushButton:pressed {
+                    background-color: #D32F2F;
+                    font-size: 18px;
+                }
+                QPushButton:disabled {
+                    opacity: 0.5;
+                }
+                """
+        except Exception as e:
+            logger.debug(f"취소 버튼 스타일 생성 오류: {e}")
+            return """
+            QPushButton {
+                background-color: transparent;
+                border: 1px solid #FF5252;
+                color: #FF5252;
+            }
+            """
     
     def _apply_material_theme_styles(self):
         """재료 테마 스타일 적용"""
@@ -1236,27 +1331,23 @@ class ChatWidget(QWidget):
     def _check_scroll_position(self):
         """스크롤 위치 체크"""
         try:
-            if not self.current_session_id or self.is_loading_more:
-                return
-            
-            # 위젯이 삭제되었는지 확인
-            if not hasattr(self, 'chat_display_view') or self.chat_display_view is None:
+            if (self._is_closing or not self.current_session_id or 
+                self.is_loading_more or not hasattr(self, 'chat_display_view') or 
+                self.chat_display_view is None):
                 return
                 
-            # 웹뷰에서 스크롤 위치 확인
             self.chat_display_view.page().runJavaScript(
                 "window.scrollY",
-                lambda scroll_y: self._handle_scroll_position(scroll_y)
+                lambda scroll_y: self._handle_scroll_position(scroll_y) if not self._is_closing else None
             )
-        except RuntimeError as e:
-            if "wrapped C/C++ object" in str(e):
-                logger.debug(f"스크롤 체크 중 객체 삭제됨: {e}")
-                if hasattr(self, 'scroll_check_timer'):
+        except (RuntimeError, AttributeError):
+            if hasattr(self, 'scroll_check_timer'):
+                try:
                     self.scroll_check_timer.stop()
-            else:
-                raise
-        except Exception as e:
-            logger.debug(f"스크롤 위치 체크 오류: {e}")
+                except RuntimeError:
+                    pass
+        except Exception:
+            pass
     
     def _handle_scroll_position(self, scroll_y):
         """스크롤 위치 처리"""
@@ -1291,10 +1382,11 @@ class ChatWidget(QWidget):
             for i, msg in enumerate(display_messages):
                 logger.debug(f"[LOAD_SESSION] 메시지 {i+1} 표시: role={msg['role']}, content={msg['content'][:30]}...")
                 msg_id = str(msg.get('id', f"session_msg_{i}"))
+                timestamp = msg.get('timestamp')  # DB에서 저장된 timestamp 가져오기
                 if msg['role'] == 'user':
-                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id, prepend=prepend)
+                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id, prepend=prepend, timestamp=timestamp)
                 elif msg['role'] == 'assistant':
-                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id, prepend=prepend)
+                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id, prepend=prepend, timestamp=timestamp)
             
             logger.debug(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
             
@@ -1551,70 +1643,67 @@ class ChatWidget(QWidget):
         self._dragging = False
     
     def _get_themed_button_style(self, colors=None):
-        """테마 색상을 적용한 버튼 스타일 생성 - 세션 패널과 동일한 스타일"""
+        """테마 색상을 적용한 버튼 스타일 생성 - 뉴스 재조회 버튼과 동일한 스타일"""
         try:
             if theme_manager.use_material_theme:
                 if not colors:
                     colors = theme_manager.material_manager.get_theme_colors()
                 
+                bg_color = colors.get('surface', '#1e1e1e')
                 primary_color = colors.get('primary', '#bb86fc')
                 primary_variant = colors.get('primary_variant', '#3700b3')
-                on_primary = colors.get('on_primary', '#000000')
                 
-                # 세션 패널과 동일한 그라디언트 스타일
+                # 뉴스 재조회 버튼과 동일한 테두리 스타일
                 return f"""
                 QPushButton {{
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                        stop:0 {primary_color}, 
-                        stop:1 {primary_variant});
-                    color: {on_primary};
-                    border: none;
+                    background-color: {bg_color};
+                    border: 1px solid {primary_color};
                     border-radius: 12px;
-                    font-weight: 800;
                     font-size: 20px;
+                    font-weight: bold;
+                    color: {primary_color};
+                    padding: 0px;
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                    transition: all 0.3s ease;
                 }}
                 QPushButton:hover {{
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                        stop:0 {primary_variant}, 
-                        stop:1 {primary_color});
-                    transform: translateY(-2px);
+                    background-color: {primary_color};
+                    color: {bg_color};
+                    border-color: {primary_color};
                     font-size: 22px;
                 }}
                 QPushButton:pressed {{
-                    background: {primary_variant};
-                    transform: translateY(0px);
+                    background-color: {primary_variant};
+                    transform: scale(0.95);
                     font-size: 18px;
                 }}
                 QPushButton:disabled {{
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                        stop:0 #9E9E9E, 
-                        stop:1 #757575);
-                    color: #BDBDBD;
-                    opacity: 0.6;
+                    background-color: {bg_color};
+                    border-color: #666666;
+                    color: #666666;
+                    opacity: 0.5;
                 }}
                 """
             else:
                 # Flat 테마 기본 스타일
                 return """
                 QPushButton {
-                    background: transparent;
-                    border: none;
+                    background-color: transparent;
+                    border: 1px solid #666666;
+                    border-radius: 12px;
                     font-size: 20px;
+                    color: #666666;
                 }
                 QPushButton:hover {
-                    background: transparent;
+                    background-color: #666666;
+                    color: #FFFFFF;
                     font-size: 22px;
                 }
                 QPushButton:pressed {
-                    background: transparent;
+                    background-color: #444444;
                     font-size: 18px;
                 }
                 QPushButton:disabled {
-                    background: #E0E0E0;
-                    color: #9E9E9E;
-                    opacity: 0.6;
+                    opacity: 0.5;
                 }
                 """
         except Exception as e:
@@ -1641,57 +1730,24 @@ class ChatWidget(QWidget):
     def _setup_scroll_listener(self):
         """스크롤 이벤트 리스너 설정"""
         try:
-            # 웹뷰에 스크롤 이벤트 리스너 추가
-            self.chat_display_view.page().runJavaScript("""
-                if (!window.scrollListenerAdded) {
-                    let isLoading = false;
-                    
-                    window.addEventListener('scroll', function() {
-                        // 스크롤이 맨 위에 도달했을 때
-                        if (window.scrollY <= 50 && !isLoading) {
-                            isLoading = true;
-                            console.log('스크롤 맨 위 도달 - 더 많은 메시지 로드 요청');
-                            
-                            // Python 측에 더 많은 메시지 로드 요청
-                            if (window.qt && window.qt.webChannelTransport) {
-                                // QWebChannel을 통한 통신
-                                window.qt.webChannelTransport.send(JSON.stringify({
-                                    type: 'loadMoreMessages'
-                                }));
-                            } else {
-                                // 대안: 전역 함수 호출
-                                if (typeof loadMoreMessages === 'function') {
-                                    loadMoreMessages();
-                                }
-                            }
-                            
-                            // 로딩 상태 해제 (3초 후)
-                            setTimeout(() => {
-                                isLoading = false;
-                            }, 3000);
-                        }
-                    });
-                    
-                    // 전역 함수로 Python에서 호출 가능하게 설정
-                    window.loadMoreMessages = function() {
-                        console.log('loadMoreMessages 함수 호출됨');
-                    };
-                    
-                    window.scrollListenerAdded = true;
-                    console.log('스크롤 리스너 설정 완료');
-                }
-            """)
-            
-            # Python 측에서 스크롤 이벤트 처리를 위한 타이머 설정
+            if self._is_closing:
+                return
+                
             if hasattr(self, 'scroll_check_timer') and self.scroll_check_timer is not None:
-                self.scroll_check_timer.stop()
-                self.scroll_check_timer.deleteLater()
+                try:
+                    self.scroll_check_timer.stop()
+                    self.scroll_check_timer.timeout.disconnect()
+                    self.scroll_check_timer.deleteLater()
+                except RuntimeError:
+                    pass
             
-            self.scroll_check_timer = QTimer(self)  # 부모 설정
+            self.scroll_check_timer = QTimer(self)
+            self.scroll_check_timer.setSingleShot(False)
             self.scroll_check_timer.timeout.connect(self._check_scroll_position)
-            self.scroll_check_timer.start(1000)  # 1초마다 체크
-        except Exception as e:
-            logger.debug(f"스크롤 리스너 설정 오류: {e}")
+            self.scroll_check_timer.start(2000)
+            self._timers.append(self.scroll_check_timer)
+        except Exception:
+            pass
     
     def load_more_messages(self):
         """더 많은 메시지 로드"""

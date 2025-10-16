@@ -1,9 +1,119 @@
 {
   "news_sources": {
-    "domestic": [],
-    "international": [],
-    "earthquake": []
+    "domestic": [
+      {
+        "name": "연합뉴스",
+        "url": "https://www.yna.co.kr/rss/news.xml",
+        "enabled": false
+      },
+      {
+        "name": "트래블데일리",
+        "url": "https://www.traveldaily.co.kr/rss/clickTop.xml",
+        "enabled": true
+      },
+      {
+        "name": "동아일보-여행",
+        "url": "http://rss.donga.com/travel.xml",
+        "enabled": true
+      }
+    ],
+    "international": [
+      {
+        "name": "아사히신문",
+        "url": "https://www.asahi.com/rss/asahi/newsheadlines.rdf",
+        "enabled": true
+      },
+      {
+        "name": "CBS News",
+        "url": "https://www.cbsnews.com/latest/rss/world",
+        "enabled": false
+      },
+      {
+        "name": "Fox News",
+        "url": "https://moxie.foxnews.com/google-publisher/latest.xml",
+        "enabled": true
+      },
+      {
+        "name": "Gizmodo",
+        "url": "https://gizmodo.com/feed",
+        "enabled": true
+      },
+      {
+        "name": "BBC News",
+        "url": "http://feeds.bbci.co.uk/news/world/rss.xml",
+        "enabled": true
+      },
+      {
+        "name": "Aljazeera News",
+        "url": "https://www.aljazeera.com/xml/rss/all.xml",
+        "enabled": false
+      },
+      {
+        "name": "Times of India",
+        "url": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms",
+        "enabled": false
+      },
+      {
+        "name": "NDT News",
+        "url": "https://feeds.feedburner.com/ndtvnews-world-news",
+        "enabled": false
+      },
+      {
+        "name": "Financial Times",
+        "url": "https://www.ft.com/world?format=rss",
+        "enabled": true
+      },
+      {
+        "name": "Russia Today",
+        "url": "https://www.rt.com/rss/news/",
+        "enabled": false
+      },
+      {
+        "name": "Cnet",
+        "url": "https://www.cnet.com/rss/news/",
+        "enabled": false
+      },
+      {
+        "name": "Techcrunch",
+        "url": "https://techcrunch.com/feed/",
+        "enabled": true
+      },
+      {
+        "name": "MarketWatch Top Stories",
+        "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+        "enabled": true
+      },
+      {
+        "name": "MarketWatch Real-Time Headlines",
+        "url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines",
+        "enabled": true
+      }
+    ],
+    "earthquake": [
+      {
+        "name": "BGS 지진 정보",
+        "url": "https://quakes.bgs.ac.uk/feeds/WorldSeismology.xml",
+        "enabled": true
+      }
+    ]
   },
-  "update_interval": 300,
-  "max_articles": 10
+  "news_settings": {
+    "show_domestic": true,
+    "show_international": true,
+    "show_earthquake": true,
+    "domestic_count": 1,
+    "international_count": 64,
+    "earthquake_count": 3
+  },
+  "display_settings": {
+    "domestic_news_count": 1,
+    "international_news_count": 64,
+    "earthquake_count": 3,
+    "display_duration": 10000,
+    "auto_refresh_interval": 300000
+  },
+  "date_filter": {
+    "news_days": 2,
+    "earthquake_days": 1
+  }
 }

@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Tuple
 from langchain.schema import BaseMessage
-from core.response_formatter import SystemPromptEnhancer
 from ui.prompts import prompt_manager, ModelType
 from core.file_utils import load_prompt_config
 
@@ -56,14 +55,13 @@ class BaseModelStrategy(ABC):
         """스트리밍 지원 여부"""
         return True
     
-    def get_default_system_prompt(self) -> str:
+    def get_default_system_prompt(self, user_language: str = None) -> str:
         """기본 시스템 프롬프트 - 공통 프롬프트 사용"""
-        base_prompt = prompt_manager.get_system_prompt(ModelType.COMMON.value)
-        return SystemPromptEnhancer.enhance_prompt(base_prompt)
+        return prompt_manager.get_system_prompt(ModelType.COMMON.value, use_tools=True, user_language=user_language)
     
     def enhance_prompt_with_format(self, prompt: str) -> str:
-        """프롬프트에 형식 지침 추가"""
-        return SystemPromptEnhancer.enhance_prompt(prompt)
+        """프롬프트 반환 (포맷 지침은 이미 포함됨)"""
+        return prompt
     
     def detect_user_language(self, user_input: str) -> str:
         """사용자 입력 텍스트에서 언어 감지 (원본 텍스트만 사용)"""

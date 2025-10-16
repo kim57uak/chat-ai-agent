@@ -62,6 +62,9 @@ class LoginDialog(QDialog):
             self.switch_to_setup_mode()
         else:
             self.switch_to_login_mode()
+        
+        # 다이얼로그 표시 후 포커스 설정
+        QTimer.singleShot(100, self._set_initial_focus)
     
     def setup_ui(self):
         """UI 구성"""
@@ -92,6 +95,8 @@ class LoginDialog(QDialog):
         self.password_input.setMinimumHeight(50)
         self.password_input.returnPressed.connect(self.handle_auth)
         self.password_input.textChanged.connect(lambda: self._filter_non_ascii(self.password_input))
+        # 영어 입력 모드로 설정
+        self.password_input.setAttribute(Qt.WidgetAttribute.WA_InputMethodEnabled, False)
         layout.addWidget(self.password_input)
         
         # 비밀번호 확인 (설정 모드에서만 표시)
@@ -101,6 +106,8 @@ class LoginDialog(QDialog):
         self.confirm_password_input.setMinimumHeight(50)
         self.confirm_password_input.returnPressed.connect(self.handle_auth)
         self.confirm_password_input.textChanged.connect(lambda: self._filter_non_ascii(self.confirm_password_input))
+        # 영어 입력 모드로 설정
+        self.confirm_password_input.setAttribute(Qt.WidgetAttribute.WA_InputMethodEnabled, False)
         self.confirm_password_input.hide()
         layout.addWidget(self.confirm_password_input)
         
@@ -368,6 +375,7 @@ class LoginDialog(QDialog):
         self.strength_label.show()
         self.bottom_link.hide()
         self.setFixedSize(400, 400)  # 높이 증가
+        QTimer.singleShot(100, self._set_initial_focus)
         
     def switch_to_login_mode(self):
         """로그인 모드로 전환"""
@@ -378,6 +386,7 @@ class LoginDialog(QDialog):
         self.strength_label.hide()
         self.bottom_link.show()
         self.setFixedSize(400, 350)  # 높이 증가
+        QTimer.singleShot(100, self._set_initial_focus)
     
     def check_password_strength(self, password):
         """비밀번호 강도 검사"""
@@ -569,6 +578,40 @@ class LoginDialog(QDialog):
         if text != filtered:
             line_edit.setText(filtered)
             line_edit.setCursorPosition(min(cursor_pos, len(filtered)))
+    
+    def _set_initial_focus(self):
+        """초기 포커스 설정 및 영문 입력 모드 강제"""
+        try:
+            self.password_input.setFocus()
+            self.password_input.activateWindow()
+            # 운영체제별 영문 입력 모드 강제
+            self._force_english_input()
+        except Exception:
+            pass
+    
+    def _force_english_input(self):
+        """운영체제별 영문 입력 모드 강제"""
+        try:
+            import platform
+            import subprocess
+            
+            system = platform.system()
+            
+            if system == 'Darwin':  # macOS
+                subprocess.run(
+                    ['osascript', '-e', 'tell application "System Events" to key code 49 using command down'],
+                    capture_output=True, timeout=1
+                )
+            elif system == 'Windows':  # Windows
+                try:
+                    import ctypes
+                    # 영문 키보드 레이아웃으로 전환 (0x0409 = en-US)
+                    user32 = ctypes.windll.user32
+                    user32.LoadKeyboardLayoutW('00000409', 1)
+                except:
+                    pass
+        except Exception:
+            pass
     
     def keyPressEvent(self, event):
         """키 이벤트 처리"""

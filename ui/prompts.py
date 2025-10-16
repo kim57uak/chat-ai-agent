@@ -42,8 +42,7 @@ class PromptManager:
                     "Core principles: "
                     "1) Understand user intent and clarify if needed. "
                     "2) Use available knowledge first, tools for external/real-time data. "
-                    "3) Provide clear, actionable answers. "
-                    "Always respond in the user's language (Korean→Korean, English→English)."
+                    "3) Provide clear, actionable answers."
                 ),
                 "context_awareness": (
                     "Maintain conversation context: "
@@ -122,7 +121,7 @@ class PromptManager:
             },
         }
 
-    def get_system_prompt(self, model_type: str, use_tools: bool = True) -> str:
+    def get_system_prompt(self, model_type: str, use_tools: bool = True, user_language: str = None) -> str:
         """Generate system prompt with mode-specific enhancements"""
         from datetime import timezone, timedelta
 
@@ -133,12 +132,19 @@ class PromptManager:
 
         common = self._prompts[ModelType.COMMON.value]
         model_specific = self._prompts.get(model_type, {}).get("system_enhancement", "")
+        
+        # 언어 컨텍스트 제공 (AI가 판단)
+        language_instruction = ""
+        if user_language:
+            lang_name = "Korean" if user_language == "ko" else "English"
+            language_instruction = f"\n\n**Language Context**: User's input is primarily {lang_name}. Match their language unless they explicitly request otherwise."
 
         if use_tools:
             # Agent mode system prompt
             parts = [
                 common["system_base"],
                 date_info,
+                language_instruction,
                 common["context_awareness"],
                 common["response_tone"],
                 common["emoji_usage"],
@@ -156,6 +162,7 @@ class PromptManager:
             parts = [
                 common["system_base"],
                 date_info,
+                language_instruction,
                 common["context_awareness"],
                 common["response_tone"],
                 common["emoji_usage"],
@@ -197,7 +204,6 @@ class PromptManager:
         return (
             f'User request: "{user_input}"\n\n'
             f"Available tools:\n{tools_info}\n\n"
-            f"{self._prompts[ModelType.COMMON.value]['tool_usage']}\n\n"
             "Answer: YES or NO only."
         )
 
@@ -331,9 +337,9 @@ prompt_manager = PromptManager()
 
 
 # Convenience functions
-def get_system_prompt(model_type: str, use_tools: bool = True) -> str:
+def get_system_prompt(model_type: str, use_tools: bool = True, user_language: str = None) -> str:
     """Query system prompt"""
-    return prompt_manager.get_system_prompt(model_type, use_tools)
+    return prompt_manager.get_system_prompt(model_type, use_tools, user_language)
 
 
 def get_agent_prompt(model_type: str) -> str:

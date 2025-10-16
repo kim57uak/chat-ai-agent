@@ -32,9 +32,10 @@ def setup_loguru():
     log_dir = _get_log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)
     
-    # Disable async logging in frozen (PyInstaller) environment
-    # to prevent multiprocessing conflicts
-    use_async = not _is_frozen()
+    # CRITICAL FIX: Disable async logging completely for Qt applications
+    # Async logging (enqueue=True) causes deadlocks with Qt event loop
+    # This prevents QTimer crashes and multiprocessing conflicts
+    use_async = False  # Always use synchronous logging with PyQt6
     
     # Console handler with colors (development)
     logger.add(

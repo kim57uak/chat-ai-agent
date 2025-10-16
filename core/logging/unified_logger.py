@@ -123,6 +123,19 @@ class UnifiedLogger:
         """Log security violation"""
         self.logger.bind(category="security").critical(f"Security violation: {violation_type} - {details}")
     
+    def log_session_event(self, event_type: str, details: Dict[str, Any] = None):
+        """세션 이벤트 로깅"""
+        safe_details = self._sanitize_dict(details) if details else {}
+        self.logger.bind(category="security").info(f"Session {event_type}: {json.dumps(safe_details, ensure_ascii=False)}")
+    
+    def log_error_safely(self, error: Exception, context: str = "", details: Dict[str, Any] = None):
+        """안전한 에러 로깅 (민감한 정보 제외)"""
+        safe_details = self._sanitize_dict(details) if details else {}
+        log_message = f"Security error in {context}: {str(error)}"
+        if safe_details:
+            log_message += f" - Details: {json.dumps(safe_details, ensure_ascii=False)}"
+        self.logger.bind(category="security").error(log_message, exc_info=True)
+    
     # General Application Logging
     def debug(self, message: str, **kwargs):
         """Debug level logging"""

@@ -128,27 +128,6 @@ class PerformanceOptimizer:
     def _get_windows_css(self):
         """Windows 전용 CSS"""
         return """
-        /* Windows 최적화 */
-        ::-webkit-scrollbar {
-            width: 12px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(45deg, #bb86fc, #03dac6);
-            border-radius: 6px;
-            border: 2px solid transparent;
-            background-clip: content-box;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(45deg, #03dac6, #bb86fc);
-        }
-        
         /* Windows 애니메이션 최적화 */
         .message {
             animation-duration: 0.3s;
@@ -159,25 +138,6 @@ class PerformanceOptimizer:
     def _get_macos_css(self):
         """macOS 전용 CSS"""
         return """
-        /* macOS 최적화 */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-        
         /* macOS 네이티브 스타일 애니메이션 */
         .message {
             animation-duration: 0.25s;

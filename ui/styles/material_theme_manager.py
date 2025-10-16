@@ -211,35 +211,38 @@ class MaterialThemeManager:
         """글래스모피즘 설정 반환"""
         theme = self.get_current_theme()
         return theme.get("glassmorphism", {
-            "blur_intensity": "20px",
-            "saturation": "180%",
-            "border_opacity": 0.15,
-            "shadow_opacity": 0.1,
-            "inset_highlight": "rgba(255, 255, 255, 0.1)"
+            "blur_intensity": "30px",
+            "saturation": "200%",
+            "border_opacity": 0.2,
+            "shadow_opacity": 0.12,
+            "inset_highlight": "rgba(255, 255, 255, 0.15)",
+            "backdrop_brightness": "105%",
+            "surface_opacity": 0.7
         })
     
     def _generate_glassmorphism_background(self) -> str:
-        """글래스모피즘 배경 생성"""
+        """글래스모피즘 배경 생성 - 애플 스타일"""
         colors = self.get_theme_colors()
         primary = colors.get('primary', '#bb86fc')
         secondary = colors.get('secondary', '#03dac6')
         background = colors.get('background', '#121212')
         
         if self.is_dark_theme():
-            return f"linear-gradient(135deg, {background} 0%, rgba({self._hex_to_rgb(primary)}, 0.05) 25%, rgba({self._hex_to_rgb(secondary)}, 0.03) 50%, {background} 75%, rgba({self._hex_to_rgb(primary)}, 0.02) 100%)"
+            return f"linear-gradient(135deg, {background} 0%, rgba({self._hex_to_rgb(primary)}, 0.08) 20%, rgba({self._hex_to_rgb(secondary)}, 0.06) 40%, {background} 60%, rgba({self._hex_to_rgb(primary)}, 0.04) 80%, {background} 100%)"
         else:
-            return f"linear-gradient(135deg, {background} 0%, rgba({self._hex_to_rgb(primary)}, 0.03) 25%, rgba({self._hex_to_rgb(secondary)}, 0.02) 50%, {background} 75%, rgba({self._hex_to_rgb(primary)}, 0.01) 100%)"
+            return f"linear-gradient(135deg, {background} 0%, rgba({self._hex_to_rgb(primary)}, 0.06) 20%, rgba({self._hex_to_rgb(secondary)}, 0.04) 40%, rgba(255, 255, 255, 0.8) 60%, rgba({self._hex_to_rgb(primary)}, 0.03) 80%, {background} 100%)"
     
     def _get_glassmorphism_surface(self, base_color: str) -> str:
-        """글래스모피즘 표면 색상 생성"""
+        """글래스모피즘 표면 색상 생성 - 애플 스타일"""
         colors = self.get_theme_colors()
         primary = colors.get('primary', '#bb86fc')
         glass_config = self.get_glassmorphism_config()
+        surface_opacity = glass_config.get('surface_opacity', 0.7)
         
         if self.is_dark_theme():
-            return f"linear-gradient(135deg, {base_color}, rgba({self._hex_to_rgb(primary)}, 0.08), rgba(255, 255, 255, 0.02))"
+            return f"linear-gradient(135deg, {base_color}, rgba({self._hex_to_rgb(primary)}, 0.12), rgba(255, 255, 255, 0.04), {base_color})"
         else:
-            return f"linear-gradient(135deg, {base_color}, rgba({self._hex_to_rgb(primary)}, 0.05), rgba(255, 255, 255, 0.4))"
+            return f"linear-gradient(135deg, rgba(255, 255, 255, {surface_opacity}), {base_color}, rgba({self._hex_to_rgb(primary)}, 0.08), rgba(255, 255, 255, {surface_opacity * 0.8}))"
     
     def generate_web_css(self) -> str:
         """웹뷰용 Material Design CSS 생성 (글래스모피즘 적용)"""
@@ -249,21 +252,22 @@ class MaterialThemeManager:
         mermaid_node_fill = self._get_mermaid_node_fill()
         background_color = colors.get('background', '#121212')
         
-        # 글래스모피즘 효과 설정
+        # 글래스모피즘 효과 설정 - 애플 스타일 강화
         glassmorphism_enabled = self.is_glassmorphism_enabled()
         
         if glassmorphism_enabled:
             glassmorphism_bg = self._generate_glassmorphism_background()
             glass_config = self.get_glassmorphism_config()
-            blur_intensity = glass_config.get('blur_intensity', '20px')
-            saturation = glass_config.get('saturation', '180%')
-            border_opacity = 0.25
-            shadow_opacity = 0.15
-            inset_highlight = 'rgba(255, 255, 255, 0.15)'
-            # 배경에만 블러 효과 적용, 텍스트는 선명하게 유지
-            backdrop_filter = f"backdrop-filter: blur({blur_intensity}) saturate({saturation});"
-            webkit_backdrop_filter = f"-webkit-backdrop-filter: blur({blur_intensity}) saturate({saturation});"
-            box_shadow = f"box-shadow: 0 12px 40px rgba(0, 0, 0, {shadow_opacity}), inset 0 1px 0 {inset_highlight};"
+            blur_intensity = glass_config.get('blur_intensity', '30px')
+            saturation = glass_config.get('saturation', '200%')
+            brightness = glass_config.get('backdrop_brightness', '105%')
+            border_opacity = glass_config.get('border_opacity', 0.2)
+            shadow_opacity = glass_config.get('shadow_opacity', 0.12)
+            inset_highlight = glass_config.get('inset_highlight', 'rgba(255, 255, 255, 0.15)')
+            # 애플 스타일 블러 효과 - 배경만 블러, 텍스트는 선명
+            backdrop_filter = f"backdrop-filter: blur({blur_intensity}) saturate({saturation}) brightness({brightness});"
+            webkit_backdrop_filter = f"-webkit-backdrop-filter: blur({blur_intensity}) saturate({saturation}) brightness({brightness});"
+            box_shadow = f"box-shadow: 0 8px 32px rgba(0, 0, 0, {shadow_opacity}), 0 1px 0 {inset_highlight}, inset 0 1px 1px {inset_highlight};"
         else:
             glassmorphism_bg = background_color
             border_opacity = 0.12
@@ -287,16 +291,19 @@ class MaterialThemeManager:
         .message {{
             margin: 24px 0 !important;
             padding: 20px 24px !important;
-            border-radius: 20px !important;
+            border-radius: 18px !important;
             position: relative !important;
             border: 1px solid rgba(255, 255, 255, {border_opacity}) !important;
             {backdrop_filter if glassmorphism_enabled else ''}
             {webkit_backdrop_filter if glassmorphism_enabled else ''}
             {box_shadow}
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }}
         
         .message:hover {{
-            background: {colors.get('surface_variant', 'rgba(255, 255, 255, 0.03)')} !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, {shadow_opacity * 1.5 if glassmorphism_enabled else 0.15}), 0 2px 0 {inset_highlight if glassmorphism_enabled else 'rgba(255, 255, 255, 0.1)'} !important;
+            border-color: rgba(255, 255, 255, {border_opacity * 1.3 if glassmorphism_enabled else 0.15}) !important;
         }}
         
         .message.user {{
@@ -348,18 +355,19 @@ class MaterialThemeManager:
             position: absolute !important;
             top: 16px !important;
             right: 20px !important;
-            background: {self._get_glassmorphism_surface('rgba(255, 255, 255, 0.1)')} !important;
+            background: {self._get_glassmorphism_surface('rgba(255, 255, 255, 0.15)') if glassmorphism_enabled else 'rgba(255, 255, 255, 0.1)'} !important;
             color: {colors.get('text_primary', '#ffffff')} !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
             padding: 8px 16px !important;
-            border-radius: 12px !important;
+            border-radius: 10px !important;
             cursor: pointer !important;
             font-size: 12px !important;
             font-weight: 600 !important;
             opacity: 0 !important;
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(15px) saturate(200%) brightness(110%);
+            -webkit-backdrop-filter: blur(15px) saturate(200%) brightness(110%);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }}
         
         .message:hover .copy-message-btn {{
@@ -370,36 +378,40 @@ class MaterialThemeManager:
             background: linear-gradient(135deg, {colors.get('primary', '#bb86fc')}, {colors.get('primary_variant', '#3700b3')}) !important;
             color: {colors.get('on_primary', '#000000')} !important;
             border-color: {colors.get('primary', '#bb86fc')} !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
         }}
         
         pre {{
-            background: {self._get_glassmorphism_surface(colors.get('code_bg', '#2d2d2d'))} !important;
-            border: 1px solid rgba(255, 255, 255, 0.15) !important;
-            border-radius: 16px !important;
+            background: {self._get_glassmorphism_surface(colors.get('code_bg', '#2d2d2d')) if glassmorphism_enabled else colors.get('code_bg', '#2d2d2d')} !important;
+            border: 1px solid rgba(255, 255, 255, {border_opacity * 0.8 if glassmorphism_enabled else 0.15}) !important;
+            border-radius: 14px !important;
             padding: 20px !important;
             margin: 20px 0 !important;
             overflow-x: auto !important;
-            font-family: 'Roboto Mono', 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace !important;
+            font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Roboto Mono', Consolas, monospace !important;
             font-size: 14px !important;
             font-weight: 400 !important;
-            line-height: 1.43 !important;
-            letter-spacing: 0.25px !important;
+            line-height: 1.5 !important;
+            letter-spacing: 0.2px !important;
             color: {code_text_color} !important;
-            backdrop-filter: blur(15px) saturate(180%);
-            -webkit-backdrop-filter: blur(15px) saturate(180%);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur({blur_intensity if glassmorphism_enabled else '10px'}) saturate({saturation if glassmorphism_enabled else '150%'}) brightness({brightness if glassmorphism_enabled else '100%'});
+            -webkit-backdrop-filter: blur({blur_intensity if glassmorphism_enabled else '10px'}) saturate({saturation if glassmorphism_enabled else '150%'}) brightness({brightness if glassmorphism_enabled else '100%'});
+            box-shadow: 0 8px 32px rgba(0, 0, 0, {shadow_opacity if glassmorphism_enabled else 0.1}), inset 0 1px 1px {inset_highlight if glassmorphism_enabled else 'rgba(255, 255, 255, 0.1)'};
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }}
         
         code {{
-            background: {self._get_glassmorphism_surface(colors.get('code_bg', '#2d2d2d'))} !important;
-            border: 1px solid rgba(255, 255, 255, 0.15) !important;
-            border-radius: 8px !important;
-            padding: 4px 8px !important;
-            font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace !important;
-            font-size: 12px !important;
+            background: {self._get_glassmorphism_surface(colors.get('code_bg', '#2d2d2d')) if glassmorphism_enabled else colors.get('code_bg', '#2d2d2d')} !important;
+            border: 1px solid rgba(255, 255, 255, {border_opacity * 0.7 if glassmorphism_enabled else 0.15}) !important;
+            border-radius: 6px !important;
+            padding: 3px 7px !important;
+            font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace !important;
+            font-size: 13px !important;
             color: {code_text_color} !important;
-            backdrop-filter: blur(10px) saturate(150%);
-            -webkit-backdrop-filter: blur(10px) saturate(150%);
+            backdrop-filter: blur(12px) saturate(180%) brightness(105%);
+            -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(105%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.15);
         }}
         
         pre code {{

@@ -25,7 +25,7 @@ class SessionSecurityManager(QObject):
         self.auth_manager = auth_manager
         self.last_activity_time = time.time()
         self.auto_logout_enabled = True
-        self.auto_logout_minutes = 30
+        self.auto_logout_minutes = self._load_timeout_from_config()
         self.system_lock_check_enabled = True
         
         # 타이머 설정
@@ -39,6 +39,19 @@ class SessionSecurityManager(QObject):
         
         # 활동 감지 설정
         self._setup_activity_monitoring()
+    
+    def _load_timeout_from_config(self):
+        """설정에서 타임아웃 로드 (5분~6시간)"""
+        try:
+            from core.file_utils import load_prompt_config
+            config = load_prompt_config()
+            security_settings = config.get('security_settings', {})
+            timeout = security_settings.get('logout_timeout_minutes', 30)
+            # 5분~360분(6시간) 범위로 제한
+            return max(5, min(360, timeout))
+        except Exception as e:
+            logger.error(f"타임아웃 로드 실패: {e}")
+            return 30
     
     def _setup_activity_monitoring(self):
         """사용자 활동 모니터링 설정"""

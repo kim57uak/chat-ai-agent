@@ -32,6 +32,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         logger.debug(" super().__init__() 완료")
         
+        # 성능 최적화 - 통합 타이머
+        from ui.unified_timer import get_unified_timer
+        self._unified_timer = get_unified_timer()
+        
         # QTimer 멤버 변수 초기화 (업계 표준)
         self._mcp_init_timer = None
         self._chat_theme_timer = None

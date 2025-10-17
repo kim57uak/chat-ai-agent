@@ -54,6 +54,9 @@ orjson
 packaging
 pandas
 pillow
+matplotlib
+seaborn
+scikit-learn
 pluggy==1.6.0
 propcache==0.3.2
 proto-plus==1.26.1

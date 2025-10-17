@@ -105,7 +105,7 @@ a = Analysis(
     excludes=[
         # Large ML libraries not needed
         'torch',
-        'torchvision', 
+        'torchvision',
         'torchaudio',
         'transformers',
         'tensorflow',

@@ -71,6 +71,14 @@ class ChatWidget(QWidget):
         self._is_closing = False
         self._timers = []
         
+        # 성능 최적화 - 통합 타이머
+        from ui.unified_timer import get_unified_timer
+        self._unified_timer = get_unified_timer()
+        
+        # 스크롤 상태 추적
+        self._user_is_scrolling = False
+        self._last_scroll_time = 0
+        
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(8, 8, 8, 8)
         self.layout.setSpacing(4)
@@ -362,8 +370,7 @@ class ChatWidget(QWidget):
         self.input_text.clear()
         
         # 사용자 메시지 후 맨 하단으로 스크롤 - 더 긴 지연
-        safe_single_shot(200, self._scroll_to_bottom, self)
-        safe_single_shot(500, self._scroll_to_bottom, self)  # 추가 시도
+        safe_single_shot(500, self._scroll_to_bottom, self)
         
         model = load_last_model()
         api_key = load_model_api_key(model)
@@ -585,9 +592,7 @@ class ChatWidget(QWidget):
         self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
         
         # AI 응답 후 맨 하단으로 스크롤 - 더 적극적으로
-        safe_single_shot(300, self._scroll_to_bottom, self)
         safe_single_shot(800, self._scroll_to_bottom, self)
-        safe_single_shot(1500, self._scroll_to_bottom, self)  # 최종 확인
         
         # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
         
@@ -1392,71 +1397,20 @@ class ChatWidget(QWidget):
             
             # prepend가 아닌 경우(일반 로드)에만 하단 스크롤
             if not prepend:
-                safe_single_shot(400, self._scroll_to_bottom, self)
                 safe_single_shot(1000, self._scroll_to_bottom, self)
-                safe_single_shot(1800, self._scroll_to_bottom, self)  # 최종 확인
                 
         except Exception as e:
             logger.debug(f"[LOAD_SESSION] 메시지 표시 오류: {e}")
     
     def _scroll_to_bottom(self):
-        """채팅 화면을 맨 하단으로 스크롤 - 최대 강화 버전"""
+        """채팅 화면을 맨 하단으로 스크롤"""
         try:
-            self.chat_display_view.page().runJavaScript("""
-                // 전역 함수로 한 번만 선언
-                if (!window.forceScrollToBottom) {
-                    window.forceScrollToBottom = () => {
-                        const heights = [
-                            document.body.scrollHeight,
-                            document.documentElement.scrollHeight,
-                            document.body.offsetHeight,
-                            document.documentElement.offsetHeight,
-                            document.body.clientHeight,
-                            document.documentElement.clientHeight
-                        ];
-                        
-                        const maxScroll = Math.max(...heights.filter(h => h > 0));
-                        const targetScroll = maxScroll + 1000;
-                        
-                        window.scrollTo(0, targetScroll);
-                        window.scroll(0, targetScroll);
-                        document.documentElement.scrollTop = targetScroll;
-                        document.body.scrollTop = targetScroll;
-                        
-                        const messagesDiv = document.getElementById('messages');
-                        if (messagesDiv) {
-                            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                        }
-                        
-                        setTimeout(() => {
-                            window.scrollTo({
-                                top: targetScroll,
-                                left: 0,
-                                behavior: 'smooth'
-                            });
-                        }, 10);
-                    };
-                }
-                
-                // 함수 실행
-                window.forceScrollToBottom();
-                setTimeout(window.forceScrollToBottom, 50);
-                setTimeout(window.forceScrollToBottom, 150);
-                setTimeout(window.forceScrollToBottom, 400);
-                
-                setTimeout(() => {
-                    const currentScroll = window.scrollY;
-                    const maxHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-                    if (currentScroll < maxHeight - 100) {
-                        window.forceScrollToBottom();
-                    }
-                }, 1000);
-            """)
+            self.chat_display_view.page().runJavaScript(
+                "window.scrollTo(0, document.body.scrollHeight);"
+            )
         except Exception as e:
-            logger.debug(f"[SCROLL] 스크롤 오류: {e}")
-    
-    # 세션 정보 업데이트 삭제 - 좌측 패널로 이동
-    
+            pass
+
     def _update_input_text_style(self, colors=None):
         """입력창 스타일 동적 업데이트"""
         try:

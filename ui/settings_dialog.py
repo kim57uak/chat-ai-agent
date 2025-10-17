@@ -15,6 +15,11 @@ import os
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        
+        # 성능 최적화 - 디바운서
+        from ui.event_debouncer import get_event_debouncer
+        self._debouncer = get_event_debouncer()
+        
         self.setWindowTitle('🔧 환경설정')
         self.setMinimumSize(700, 720)
         self.resize(800, 810)

@@ -24,6 +24,11 @@ class AsyncDataProcessor(QObject):
     
     def __init__(self):
         super().__init__()
+
+        # 성능 최적화 - 디바운서
+        from ui.event_debouncer import get_event_debouncer
+        self._debouncer = get_event_debouncer()
+        super().__init__()
         self._should_stop = False
     
     def process_data(self):

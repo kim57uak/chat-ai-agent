@@ -888,12 +888,14 @@ class ChatWidget(QWidget):
         self.chat_display.clear_messages()
     
     def close(self):
-        """위젯 종료"""
+        """위젯 종료 (리소스 정리)"""
         self._is_closing = True
         
         try:
             if hasattr(self, 'ai_processor'):
                 self.ai_processor.cancel()
+                if hasattr(self.ai_processor, 'shutdown'):
+                    self.ai_processor.shutdown()
             
             # 모든 타이머 정리
             for timer in getattr(self, '_timers', []):

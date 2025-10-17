@@ -9,7 +9,7 @@ from core.logging import get_logger
 logger = get_logger("mcp_client")
 
 class MCPClient:
-    """MCP STDIO 클라이언트 - JSON-RPC over STDIO (개선된 버전)"""
+    """MCP STDIO 클라이언트 - JSON-RPC over STDIO (이벤트 기반 최적화)"""
     
     def __init__(self, command: str, args: List[str], env: Dict[str, str] = None):
         self.command = command
@@ -19,6 +19,10 @@ class MCPClient:
         self.initialized = False
         self.pending_requests = {}
         self._lock = threading.Lock()
+        self._response_events = {}
+        self._shutdown_event = threading.Event()
+        self.response_thread = None
+        self.stderr_thread = None
         
     def start(self) -> bool:
         """MCP 서버 프로세스 시작"""
@@ -73,6 +77,9 @@ class MCPClient:
                 bufsize=0
             )
             
+            # 종료 이벤트 초기화
+            self._shutdown_event.clear()
+            
             # 응답 처리 스레드 시작
             self.response_thread = threading.Thread(target=self._handle_responses, daemon=True)
             self.response_thread.start()
@@ -87,7 +94,7 @@ class MCPClient:
             return False
     
     def _send_request(self, method: str, params: Dict[str, Any] = None) -> str:
-        """JSON-RPC 요청 전송"""
+        """JSON-RPC 요청 전송 (이벤트 기반)"""
         if not self.process or self.process.poll() is not None:
             logger.error("MCP 서버 프로세스가 종료됨")
             return None
@@ -100,11 +107,17 @@ class MCPClient:
         }
         if params is not None:
             request["params"] = params
+        
+        # 응답 이벤트 생성
+        with self._lock:
+            self._response_events[request_id] = threading.Event()
             
         try:
             request_json = json.dumps(request) + '\n'
             if not self.process.stdin or self.process.stdin.closed:
                 logger.error("MCP stdin 연결이 닫혀있음")
+                with self._lock:
+                    del self._response_events[request_id]
                 return None
                 
             self.process.stdin.write(request_json)
@@ -113,6 +126,9 @@ class MCPClient:
             return request_id
         except Exception as e:
             logger.error(f"MCP 요청 전송 실패: {e}")
+            with self._lock:
+                if request_id in self._response_events:
+                    del self._response_events[request_id]
             return None
     
     def _send_notification(self, method: str, params: Dict[str, Any] = None):
@@ -141,9 +157,14 @@ class MCPClient:
             logger.error(f"MCP 알림 전송 실패: {e}")
     
     def _handle_stderr(self):
-        """에러 출력 로깅"""
+        """에러 출력 로깅 (종료 이벤트 지원)"""
         try:
-            for line in self.process.stderr:
+            while not self._shutdown_event.is_set():
+                if not self.process or self.process.poll() is not None:
+                    break
+                line = self.process.stderr.readline()
+                if not line:
+                    break
                 line = line.strip()
                 if line:
                     logger.warning(f"MCP stderr: {line}")
@@ -151,10 +172,13 @@ class MCPClient:
             pass
     
     def _handle_responses(self):
-        """응답 처리 스레드"""
+        """응답 처리 스레드 (이벤트 기반 최적화)"""
         buffer = ""
-        while self.process and self.process.poll() is None:
+        while not self._shutdown_event.is_set():
             try:
+                if not self.process or self.process.poll() is not None:
+                    break
+                
                 chunk = self.process.stdout.read(1)
                 if not chunk:
                     break
@@ -179,33 +203,47 @@ class MCPClient:
                         if "id" in response:
                             with self._lock:
                                 self.pending_requests[response["id"]] = response
+                                # 이벤트 발생 (대기 중인 스레드 즉시 깨우기)
+                                if response["id"] in self._response_events:
+                                    self._response_events[response["id"]].set()
                     except json.JSONDecodeError:
                         pass  # Non-JSON 출력 무시
                         
             except Exception as e:
-                logger.error(f"MCP 응답 처리 오류: {e}")
+                if not self._shutdown_event.is_set():
+                    logger.error(f"MCP 응답 처리 오류: {e}")
                 break
+        
+        # 종료 시 모든 대기 중인 이벤트 해제
+        with self._lock:
+            for event in self._response_events.values():
+                event.set()
     
     def _wait_for_response(self, request_id: str, timeout: float = 30.0) -> Optional[Dict[str, Any]]:
-        """응답 대기"""
-        import time
-        start_time = time.time()
-        check_interval = 0.2
+        """응답 대기 (이벤트 기반 - CPU 효율적)"""
+        event = None
+        with self._lock:
+            event = self._response_events.get(request_id)
         
-        while time.time() - start_time < timeout:
-            if self.process and self.process.poll() is not None:
-                logger.error(f"MCP 서버 프로세스 종료 감지: {request_id}")
-                return None
-                
+        if not event:
+            return None
+        
+        # 이벤트 대기 (폴링 없이 블로킹)
+        if event.wait(timeout):
+            # 응답 도착
             with self._lock:
-                if request_id in self.pending_requests:
-                    response = self.pending_requests.pop(request_id)
-                    return response
-            
-            time.sleep(check_interval)
-            
-        logger.warning(f"MCP 응답 타임아웃: {request_id} ({timeout}초)")
-        return None
+                response = self.pending_requests.pop(request_id, None)
+                if request_id in self._response_events:
+                    del self._response_events[request_id]
+                return response
+        else:
+            # 타임아웃
+            logger.warning(f"MCP 응답 타임아웃: {request_id} ({timeout}초)")
+            with self._lock:
+                if request_id in self._response_events:
+                    del self._response_events[request_id]
+                self.pending_requests.pop(request_id, None)
+            return None
     
     def initialize(self) -> bool:
         """MCP 서버 초기화"""
@@ -304,12 +342,11 @@ class MCPClient:
             return None
     
     def close(self):
-        """MCP 클라이언트 종료 - 메모리 누수 방지"""
+        """MCP 클라이언트 종료 - 완전한 리소스 정리"""
         if self.process:
             try:
-                # 응답 스레드 종료 대기
-                if hasattr(self, 'response_thread') and self.response_thread.is_alive():
-                    self.response_thread.join(timeout=1.0)
+                # 종료 이벤트 설정 (스레드에 종료 신호)
+                self._shutdown_event.set()
                 
                 # stdin 먼저 닫기
                 if self.process.stdin and not self.process.stdin.closed:
@@ -318,10 +355,16 @@ class MCPClient:
                     except:
                         pass
                 
+                # 스레드 종료 대기 (타임아웃 짧게)
+                if self.response_thread and self.response_thread.is_alive():
+                    self.response_thread.join(timeout=0.5)
+                if self.stderr_thread and self.stderr_thread.is_alive():
+                    self.stderr_thread.join(timeout=0.5)
+                
                 # 프로세스 종료
                 self.process.terminate()
                 try:
-                    self.process.wait(timeout=3)
+                    self.process.wait(timeout=2)
                 except subprocess.TimeoutExpired:
                     self.process.kill()
                     self.process.wait(timeout=1)
@@ -342,19 +385,26 @@ class MCPClient:
                 except:
                     pass
                 
-                # 대기 중인 요청 정리
+                # 모든 대기 중인 리소스 정리
                 with self._lock:
                     self.pending_requests.clear()
+                    # 모든 이벤트 해제
+                    for event in self._response_events.values():
+                        event.set()
+                    self._response_events.clear()
                 
                 self.process = None
                 self.initialized = False
+                self.response_thread = None
+                self.stderr_thread = None
 
 
 class MCPManager:
-    """여러 MCP 서버 관리"""
+    """여러 MCP 서버 관리 (최적화)"""
     
     def __init__(self):
         self.clients: Dict[str, MCPClient] = {}
+        self._lock = threading.Lock()
         
     def load_from_config(self, config_path: str) -> bool:
         """mcp.json에서 설정 로드 및 활성화된 서버만 시작"""
@@ -406,59 +456,72 @@ class MCPManager:
             return False
     
     def get_all_tools(self) -> Dict[str, List[Dict[str, Any]]]:
-        """모든 서버의 도구 목록 조회 (항상 실시간)"""
+        """모든 서버의 도구 목록 조회 (병렬 처리)"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
         all_tools = {}
         
-        # 딕셔너리 변경 오류 방지를 위해 복사본 사용
-        clients_copy = dict(self.clients)
+        with self._lock:
+            clients_copy = dict(self.clients)
         
-        for name, client in clients_copy.items():
+        def fetch_tools(name, client):
             if client and client.initialized and client.process and client.process.poll() is None:
                 try:
                     tools = client.list_tools()
-                    if tools:
-                        all_tools[name] = tools
+                    return (name, tools) if tools else None
                 except Exception as e:
                     logger.error(f"서버 '{name}' 도구 목록 조회 오류: {e}")
+            return None
+        
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(fetch_tools, name, client): name 
+                      for name, client in clients_copy.items()}
+            
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    name, tools = result
+                    all_tools[name] = tools
         
         return all_tools
     
     def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
-        """특정 서버의 도구 호출"""
-        if server_name not in self.clients:
+        """특정 서버의 도구 호출 (스레드 안전)"""
+        with self._lock:
+            client = self.clients.get(server_name)
+        
+        if not client:
             logger.warning(f"MCP 서버 '{server_name}' 없음")
             return None
-            
-        client = self.clients[server_name]
+        
         return client.call_tool(tool_name, arguments)
     
     def close_all(self):
-        """모든 MCP 클라이언트 종료 - 세마포어 누수 방지"""
-        import time
+        """모든 MCP 클라이언트 종료 (병렬 처리)"""
+        from concurrent.futures import ThreadPoolExecutor
         import gc
         
-        # 복사본으로 작업하여 딕셔너리 변경 오류 방지
-        clients_to_close = list(self.clients.values())
+        with self._lock:
+            clients_to_close = list(self.clients.values())
+            self.clients.clear()
         
-        for client in clients_to_close:
+        def close_client(client):
             try:
                 client.close()
             except Exception as e:
                 logger.error(f"클라이언트 종료 오류: {e}")
         
-        self.clients.clear()
+        # 병렬로 모든 클라이언트 종료
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            executor.map(close_client, clients_to_close)
         
-        # 프로세스 완전 종료 대기
-        time.sleep(0.3)
-        
-        # 가비지 컬렉션으로 리소스 정리
         gc.collect()
     
     def get_server_status(self) -> Dict[str, Dict[str, Any]]:
-        """모든 서버의 상태 정보 반환 - 실시간 도구 목록 조회"""
-        status = {}
+        """모든 서버의 상태 정보 반환 (병렬 조회)"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         
-        # 설정 파일에서 서버 정보 로드
+        # 설정 파일 로드
         try:
             mcp_config_path = config_path_manager.get_config_path('mcp.json')
             with open(mcp_config_path, 'r', encoding='utf-8') as f:
@@ -468,44 +531,49 @@ class MCPManager:
             logger.warning(f"mcp.json 로드 실패: {e}")
             servers = {}
         
-        # 딕셔너리 변경 오류 방지를 위해 복사본 사용
-        clients_copy = dict(self.clients)
+        with self._lock:
+            clients_copy = dict(self.clients)
         
-        for name, server_config in servers.items():
+        def get_status(name, server_config):
             client = clients_copy.get(name)
-            
-            # 실시간 도구 목록 조회 - 강제 새로고침
             tools = []
             server_type = "unknown"
             
             if client and client.initialized and client.process and client.process.poll() is None:
                 try:
                     tools = client.list_tools()
-                    if tools:
-                        server_type = "tools_provider"
-                    else:
-                        server_type = "no_tools"
+                    server_type = "tools_provider" if tools else "no_tools"
                 except Exception as e:
                     logger.warning(f"서버 '{name}' 도구 목록 조회 실패: {e}")
                     server_type = "error"
             
-            status[name] = {
+            return (name, {
                 'command': server_config.get('command', ''),
                 'args': server_config.get('args', []),
                 'env': server_config.get('env', {}),
                 'status': 'running' if client and client.process and client.process.poll() is None else 'stopped',
                 'tools': tools,
                 'server_type': server_type
-            }
+            })
+        
+        status = {}
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(get_status, name, cfg): name 
+                      for name, cfg in servers.items()}
+            
+            for future in as_completed(futures):
+                name, info = future.result()
+                status[name] = info
         
         return status
     
     def start_server(self, server_name: str) -> bool:
-        """특정 서버 시작"""
-        if server_name in self.clients:
-            client = self.clients[server_name]
-            if client.process and client.process.poll() is None:
-                return True
+        """특정 서버 시작 (스레드 안전)"""
+        with self._lock:
+            if server_name in self.clients:
+                client = self.clients[server_name]
+                if client.process and client.process.poll() is None:
+                    return True
         
         try:
             mcp_config_path = config_path_manager.get_config_path('mcp.json')
@@ -526,11 +594,10 @@ class MCPManager:
             
             client = MCPClient(command, args, env)
             if client.start() and client.initialize():
-                self.clients[server_name] = client
-                # logger.info(f"MCP 서버 '{server_name}' 시작 완료")  # 주석 처리
+                with self._lock:
+                    self.clients[server_name] = client
                 return True
             else:
-                # logger.error(f"MCP 서버 '{server_name}' 시작 실패")  # 주석 처리
                 return False
                 
         except Exception as e:
@@ -538,12 +605,13 @@ class MCPManager:
             return False
     
     def stop_server(self, server_name: str) -> bool:
-        """특정 서버 중지"""
-        if server_name in self.clients:
+        """특정 서버 중지 (스레드 안전)"""
+        with self._lock:
+            client = self.clients.pop(server_name, None)
+        
+        if client:
             try:
-                self.clients[server_name].close()
-                del self.clients[server_name]
-                # logger.info(f"MCP 서버 '{server_name}' 중지 완료")  # 주석 처리
+                client.close()
                 return True
             except Exception as e:
                 logger.error(f"MCP 서버 '{server_name}' 중지 오류: {e}")

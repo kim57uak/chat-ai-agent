@@ -2,7 +2,9 @@ import json
 import os
 import uuid
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
+from functools import lru_cache
+from collections import OrderedDict
 from core.file_utils import load_config
 from utils.config_path import config_path_manager
 from core.logging import get_logger
@@ -11,9 +13,9 @@ logger = get_logger('conversation.history')
 
 
 class ConversationHistory:
-    """Hybrid conversation history management"""
+    """Hybrid conversation history management (메모리 최적화)"""
 
-    def __init__(self, history_file: str = "conversation_history.json"):
+    def __init__(self, history_file: str = "conversation_history.json", max_memory_messages: int = 50):
         self.history_file = history_file
         self._resolved_path = None
         self.current_session = []
@@ -25,7 +27,12 @@ class ConversationHistory:
         self.user_message_limit = self.settings.get("user_message_limit", 10)
         self.ai_response_limit = self.settings.get("ai_response_limit", 10)
         self.ai_response_token_limit = self.settings.get("ai_response_token_limit", 15000)
-        self.max_history_length = 100  # 전체 세션 최대 길이
+        self.max_history_length = 100
+        
+        # 메모리 관리
+        self._max_memory = max_memory_messages
+        self._message_cache = OrderedDict()
+        self._token_cache = {}
 
     def add_message(self, role: str, content: str, model_name: str = None, input_tokens: int = None, output_tokens: int = None, total_tokens: int = None):
         """Add message with duplicate prevention, model info and accurate token data"""
@@ -40,6 +47,9 @@ class ConversationHistory:
             self.current_session[-1]["role"] == role and 
             self.current_session[-1]["content"] == content):
             return
+        
+        # 메모리 정리
+        self.trim_memory()
             
         message = {
             "id": str(uuid.uuid4()),
@@ -65,11 +75,19 @@ class ConversationHistory:
         
         self.current_session.append(message)
         
+        # 캐시 저장
+        msg_id = message["id"]
+        self._message_cache[msg_id] = message
+        
         # Keep only recent messages
         if len(self.current_session) > self.max_history_length:
+            removed = self.current_session[:-self.max_history_length]
             self.current_session = self.current_session[-self.max_history_length:]
+            # 제거된 메시지 캐시에서 삭제
+            for msg in removed:
+                self._message_cache.pop(msg["id"], None)
         
-        return message["id"]
+        return msg_id
 
     def get_context_messages(self) -> List[Dict]:
         """Get messages for AI context using hybrid approach"""
@@ -119,9 +137,20 @@ class ConversationHistory:
         return filtered_messages
 
     def _estimate_tokens(self, text: str) -> int:
-        """Estimate token count (rough approximation)"""
+        """Estimate token count (캐싱)"""
+        # 캐시 확인
+        text_hash = hash(text)
+        if text_hash in self._token_cache:
+            return self._token_cache[text_hash]
+        
         from core.token_logger import TokenLogger
-        return TokenLogger.estimate_tokens(text)
+        tokens = TokenLogger.estimate_tokens(text)
+        
+        # 캐시 저장 (최대 1000개)
+        if len(self._token_cache) < 1000:
+            self._token_cache[text_hash] = tokens
+        
+        return tokens
 
     def _get_legacy_context(self) -> List[Dict]:
         """Legacy context method for backward compatibility"""
@@ -146,6 +175,21 @@ class ConversationHistory:
     def clear_session(self):
         """Clear current session"""
         self.current_session = []
+        self._message_cache.clear()
+        self._token_cache.clear()
+    
+    def trim_memory(self):
+        """메모리 정리 (오래된 메시지 제거)"""
+        if len(self._message_cache) > self._max_memory:
+            # 가장 오래된 10개 제거
+            for _ in range(10):
+                if self._message_cache:
+                    self._message_cache.popitem(last=False)
+    
+    @lru_cache(maxsize=100)
+    def get_message(self, message_id: str) -> Optional[Dict]:
+        """메시지 조회 (LRU 캐싱)"""
+        return self._message_cache.get(message_id)
 
     def save_to_file(self):
         """JSON 저장 기능 비활성화 - 세션 관리 시스템으로 대체됨"""
@@ -282,8 +326,13 @@ class ConversationHistory:
             original_length = len(self.current_session)
             self.current_session = [msg for msg in self.current_session if msg.get("id") != message_id]
             
+            # 캐시에서도 제거
+            self._message_cache.pop(message_id, None)
+            
+            # LRU 캐시 무효화
+            self.get_message.cache_clear()
+            
             if len(self.current_session) < original_length:
-                # self.save_to_file()  # JSON 저장 비활성화
                 return True
             return False
         except Exception as e:

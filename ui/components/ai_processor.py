@@ -1,6 +1,7 @@
 from PyQt6.QtCore import QObject, pyqtSignal
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, Future
 from ui.components.status_display import status_display
 from core.token_logger import TokenLogger
 from core.simple_token_accumulator import token_accumulator
@@ -10,7 +11,7 @@ logger = get_logger('ui.ai_processor')
 
 
 class AIProcessor(QObject):
-    """AI 요청 처리를 담당하는 클래스 (SRP)"""
+    """AI 요청 처리를 담당하는 클래스 (스레드 풀 최적화)"""
     
     finished = pyqtSignal(str, str, list)  # sender, text, used_tools
     error = pyqtSignal(str)
@@ -18,17 +19,28 @@ class AIProcessor(QObject):
     streaming_complete = pyqtSignal(str, str, list)  # sender, full_text, used_tools
     conversation_completed = pyqtSignal(object)  # ConversationTokens 객체
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, max_workers=3):
         super().__init__(parent)
         self._cancelled = False
         self._current_client = None
+        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="AIProcessor")
+        self._current_future = None
+        self._lock = threading.Lock()
     
     def cancel(self):
-        """요청 취소"""
-        self._cancelled = True
+        """요청 취소 (스레드 안전)"""
+        with self._lock:
+            self._cancelled = True
+            if self._current_future and not self._current_future.done():
+                self._current_future.cancel()
+            if self._current_client:
+                self._current_client.cancel_streaming()
         status_display.finish_processing(False)
-        if self._current_client:
-            self._current_client.cancel_streaming()
+    
+    def shutdown(self):
+        """스레드 풀 종료 (리소스 정리)"""
+        self._executor.shutdown(wait=False)
+        logger.info("AIProcessor 스레드 풀 종료")
     
     def process_request(self, api_key, model, messages, user_text=None, agent_mode=False, file_prompt=None):
         """AI 요청 처리 - 대화 히스토리 포함"""
@@ -367,8 +379,20 @@ class AIProcessor(QObject):
                     #         error=str(e)
                     #     )
         
-        thread = threading.Thread(target=_process, daemon=True)
-        thread.start()
+        # 스레드 풀에 작업 제출
+        with self._lock:
+            self._cancelled = False
+            self._current_future = self._executor.submit(_process)
+        
+        # 에러 핸들링
+        def _handle_future_exception(future: Future):
+            try:
+                future.result()
+            except Exception as e:
+                if not self._cancelled:
+                    logger.error(f"Future 실행 오류: {e}", exc_info=True)
+        
+        self._current_future.add_done_callback(_handle_future_exception)
     
     def _detect_korean_ratio(self, text: str) -> float:
         """텍스트에서 한글 문자 비율 계산"""

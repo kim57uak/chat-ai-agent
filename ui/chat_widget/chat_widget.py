@@ -232,7 +232,10 @@ class ChatWidget(QWidget):
             self.chat_display.update_theme()
             
     def close(self):
-        """위젯 종료"""
+        """위젯 종료 (리소스 정리)"""
         self._is_closing = True
-        self.ai_processor.cancel_request()
+        if hasattr(self.ai_processor, 'cancel'):
+            self.ai_processor.cancel()
+        if hasattr(self.ai_processor, 'shutdown'):
+            self.ai_processor.shutdown()
         super().close()

@@ -386,9 +386,17 @@ class FixedFormatter:
     def _clean_html_code(self, text):
         """코드 블록에서 HTML 태그 제거"""
         import re
+        import html
+        
+        # HTML 태그 제거
         text = re.sub(r'<[^>]+>', '', text)
-        text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
-        text = text.replace('&quot;', '"').replace('&#x27;', "'")
+        
+        # 이중/삼중 인코딩된 HTML 엔티티 디코딩
+        prev_text = None
+        while prev_text != text:
+            prev_text = text
+            text = html.unescape(text)
+        
         return text
     
     def _convert_image_urls(self, text):

@@ -40,28 +40,36 @@ class CodeExecutionThread(QThread):
     
     def _execute_python(self):
         """Python 코드 실행"""
+        import sys
+        from io import StringIO
+        
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
-                f.write(self.code)
-                temp_file = f.name
+            # 표준 출력 캐처
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = StringIO()
+            sys.stderr = StringIO()
             
             try:
-                result = subprocess.run(
-                    ['python', temp_file],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                    encoding='utf-8'
-                )
-                return result.stdout, result.stderr
-            finally:
-                os.unlink(temp_file)
+                # 코드 실행
+                exec(self.code, {'__name__': '__main__'})
                 
-        except subprocess.TimeoutExpired:
-            return "", "실행 시간 초과 (10초)"
+                output = sys.stdout.getvalue()
+                error = sys.stderr.getvalue()
+                
+                return output, error
+                
+            finally:
+                # 표준 출력 복원
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+                
         except Exception as e:
-            return "", f"Python 실행 오류: {str(e)}"
+            logger.error(f"Python 실행 오류: {e}")
+            import traceback
+            return "", traceback.format_exc()
     
+
     def _execute_javascript(self):
         """JavaScript 코드 실행"""
         try:

@@ -43,6 +43,10 @@ class CodeExecutionThread(QThread):
         import sys
         from io import StringIO
         
+        # input() 사용 감지
+        if 'input(' in self.code:
+            return "", "오류: input() 함수는 지원하지 않습니다. 대화형 입력이 필요한 코드는 실행할 수 없습니다."
+        
         try:
             # 표준 출력 캐처
             old_stdout = sys.stdout

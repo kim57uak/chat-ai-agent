@@ -180,36 +180,32 @@ class LinkHandler(QObject):
         try:
             logger.debug(f"[EXECUTE] 결과 표시 시작")
             
-            if hasattr(self, 'chat_widget') and self.chat_widget:
-                result_text = ""
-                if output:
-                    result_text += f"**출력:**\n```\n{output}\n```\n"
-                if error:
-                    result_text += f"**오류:**\n```\n{error}\n```"
-                
-                if not result_text:
-                    result_text = "실행 완료 (출력 없음)"
-                
-                logger.debug(f"[EXECUTE] 결과 텍스트: {result_text[:100]}...")
-                
-                # 채팅 위젪f에 결과 메시지 추가
-                if hasattr(self.chat_widget, 'chat_display'):
-                    from ui.components.chat_display.message_renderer import MessageRenderer
-                    
-                    # message_renderer 사용
-                    if hasattr(self.chat_widget.chat_display, 'message_renderer'):
-                        self.chat_widget.chat_display.message_renderer.append_message(
-                            "시스템",
-                            result_text,
-                            progressive=False
-                        )
-                        logger.debug(f"[EXECUTE] 결과 메시지 추가 완료")
-                    else:
-                        logger.error(f"[EXECUTE] message_renderer 없음")
-                else:
-                    logger.error(f"[EXECUTE] chat_display 없음")
-            else:
+            if not (hasattr(self, 'chat_widget') and self.chat_widget):
                 logger.error(f"[EXECUTE] chat_widget 없음")
+                return
+            
+            # 결과 텍스트 구성
+            result_text = ""
+            if output:
+                result_text += f"**출력:**\n```\n{output}\n```\n"
+            if error:
+                result_text += f"**오류:**\n```\n{error}\n```"
+            
+            if not result_text:
+                result_text = "실행 완료 (출력 없음)"
+            
+            logger.debug(f"[EXECUTE] 결과 텍스트: {result_text[:100]}...")
+            
+            # 채팅 위젯에 결과 메시지 추가
+            if hasattr(self.chat_widget, 'chat_display'):
+                self.chat_widget.chat_display.append_message(
+                    "시스템",
+                    result_text,
+                    progressive=False
+                )
+                logger.debug(f"[EXECUTE] 결과 메시지 추가 완료")
+            else:
+                logger.error(f"[EXECUTE] chat_display 없음")
                 
         except Exception as e:
             logger.error(f"[EXECUTE] 결과 표시 오류: {e}", exc_info=True)

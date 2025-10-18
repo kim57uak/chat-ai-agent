@@ -324,15 +324,32 @@ class FixedFormatter:
         # 단, 마크다운 처리에서 깨지지 않도록 보호
         return text
     
+    def _create_code_html(self, code_id, lang, code_lines):
+        """코드 블록 HTML 생성"""
+        code_content = '\n'.join(code_lines)
+        escaped_code = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        
+        lang_lower = lang.lower() if lang else ''
+        is_executable = lang_lower in ['python', 'py', 'javascript', 'js']
+        exec_lang = 'python' if lang_lower in ['python', 'py'] else 'javascript' if lang_lower in ['javascript', 'js'] else ''
+        
+        lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{lang or "code"}</div>'
+        
+        if is_executable:
+            exec_btn = f'<button onclick="executeCode(\'{code_id}\', \'{exec_lang}\')" style="position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#45a049\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#4CAF50\'; this.style.transform=\'scale(1)\';">▶️ 실행</button>'
+            copy_btn = f'<button onclick="copyCodeBlock(\'{code_id}\')" style="position: absolute; top: 8px; right: 82px; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
+        else:
+            exec_btn = ''
+            copy_btn = f'<button onclick="copyCodeBlock(\'{code_id}\')" style="position: absolute; top: 8px; right: 8px; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
+        
+        return f'<div style="position: relative; margin: 12px 0;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{code_id}" data-language="{lang}">{escaped_code}</code></pre></div>'
+    
     def _clean_html_code(self, text):
         """코드 블록에서 HTML 태그 제거"""
         import re
-        # HTML 태그 제거
         text = re.sub(r'<[^>]+>', '', text)
-        # HTML 엔티티 디코딩
         text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
         text = text.replace('&quot;', '"').replace('&#x27;', "'")
-        # 태그 제거 후 빈 문자열이 된 경우 빈 문자열 반환 (빈 줄 방지)
         return text if text.strip() else ''
     
     def _convert_image_urls(self, text):
@@ -411,96 +428,30 @@ class FixedFormatter:
                 result.append(line)
                 continue
             
-            # 코드 블록 처리 (일반 코드만)
+            # 코드 블록 처리
             if line.startswith('```') and not line.startswith('```mermaid'):
                 if not in_code_block:
                     in_code_block = True
                     current_lang = line[3:].strip() if len(line) > 3 else ''
                     current_code_id = f"code_{uuid.uuid4().hex[:8]}"
                     current_code_lines = []
-                    
-                    logger.debug(f"[CODE] 코드 블록 감지: lang='{current_lang}'")
-                    
-                    # 언어가 명시되지 않은 경우 자동 감지 예약
-                    auto_detect_lang = not current_lang
-                    
-                    lang_lower = current_lang.lower().strip() if current_lang else ''
-                    is_executable = lang_lower in ['python', 'py', 'javascript', 'js', 'node', 'nodejs']
-                    
-                    if lang_lower in ['python', 'py']:
-                        exec_lang = 'python'
-                    elif lang_lower in ['javascript', 'js', 'node', 'nodejs']:
-                        exec_lang = 'javascript'
-                    else:
-                        exec_lang = 'python'
-                    
-                    logger.debug(f"[CODE] 실행 가능: {is_executable}, exec_lang: {exec_lang}, auto_detect: {auto_detect_lang}")
-                    
-                    # 언어 라벨
-                    lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{current_lang or "code"}</div>' if current_lang else ''
-                    
-                    # 버튼들 - 실행 버튼과 복사 버튼 간격 2px
-                    exec_btn = ''
-                    if is_executable:
-                        exec_btn = f'<button onclick="executeCode(\'{current_code_id}\', \'{exec_lang}\')" style="position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#45a049\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#4CAF50\'; this.style.transform=\'scale(1)\';">▶️ 실행</button>'
-                        copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: 82px; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
-                    else:
-                        copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: 8px; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
-                    
-                    result.append(f'<div style="position: relative; margin: 12px 0;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{current_code_id}" data-language="{current_lang}">')
                 else:
                     in_code_block = False
                     
-                    # 코드 블록 먼저 닫기
-                    result.append(f'</code></pre></div>')
-                    
-                    # 코드 블록 종료 후 자동 감지 수행
-                    if auto_detect_lang and current_code_lines:
+                    # 언어 자동 감지
+                    if not current_lang and current_code_lines:
                         from utils.code_detector import CodeLanguageDetector
-                        detected = CodeLanguageDetector.detect_language('\n'.join(current_code_lines))
-                        logger.debug(f"[CODE] 자동 감지 결과: {detected}")
-                        
-                        # 실행 가능한 언어면 JavaScript로 버튼 추가 (코드 블록 밖에)
-                        if detected in ['python', 'javascript']:
-                            exec_btn_js = f'''
-<script>
-(function() {{
-    var codeBlock = document.getElementById('{current_code_id}');
-    if (codeBlock && codeBlock.parentElement && codeBlock.parentElement.parentElement) {{
-        var container = codeBlock.parentElement.parentElement;
-        
-        // 실행 버튼 추가
-        var execBtn = document.createElement('button');
-        execBtn.onclick = function() {{ executeCode('{current_code_id}', '{detected}'); }};
-        execBtn.style.cssText = 'position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;';
-        execBtn.onmouseover = function() {{ this.style.background='#45a049'; this.style.transform='scale(1.05)'; }};
-        execBtn.onmouseout = function() {{ this.style.background='#4CAF50'; this.style.transform='scale(1)'; }};
-        execBtn.innerHTML = '▶️ 실행';
-        container.appendChild(execBtn);
-        
-        // 복사 버튼 위치 조정
-        var copyBtn = container.querySelector('.code-copy-btn');
-        if (copyBtn) {{
-            copyBtn.style.right = '82px';
-        }}
-        
-        // 언어 라벨 추가
-        var langLabel = document.createElement('div');
-        langLabel.style.cssText = 'position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;';
-        langLabel.textContent = '{detected}';
-        container.appendChild(langLabel);
-    }}
-}})();
-</script>'''
-                            result.append(exec_btn_js)
+                        current_lang = CodeLanguageDetector.detect_language('\n'.join(current_code_lines))
+                        logger.debug(f"[CODE] 자동 감지: {current_lang}")
                     
+                    # HTML 생성
+                    code_html = self._create_code_html(current_code_id, current_lang, current_code_lines)
+                    result.append(code_html)
                 continue
             
             if in_code_block:
-                # 코드 블록 내에서 HTML 태그 제거
                 clean_line = self._clean_html_code(line)
-                current_code_lines.append(clean_line)  # 코드 라인 수집
-                result.append(clean_line)
+                current_code_lines.append(clean_line)
                 continue
             
             # 헤더

@@ -61,7 +61,8 @@ class PromptManager:
                 "formatting": "Use markdown formatting for readability. Use emojis to enhance structure. Code blocks: plain text only, no HTML.",
                 "code_rules": (
                     "Code formatting: Python code MUST use proper indentation (4 spaces per level). "
-                    "Code blocks: plain text only, no HTML tags/entities. "
+                    "Code blocks: ALWAYS specify language (```python, ```javascript, ```js). "
+                    "Plain text only, no HTML tags/entities. "
                     "NEVER include explanatory comments in code - write clean, self-documenting code only."
                 ),
                 "mermaid_rules": "Diagrams: ```mermaid\n[code]\n```. English only, plain arrows (-->). Mindmap: use 'mindmap' + root((text)), NOT flowchart. ERD: UPPERCASE entities, crow's foot notation, essential attributes only (no FK).",

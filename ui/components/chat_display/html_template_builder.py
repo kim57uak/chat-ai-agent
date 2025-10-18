@@ -218,7 +218,77 @@ class HtmlTemplateBuilder:
                     }}
                 }}, 300);
                 
+                // 코드 블록 자동 감지 및 실행 버튼 추가
+                function detectAndAddExecuteButtons() {{
+                    var codeBlocks = document.querySelectorAll('code[data-language=""]');
+                    codeBlocks.forEach(function(codeBlock) {{
+                        if (codeBlock.hasAttribute('data-exec-checked')) return;
+                        codeBlock.setAttribute('data-exec-checked', 'true');
+                        
+                        var code = codeBlock.textContent || codeBlock.innerText;
+                        var detected = detectLanguage(code);
+                        
+                        if (detected === 'python' || detected === 'javascript') {{
+                            var container = codeBlock.parentElement.parentElement;
+                            if (container && container.style.position === 'relative') {{
+                                // 실행 버튼 추가
+                                var execBtn = document.createElement('button');
+                                execBtn.onclick = function() {{ executeCode(codeBlock.id, detected); }};
+                                execBtn.style.cssText = 'position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;';
+                                execBtn.onmouseover = function() {{ this.style.background='#45a049'; this.style.transform='scale(1.05)'; }};
+                                execBtn.onmouseout = function() {{ this.style.background='#4CAF50'; this.style.transform='scale(1)'; }};
+                                execBtn.innerHTML = '▶️ 실행';
+                                container.appendChild(execBtn);
+                                
+                                // 복사 버튼 위치 조정
+                                var copyBtn = container.querySelector('.code-copy-btn');
+                                if (copyBtn) {{
+                                    copyBtn.style.right = '82px';
+                                }}
+                            }}
+                        }}
+                    }});
+                }}
+                
+                // 간단한 언어 감지 함수
+                function detectLanguage(code) {{
+                    if (!code) return 'unknown';
+                    
+                    // Python 패턴
+                    if (/\bdef\s+\w+\s*\(/.test(code) || 
+                        /\bimport\s+\w+/.test(code) || 
+                        /\bfrom\s+\w+\s+import/.test(code) ||
+                        /print\s*\(/.test(code)) {{
+                        return 'python';
+                    }}
+                    
+                    // JavaScript 패턴
+                    if (/\bfunction\s+\w+\s*\(/.test(code) ||
+                        /\bconst\s+\w+\s*=/.test(code) ||
+                        /\blet\s+\w+\s*=/.test(code) ||
+                        /console\.log\s*\(/.test(code)) {{
+                        return 'javascript';
+                    }}
+                    
+                    return 'unknown';
+                }}
+                
+                // 페이지 로드 시 및 DOM 변경 시 실행
+                detectAndAddExecuteButtons();
+                
+                // MutationObserver로 새로운 코드 블록 감지
+                var observer = new MutationObserver(function(mutations) {{
+                    detectAndAddExecuteButtons();
+                }});
+                observer.observe(document.getElementById('messages'), {{
+                    childList: true,
+                    subtree: true
+                }});
+                
                 var pyqt_bridge = null;
+                
+                // 초기 코드 블록 스캔
+                setTimeout(detectAndAddExecuteButtons, 500);
                 
                 new QWebChannel(qt.webChannelTransport, function(channel) {{
                     pyqt_bridge = channel.objects.pyqt_bridge;

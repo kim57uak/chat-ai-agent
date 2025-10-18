@@ -1,41 +1,48 @@
-"""Code execution handler for Python and JavaScript"""
+"""
+Code Executor
+Python 및 JavaScript 코드 실행
+"""
 
+from PyQt6.QtCore import QObject, pyqtSignal, QThread
 import subprocess
 import tempfile
 import os
-from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QThread
+from core.logging import get_logger
+
+logger = get_logger("code_executor")
 
 
-class CodeExecutor(QObject):
-    """코드 실행을 처리하는 클래스"""
+class CodeExecutionThread(QThread):
+    """코드 실행 스레드"""
     
-    execution_finished = pyqtSignal(str, str)  # (output, error)
+    finished = pyqtSignal(str, str)  # output, error
     
-    def __init__(self):
+    def __init__(self, code, language):
         super().__init__()
+        self.code = code
+        self.language = language
     
-    @pyqtSlot(str, str)
-    def executeCode(self, code, language):
+    def run(self):
         """코드 실행"""
         try:
-            if language == 'python':
-                output, error = self._execute_python(code)
-            elif language == 'javascript':
-                output, error = self._execute_javascript(code)
+            if self.language == 'python':
+                output, error = self._execute_python()
+            elif self.language == 'javascript':
+                output, error = self._execute_javascript()
             else:
-                error = f"지원하지 않는 언어: {language}"
                 output = ""
+                error = f"지원하지 않는 언어: {self.language}"
             
-            self.execution_finished.emit(output, error)
+            self.finished.emit(output, error)
             
         except Exception as e:
-            self.execution_finished.emit("", f"실행 오류: {str(e)}")
+            self.finished.emit("", f"실행 오류: {str(e)}")
     
-    def _execute_python(self, code):
+    def _execute_python(self):
         """Python 코드 실행"""
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
-                f.write(code)
+                f.write(self.code)
                 temp_file = f.name
             
             try:
@@ -46,26 +53,20 @@ class CodeExecutor(QObject):
                     timeout=10,
                     encoding='utf-8'
                 )
-                
-                output = result.stdout
-                error = result.stderr
-                
-                return output, error
-                
+                return result.stdout, result.stderr
             finally:
-                if os.path.exists(temp_file):
-                    os.unlink(temp_file)
-                    
+                os.unlink(temp_file)
+                
         except subprocess.TimeoutExpired:
             return "", "실행 시간 초과 (10초)"
         except Exception as e:
             return "", f"Python 실행 오류: {str(e)}"
     
-    def _execute_javascript(self, code):
+    def _execute_javascript(self):
         """JavaScript 코드 실행"""
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False, encoding='utf-8') as f:
-                f.write(code)
+                f.write(self.code)
                 temp_file = f.name
             
             try:
@@ -76,19 +77,37 @@ class CodeExecutor(QObject):
                     timeout=10,
                     encoding='utf-8'
                 )
-                
-                output = result.stdout
-                error = result.stderr
-                
-                return output, error
-                
+                return result.stdout, result.stderr
             finally:
-                if os.path.exists(temp_file):
-                    os.unlink(temp_file)
-                    
-        except FileNotFoundError:
-            return "", "Node.js가 설치되어 있지 않습니다."
+                os.unlink(temp_file)
+                
         except subprocess.TimeoutExpired:
             return "", "실행 시간 초과 (10초)"
+        except FileNotFoundError:
+            return "", "Node.js가 설치되어 있지 않습니다."
         except Exception as e:
             return "", f"JavaScript 실행 오류: {str(e)}"
+
+
+class CodeExecutor(QObject):
+    """코드 실행 관리자"""
+    
+    execution_finished = pyqtSignal(str, str)  # output, error
+    
+    def __init__(self):
+        super().__init__()
+        self.thread = None
+    
+    def executeCode(self, code, language):
+        """코드 실행"""
+        if self.thread and self.thread.isRunning():
+            logger.debug("이미 실행 중인 코드가 있습니다.")
+            return
+        
+        self.thread = CodeExecutionThread(code, language)
+        self.thread.finished.connect(self._on_finished)
+        self.thread.start()
+    
+    def _on_finished(self, output, error):
+        """실행 완료"""
+        self.execution_finished.emit(output, error)

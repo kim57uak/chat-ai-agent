@@ -417,35 +417,89 @@ class FixedFormatter:
                     in_code_block = True
                     current_lang = line[3:].strip() if len(line) > 3 else ''
                     current_code_id = f"code_{uuid.uuid4().hex[:8]}"
+                    current_code_lines = []
                     
-                    # 디버그: 언어 감지 확인
-                    logger.debug(f" 코드 블록 감지: lang='{current_lang}'")
+                    logger.debug(f"[CODE] 코드 블록 감지: lang='{current_lang}'")
                     
-                    # 실행 가능한 언어 확인
-                    executable_langs = ['python', 'py', 'javascript', 'js']
-                    is_executable = current_lang.lower() in executable_langs
-                    logger.debug(f" 실행 가능: {is_executable}")
-                    exec_lang = 'python' if current_lang.lower() in ['python', 'py'] else 'javascript'
+                    # 언어가 명시되지 않은 경우 자동 감지 예약
+                    auto_detect_lang = not current_lang
+                    
+                    lang_lower = current_lang.lower().strip() if current_lang else ''
+                    is_executable = lang_lower in ['python', 'py', 'javascript', 'js', 'node', 'nodejs']
+                    
+                    if lang_lower in ['python', 'py']:
+                        exec_lang = 'python'
+                    elif lang_lower in ['javascript', 'js', 'node', 'nodejs']:
+                        exec_lang = 'javascript'
+                    else:
+                        exec_lang = 'python'
+                    
+                    logger.debug(f"[CODE] 실행 가능: {is_executable}, exec_lang: {exec_lang}, auto_detect: {auto_detect_lang}")
                     
                     # 언어 라벨
                     lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{current_lang or "code"}</div>' if current_lang else ''
                     
-                    # 버튼들
-                    copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: {"60px" if is_executable else "8px"}; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
-                    
+                    # 버튼들 - 실행 버튼과 복사 버튼 간격 2px
                     exec_btn = ''
                     if is_executable:
                         exec_btn = f'<button onclick="executeCode(\'{current_code_id}\', \'{exec_lang}\')" style="position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#45a049\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#4CAF50\'; this.style.transform=\'scale(1)\';">▶️ 실행</button>'
+                        copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: 82px; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
+                    else:
+                        copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: 8px; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
                     
                     result.append(f'<div style="position: relative; margin: 12px 0;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{current_code_id}" data-language="{current_lang}">')
                 else:
                     in_code_block = False
+                    
+                    # 코드 블록 먼저 닫기
                     result.append(f'</code></pre></div>')
+                    
+                    # 코드 블록 종료 후 자동 감지 수행
+                    if auto_detect_lang and current_code_lines:
+                        from utils.code_detector import CodeLanguageDetector
+                        detected = CodeLanguageDetector.detect_language('\n'.join(current_code_lines))
+                        logger.debug(f"[CODE] 자동 감지 결과: {detected}")
+                        
+                        # 실행 가능한 언어면 JavaScript로 버튼 추가 (코드 블록 밖에)
+                        if detected in ['python', 'javascript']:
+                            exec_btn_js = f'''
+<script>
+(function() {{
+    var codeBlock = document.getElementById('{current_code_id}');
+    if (codeBlock && codeBlock.parentElement && codeBlock.parentElement.parentElement) {{
+        var container = codeBlock.parentElement.parentElement;
+        
+        // 실행 버튼 추가
+        var execBtn = document.createElement('button');
+        execBtn.onclick = function() {{ executeCode('{current_code_id}', '{detected}'); }};
+        execBtn.style.cssText = 'position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;';
+        execBtn.onmouseover = function() {{ this.style.background='#45a049'; this.style.transform='scale(1.05)'; }};
+        execBtn.onmouseout = function() {{ this.style.background='#4CAF50'; this.style.transform='scale(1)'; }};
+        execBtn.innerHTML = '▶️ 실행';
+        container.appendChild(execBtn);
+        
+        // 복사 버튼 위치 조정
+        var copyBtn = container.querySelector('.code-copy-btn');
+        if (copyBtn) {{
+            copyBtn.style.right = '82px';
+        }}
+        
+        // 언어 라벨 추가
+        var langLabel = document.createElement('div');
+        langLabel.style.cssText = 'position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;';
+        langLabel.textContent = '{detected}';
+        container.appendChild(langLabel);
+    }}
+}})();
+</script>'''
+                            result.append(exec_btn_js)
+                    
                 continue
             
             if in_code_block:
                 # 코드 블록 내에서 HTML 태그 제거
                 clean_line = self._clean_html_code(line)
+                current_code_lines.append(clean_line)  # 코드 라인 수집
                 result.append(clean_line)
                 continue
             

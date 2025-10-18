@@ -113,7 +113,6 @@ a = Analysis(
         'tensorflow',
         'keras',
         'sklearn',
-        'numpy.f2py',
         'plotly',
         'bokeh',
         'pyarrow',

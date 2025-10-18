@@ -59,7 +59,11 @@ class PromptManager:
                     "Wait for tool results before providing final answer."
                 ),
                 "formatting": "Use markdown formatting for readability. Use emojis to enhance structure. Code blocks: plain text only, no HTML.",
-                "code_rules": "Code blocks: plain text only, no HTML tags/entities.",
+                "code_rules": (
+                    "Code formatting: Python code MUST use proper indentation (4 spaces per level). "
+                    "Code blocks: plain text only, no HTML tags/entities. "
+                    "NEVER include explanatory comments in code - write clean, self-documenting code only."
+                ),
                 "mermaid_rules": "Diagrams: ```mermaid\n[code]\n```. English only, plain arrows (-->). Mindmap: use 'mindmap' + root((text)), NOT flowchart. ERD: UPPERCASE entities, crow's foot notation, essential attributes only (no FK).",
                 "agent_base": "Wait for tool results before final answer. Use exact function names and parameter schemas from tool descriptions.",
                 "ask_mode": "Provide comprehensive, well-structured answers with examples when helpful.",

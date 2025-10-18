@@ -9,6 +9,21 @@ import tempfile
 import os
 from core.logging import get_logger
 
+# PyInstaller를 위한 명시적 import
+try:
+    import pandas.plotting  # noqa: F401
+    import pandas._libs.tslibs.np_datetime  # noqa: F401
+    import pandas._libs.tslibs.nattype  # noqa: F401
+    import pandas._libs.skiplist  # noqa: F401
+    import numpy.core._multiarray_umath  # noqa: F401
+    import scipy  # noqa: F401
+    import scipy.stats  # noqa: F401
+    import matplotlib  # noqa: F401
+    import matplotlib.pyplot  # noqa: F401
+    import seaborn  # noqa: F401
+except ImportError:
+    pass
+
 logger = get_logger("code_executor")
 
 

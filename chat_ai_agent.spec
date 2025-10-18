@@ -11,6 +11,8 @@ block_cipher = None
 cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
 loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
 keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
+pandas_datas, pandas_binaries, pandas_hiddenimports = collect_all('pandas')
+numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
 
 # Data files to include
 datas = [
@@ -53,8 +55,8 @@ datas = filtered_datas
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=cryptography_binaries + loguru_binaries + keyring_binaries,
-    datas=datas + cryptography_datas + loguru_datas + keyring_datas,
+    binaries=cryptography_binaries + loguru_binaries + keyring_binaries + pandas_binaries + numpy_binaries,
+    datas=datas + cryptography_datas + loguru_datas + keyring_datas + pandas_datas + numpy_datas,
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore',
@@ -89,25 +91,16 @@ a = Analysis(
         'openai',
         'google.generativeai',
         
-        # Code highlighting
-        'pygments',
-        'pygments.lexers',
-        'pygments.lexers.python',
-        'pygments.lexers.javascript',
-        
         # Project modules
         'core',
         'core.security',
         'core.session',
         'core.logging',
         'ui',
-        'ui.fixed_formatter',
-        'ui.components.code_executor',
         'mcp',
         'tools',
         'utils',
-        'utils.code_detector',
-    ] + cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports,
+    ] + cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports + pandas_hiddenimports + numpy_hiddenimports,
     hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],
@@ -120,13 +113,9 @@ a = Analysis(
         'tensorflow',
         'keras',
         'sklearn',
-        'scipy',
         'numpy.f2py',
-        'matplotlib',
-        'seaborn',
         'plotly',
         'bokeh',
-        'pandas.plotting',
         'pyarrow',
         'fastparquet',
         'openpyxl.drawing',
@@ -188,11 +177,11 @@ elif sys.platform == 'darwin':
         [],
         exclude_binaries=True,
         name='ChatAIAgent',
-        debug=True,
+        debug=False,
         bootloader_ignore_signals=False,
         strip=False,
         upx=False,
-        console=True,
+        console=False,
         disable_windowed_traceback=False,
         argv_emulation=False,
         target_arch='arm64',

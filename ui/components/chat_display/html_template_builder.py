@@ -191,6 +191,59 @@ class HtmlTemplateBuilder:
                 
                 console.log('HTML 로드 완료');
                 
+                // 코드 블록 관련 함수 정의 (CRITICAL: 패키징 환경 호환성 - 즉시 실행)
+                (function() {{
+                    window.copyCodeBlock = function(codeId) {{
+                    try {{
+                        var codeElement = document.getElementById(codeId);
+                        if (!codeElement) {{
+                            showToast('코드 요소를 찾을 수 없습니다.');
+                            return;
+                        }}
+                        
+                        var codeText = codeElement.textContent || codeElement.innerText;
+                        
+                        if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
+                            pyqt_bridge.copyToClipboard(codeText);
+                            showToast('✅ 코드가 복사되었습니다!');
+                        }} else if (navigator.clipboard && navigator.clipboard.writeText) {{
+                            navigator.clipboard.writeText(codeText).then(function() {{
+                                showToast('✅ 코드가 복사되었습니다!');
+                            }}).catch(function(err) {{
+                                console.error('Clipboard write failed:', err);
+                            }});
+                        }}
+                    }} catch (error) {{
+                        console.error('Code copy failed:', error);
+                        showToast('❌ 코드 복사에 실패했습니다.');
+                    }}
+                }};
+                
+                window.executeCode = function(codeId, language) {{
+                    try {{
+                        var codeElement = document.getElementById(codeId);
+                        if (!codeElement) {{
+                            showToast('코드 요소를 찾을 수 없습니다.');
+                            return;
+                        }}
+                        
+                        var codeText = codeElement.textContent || codeElement.innerText;
+                        
+                        if (pyqt_bridge && pyqt_bridge.executeCode) {{
+                            showToast('⏳ 코드 실행 중...');
+                            pyqt_bridge.executeCode(codeText, language);
+                        }} else {{
+                            showToast('❌ 코드 실행 기능을 사용할 수 없습니다.');
+                        }}
+                    }} catch (error) {{
+                        console.error('Code execution failed:', error);
+                        showToast('❌ 코드 실행에 실패했습니다.');
+                    }}
+                    }};
+                    
+                    console.log('[INIT] 코드 블록 함수 등록 완료');
+                }})();
+                
                 // 외부 링크 클릭 시 기본 브라우저로 열기
                 document.addEventListener('click', function(event) {{
                     var target = event.target;
@@ -417,71 +470,6 @@ class HtmlTemplateBuilder:
                     }}, 10);
                 }}
                 
-                function copyCode(codeElement) {{
-                    try {{
-                        var codeText = codeElement.textContent || codeElement.innerText;
-                        
-                        if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
-                            pyqt_bridge.copyToClipboard(codeText);
-                            showToast('코드가 복사되었습니다!');
-                        }} else if (navigator.clipboard && navigator.clipboard.writeText) {{
-                            navigator.clipboard.writeText(codeText).then(function() {{
-                                showToast('코드가 복사되었습니다!');
-                            }});
-                        }}
-                    }} catch (error) {{
-                        console.error('Code copy failed:', error);
-                        showToast('코드 복사에 실패했습니다.');
-                    }}
-                }}
-                
-                function copyCodeBlock(codeId) {{
-                    try {{
-                        var codeElement = document.getElementById(codeId);
-                        if (!codeElement) {{
-                            showToast('코드 요소를 찾을 수 없습니다.');
-                            return;
-                        }}
-                        
-                        var codeText = codeElement.textContent || codeElement.innerText;
-                        
-                        if (pyqt_bridge && pyqt_bridge.copyToClipboard) {{
-                            pyqt_bridge.copyToClipboard(codeText);
-                            showToast('✅ 코드가 복사되었습니다!');
-                        }} else if (navigator.clipboard && navigator.clipboard.writeText) {{
-                            navigator.clipboard.writeText(codeText).then(function() {{
-                                showToast('✅ 코드가 복사되었습니다!');
-                            }}).catch(function(err) {{
-                                console.error('Clipboard write failed:', err);
-                            }});
-                        }}
-                    }} catch (error) {{
-                        console.error('Code copy failed:', error);
-                        showToast('❌ 코드 복사에 실패했습니다.');
-                    }}
-                }}
-                
-                function executeCode(codeId, language) {{
-                    try {{
-                        var codeElement = document.getElementById(codeId);
-                        if (!codeElement) {{
-                            showToast('코드 요소를 찾을 수 없습니다.');
-                            return;
-                        }}
-                        
-                        var codeText = codeElement.textContent || codeElement.innerText;
-                        
-                        if (pyqt_bridge && pyqt_bridge.executeCode) {{
-                            showToast('⏳ 코드 실행 중...');
-                            pyqt_bridge.executeCode(codeText, language);
-                        }} else {{
-                            showToast('❌ 코드 실행 기능을 사용할 수 없습니다.');
-                        }}
-                    }} catch (error) {{
-                        console.error('Code execution failed:', error);
-                        showToast('❌ 코드 실행에 실패했습니다.');
-                    }}
-                }}
                 
                 function deleteMessage(messageId) {{
                     try {{

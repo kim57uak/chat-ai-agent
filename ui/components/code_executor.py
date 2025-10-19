@@ -9,21 +9,6 @@ import tempfile
 import os
 from core.logging import get_logger
 
-# PyInstaller를 위한 명시적 import
-try:
-    import pandas.plotting  # noqa: F401
-    import pandas._libs.tslibs.np_datetime  # noqa: F401
-    import pandas._libs.tslibs.nattype  # noqa: F401
-    import pandas._libs.skiplist  # noqa: F401
-    import numpy.core._multiarray_umath  # noqa: F401
-    import scipy  # noqa: F401
-    import scipy.stats  # noqa: F401
-    import matplotlib  # noqa: F401
-    import matplotlib.pyplot  # noqa: F401
-    import seaborn  # noqa: F401
-except ImportError:
-    pass
-
 logger = get_logger("code_executor")
 
 
@@ -63,22 +48,6 @@ class CodeExecutionThread(QThread):
             return "", "오류: input() 함수는 지원하지 않습니다. 대화형 입력이 필요한 코드는 실행할 수 없습니다."
         
         try:
-            # PyInstaller 환경에서 데이터 분석 모듈 강제 로드
-            if getattr(sys, 'frozen', False):
-                try:
-                    import pandas.plotting
-                    sys.modules['pandas.plotting'] = pandas.plotting
-                    import numpy.core
-                    sys.modules['numpy.core'] = numpy.core
-                    import matplotlib.pyplot
-                    sys.modules['matplotlib.pyplot'] = matplotlib.pyplot
-                    import scipy.stats
-                    sys.modules['scipy.stats'] = scipy.stats
-                    import seaborn
-                    sys.modules['seaborn'] = seaborn
-                except ImportError:
-                    pass
-            
             # 표준 출력 캐처
             old_stdout = sys.stdout
             old_stderr = sys.stderr

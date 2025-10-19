@@ -10,6 +10,23 @@ import atexit
 from core.logging import setup_logging
 setup_logging()
 
+# PyInstaller 환경에서 데이터 분석 라이브러리 사전 로드
+if getattr(sys, 'frozen', False):
+    try:
+        import pandas.plotting
+        import numpy.core
+        import matplotlib.pyplot
+        import scipy.stats
+        import seaborn
+        
+        sys.modules['pandas.plotting'] = pandas.plotting
+        sys.modules['numpy.core'] = numpy.core
+        sys.modules['matplotlib.pyplot'] = matplotlib.pyplot
+        sys.modules['scipy.stats'] = scipy.stats
+        sys.modules['seaborn'] = seaborn
+    except ImportError:
+        pass
+
 from core.application import SignalHandler, AppInitializer, AppRunner
 from ui.performance_optimizer import performance_optimizer
 from memory_cleanup import memory_cleanup

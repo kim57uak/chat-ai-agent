@@ -1,18 +1,12 @@
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
-# scipy의 모든 서브모듈 수집
 hiddenimports = collect_submodules('scipy')
+hiddenimports += collect_submodules('scipy.stats')
+hiddenimports += collect_submodules('scipy.special')
+hiddenimports += collect_submodules('scipy.linalg')
+hiddenimports += collect_submodules('scipy.integrate')
+hiddenimports += collect_submodules('scipy.optimize')
+hiddenimports += collect_submodules('scipy.interpolate')
+hiddenimports += collect_submodules('scipy.sparse')
 
-# scipy 핵심 모듈 명시적 추가
-hiddenimports += [
-    'scipy.stats',
-    'scipy.special',
-    'scipy.linalg',
-    'scipy.integrate',
-    'scipy.optimize',
-    'scipy.interpolate',
-    'scipy.sparse',
-]
-
-# scipy 데이터 파일 수집
 datas = collect_data_files('scipy')

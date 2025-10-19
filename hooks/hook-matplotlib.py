@@ -1,7 +1,3 @@
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.hooks import collect_all
 
-hiddenimports = collect_submodules('matplotlib')
-hiddenimports += collect_submodules('matplotlib.backends')
-hiddenimports += collect_submodules('matplotlib.pyplot')
-
-datas = collect_data_files('matplotlib')
+datas, binaries, hiddenimports = collect_all('matplotlib')

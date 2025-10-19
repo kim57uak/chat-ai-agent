@@ -1,10 +1,3 @@
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.hooks import collect_all
 
-# pandas의 모든 서브모듈 수집
-hiddenimports = collect_submodules('pandas')
-hiddenimports += collect_submodules('pandas.plotting')
-hiddenimports += collect_submodules('pandas._libs')
-hiddenimports += collect_submodules('pandas.core')
-
-# pandas 데이터 파일 수집
-datas = collect_data_files('pandas')
+datas, binaries, hiddenimports = collect_all('pandas')

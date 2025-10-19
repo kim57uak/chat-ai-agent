@@ -1,7 +1,3 @@
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.hooks import collect_all
 
-hiddenimports = collect_submodules('seaborn')
-hiddenimports += collect_submodules('seaborn.objects')
-hiddenimports += collect_submodules('seaborn.external')
-
-datas = collect_data_files('seaborn')
+datas, binaries, hiddenimports = collect_all('seaborn')

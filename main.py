@@ -12,7 +12,6 @@ setup_logging()
 
 # PyInstaller 환경에서 데이터 분석 라이브러리 사전 로드
 if getattr(sys, 'frozen', False):
-    print("[PRELOAD] PyInstaller 환경 감지 - 데이터 분석 라이브러리 로드 시작")
     try:
         import pandas.plotting
         import numpy.core
@@ -25,9 +24,8 @@ if getattr(sys, 'frozen', False):
         sys.modules['matplotlib.pyplot'] = matplotlib.pyplot
         sys.modules['scipy.stats'] = scipy.stats
         sys.modules['seaborn'] = seaborn
-        print("[PRELOAD] 데이터 분석 라이브러리 로드 완료")
-    except Exception as e:
-        print(f"[PRELOAD] 로드 실패: {e}")
+    except Exception:
+        pass
 
 from core.application import SignalHandler, AppInitializer, AppRunner
 from ui.performance_optimizer import performance_optimizer

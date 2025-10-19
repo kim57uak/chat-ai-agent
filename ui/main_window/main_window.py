@@ -86,6 +86,10 @@ class MainWindow(QMainWindow):
         
         logger.debug("MainWindow 초기화 완료")
         
+        # ChatDisplay에 AuthManager 전달
+        if hasattr(self.chat_widget, 'chat_display'):
+            self.chat_widget.chat_display.set_auth_manager_from_main(self)
+        
         # 세션 만료 타이머 설정
         self._setup_session_timer()
     

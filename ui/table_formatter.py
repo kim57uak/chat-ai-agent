@@ -80,13 +80,23 @@ class TableFormatter:
         if len(table_lines) < 2:
             return text
         
-        html = '<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: #2a2a2a; border-radius: 6px; overflow: hidden;">'
+        # 테마 색상 가져오기
+        from ui.styles.theme_manager import theme_manager
+        colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+        is_dark = theme_manager.material_manager.is_dark_theme()
+        
+        table_bg = colors.get('surface', '#2a2a2a' if is_dark else '#ffffff')
+        header_bg = colors.get('surface_variant', '#3a3a3a' if is_dark else '#f5f5f5')
+        border_color = colors.get('divider', '#555' if is_dark else '#e0e0e0')
+        text_color = colors.get('text_primary', '#ffffff' if is_dark else '#000000')
+        text_secondary = colors.get('text_secondary', '#cccccc' if is_dark else '#666666')
+        
+        html = f'<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: {table_bg}; border-radius: 6px; overflow: hidden;">'
         
         header_processed = False
         separator_found = False
         
         for line in table_lines:
-            # 구분자 라인 감지 및 건너뛰기
             if '---' in line or '===' in line or ':--' in line or '--:' in line:
                 separator_found = True
                 continue
@@ -99,31 +109,28 @@ class TableFormatter:
             if not cells:
                 continue
             
-            # 헤더 처리 (구분자가 아직 나오지 않았으면 헤더로 처리)
             if not header_processed and not separator_found:
-                html += '<thead><tr style="background-color: #3a3a3a;">'
+                html += f'<thead><tr style="background-color: {header_bg};">'
                 for cell in cells:
                     formatted_cell = self._format_cell_markdown(cell)
-                    html += f'<th style="padding: 12px; border: 1px solid #555; color: #ffffff; font-weight: 600; text-align: left;">{formatted_cell}</th>'
+                    html += f'<th style="padding: 12px; border: 1px solid {border_color}; color: {text_color}; font-weight: 600; text-align: left;">{formatted_cell}</th>'
                 html += '</tr></thead><tbody>'
                 header_processed = True
             else:
-                # 데이터 행 처리
                 if not header_processed:
                     html += '<tbody>'
                     header_processed = True
                     
-                html += '<tr style="background-color: #2a2a2a;">'
+                html += f'<tr style="background-color: {table_bg};">'
                 for cell in cells:
                     formatted_cell = self._format_cell_markdown(cell)
-                    html += f'<td style="padding: 10px; border: 1px solid #555; color: #cccccc;">{formatted_cell}</td>'
+                    html += f'<td style="padding: 10px; border: 1px solid {border_color}; color: {text_secondary};">{formatted_cell}</td>'
                 html += '</tr>'
         
         html += '</tbody></table>'
         
-        # 설명 텍스트가 있으면 테이블 아래에 추가
         if description:
-            html += f'<div style="margin-top: 12px; color: #cccccc; font-size: 14px; line-height: 1.5;">{description}</div>'
+            html += f'<div style="margin-top: 12px; color: {text_secondary}; font-size: 14px; line-height: 1.5;">{description}</div>'
         
         return html
     
@@ -189,22 +196,33 @@ class TableFormatter:
         
         logger.debug(f" 헤더: {headers}, 데이터 행 수: {len(rows)}")
         
+        # 테마 색상 가져오기
+        from ui.styles.theme_manager import theme_manager
+        colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
+        is_dark = theme_manager.material_manager.is_dark_theme()
+        
+        table_bg = colors.get('surface', '#2a2a2a' if is_dark else '#ffffff')
+        header_bg = colors.get('surface_variant', '#3a3a3a' if is_dark else '#f5f5f5')
+        border_color = colors.get('divider', '#555' if is_dark else '#e0e0e0')
+        text_color = colors.get('text_primary', '#ffffff' if is_dark else '#000000')
+        text_secondary = colors.get('text_secondary', '#cccccc' if is_dark else '#666666')
+        
         # HTML 테이블 생성
-        html = '<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: #2a2a2a; border-radius: 6px; overflow: hidden;">'
+        html = f'<table style="border-collapse: collapse; width: 100%; margin: 12px 0; background-color: {table_bg}; border-radius: 6px; overflow: hidden;">'
         
         # 헤더
-        html += '<thead><tr style="background-color: #3a3a3a;">'
+        html += f'<thead><tr style="background-color: {header_bg};">'
         for header in headers:
             formatted_header = self._format_cell_markdown(header)
-            html += f'<th style="padding: 12px; border: 1px solid #555; color: #ffffff; font-weight: 600; text-align: left;">{formatted_header}</th>'
+            html += f'<th style="padding: 12px; border: 1px solid {border_color}; color: {text_color}; font-weight: 600; text-align: left;">{formatted_header}</th>'
         html += '</tr></thead><tbody>'
         
         # 데이터 행
         for row in rows:
-            html += '<tr style="background-color: #2a2a2a;">'
+            html += f'<tr style="background-color: {table_bg};">'
             for cell in row:
                 formatted_cell = self._format_cell_markdown(cell)
-                html += f'<td style="padding: 10px; border: 1px solid #555; color: #cccccc;">{formatted_cell}</td>'
+                html += f'<td style="padding: 10px; border: 1px solid {border_color}; color: {text_secondary};">{formatted_cell}</td>'
             html += '</tr>'
         
         html += '</tbody></table>'

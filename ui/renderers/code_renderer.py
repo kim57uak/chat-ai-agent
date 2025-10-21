@@ -114,9 +114,9 @@ class CodeRenderer:
         
         btn_style = "position: absolute; top: 8px; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
         
+        # 실행 가능한 언어만 실행 버튼 표시
         copy_right = "82px" if is_executable else "8px"
         copy_btn = f'<button onclick="copyCodeBlock(\'{code_id}\')" class="code-btn code-copy-btn" style="{btn_style} right: {copy_right}; background: #444 !important; color: #fff !important;">📋 복사</button>'
-        
         exec_btn = f'<button onclick="executeCode(\'{code_id}\', \'{exec_lang}\')" class="code-btn code-exec-btn" style="{btn_style} right: 8px; background: #4CAF50 !important; color: #fff !important;">▶️ 실행</button>' if is_executable else ''
         
         return f'<div style="position: relative; margin: 12px 0;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.5; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{code_id}" data-language="{lang}">{escaped_code}</code></pre></div>'

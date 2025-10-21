@@ -11,6 +11,7 @@ block_cipher = None
 cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
 loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
 keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
+pygments_datas, pygments_binaries, pygments_hiddenimports = collect_all('pygments')
 
 # Data science packages - explicit collect_all to ensure all submodules included
 pandas_datas, pandas_binaries, pandas_hiddenimports = collect_all('pandas')
@@ -61,12 +62,12 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=(
-        cryptography_binaries + loguru_binaries + keyring_binaries +
+        cryptography_binaries + loguru_binaries + keyring_binaries + pygments_binaries +
         pandas_binaries + numpy_binaries + matplotlib_binaries + seaborn_binaries + scipy_binaries
     ),
     datas=(
         datas + 
-        cryptography_datas + loguru_datas + keyring_datas +
+        cryptography_datas + loguru_datas + keyring_datas + pygments_datas +
         pandas_datas + numpy_datas + matplotlib_datas + seaborn_datas + scipy_datas
     ),
     hiddenimports=[
@@ -146,13 +147,14 @@ a = Analysis(
         'tools',
         'utils',
     ] + (
-        cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports +
+        cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports + pygments_hiddenimports +
         pandas_hiddenimports + numpy_hiddenimports + matplotlib_hiddenimports + 
         seaborn_hiddenimports + scipy_hiddenimports
     ),
     hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[
+        'hooks/rthook_pygments.py',
         'hooks/rthook_pandas.py',
         'hooks/rthook_numpy.py',
         'hooks/rthook_matplotlib.py',

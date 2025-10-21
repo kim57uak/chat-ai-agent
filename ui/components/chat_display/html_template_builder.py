@@ -170,28 +170,7 @@ class HtmlTemplateBuilder:
         <body>
             <div id="messages"></div>
             <script>
-                // 전역 Mermaid 오류 차단
-                window.addEventListener('error', function(e) {{
-                    if (e.message && (e.message.includes('mermaid') || e.message.includes('Syntax error'))) {{
-                        e.preventDefault();
-                        e.stopPropagation();
-                        return false;
-                    }}
-                }});
-                
-                // 콘솔 오류 차단
-                var originalConsoleError = console.error;
-                console.error = function() {{
-                    var message = Array.prototype.slice.call(arguments).join(' ');
-                    if (message.includes('mermaid') || message.includes('Syntax error') || message.includes('version 11.12.0')) {{
-                        return; // Mermaid 오류 무시
-                    }}
-                    originalConsoleError.apply(console, arguments);
-                }};
-                
-                console.log('HTML 로드 완료');
-                
-                // 코드 블록 관련 함수 정의 (CRITICAL: 패키징 환경 호환성 - 즉시 실행)
+                // CRITICAL: 코드 블록 함수를 최우선으로 정의 (패키징 환경 타이밍 이슈 해결)
                 (function() {{
                     window.copyCodeBlock = function(codeId) {{
                     try {{
@@ -241,8 +220,29 @@ class HtmlTemplateBuilder:
                     }}
                     }};
                     
-                    console.log('[INIT] 코드 블록 함수 등록 완료');
+                    console.log('[INIT] 코드 블록 함수 등록 완료 - 타임스탬프:', Date.now());
                 }})();
+                
+                // 전역 Mermaid 오류 차단
+                window.addEventListener('error', function(e) {{
+                    if (e.message && (e.message.includes('mermaid') || e.message.includes('Syntax error'))) {{
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }}
+                }});
+                
+                // 콘솔 오류 차단
+                var originalConsoleError = console.error;
+                console.error = function() {{
+                    var message = Array.prototype.slice.call(arguments).join(' ');
+                    if (message.includes('mermaid') || message.includes('Syntax error') || message.includes('version 11.12.0')) {{
+                        return; // Mermaid 오류 무시
+                    }}
+                    originalConsoleError.apply(console, arguments);
+                }};
+                
+                console.log('HTML 로드 완료');
                 
                 // 외부 링크 클릭 시 기본 브라우저로 열기
                 document.addEventListener('click', function(event) {{

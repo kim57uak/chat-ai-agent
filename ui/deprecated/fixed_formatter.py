@@ -329,8 +329,30 @@ class FixedFormatter:
         import re
         
         def replace_code_block(match):
-            lang = match.group(1).strip() if match.group(1) else ''
-            code = match.group(2)
+            # 언어 지정자와 코드 추출
+            full_match = match.group(0)
+            
+            # ```language\ncode``` 또는 ```\ncode``` 형식 파싱
+            if full_match.startswith('```'):
+                content = full_match[3:-3]  # ``` 제거
+                
+                # 첫 줄에서 언어 추출
+                lines = content.split('\n', 1)
+                if len(lines) > 1:
+                    first_line = lines[0].strip()
+                    # 첫 줄이 언어 지정자인지 확인 (알파벳만)
+                    if first_line and first_line.isalpha():
+                        lang = first_line
+                        code = lines[1]
+                    else:
+                        lang = ''
+                        code = content
+                else:
+                    lang = ''
+                    code = content
+            else:
+                lang = ''
+                code = match.group(0)
             
             # HTML 태그 제거
             code_lines = [self._clean_html_code(line) for line in code.split('\n')]
@@ -354,8 +376,8 @@ class FixedFormatter:
             self.code_blocks[placeholder] = html
             return placeholder
         
-        # ```python ... ``` 형식
-        text = re.sub(r'```([a-zA-Z]*)?\n([\s\S]*?)```', replace_code_block, text)
+        # ```...``` 형식 (언어 지정 여부 무관)
+        text = re.sub(r'```[\s\S]*?```', replace_code_block, text)
         
         return text
     

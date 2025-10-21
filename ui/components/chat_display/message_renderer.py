@@ -65,11 +65,11 @@ class MessageRenderer:
         # 기본 텍스트 색상을 테마에서 가져오기
         default_text_color = colors.get('text_primary', '#0f172a' if is_light_theme else '#ffffff')
 
-        # 렌더링 확실히 보장하는 포맷터 사용
-        from ui.fixed_formatter import FixedFormatter
+        # ContentRenderer 사용
+        from ui.renderers import ContentRenderer
 
-        formatter = FixedFormatter()
-        formatted_text = formatter.format_basic_markdown(text)
+        renderer = ContentRenderer()
+        formatted_text = renderer.render(text)
 
         display_message_id = message_id or f"msg_{uuid.uuid4().hex[:8]}"
 
@@ -199,7 +199,7 @@ class MessageRenderer:
                 self.initial_delay,
                 lambda: self.progressive_display.display_text_progressively(
                     display_message_id,
-                    formatted_text,
+                    text,
                     delay_per_line=self.delay_per_line,
                 ),
             )

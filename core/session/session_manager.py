@@ -145,16 +145,16 @@ class SessionManager:
         else:
             messages = self.db.get_messages(session_id, limit, offset)
         
-        # FixedFormatter 처리
+        # ContentRenderer 처리
         for message in messages:
             if message.get('content_html'):
                 try:
-                    from ui.fixed_formatter import FixedFormatter
-                    formatter = FixedFormatter()
-                    message['content'] = formatter.format_basic_markdown(message['content_html'])
-                    logger.debug(f"GET_MESSAGES] HTML 콘텐츠를 FixedFormatter로 처리: {message['id']}")
+                    from ui.renderers import ContentRenderer
+                    renderer = ContentRenderer()
+                    message['content'] = renderer.render(message['content_html'])
+                    logger.debug(f"GET_MESSAGES] HTML 콘텐츠를 ContentRenderer로 처리: {message['id']}")
                 except Exception as e:
-                    logger.debug(f"GET_MESSAGES] FixedFormatter 처리 오류: {e}, content 사용")
+                    logger.debug(f"GET_MESSAGES] ContentRenderer 처리 오류: {e}, content 사용")
         
         logger.debug(f"GET_MESSAGES] 반환할 메시지 수: {len(messages)}")
         return messages

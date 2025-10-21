@@ -16,6 +16,9 @@ class CodeRenderer:
     
     def __init__(self):
         self.code_blocks = {}
+        # 패키징 환경 감지
+        import sys
+        self.is_packaged = getattr(sys, 'frozen', False)
     
     def process(self, text: str) -> str:
         """코드 블록을 placeholder로 변환"""
@@ -54,18 +57,15 @@ class CodeRenderer:
                 logger.debug(f"[CODE] Mermaid 블록 건너뛰기 (lang=mermaid)")
                 return full_match
             
-            # HTML 정리 및 언어 감지
+            # CRITICAL: HTML 정리 - 패키징 환경에서 줄바꿈 문제 해결
             raw_lines = [self._clean_html(line) for line in code.split('\n')]
             
-            # 연속된 빈 줄 제거
+            # CRITICAL: 빈 줄 제거 - 패키징 환경에서 추가 줄간격 방지
             code_lines = []
-            prev_empty = False
             for line in raw_lines:
-                is_empty = not line.strip()
-                if is_empty and prev_empty:
-                    continue
-                code_lines.append(line.rstrip())
-                prev_empty = is_empty
+                # 완전히 빈 줄은 제외 (패키징 환경에서 줄간격 2배 방지)
+                if line.strip():  # 내용이 있는 줄만 추가
+                    code_lines.append(line.rstrip())
             
             if not lang:
                 lang = self._detect_language('\n'.join(code_lines))
@@ -101,7 +101,14 @@ class CodeRenderer:
         return text
     
     def _create_html(self, code_id: str, lang: str, code_lines: list) -> str:
-        """코드 블록 HTML 생성"""
+        """코드 블록 HTML 생성 - 환경별 분리"""
+        if self.is_packaged:
+            return self._create_html_packaged(code_id, lang, code_lines)
+        else:
+            return self._create_html_dev(code_id, lang, code_lines)
+    
+    def _create_html_dev(self, code_id: str, lang: str, code_lines: list) -> str:
+        """개발 환경용 코드블록 HTML (기존 로직)"""
         code_content = '\n'.join(code_lines)
         escaped_code = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         
@@ -109,14 +116,43 @@ class CodeRenderer:
         is_executable = lang_lower in self.EXECUTABLE_LANGS
         exec_lang = 'python' if lang_lower in {'python', 'py'} else 'javascript'
         
-        # 버튼 생성
         lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{lang or "code"}</div>'
         
-        btn_style = "position: absolute; top: 8px; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
-        
-        # 실행 가능한 언어만 실행 버튼 표시
         copy_right = "82px" if is_executable else "8px"
-        copy_btn = f'<button onclick="copyCodeBlock(\'{code_id}\')" class="code-btn code-copy-btn" style="{btn_style} right: {copy_right}; background: #444 !important; color: #fff !important;">📋 복사</button>'
-        exec_btn = f'<button onclick="executeCode(\'{code_id}\', \'{exec_lang}\')" class="code-btn code-exec-btn" style="{btn_style} right: 8px; background: #4CAF50 !important; color: #fff !important;">▶️ 실행</button>' if is_executable else ''
+        copy_btn = f'<button onclick="copyCodeBlock(\'{code_id}\')" class="code-btn code-copy-btn" style="position: absolute; top: 8px; right: {copy_right}; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2); background: #444 !important; color: #fff !important;">📋 복사</button>'
+        exec_btn = f'<button onclick="executeCode(\'{code_id}\', \'{exec_lang}\')" class="code-btn code-exec-btn" style="position: absolute; top: 8px; right: 8px; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2); background: #4CAF50 !important; color: #fff !important;">▶️ 실행</button>' if is_executable else ''
         
         return f'<div style="position: relative; margin: 12px 0;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.5; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{code_id}" data-language="{lang}">{escaped_code}</code></pre></div>'
+    
+    def _create_html_packaged(self, code_id: str, lang: str, code_lines: list) -> str:
+        """패키징 환경용 코드블록 HTML (이중 인코딩 방지, 빈줄 제거, 버튼 강제 표시)"""
+        code_content = '\n'.join(code_lines)
+        
+        logger.info(f"[PACKAGED] 코드블록 생성: id={code_id}, lang={lang}, lines={len(code_lines)}")
+        logger.debug(f"[PACKAGED] 원본 코드 (첫 100자): {code_content[:100]}")
+        
+        # 이중 인코딩 방지
+        if '&amp;' in code_content or '&lt;' in code_content:
+            escaped_code = code_content
+            logger.debug(f"[PACKAGED] 이미 인코딩됨 - 건너뛰기")
+        else:
+            escaped_code = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            logger.debug(f"[PACKAGED] HTML 인코딩 완료")
+        
+        lang_lower = lang.lower() if lang else ''
+        is_executable = lang_lower in self.EXECUTABLE_LANGS
+        exec_lang = 'python' if lang_lower in {'python', 'py'} else 'javascript'
+        
+        logger.info(f"[PACKAGED] 실행 가능: {is_executable}, 언어: {exec_lang}")
+        
+        # 버튼 display 강제
+        lang_label = f'<div class="code-lang-label" style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10; display: block !important; visibility: visible !important;">{lang or "code"}</div>'
+        
+        copy_right = "82px" if is_executable else "8px"
+        copy_btn = f'<button onclick="copyCodeBlock(\'{code_id}\')" class="code-btn code-copy-btn" style="position: absolute; top: 8px; right: {copy_right}; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2); background: #444 !important; color: #fff !important; display: block !important; visibility: visible !important;">📋 복사</button>'
+        exec_btn = f'<button onclick="executeCode(\'{code_id}\', \'{exec_lang}\')" class="code-btn code-exec-btn" style="position: absolute; top: 8px; right: 8px; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2); background: #4CAF50 !important; color: #fff !important; display: block !important; visibility: visible !important;">▶️ 실행</button>' if is_executable else ''
+        
+        html_result = f'<div style="position: relative; margin: 12px 0; display: block;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.5; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px; white-space: pre !important; display: block;"><code id="{code_id}" data-language="{lang}" style="white-space: pre !important; display: block;">{escaped_code}</code></pre></div>'
+        
+        logger.debug(f"[PACKAGED] HTML 생성 완료 (길이: {len(html_result)})")
+        return html_result

@@ -32,16 +32,20 @@ class MarkdownRenderer:
     
     def _process_line(self, line: str) -> str:
         """한 줄 처리"""
-        # Placeholder 보호
+        # CRITICAL: Placeholder 보호 (코드블록, Mermaid 등)
         if any(p in line for p in self.PLACEHOLDERS):
             return line
         
-        # 이미 HTML 태그가 있는 줄은 그대로 유지
+        # CRITICAL: 이미 HTML 태그가 있는 줄은 그대로 유지 (코드블록 보호)
         stripped = line.strip()
-        if stripped.startswith(('<div', '</div>', '<p>', '</p>', '<ul>', '</ul>', '<li>', '</li>', '<pre>', '</pre>')):
+        if stripped.startswith(('<div', '</div>', '<p>', '</p>', '<ul>', '</ul>', '<li>', '</li>', '<pre>', '</pre>', '<code', '</code>', '<button')):
             return line
         
-        # 헤더
+        # CRITICAL: <pre> 또는 <code> 태그가 포함된 줄은 코드블록으로 간주하고 보호
+        if '<pre' in line or '<code' in line or '</pre>' in line or '</code>' in line:
+            return line
+        
+        # 헤더 (코드블록 외부에서만 처리)
         if line.startswith('### '):
             return f'<h3 style="{self.STYLES["h3"]}">{line[4:]}</h3>'
         if line.startswith('## '):

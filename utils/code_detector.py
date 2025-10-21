@@ -49,6 +49,7 @@ class CodeLanguageDetector:
         # 1차: Pygments 감지
         pygments_result = None
         try:
+            import pygments
             from pygments.lexers import guess_lexer
             lexer = guess_lexer(clean_code)
             lang_name = lexer.name.lower()
@@ -59,7 +60,7 @@ class CodeLanguageDetector:
                 return 'javascript'
             elif 'text' not in lang_name:
                 pygments_result = lang_name
-        except Exception:
+        except (ImportError, Exception):
             pass
         
         # 2차: 정규식 패턴 매칭

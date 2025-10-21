@@ -112,11 +112,12 @@ class ChatDisplay:
         message_id=None,
         prepend=False,
         timestamp=None,
+        content_html=None,
     ):
         """메시지 추가 - MessageRenderer에 위임"""
         return self.message_renderer.append_message(
             sender, text, original_sender, progressive, 
-            message_id, prepend, timestamp
+            message_id, prepend, timestamp, content_html
         )
 
     def clear_messages(self):

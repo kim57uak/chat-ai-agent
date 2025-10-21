@@ -87,7 +87,8 @@ class CodeRenderer:
         try:
             from utils.code_detector import CodeLanguageDetector
             return CodeLanguageDetector.detect_language(code)
-        except:
+        except Exception as e:
+            logger.warning(f"[CODE] 언어 감지 실패: {e}")
             return 'python'
     
     def _clean_html(self, text: str) -> str:

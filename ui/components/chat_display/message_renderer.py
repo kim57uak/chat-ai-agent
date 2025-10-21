@@ -30,8 +30,19 @@ class MessageRenderer:
         message_id=None,
         prepend=False,
         timestamp=None,
+        content_html=None,
     ):
         """메시지 추가 - progressive=True시 점진적 출력, prepend=True시 상단에 추가"""
+        # content_html이 있으면 렌더링 처리
+        if content_html:
+            try:
+                from ui.renderers import ContentRenderer
+                renderer = ContentRenderer()
+                text = renderer.render(content_html)
+                logger.debug(f"[RENDER] content_html 렌더링 완료: {message_id}")
+            except Exception as e:
+                logger.warning(f"[RENDER] content_html 렌더링 실패: {e}, 원본 text 사용")
+        
         # 타임스탬프 생성 (전달된 timestamp가 없으면 현재 시간 사용)
         from datetime import datetime
         if timestamp:

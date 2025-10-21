@@ -116,6 +116,15 @@ def main() -> int:
     initializer = AppInitializer(sys.argv)
     app = initializer.create_application()
     
+    # CRITICAL: QtWebEngine 초기화 (QApplication 생성 직후)
+    try:
+        from PyQt6 import QtWebEngineCore
+        # QtWebEngine 초기화 강제 실행
+        QtWebEngineCore.QWebEngineProfile.defaultProfile()
+        logging.info("QtWebEngine 초기화 완료")
+    except Exception as e:
+        logging.error(f"QtWebEngine 초기화 실패: {e}")
+    
     # Qt 메시지 핸들러 설치 (CSS 경고 숨기기)
     try:
         from PyQt6.QtCore import qInstallMessageHandler

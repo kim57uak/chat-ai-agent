@@ -1391,13 +1391,14 @@ class ChatWidget(QWidget):
                 msg_id = str(msg.get('id', f"session_msg_{i}"))
                 timestamp = msg.get('timestamp')  # DB에서 저장된 timestamp 가져오기
                 
-                # HTML 형식 메시지 처리 (DB에 저장된 HTML 그대로 사용)
-                content = msg.get('content_html') or msg['content']
+                # HTML 형식 메시지 처리 (content_html을 파라미터로 전달)
+                content = msg['content']
+                content_html = msg.get('content_html')
                 
                 if msg['role'] == 'user':
-                    self.chat_display.append_message('사용자', content, message_id=msg_id, prepend=prepend, timestamp=timestamp)
+                    self.chat_display.append_message('사용자', content, message_id=msg_id, prepend=prepend, timestamp=timestamp, content_html=content_html)
                 elif msg['role'] == 'assistant':
-                    self.chat_display.append_message('AI', content, message_id=msg_id, prepend=prepend, timestamp=timestamp)
+                    self.chat_display.append_message('AI', content, message_id=msg_id, prepend=prepend, timestamp=timestamp, content_html=content_html)
             
             logger.debug(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
             

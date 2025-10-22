@@ -64,7 +64,8 @@ class ContentRenderer:
                 lines.append(line.rstrip())
                 prev_empty = is_empty
             
-            return f'```\n{"\n".join(lines)}\n```'
+            joined_lines = "\n".join(lines)
+            return f'```\n{joined_lines}\n```'
         
         return re.sub(
             r'<div class="highlight"><pre><span></span><code>(.*?)</code></pre></div>',

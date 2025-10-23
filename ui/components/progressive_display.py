@@ -21,26 +21,14 @@ class ProgressiveDisplay(QObject):
         
         self.is_displaying = True
         
-        # 전체 텍스트를 먼저 완전히 포맷팅
-        from ui.markdown_formatter import MarkdownFormatter
-        from ui.table_formatter import TableFormatter
-        from ui.intelligent_formatter import IntelligentContentFormatter
-        
-        if '|' in text:
-            formatter = IntelligentContentFormatter()
-            full_formatted_text = formatter.format_content(text, 'AI')
-        else:
-            markdown_formatter = MarkdownFormatter()
-            full_formatted_text = markdown_formatter.format_basic_markdown(text)
-        
         # 원본 텍스트의 줄 구분으로 점진적 출력
         lines = text.split('\n')
         
         # 빈 컨테이너 생성
         self._create_empty_content(message_id)
         
-        # 전체 포맷팅된 텍스트를 전달하여 점진적 출력
-        self._display_lines_sequentially(message_id, lines, 0, delay_per_line, full_formatted_text)
+        # 줄별로 순차적 렌더링
+        self._display_lines_sequentially(message_id, lines, 0, delay_per_line, None)
     
     def _create_empty_content(self, message_id):
         """빈 컨텐츠 컨테이너 생성"""
@@ -63,12 +51,13 @@ class ProgressiveDisplay(QObject):
             self.display_complete.emit()
             return
         
-        # 현재까지 표시할 줄 수 계산
-        display_lines = current_index + 1
+        # 원본 텍스트의 현재까지 부분만 렌더링
+        current_text = '\n'.join(lines[:current_index + 1])
         
-        # 전체 포맷팅된 텍스트에서 현재까지 표시할 부분만 추출
-        formatted_lines = full_formatted_text.split('\n')
-        current_formatted = '\n'.join(formatted_lines[:min(display_lines, len(formatted_lines))])
+        # 현재 텍스트를 다시 렌더링
+        from ui.renderers import ContentRenderer
+        renderer = ContentRenderer()
+        current_formatted = renderer.render(current_text)
         
         # 컨텐츠 업데이트
         safe_content = json.dumps(current_formatted, ensure_ascii=False)

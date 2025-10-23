@@ -50,22 +50,7 @@ class SessionController:
             
             logger.debug(f"[SESSION_SELECT] 세션 {session_id} 로드 시도")
             
-            message_count = session.get('message_count', 0)
-            if message_count > 200 and not self._auto_session_created:
-                reply = QMessageBox.question(
-                    self.main_window, '대용량 세션 경고', 
-                    f'이 세션에는 {message_count}개의 메시지가 있습니다.\n'
-                    f'로드하는데 시간이 걸리고 메모리를 많이 사용할 수 있습니다.\n\n'
-                    f'계속 로드하시겠습니까?',
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                )
-                
-                if reply == QMessageBox.StandardButton.No:
-                    logger.debug(f"[SESSION_SELECT] 사용자가 대용량 세션 로드 취소")
-                    self.current_session_id = None
-                    self.main_window.current_session_id = None
-                    self._auto_session_created = False
-                    return
+            # 페이징 구현으로 대용량 세션 경고 제거
             
             if hasattr(self.main_window.chat_widget, 'chat_display'):
                 self.main_window.chat_widget.chat_display.clear_messages()

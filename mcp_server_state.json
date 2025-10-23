@@ -7,7 +7,7 @@
   "notionApi": false,
   "ppt": false,
   "excel-stdio": false,
-  "gmail": true,
+  "gmail": false,
   "json-mcp-server": false,
   "search-mcp-server": true,
   "github": false,

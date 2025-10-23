@@ -324,16 +324,106 @@ class FixedFormatter:
         # 단, 마크다운 처리에서 깨지지 않도록 보호
         return text
     
+    def _convert_all_code_blocks(self, text):
+        """모든 코드 블록을 HTML로 변환"""
+        import re
+        
+        def replace_code_block(match):
+            # 언어 지정자와 코드 추출
+            full_match = match.group(0)
+            
+            # ```language\ncode``` 또는 ```\ncode``` 형식 파싱
+            if full_match.startswith('```'):
+                content = full_match[3:-3]  # ``` 제거
+                
+                # 첫 줄에서 언어 추출
+                lines = content.split('\n', 1)
+                if len(lines) > 1:
+                    first_line = lines[0].strip()
+                    # 첫 줄이 언어 지정자인지 확인 (알파벳만)
+                    if first_line and first_line.isalpha():
+                        lang = first_line
+                        code = lines[1]
+                    else:
+                        lang = ''
+                        code = content
+                else:
+                    lang = ''
+                    code = content
+            else:
+                lang = ''
+                code = match.group(0)
+            
+            # HTML 태그 제거
+            code_lines = [self._clean_html_code(line) for line in code.split('\n')]
+            
+            # 언어 자동 감지
+            if not lang and code_lines:
+                try:
+                    from utils.code_detector import CodeLanguageDetector
+                    lang = CodeLanguageDetector.detect_language('\n'.join(code_lines))
+                    logger.debug(f"[CODE] 자동 감지: {lang}")
+                except:
+                    lang = 'python'
+            
+            code_id = f"code_{uuid.uuid4().hex[:8]}"
+            html = self._create_code_html(code_id, lang, code_lines)
+            
+            # placeholder로 반환
+            placeholder = f"__CODE_BLOCK_{code_id}__"
+            if not hasattr(self, 'code_blocks'):
+                self.code_blocks = {}
+            self.code_blocks[placeholder] = html
+            return placeholder
+        
+        # ```...``` 형식 (언어 지정 여부 무관)
+        text = re.sub(r'```[\s\S]*?```', replace_code_block, text)
+        
+        return text
+    
+    def _create_code_html(self, code_id, lang, code_lines):
+        """코드 블록 HTML 생성 - CSS 클래스 기반"""
+        code_content = '\n'.join(code_lines)
+        escaped_code = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        
+        lang_lower = lang.lower() if lang else ''
+        is_executable = lang_lower in ['python', 'py', 'javascript', 'js']
+        exec_lang = 'python' if lang_lower in ['python', 'py'] else 'javascript'
+        
+        logger.debug(f"[CODE HTML] ID={code_id}, Lang={lang}, Executable={is_executable}")
+        
+        lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{lang or "code"}</div>'
+        
+        # 패키징 환경 호환: 함수 존재 확인 후 호출
+        safe_copy_call = f"(window.copyCodeBlock||function(){{console.error('copyCodeBlock not loaded');}})('{code_id}')"
+        safe_exec_call = f"(window.executeCode||function(){{console.error('executeCode not loaded');}})('{code_id}', '{exec_lang}')"
+        
+        if is_executable:
+            exec_btn = f'<button onclick="{safe_exec_call}" class="code-btn code-exec-btn" style="position: absolute; top: 8px; right: 8px; background: #4CAF50 !important; color: #fff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">▶️ 실행</button>'
+            copy_btn = f'<button onclick="{safe_copy_call}" class="code-btn code-copy-btn" style="position: absolute; top: 8px; right: 82px; background: #444 !important; color: #fff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">📋 복사</button>'
+        else:
+            exec_btn = ''
+            copy_btn = f'<button onclick="{safe_copy_call}" class="code-btn code-copy-btn" style="position: absolute; top: 8px; right: 8px; background: #444 !important; color: #fff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">📋 복사</button>'
+        
+        html = f'<div style="position: relative; margin: 12px 0;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.5; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{code_id}" data-language="{lang}">{escaped_code}</code></pre></div>'
+        logger.debug(f"[CODE HTML] 버튼 포함: {len(html)} chars")
+        return html
+    
     def _clean_html_code(self, text):
         """코드 블록에서 HTML 태그 제거"""
         import re
+        import html
+        
         # HTML 태그 제거
         text = re.sub(r'<[^>]+>', '', text)
-        # HTML 엔티티 디코딩
-        text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
-        text = text.replace('&quot;', '"').replace('&#x27;', "'")
-        # 태그 제거 후 빈 문자열이 된 경우 빈 문자열 반환 (빈 줄 방지)
-        return text if text.strip() else ''
+        
+        # 이중/삼중 인코딩된 HTML 엔티티 디코딩
+        prev_text = None
+        while prev_text != text:
+            prev_text = text
+            text = html.unescape(text)
+        
+        return text
     
     def _convert_image_urls(self, text):
         """이미지 URL을 img 태그로 변환 (로딩 애니메이션 포함)"""
@@ -393,60 +483,18 @@ class FixedFormatter:
     
     def _process_markdown(self, text):
         """기본 마크다운 처리"""
-        # 이미지 URL을 img 태그로 변환
         text = self._convert_image_urls(text)
-        
-        # HTML 코드 블록 정리
         text = self._clean_html_in_code_blocks(text)
+        
+        # 먼저 코드 블록을 모두 HTML로 변환
+        text = self._convert_all_code_blocks(text)
         
         lines = text.split('\n')
         result = []
-        in_code_block = False
-        current_lang = ''
-        current_code_id = ''
         
         for line in lines:
-            # placeholder는 그대로 통과
-            if '__MERMAID_PLACEHOLDER_' in line or '__MATH_PLACEHOLDER_' in line:
+            if '__MERMAID_PLACEHOLDER_' in line or '__MATH_PLACEHOLDER_' in line or '__CODE_BLOCK_' in line:
                 result.append(line)
-                continue
-            
-            # 코드 블록 처리 (일반 코드만)
-            if line.startswith('```') and not line.startswith('```mermaid'):
-                if not in_code_block:
-                    in_code_block = True
-                    current_lang = line[3:].strip() if len(line) > 3 else ''
-                    current_code_id = f"code_{uuid.uuid4().hex[:8]}"
-                    
-                    # 디버그: 언어 감지 확인
-                    logger.debug(f" 코드 블록 감지: lang='{current_lang}'")
-                    
-                    # 실행 가능한 언어 확인
-                    executable_langs = ['python', 'py', 'javascript', 'js']
-                    is_executable = current_lang.lower() in executable_langs
-                    logger.debug(f" 실행 가능: {is_executable}")
-                    exec_lang = 'python' if current_lang.lower() in ['python', 'py'] else 'javascript'
-                    
-                    # 언어 라벨
-                    lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{current_lang or "code"}</div>' if current_lang else ''
-                    
-                    # 버튼들
-                    copy_btn = f'<button onclick="copyCodeBlock(\'{current_code_id}\')" style="position: absolute; top: 8px; right: {"60px" if is_executable else "8px"}; background: #444 !important; color: #ffffff !important; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#555\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#444\'; this.style.transform=\'scale(1)\';" class="code-copy-btn">📋 복사</button>'
-                    
-                    exec_btn = ''
-                    if is_executable:
-                        exec_btn = f'<button onclick="executeCode(\'{current_code_id}\', \'{exec_lang}\')" style="position: absolute; top: 8px; right: 8px; background: #4CAF50; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10; transition: all 0.2s;" onmouseover="this.style.background=\'#45a049\'; this.style.transform=\'scale(1.05)\';" onmouseout="this.style.background=\'#4CAF50\'; this.style.transform=\'scale(1)\';">▶️ 실행</button>'
-                    
-                    result.append(f'<div style="position: relative; margin: 12px 0;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.2; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px;"><code id="{current_code_id}" data-language="{current_lang}">')
-                else:
-                    in_code_block = False
-                    result.append(f'</code></pre></div>')
-                continue
-            
-            if in_code_block:
-                # 코드 블록 내에서 HTML 태그 제거
-                clean_line = self._clean_html_code(line)
-                result.append(clean_line)
                 continue
             
             # 헤더
@@ -474,6 +522,10 @@ class FixedFormatter:
         html = '\n'.join(result)
         
         # placeholder 복원
+        if hasattr(self, 'code_blocks'):
+            for placeholder, content in self.code_blocks.items():
+                html = html.replace(placeholder, content)
+        
         if hasattr(self, 'mermaid_blocks'):
             for placeholder, content in self.mermaid_blocks.items():
                 html = html.replace(placeholder, content)

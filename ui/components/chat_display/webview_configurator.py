@@ -25,6 +25,18 @@ class WebViewConfigurator:
         )
         settings.setAttribute(settings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
+        
+        # 패키징 환경 디버깅: 개발자 도구 활성화
+        try:
+            from PyQt6.QtWebEngineCore import QWebEngineSettings
+            settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
+            # 개발자 도구 활성화 (패키징 환경에서도 사용 가능)
+            self.web_view.page().settings().setAttribute(
+                QWebEngineSettings.WebAttribute.DeveloperExtrasEnabled, True
+            )
+            logger.info("패키징 환경 디버깅 모드 활성화: 우클릭 > Inspect 사용 가능")
+        except Exception as e:
+            logger.debug(f"개발자 도구 활성화 실패: {e}")
 
         # PyQt6에서 지원하는 속성만 안전하게 사용
         try:

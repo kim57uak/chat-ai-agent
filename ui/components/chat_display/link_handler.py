@@ -154,39 +154,107 @@ class LinkHandler(QObject):
     def executeCode(self, code, language):
         """코드 실행"""
         try:
+            logger.debug(f"[EXECUTE] 코드 실행 시작: {language}, {len(code)}문자")
+            
             from ui.components.code_executor import CodeExecutor
             
-            executor = CodeExecutor()
-            executor.execution_finished.connect(self._on_execution_finished)
-            executor.executeCode(code, language)
+            # 인스턴스 저장 (가비지 커렉션 방지)
+            if not hasattr(self, '_executor'):
+                self._executor = CodeExecutor()
+                self._executor.execution_finished.connect(self._on_execution_finished)
+            
+            self._executor.executeCode(code, language)
+            logger.debug(f"[EXECUTE] 코드 실행 요청 완료")
             
         except Exception as e:
-            logger.debug(f"[EXECUTE] 코드 실행 오류: {e}")
+            logger.error(f"[EXECUTE] 코드 실행 오류: {e}", exc_info=True)
             self._show_execution_result("", f"실행 오류: {str(e)}")
     
     def _on_execution_finished(self, output, error):
         """코드 실행 완료 처리"""
+        logger.debug(f"[EXECUTE] 실행 완료 - 출력: {len(output)}문자, 오류: {len(error)}문자")
         self._show_execution_result(output, error)
     
     def _show_execution_result(self, output, error):
-        """실행 결과 표시"""
+        """실행 결과 표시 및 DB 저장"""
         try:
-            if hasattr(self, 'chat_widget') and self.chat_widget:
-                result_text = ""
-                if output:
-                    result_text += f"**출력:**\n```\n{output}\n```\n"
-                if error:
-                    result_text += f"**오류:**\n```\n{error}\n```"
-                
-                if not result_text:
-                    result_text = "실행 완료 (출력 없음)"
-                
-                # 채팅 위젯에 결과 메시지 추가
+            logger.debug(f"[EXECUTE] 결과 표시 시작")
+            
+            if not (hasattr(self, 'chat_widget') and self.chat_widget):
+                logger.error(f"[EXECUTE] chat_widget 없음")
+                return
+            
+            # 오류 발생 시 저장하지 않음
+            if error:
+                result_text = f"**오류:**\n```\n{error}\n```"
                 if hasattr(self.chat_widget, 'chat_display'):
                     self.chat_widget.chat_display.append_message(
                         "시스템",
                         result_text,
                         progressive=False
                     )
+                logger.debug(f"[EXECUTE] 오류 발생 - DB 저장 생략")
+                return
+            
+            # 정상 결과만 처리
+            if output:
+                result_text = f"**출력:**\n```\n{output}\n```"
+            else:
+                result_text = "실행 완료 (출력 없음)"
+            
+            logger.debug(f"[EXECUTE] 결과 텍스트: {result_text[:100]}...")
+            
+            # 화면 표시
+            if hasattr(self.chat_widget, 'chat_display'):
+                self.chat_widget.chat_display.append_message(
+                    "시스템",
+                    result_text,
+                    progressive=False
+                )
+                logger.debug(f"[EXECUTE] 결과 메시지 추가 완료")
+            else:
+                logger.error(f"[EXECUTE] chat_display 없음")
+            
+            # DB에 저장 (정상 결과만)
+            self._save_execution_result_to_db(result_text)
+                
         except Exception as e:
-            logger.debug(f"[EXECUTE] 결과 표시 오류: {e}")
+            logger.error(f"[EXECUTE] 결과 표시 오류: {e}", exc_info=True)
+    
+    def _save_execution_result_to_db(self, result_text):
+        """코드 실행 결과를 DB에 저장"""
+        try:
+            if not (hasattr(self, 'chat_widget') and self.chat_widget):
+                logger.debug(f"[EXECUTE] chat_widget 없음")
+                return
+            
+            session_id = getattr(self.chat_widget, 'current_session_id', None)
+            if not session_id:
+                logger.debug(f"[EXECUTE] 세션 ID 없음 - DB 저장 생략")
+                return
+            
+            # AuthManager 가져오기
+            auth_manager = getattr(self, 'auth_manager', None)
+            if not auth_manager:
+                logger.debug(f"[EXECUTE] auth_manager 없음 - DB 저장 생략")
+                return
+            
+            if not auth_manager.is_logged_in():
+                logger.debug(f"[EXECUTE] 인증 안됨 - DB 저장 생략")
+                return
+            
+            from core.security.encrypted_database import EncryptedDatabase
+            
+            db = EncryptedDatabase(auth_manager=auth_manager)
+            
+            # add_message 메서드 사용 (role은 'assistant'로 저장)
+            message_id = db.add_message(
+                session_id=session_id,
+                role='assistant',
+                content=result_text
+            )
+            
+            logger.debug(f"[EXECUTE] DB 저장 완료 - 세션: {session_id}, 메시지 ID: {message_id}")
+            
+        except Exception as e:
+            logger.error(f"[EXECUTE] DB 저장 오류: {e}", exc_info=True)

@@ -88,10 +88,20 @@ class ChatDisplay:
             logger.debug(f"웹 채널 설정 오류: {e}")
             # 채널 설정 실패 시 기본 핸들러만 생성
             self.link_handler = LinkHandler()
+    
+    def set_auth_manager(self, auth_manager):
+        """AuthManager 설정"""
+        if hasattr(self, 'link_handler'):
+            self.link_handler.auth_manager = auth_manager
 
     def set_chat_widget(self, chat_widget):
         """채팅 위젯 참조 설정"""
         self.link_handler.chat_widget = chat_widget
+    
+    def set_auth_manager_from_main(self, main_window):
+        """MainWindow에서 AuthManager 설정"""
+        if hasattr(main_window, 'auth_manager'):
+            self.set_auth_manager(main_window.auth_manager)
 
     def append_message(
         self,
@@ -102,11 +112,12 @@ class ChatDisplay:
         message_id=None,
         prepend=False,
         timestamp=None,
+        content_html=None,
     ):
         """메시지 추가 - MessageRenderer에 위임"""
         return self.message_renderer.append_message(
             sender, text, original_sender, progressive, 
-            message_id, prepend, timestamp
+            message_id, prepend, timestamp, content_html
         )
 
     def clear_messages(self):

@@ -479,4 +479,41 @@ def generate_base_css() -> str:
         }
         
         .context-menu-item:hover { background: var(--border); }
+        
+        /* 코드 블록 버튼 스타일 */
+        .code-btn {
+            position: absolute;
+            top: 8px;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+        
+        .code-copy-btn {
+            right: 8px;
+            background: #444 !important;
+            color: #fff !important;
+        }
+        
+        .code-copy-btn:hover {
+            background: #555 !important;
+            transform: scale(1.05);
+        }
+        
+        .code-exec-btn {
+            right: 82px;
+            background: #4CAF50 !important;
+            color: #fff !important;
+        }
+        
+        .code-exec-btn:hover {
+            background: #45a049 !important;
+            transform: scale(1.05);
+        }
     """

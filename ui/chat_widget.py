@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTextEdit, QLineEdit, QPushBu
 from ui.components.modern_progress_bar import ModernProgressBar
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
-from PyQt6.QtGui import QFont, QKeySequence, QShortcut
+from PyQt6.QtGui import QFont
 import weakref
 
 from core.file_utils import load_config, load_model_api_key, load_last_model
@@ -284,12 +284,8 @@ class ChatWidget(QWidget):
         
         # 모델/도구 라벨 클릭 연결 삭제 - 좌측 패널로 이동
         
-        # 키보드 단축키
+        # 키보드 단축키 - QShortcut 제거하고 키 이벤트만 사용
         self.input_text.keyPressEvent = self.handle_input_key_press
-        send_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self.input_text)
-        send_shortcut.activated.connect(self.send_message)
-        
-        # 템플릿 단축키 삭제 - 좌측 패널로 이동
         
         # 웹뷰 로드 완료
         self.chat_display_view.loadFinished.connect(self._on_webview_loaded)
@@ -298,7 +294,7 @@ class ChatWidget(QWidget):
         safe_single_shot(2000, self._ensure_welcome_message, self)
     
     def handle_input_key_press(self, event):
-        """입력창 키 이벤트 처리"""
+        """입력창 키 이벤트 처리 - Enter, Ctrl+Enter 모두 전송"""
         if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
             if event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
                 QTextEdit.keyPressEvent(self.input_text, event)
@@ -1390,10 +1386,15 @@ class ChatWidget(QWidget):
                 logger.debug(f"[LOAD_SESSION] 메시지 {i+1} 표시: role={msg['role']}, content={msg['content'][:30]}...")
                 msg_id = str(msg.get('id', f"session_msg_{i}"))
                 timestamp = msg.get('timestamp')  # DB에서 저장된 timestamp 가져오기
+                
+                # HTML 형식 메시지 처리 (content_html을 파라미터로 전달)
+                content = msg['content']
+                content_html = msg.get('content_html')
+                
                 if msg['role'] == 'user':
-                    self.chat_display.append_message('사용자', msg['content'], message_id=msg_id, prepend=prepend, timestamp=timestamp)
+                    self.chat_display.append_message('사용자', content, message_id=msg_id, prepend=prepend, timestamp=timestamp, content_html=content_html)
                 elif msg['role'] == 'assistant':
-                    self.chat_display.append_message('AI', msg['content'], message_id=msg_id, prepend=prepend, timestamp=timestamp)
+                    self.chat_display.append_message('AI', content, message_id=msg_id, prepend=prepend, timestamp=timestamp, content_html=content_html)
             
             logger.debug(f"[LOAD_SESSION] 세션 메시지 표시 완료: {len(messages)}개")
             

@@ -5,7 +5,7 @@ Main Window - Refactored
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QSplitter)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QAction
 import os
 
 from utils.env_loader import load_user_environment
@@ -39,6 +39,9 @@ class MainWindow(QMainWindow):
         logger.debug("MainWindow.__init__() 시작")
         super().__init__()
         logger.debug("super().__init__() 완료")
+        
+        # CRITICAL: Qt 단축키 시스템 크래시 방지
+        self.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
         
         # 통합 타이머
         from ui.unified_timer import get_unified_timer
@@ -85,6 +88,10 @@ class MainWindow(QMainWindow):
         logger.debug("MCP 초기화 완료")
         
         logger.debug("MainWindow 초기화 완료")
+        
+        # ChatDisplay에 AuthManager 전달
+        if hasattr(self.chat_widget, 'chat_display'):
+            self.chat_widget.chat_display.set_auth_manager_from_main(self)
         
         # 세션 만료 타이머 설정
         self._setup_session_timer()
@@ -291,8 +298,21 @@ class MainWindow(QMainWindow):
         logger.debug(f"메모리 사용률 경고: {memory_percent:.1f}%")
     
     def closeEvent(self, event):
-        """애플리케이션 종료 처리"""
-        logger.debug("애플리케이션 종료 시작")
+        """애플리케이션 종료 처리 - 크래시 방지 강화"""
+        try:
+            logger.debug("애플리케이션 종료 시작")
+        except:
+            print("애플리케이션 종료 시작")
+        
+        # CRITICAL: 모든 단축키 제거 - QShortcutMap 크래시 방지
+        try:
+            for action in self.findChildren(QAction):
+                action.setShortcut("")
+        except:
+            pass
+        
+        # 이벤트 먼저 accept - 크래시 방지
+        event.accept()
         
         try:
             # SafeTimer 정리
@@ -347,7 +367,6 @@ class MainWindow(QMainWindow):
             except:
                 print(f"종료 중 오류: {e}")
         
-        event.accept()
         try:
             logger.debug("애플리케이션 종료 완료")
         except:

@@ -10,6 +10,23 @@ import atexit
 from core.logging import setup_logging
 setup_logging()
 
+# PyInstaller 환경에서 데이터 분석 라이브러리 사전 로드
+if getattr(sys, 'frozen', False):
+    try:
+        import pandas.plotting
+        import numpy.core
+        import matplotlib.pyplot
+        import scipy.stats
+        import seaborn
+        
+        sys.modules['pandas.plotting'] = pandas.plotting
+        sys.modules['numpy.core'] = numpy.core
+        sys.modules['matplotlib.pyplot'] = matplotlib.pyplot
+        sys.modules['scipy.stats'] = scipy.stats
+        sys.modules['seaborn'] = seaborn
+    except Exception:
+        pass
+
 from core.application import SignalHandler, AppInitializer, AppRunner
 from ui.performance_optimizer import performance_optimizer
 from memory_cleanup import memory_cleanup
@@ -98,6 +115,15 @@ def main() -> int:
     # Initialize application components
     initializer = AppInitializer(sys.argv)
     app = initializer.create_application()
+    
+    # CRITICAL: QtWebEngine 초기화 (QApplication 생성 직후)
+    try:
+        from PyQt6 import QtWebEngineCore
+        # QtWebEngine 초기화 강제 실행
+        QtWebEngineCore.QWebEngineProfile.defaultProfile()
+        logging.info("QtWebEngine 초기화 완료")
+    except Exception as e:
+        logging.error(f"QtWebEngine 초기화 실패: {e}")
     
     # Qt 메시지 핸들러 설치 (CSS 경고 숨기기)
     try:

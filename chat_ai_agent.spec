@@ -11,6 +11,14 @@ block_cipher = None
 cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
 loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
 keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
+pygments_datas, pygments_binaries, pygments_hiddenimports = collect_all('pygments')
+
+# Data science packages - explicit collect_all to ensure all submodules included
+pandas_datas, pandas_binaries, pandas_hiddenimports = collect_all('pandas')
+numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
+matplotlib_datas, matplotlib_binaries, matplotlib_hiddenimports = collect_all('matplotlib')
+seaborn_datas, seaborn_binaries, seaborn_hiddenimports = collect_all('seaborn')
+scipy_datas, scipy_binaries, scipy_hiddenimports = collect_all('scipy')
 
 # Data files to include
 datas = [
@@ -53,8 +61,15 @@ datas = filtered_datas
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=cryptography_binaries + loguru_binaries + keyring_binaries,
-    datas=datas + cryptography_datas + loguru_datas + keyring_datas,
+    binaries=(
+        cryptography_binaries + loguru_binaries + keyring_binaries + pygments_binaries +
+        pandas_binaries + numpy_binaries + matplotlib_binaries + seaborn_binaries + scipy_binaries
+    ),
+    datas=(
+        datas + 
+        cryptography_datas + loguru_datas + keyring_datas + pygments_datas +
+        pandas_datas + numpy_datas + matplotlib_datas + seaborn_datas + scipy_datas
+    ),
     hiddenimports=[
         # PyQt6
         'PyQt6.QtCore',
@@ -89,6 +104,39 @@ a = Analysis(
         'openai',
         'google.generativeai',
         
+        # Data science - explicit imports from hook files to ensure modules are found
+        # pandas (from hook-pandas.py)
+        'pandas.plotting',
+        'pandas.plotting._core',
+        'pandas.plotting._matplotlib',
+        'pandas.plotting._misc',
+        'pandas._libs.tslibs.np_datetime',
+        'pandas._libs.tslibs.nattype',
+        'pandas._libs.skiplist',
+        # numpy (from hook-numpy.py)
+        'numpy.core',
+        'numpy.core._multiarray_umath',
+        'numpy.core._multiarray_tests',
+        'numpy.core._rational_tests',
+        'numpy.core._struct_ufunc_tests',
+        'numpy.random',
+        'numpy.linalg',
+        'numpy.fft',
+        # matplotlib (from hook-matplotlib.py)
+        'matplotlib.pyplot',
+        'matplotlib.backends',
+        'matplotlib.backends.backend_agg',
+        'matplotlib.backends.backend_pdf',
+        'matplotlib.figure',
+        # scipy (from hook-scipy.py)
+        'scipy.stats',
+        'scipy.special',
+        'scipy.linalg',
+        'scipy.integrate',
+        'scipy.optimize',
+        'scipy.interpolate',
+        'scipy.sparse'
+        
         # Project modules
         'core',
         'core.security',
@@ -98,10 +146,21 @@ a = Analysis(
         'mcp',
         'tools',
         'utils',
-    ] + cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports,
+    ] + (
+        cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports + pygments_hiddenimports +
+        pandas_hiddenimports + numpy_hiddenimports + matplotlib_hiddenimports + 
+        seaborn_hiddenimports + scipy_hiddenimports
+    ),
     hookspath=['hooks'],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=[
+        'hooks/rthook_pygments.py',
+        'hooks/rthook_pandas.py',
+        'hooks/rthook_numpy.py',
+        'hooks/rthook_matplotlib.py',
+        'hooks/rthook_scipy.py',
+        'hooks/rthook_seaborn.py',
+    ],
     excludes=[
         # Large ML libraries not needed
         'torch',
@@ -110,17 +169,10 @@ a = Analysis(
         'transformers',
         'tensorflow',
         'keras',
-        'sklearn',
-        'scipy',
-        'numpy.f2py',
-        'matplotlib',
-        'seaborn',
         'plotly',
         'bokeh',
-        'pandas.plotting',
         'pyarrow',
         'fastparquet',
-        'openpyxl.drawing',
         'PIL.ImageQt',
         'cv2',
         'skimage',

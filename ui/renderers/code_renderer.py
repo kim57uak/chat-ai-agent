@@ -19,17 +19,30 @@ class CodeRenderer:
         # 패키징 환경 감지
         import sys
         self.is_packaged = getattr(sys, 'frozen', False)
+        if self.is_packaged:
+            logger.info(f"[PACKAGED] CodeRenderer 초기화 - 패키징 모드 활성화")
     
     def process(self, text: str) -> str:
         """코드 블록을 placeholder로 변환"""
         try:
             if self.is_packaged:
-                logger.info(f"[PACKAGED] process() 시작 - 텍스트 길이: {len(text)}, 코드블록 포함: {'```' in text}")
+                logger.info(f"[PACKAGED] process() 시작 - 텍스트 길이: {len(text)}")
+                logger.info(f"[PACKAGED] 코드블록 포함: {'```' in text}")
+                logger.info(f"[PACKAGED] HTML 코드 포함: {'<pre>' in text or '<code' in text}")
+                logger.info(f"[PACKAGED] 텍스트 샘플 (100자): {text[:100]}")
+                print(f"\n[PACKAGED DEBUG] AI 원본 응답 (500자):\n{text[:500]}\n")
+            
+            # HTML 코드블록을 마크다운으로 변환 (패키징 환경 전용)
+            if self.is_packaged and '<pre>' in text and '<code' in text:
+                logger.info(f"[PACKAGED] HTML 코드블록 감지 - 마크다운으로 변환 시도")
+                text = self._convert_html_to_markdown(text)
             
             result = re.sub(r'```[\s\S]*?```', self._to_placeholder, text)
             
             if self.is_packaged:
                 logger.info(f"[PACKAGED] process() 완료 - placeholder 개수: {len(self.code_blocks)}")
+                if len(self.code_blocks) == 0 and '```' in text:
+                    logger.error(f"[PACKAGED] 코드블록이 있지만 placeholder 생성 실패!")
             
             return result
         except Exception as e:
@@ -74,10 +87,8 @@ class CodeRenderer:
                 logger.debug(f"[CODE] Mermaid 블록 건너뛰기 (lang=mermaid)")
                 return full_match
             
-            # CRITICAL: HTML 정리 - 패키징 환경에서 줄바꿈 문제 해결
+            # CRITICAL: HTML 정리 - 코드 블록만 처리 (Mermaid는 이미 위에서 제외됨)
             raw_lines = [self._clean_html(line) for line in code.split('\n')]
-            
-            # CRITICAL: 패키징 환경 대응 - 모든 줄 유지하되 공백만 제거
             code_lines = [line.rstrip() for line in raw_lines]
             
             if not lang:
@@ -114,11 +125,14 @@ class CodeRenderer:
         return text
     
     def _create_html(self, code_id: str, lang: str, code_lines: list) -> str:
-        """코드 블록 HTML 생성 - 환경별 분리"""
+        """코드 블록 HTML 생성 - 환경별 처리"""
+        logger.info(f"[CODE] _create_html 호출 - is_packaged={self.is_packaged}, code_id={code_id}, lang={lang}")
         if self.is_packaged:
-            return self._create_html_packaged(code_id, lang, code_lines)
-        else:
-            return self._create_html_dev(code_id, lang, code_lines)
+            logger.info(f"[PACKAGED] _create_html_packaged 호출")
+            result = self._create_html_packaged(code_id, lang, code_lines)
+            logger.info(f"[PACKAGED] HTML 생성 완료 - 길이: {len(result)}")
+            return result
+        return self._create_html_dev(code_id, lang, code_lines)
     
     def _create_html_dev(self, code_id: str, lang: str, code_lines: list) -> str:
         """개발 환경용 코드블록 HTML (기존 로직)"""
@@ -140,6 +154,14 @@ class CodeRenderer:
     def _create_html_packaged(self, code_id: str, lang: str, code_lines: list) -> str:
         """패키징 환경용 코드블록 HTML (이중 인코딩 방지, 빈줄 제거, 버튼 강제 표시)"""
         code_content = '\n'.join(code_lines)
+        
+        # 패키징 환경 디버깅 강화
+        print(f"\n=== [PACKAGED] 코드블록 생성 ===")
+        print(f"ID: {code_id}")
+        print(f"언어: {lang}")
+        print(f"라인 수: {len(code_lines)}")
+        print(f"원본 코드 (첫 200자): {code_content[:200]}")
+        print(f"=================================\n")
         
         logger.info(f"[PACKAGED] 코드블록 생성: id={code_id}, lang={lang}, lines={len(code_lines)}")
         logger.debug(f"[PACKAGED] 원본 코드 (첫 100자): {code_content[:100]}")
@@ -167,5 +189,32 @@ class CodeRenderer:
         
         html_result = f'<div style="position: relative; margin: 12px 0; display: block;">{lang_label}{copy_btn}{exec_btn}<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; padding-top: 40px; border-radius: 8px; margin: 0; overflow-x: auto; line-height: 1.5; font-family: \'SF Mono\', Monaco, Consolas, monospace; font-size: 13px; white-space: pre !important; display: block;"><code id="{code_id}" data-language="{lang}" style="white-space: pre !important; display: block;">{escaped_code}</code></pre></div>'
         
+        print(f"[PACKAGED] HTML 생성 완료 - 길이: {len(html_result)}")
+        print(f"[PACKAGED] HTML 샘플 (첫 300자): {html_result[:300]}")
+        
         logger.debug(f"[PACKAGED] HTML 생성 완료 (길이: {len(html_result)})")
         return html_result
+    
+    def _convert_html_to_markdown(self, text: str) -> str:
+        """패키징 환경에서 HTML 코드블록을 마크다운으로 변환"""
+        import re
+        
+        def html_to_md(match):
+            full = match.group(0)
+            # language-xxx 추출
+            lang_match = re.search(r'language-(\w+)', full)
+            lang = lang_match.group(1) if lang_match else ''
+            
+            # 코드 내용 추출
+            code_match = re.search(r'<code[^>]*>(.*?)</code>', full, re.DOTALL)
+            if code_match:
+                code = code_match.group(1)
+                # HTML 엔티티 디코딩
+                code = code.replace('&quot;', '"').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+                return f"```{lang}\n{code}\n```"
+            return full
+        
+        # <pre><code>...</code></pre> 패턴 변환
+        result = re.sub(r'<pre>\s*<code[^>]*>.*?</code>\s*</pre>', html_to_md, text, flags=re.DOTALL)
+        logger.info(f"[PACKAGED] HTML->Markdown 변환 완료")
+        return result

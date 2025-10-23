@@ -104,6 +104,12 @@ a = Analysis(
         'openai',
         'google.generativeai',
         
+        # Pygments - code highlighting
+        'pygments.lexers',
+        'pygments.styles',
+        'pygments.formatters',
+        'pygments.formatters.html',
+        
         # Data science - explicit imports from hook files to ensure modules are found
         # pandas (from hook-pandas.py)
         'pandas.plotting',

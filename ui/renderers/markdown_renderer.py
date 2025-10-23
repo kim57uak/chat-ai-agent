@@ -10,7 +10,7 @@ logger = get_logger("markdown_renderer")
 class MarkdownRenderer:
     """마크다운 렌더링"""
     
-    PLACEHOLDERS = ('__MERMAID_PLACEHOLDER_', '__MATH_PLACEHOLDER_', '__CODE_BLOCK_')
+    PLACEHOLDERS = ('__MERMAID_PLACEHOLDER_', '__MATH_PLACEHOLDER_', '__CODE_BLOCK_', '\x00CODE_BLOCK_')
     
     STYLES = {
         'h1': 'color: #fff; margin: 16px 0 8px 0;',

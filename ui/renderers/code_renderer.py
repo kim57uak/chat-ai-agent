@@ -23,15 +23,32 @@ class CodeRenderer:
     def process(self, text: str) -> str:
         """코드 블록을 placeholder로 변환"""
         try:
-            return re.sub(r'```[\s\S]*?```', self._to_placeholder, text)
+            if self.is_packaged:
+                logger.info(f"[PACKAGED] process() 시작 - 텍스트 길이: {len(text)}, 코드블록 포함: {'```' in text}")
+            
+            result = re.sub(r'```[\s\S]*?```', self._to_placeholder, text)
+            
+            if self.is_packaged:
+                logger.info(f"[PACKAGED] process() 완료 - placeholder 개수: {len(self.code_blocks)}")
+            
+            return result
         except Exception as e:
             logger.error(f"[CODE] 처리 오류: {e}")
             return text
     
     def restore(self, text: str) -> str:
         """Placeholder를 HTML로 복원"""
+        if self.is_packaged:
+            logger.info(f"[PACKAGED] restore() 시작 - placeholder 개수: {len(self.code_blocks)}")
+        
         for placeholder, html_content in self.code_blocks.items():
-            text = text.replace(placeholder, html_content)
+            if placeholder in text:
+                text = text.replace(placeholder, html_content)
+                if self.is_packaged:
+                    logger.info(f"[PACKAGED] placeholder 복원 성공")
+            elif self.is_packaged:
+                logger.warning(f"[PACKAGED] placeholder 찾을 수 없음")
+        
         return text
     
     def _to_placeholder(self, match):
@@ -60,12 +77,8 @@ class CodeRenderer:
             # CRITICAL: HTML 정리 - 패키징 환경에서 줄바꿈 문제 해결
             raw_lines = [self._clean_html(line) for line in code.split('\n')]
             
-            # CRITICAL: 빈 줄 제거 - 패키징 환경에서 추가 줄간격 방지
-            code_lines = []
-            for line in raw_lines:
-                # 완전히 빈 줄은 제외 (패키징 환경에서 줄간격 2배 방지)
-                if line.strip():  # 내용이 있는 줄만 추가
-                    code_lines.append(line.rstrip())
+            # CRITICAL: 패키징 환경 대응 - 모든 줄 유지하되 공백만 제거
+            code_lines = [line.rstrip() for line in raw_lines]
             
             if not lang:
                 lang = self._detect_language('\n'.join(code_lines))
@@ -74,8 +87,8 @@ class CodeRenderer:
             code_id = f"code_{uuid.uuid4().hex[:8]}"
             html_content = self._create_html(code_id, lang, code_lines)
             
-            # Placeholder 저장
-            placeholder = f"__CODE_BLOCK_{code_id}__"
+            # Placeholder 저장 - 마크다운 파싱에서 보호되도록 특수 형식 사용
+            placeholder = f"\x00CODE_BLOCK_{code_id}\x00"
             self.code_blocks[placeholder] = html_content
             return placeholder
         except Exception as e:

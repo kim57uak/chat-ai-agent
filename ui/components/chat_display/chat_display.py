@@ -6,6 +6,7 @@ Chat Display - Refactored
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from ui.components.progressive_display import ProgressiveDisplay
+from ui.components.code_executor import CodeExecutor
 from core.logging import get_logger
 
 from .html_template_builder import HtmlTemplateBuilder
@@ -23,6 +24,10 @@ class ChatDisplay:
     def __init__(self, web_view: QWebEngineView):
         self.web_view = web_view
         self.progressive_display = ProgressiveDisplay(web_view)
+        
+        # 코드 실행기 초기화
+        self.code_executor = CodeExecutor()
+        self.code_executor.execution_finished.connect(self._on_code_executed)
         
         # UI 설정 로드
         self._load_ui_settings()
@@ -81,6 +86,7 @@ class ChatDisplay:
             self.channel = QWebChannel()
             self.link_handler = LinkHandler()
             self.channel.registerObject("pyqt_bridge", self.link_handler)
+            self.channel.registerObject("code_executor", self.code_executor)
             self.web_view.page().setWebChannel(self.channel)
             logger.debug("웹 채널 설정 완료")
             
@@ -140,3 +146,12 @@ class ChatDisplay:
     def handle_console_message(self, level, message, line_number, source_id):
         """콘솔 메시지 처리 - WebViewConfigurator에 위임"""
         self.webview_config.handle_console_message(level, message, line_number, source_id)
+    
+    def _on_code_executed(self, output, error):
+        """코드 실행 완료 처리"""
+        if error:
+            result_text = f"❌ 실행 오류:\n{error}"
+        else:
+            result_text = f"✅ 실행 결과:\n{output}" if output else "✅ 실행 완료 (출력 없음)"
+        
+        self.append_message('시스템', result_text)

@@ -284,7 +284,7 @@ class ChatWidget(QWidget):
         
         # 모델/도구 라벨 클릭 연결 삭제 - 좌측 패널로 이동
         
-        # 키보드 단축키 - QShortcut 제거하고 키 이벤트만 사용
+        # 키 이벤트 처리
         self.input_text.keyPressEvent = self.handle_input_key_press
         
         # 웹뷰 로드 완료
@@ -294,7 +294,7 @@ class ChatWidget(QWidget):
         safe_single_shot(2000, self._ensure_welcome_message, self)
     
     def handle_input_key_press(self, event):
-        """입력창 키 이벤트 처리 - Enter, Ctrl+Enter 모두 전송"""
+        """입력창 키 이벤트 처리"""
         if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
             if event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
                 QTextEdit.keyPressEvent(self.input_text, event)

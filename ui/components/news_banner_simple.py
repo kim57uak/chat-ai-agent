@@ -400,7 +400,11 @@ class NewsBanner(QWidget):
     def cleanup(self):
         """리소스 정리"""
         try:
+            # 번역 스레드 중지
             if hasattr(self, 'news_loader'):
                 self.news_loader.running = False
+                # AI 클라이언트 정리
+                if hasattr(self.news_loader, 'ai_client'):
+                    self.news_loader.ai_client = None
         except:
             pass

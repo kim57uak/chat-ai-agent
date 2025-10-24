@@ -17,6 +17,12 @@ class WebViewConfigurator:
     def configure(self):
         """웹 브라우저 초기화 - 고급 다크 테마"""
         from ui.styles.theme_manager import theme_manager
+        from PyQt6.QtCore import Qt
+        
+        # CRITICAL: WebEngine 키 이벤트 크래시 방지
+        # WebEngine이 키보드 포커스를 받지 못하도록 설정
+        self.web_view.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.web_view.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
 
         # 웹 보안 설정 완화 (PyQt6 호환)
         settings = self.web_view.settings()

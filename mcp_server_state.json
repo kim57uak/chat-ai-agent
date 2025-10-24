@@ -1,6 +1,6 @@
 {
-  "osm-mcp-server": false,
-  "hanatourApi": true,
+  "osm-mcp-server": true,
+  "hanatourApi": false,
   "mysql": false,
   "bitbucket": false,
   "mcp-atlassian": false,

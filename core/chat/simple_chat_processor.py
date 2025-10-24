@@ -67,20 +67,25 @@ class SimpleChatProcessor(BaseChatProcessor):
                 response_content = self.model_strategy.generate_response(user_input, conversation_history)
                 logger.info(f"Pollinations 전용 응답 생성 완료")
             else:
-                # 대화 히스토리를 포함한 메시지 생성 (도구 사용 금지)
-                messages = self.model_strategy.create_messages(
-                    user_input, 
-                    system_prompt=ask_mode_prompt,
-                    conversation_history=conversation_history
-                )
-                
-                # 도구 사용 방지를 위한 추가 처리
-                if hasattr(self.model_strategy.llm, 'bind'):
-                    # LangChain 모델인 경우 도구 바인딩 제거
-                    bound_llm = self.model_strategy.llm.bind(tools=[])
-                    response = bound_llm.invoke(messages)
-                else:
-                    response = self.model_strategy.llm.invoke(messages)
+                # Google Gemini 경고 억제
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", message="Convert_system_message_to_human will be deprecated!")
+                    
+                    # 대화 히스토리를 포함한 메시지 생성 (도구 사용 금지)
+                    messages = self.model_strategy.create_messages(
+                        user_input, 
+                        system_prompt=ask_mode_prompt,
+                        conversation_history=conversation_history
+                    )
+                    
+                    # 도구 사용 방지를 위한 추가 처리
+                    if hasattr(self.model_strategy.llm, 'bind'):
+                        # LangChain 모델인 경우 도구 바인딩 제거
+                        bound_llm = self.model_strategy.llm.bind(tools=[])
+                        response = bound_llm.invoke(messages)
+                    else:
+                        response = self.model_strategy.llm.invoke(messages)
                 
                 # 응답 객체 저장 (토큰 추출용)
                 self.model_strategy._last_response = response

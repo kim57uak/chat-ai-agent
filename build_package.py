@@ -263,6 +263,7 @@ class PackageBuilder:
         required_packages = [
             # Core dependencies with hooks
             ('cryptography', '42.0.8'),
+            ('Crypto', None),  # pycryptodome
             ('keyring', None),
             ('loguru', None),
             # UI and framework

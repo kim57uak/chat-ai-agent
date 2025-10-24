@@ -86,47 +86,73 @@ class HtmlTemplateBuilder:
                     }}
                 }}
                 
-                // Mermaid 다이어그램 렌더링 - 오류 완전 차단
+                // Mermaid 다이어그램 렌더링 - 완전 격리
                 function renderMermaidDiagrams() {{
-                    try {{
-                        var elements = document.querySelectorAll('.mermaid:not([data-processed])');
-                        elements.forEach(function(element, index) {{
-                            var code = element.textContent.trim();
-                            // 빈 코드나 잘못된 구문 필터링
-                            if (code && code.length > 10 && (code.includes('graph') || code.includes('sequenceDiagram') || code.includes('flowchart') || code.includes('classDiagram') || code.includes('erDiagram') || code.includes('gitgraph') || code.includes('gitGraph') || code.includes('pie') || code.includes('journey') || code.includes('gantt') || code.includes('mindmap') || code.includes('timeline') || code.includes('sankey') || code.includes('xychart'))) {{
-                                var id = 'mermaid-' + Date.now() + '-' + index;
-                                // 처리 중 표시로 즉시 마킹하여 중복 처리 방지
-                                element.setAttribute('data-processed', 'true');
-                                
-                                // 오류 메시지 완전 차단을 위한 래퍼
+                    // CRITICAL: 오류가 발생해도 절대 외부로 전파되지 않도록 완전 격리
+                    setTimeout(function() {{
+                        try {{
+                            if (typeof mermaid === 'undefined') return;
+                            
+                            var elements = document.querySelectorAll('.mermaid:not([data-processed])');
+                            elements.forEach(function(element, index) {{
                                 try {{
-                                    mermaid.render(id, code).then(function(result) {{
-                                        element.innerHTML = result.svg;
-                                        element.setAttribute('data-processed', 'success');
-                                    }}).catch(function(error) {{
-                                        // 오류 시 완전히 제거하고 오류 메시지도 차단
+                                    var code = element.textContent.trim();
+                                    // 빈 코드나 잘못된 구문 필터링
+                                    if (code && code.length > 10 && (code.includes('graph') || code.includes('sequenceDiagram') || code.includes('flowchart') || code.includes('classDiagram') || code.includes('erDiagram') || code.includes('gitgraph') || code.includes('gitGraph') || code.includes('pie') || code.includes('journey') || code.includes('gantt') || code.includes('mindmap') || code.includes('timeline') || code.includes('sankey') || code.includes('xychart'))) {{
+                                        var id = 'mermaid-' + Date.now() + '-' + index;
+                                        element.setAttribute('data-processed', 'true');
+                                        
+                                        try {{
+                                            mermaid.render(id, code).then(function(result) {{
+                                                try {{
+                                                    element.innerHTML = result.svg;
+                                                    element.setAttribute('data-processed', 'success');
+                                                }} catch (e) {{}}
+                                            }}).catch(function(error) {{
+                                                try {{
+                                                    element.style.display = 'none';
+                                                    element.innerHTML = '';
+                                                    element.setAttribute('data-processed', 'failed');
+                                                    // CRITICAL: Mermaid 오류 메시지 제거
+                                                    setTimeout(function() {{
+                                                        document.querySelectorAll('#d2, [id^="mermaid-"]').forEach(function(el) {{
+                                                            if (el.textContent.includes('Syntax error') || el.textContent.includes('mermaid version')) {{
+                                                                el.remove();
+                                                            }}
+                                                        }});
+                                                    }}, 50);
+                                                }} catch (e) {{}}
+                                            }});
+                                        }} catch (renderError) {{
+                                            element.style.display = 'none';
+                                            element.innerHTML = '';
+                                            element.setAttribute('data-processed', 'failed');
+                                        }}
+                                    }} else {{
                                         element.style.display = 'none';
-                                        element.remove();
-                                        // 오류 메시지 DOM에서 제거
-                                        setTimeout(function() {{
-                                            var errorElements = document.querySelectorAll('[class*="error"], [id*="error"], .mermaid-error');
-                                            errorElements.forEach(function(el) {{ el.remove(); }});
-                                        }}, 10);
-                                    }});
-                                }} catch (renderError) {{
-                                    // 렌더링 오류 시 완전 제거
-                                    element.style.display = 'none';
-                                    element.remove();
+                                        element.innerHTML = '';
+                                        element.setAttribute('data-processed', 'invalid');
+                                    }}
+                                }} catch (elementError) {{
+                                    // 개별 요소 처리 오류 무시
                                 }}
-                            }} else {{
-                                // 빈 요소나 잘못된 구문은 완전히 제거
-                                element.style.display = 'none';
-                                element.remove();
-                            }}
-                        }});
-                    }} catch (error) {{
-                        // Mermaid 오류 조용히 처리
-                    }}
+                            }});
+                        }} catch (error) {{
+                            // 전체 렌더링 오류 무시
+                        }} finally {{
+                            // CRITICAL: 모든 Mermaid 오류 메시지 제거
+                            setTimeout(function() {{
+                                try {{
+                                    document.querySelectorAll('[id^="d"], svg[id^="mermaid-"]').forEach(function(el) {{
+                                        var text = el.textContent || '';
+                                        if (text.includes('Syntax error') || text.includes('mermaid version') || text.includes('error in text')) {{
+                                            el.remove();
+                                        }}
+                                    }});
+                                }} catch (e) {{}}
+                            }}, 100);
+                        }}
+                    }}, 0);
                 }}
                 
                 // 초기화 - 중복 실행 방지
@@ -199,23 +225,30 @@ class HtmlTemplateBuilder:
                 }};
                 
                 window.executeCode = function(codeId, language) {{
+                    console.log('[EXECUTE] 호출됨 - codeId:', codeId, 'language:', language);
                     try {{
                         var codeElement = document.getElementById(codeId);
+                        console.log('[EXECUTE] codeElement:', codeElement);
                         if (!codeElement) {{
+                            console.error('[EXECUTE] 코드 요소 없음');
                             showToast('코드 요소를 찾을 수 없습니다.');
                             return;
                         }}
                         
                         var codeText = codeElement.textContent || codeElement.innerText;
+                        console.log('[EXECUTE] codeText 길이:', codeText.length);
+                        console.log('[EXECUTE] pyqt_bridge:', pyqt_bridge);
                         
                         if (pyqt_bridge && pyqt_bridge.executeCode) {{
+                            console.log('[EXECUTE] pyqt_bridge.executeCode 호출');
                             showToast('⏳ 코드 실행 중...');
                             pyqt_bridge.executeCode(codeText, language);
                         }} else {{
+                            console.error('[EXECUTE] pyqt_bridge 없음');
                             showToast('❌ 코드 실행 기능을 사용할 수 없습니다.');
                         }}
                     }} catch (error) {{
-                        console.error('Code execution failed:', error);
+                        console.error('[EXECUTE] 오류:', error);
                         showToast('❌ 코드 실행에 실패했습니다.');
                     }}
                     }};
@@ -275,6 +308,7 @@ class HtmlTemplateBuilder:
                 
                 new QWebChannel(qt.webChannelTransport, function(channel) {{
                     pyqt_bridge = channel.objects.pyqt_bridge;
+                    console.log('[INIT] pyqt_bridge 연결됨:', pyqt_bridge);
                 }});
                 
                 var currentSelectedMessage = null;

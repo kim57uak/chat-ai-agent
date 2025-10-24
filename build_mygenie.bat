@@ -41,7 +41,7 @@ if errorlevel 1 (
 
 REM 패키징 스크립트 실행 (멀티코어 병렬 처리 활성화)
 echo 패키징 스크립트 실행 중...
-python build_package.py
+python build_mygenie.py
 
 if errorlevel 1 (
     echo ❌ 패키징 실패!

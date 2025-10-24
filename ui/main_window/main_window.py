@@ -212,10 +212,10 @@ class MainWindow(QMainWindow):
                     if session:
                         session_name = f" - {session['title']}"
             
-            self.setWindowTitle(f'AIChat - {theme_name}{session_name}')
+            self.setWindowTitle(f'MyGenie - {theme_name}{session_name}')
         except Exception as e:
             logger.debug(f"창 제목 업데이트 오류: {e}")
-            self.setWindowTitle('AIChat')
+            self.setWindowTitle('MyGenie')
     
     def save_message_to_session(self, role: str, content: str, token_count: int = 0, content_html: str = None):
         """메시지 저장 (SessionController에 위임)"""

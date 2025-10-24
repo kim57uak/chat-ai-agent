@@ -229,7 +229,7 @@ if sys.platform == 'win32':
         a.zipfiles,
         a.datas,
         [],
-        name='ChatAIAgent',
+        name='MyGenie',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -250,7 +250,7 @@ elif sys.platform == 'darwin':
         a.scripts,
         [],
         exclude_binaries=True,
-        name='ChatAIAgent',
+        name='MyGenie',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -271,14 +271,14 @@ elif sys.platform == 'darwin':
         strip=False,
         upx=False,
         upx_exclude=[],
-        name='ChatAIAgent'
+        name='MyGenie'
     )
     
     app = BUNDLE(
         coll,
-        name='ChatAIAgent_beta.app',
+        name='MyGenie.app',
         icon='image/Agentic_AI_transparent.png' if Path('image/Agentic_AI_transparent.png').exists() else None,
-        bundle_identifier='com.chataiagent.beta.app',
+        bundle_identifier='com.mygenie.app',
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'NSAppleScriptEnabled': False,
@@ -289,7 +289,7 @@ elif sys.platform == 'darwin':
             },
             'CFBundleDocumentTypes': [
                 {
-                    'CFBundleTypeName': 'ChatAIAgent Document',
+                    'CFBundleTypeName': 'MyGenie Document',
                     'CFBundleTypeIconFile': 'Agentic_AI_transparent.png',
                     'LSItemContentTypes': ['public.plain-text'],
                     'LSHandlerRank': 'Owner'
@@ -306,7 +306,7 @@ else:
         a.zipfiles,
         a.datas,
         [],
-        name='ChatAIAgent',
+        name='MyGenie',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,

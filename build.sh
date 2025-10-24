@@ -35,8 +35,8 @@ if [ "$SKIP_VENV" = true ]; then
     echo "🐍 Python version: $(python --version)"
     
     # 빌드 실행
-    echo "🔨 Running build_package.py..."
-    python build_package.py
+    echo "🔨 Running build_mygenie.py..."
+    python build_mygenie.py
 else
     echo "🚀 Full build mode (venv recreation + build)"
     echo "📁 Working directory: $(pwd)"
@@ -83,8 +83,8 @@ else
     echo "🐍 Python version: $(python --version)"
     
     # 8. 빌드 실행
-    echo "🔨 Running build_package.py..."
-    python build_package.py
+    echo "🔨 Running build_mygenie.py..."
+    python build_mygenie.py
 fi
 
 # 결과 확인

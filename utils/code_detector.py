@@ -18,6 +18,10 @@ class CodeLanguageDetector:
             r'\bimport\s+\w+',
             r'\bfrom\s+\w+\s+import',
             r'print\s*\(',
+            r'\bif\s+__name__\s*==',
+            r'\bself\.',
+            r':\s*$',
+            r'\belif\s+',
         ],
         'javascript': [
             r'\bfunction\s+\w+\s*\(',
@@ -29,6 +33,18 @@ class CodeLanguageDetector:
             r'\.push\s*\(',
             r'\.includes\s*\(',
             r'Math\.\w+\s*\(',
+        ],
+        'java': [
+            r'\bpublic\s+class\s+\w+',
+            r'\bpublic\s+static\s+void\s+main',
+            r'\bSystem\.out\.print',
+            r'\bprivate\s+\w+\s+\w+\s*;',
+            r'\bpublic\s+\w+\s+\w+\s*\(',
+            r'\bnew\s+\w+\s*\(',
+            r'@Override',
+            r'\bString\[\]\s+args',
+            r'\bint\s+\w+\s*=',
+            r';\s*$',
         ],
     }
     
@@ -58,6 +74,8 @@ class CodeLanguageDetector:
                 return 'python'
             elif 'javascript' in lang_name or 'js' in lang_name or 'node' in lang_name:
                 return 'javascript'
+            elif 'java' in lang_name:
+                return 'java'
             elif 'text' not in lang_name:
                 pygments_result = lang_name
         except (ImportError, Exception):
@@ -84,9 +102,34 @@ class CodeLanguageDetector:
     
     @staticmethod
     def _detect_by_pattern(code: str) -> str:
-        """정규식 패턴으로 언어 감지"""
-        scores = {}
+        """정규식 패턴으로 언어 감지 (Java 우선)"""
+        # Java 고유 패턴 우선 검사
+        java_exclusive = [
+            r'\bpublic\s+class\s+\w+',
+            r'\bpublic\s+static\s+void\s+main',
+            r'\bSystem\.out\.print',
+            r'@Override',
+            r'\bprivate\s+\w+\s+\w+\s*;',
+        ]
         
+        java_score = sum(1 for pattern in java_exclusive if re.search(pattern, code, re.MULTILINE))
+        if java_score >= 2:  # Java 고유 패턴 2개 이상이면 Java
+            return 'java'
+        
+        # Python 고유 패턴 검사
+        python_exclusive = [
+            r'\bdef\s+\w+\s*\(',
+            r'\bfrom\s+\w+\s+import',
+            r'\bif\s+__name__\s*==',
+            r'\bself\.',
+        ]
+        
+        python_score = sum(1 for pattern in python_exclusive if re.search(pattern, code, re.MULTILINE))
+        if python_score >= 2:  # Python 고유 패턴 2개 이상이면 Python
+            return 'python'
+        
+        # 일반 패턴 매칭
+        scores = {}
         for lang, patterns in CodeLanguageDetector.PATTERNS.items():
             score = sum(1 for pattern in patterns if re.search(pattern, code, re.MULTILINE))
             if score > 0:

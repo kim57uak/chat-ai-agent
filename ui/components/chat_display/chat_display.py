@@ -149,6 +149,10 @@ class ChatDisplay:
     
     def _on_code_executed(self, output, error):
         """코드 실행 완료 처리"""
+        # 프로그레스바 숨기기
+        if hasattr(self, 'link_handler'):
+            self.link_handler.hideProgressBar()
+        
         if error:
             result_text = f"❌ 실행 오류:\n{error}"
         else:

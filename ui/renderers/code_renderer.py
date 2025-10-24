@@ -110,10 +110,11 @@ class CodeRenderer:
         """언어 자동 감지"""
         try:
             from utils.code_detector import CodeLanguageDetector
-            return CodeLanguageDetector.detect_language(code)
+            detected = CodeLanguageDetector.detect_language(code)
+            return detected if detected != 'unknown' else ''
         except Exception as e:
             logger.warning(f"[CODE] 언어 감지 실패: {e}")
-            return 'python'
+            return ''
     
     def _clean_html(self, text: str) -> str:
         """HTML 태그 제거 및 엔티티 디코딩"""

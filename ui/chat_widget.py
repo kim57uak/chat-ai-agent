@@ -812,9 +812,9 @@ class ChatWidget(QWidget):
             
             # 기본 환영 메시지
             welcome_parts = [
-                f'<div style="color: {primary_color}; font-weight: bold; font-size: 1.2em;">🚀 Chat AI Agent에 오신 것을 환영합니다! 🤖</div>',
+                f'<div style="color: {primary_color}; font-weight: bold; font-size: 1.2em;">🧞 MyGenie에 오신 것을 환영합니다! ✨</div>',
                 '',
-                f'<span style="color: {text_color};">✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다</span>',
+                f'<span style="color: {text_color};">💫 당신만을 위한 AI 지니, 원하는 모든 것을 이루어드립니다</span>',
                 ''
             ]
             
@@ -831,14 +831,13 @@ class ChatWidget(QWidget):
             
             # 기능 안내
             welcome_parts.extend([
-                f'<div style="color: {primary_color}; font-weight: bold;">🎯 사용 가능한 기능:</div>',
-                f'<span style="color: {text_color};">• 💬 **Ask 모드**: 일반 대화 및 질문</span>',
-                f'<span style="color: {text_color};">• 🔧 **Agent 모드**: 외부 도구 활용 (검색, 데이터베이스, API 등)</span>',
-                f'<span style="color: {text_color};">• 📎 **파일 업로드**: 문서, 이미지, 데이터 분석</span>',
+                f'<div style="color: {primary_color}; font-weight: bold;">🎯 MyGenie의 능력:</div>',
+                f'<span style="color: {text_color};">• 💬 **수다 떨기**: 심심하면 말 걸어주세요</span>',
+                f'<span style="color: {text_color};">• 🔧 **만능 해결사**: 검색, DB, API... 못하는 게 뭐예요?</span>',
+                f'<span style="color: {text_color};">• 📎 **파일 읽어드림**: 문서, 이미지, 데이터 다 봐드려요</span>',
+                f'<span style="color: {text_color};">• ▶️ **코드 돌려드림**: Python, JS, Java 바로 실행</span>',
                 '',
-                f'<span style="color: {text_color};">⚠️ **주의사항**: AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</span>',
-                '',
-                f'<span style="color: {text_color};">💡 **팁**: 메시지에 마우스를 올리면 복사 버튼이 나타납니다!</span>'
+                f'<span style="color: {text_color};">⚠️ **솔직 고백**: 완벽하진 않아요. 의심은 미덕입니다!</span>'
             ])
             
             return '\n'.join(welcome_parts)
@@ -848,7 +847,7 @@ class ChatWidget(QWidget):
             import traceback
             traceback.print_exc()
             # 오류 시 기본 메시지 반환
-            return '🚀 **Chat AI Agent에 오신 것을 환영합니다!** 🤖\n\n✨ 저는 다양한 도구를 활용해 여러분을 도와드리는 AI 어시스턴트입니다'
+            return '🧞 **MyGenie에 오신 것을 환영합니다!** ✨\n\n💫 당신만을 위한 AI 지니, 원하는 모든 것을 이루어드립니다'
     
     def clear_conversation_history(self):
         """대화 히스토리 초기화"""
@@ -1757,3 +1756,13 @@ class ChatWidget(QWidget):
             logger.debug(f"[LOAD_MORE] 오류: {e}")
         finally:
             self.is_loading_more = False
+
+    def show_progress_bar(self):
+        """프로그레스바 표시"""
+        if hasattr(self, "loading_bar"):
+            self.loading_bar.show()
+
+    def hide_progress_bar(self):
+        """프로그레스바 숨김"""
+        if hasattr(self, "loading_bar"):
+            self.loading_bar.hide()

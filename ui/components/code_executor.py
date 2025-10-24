@@ -64,34 +64,29 @@ class CodeExecutionThread(QThread):
     
     def _execute_python(self):
         """Python 코드 실행"""
-        import sys
-        from io import StringIO
-        
-        # input() 사용 감지
         if 'input(' in self.code:
             return "", "오류: input() 함수는 지원하지 않습니다. 대화형 입력이 필요한 코드는 실행할 수 없습니다."
         
         try:
-            # 표준 출력 캐처
-            old_stdout = sys.stdout
-            old_stderr = sys.stderr
-            sys.stdout = StringIO()
-            sys.stderr = StringIO()
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+                f.write(self.code)
+                temp_file = f.name
             
             try:
-                # 코드 실행
-                exec(self.code, {'__name__': '__main__'})
-                
-                output = sys.stdout.getvalue()
-                error = sys.stderr.getvalue()
-                
-                return output, error
-                
+                result = subprocess.run(
+                    ['python3', temp_file],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    encoding='utf-8',
+                    env={**os.environ, 'MPLBACKEND': 'Agg'}
+                )
+                return result.stdout, result.stderr
             finally:
-                # 표준 출력 복원
-                sys.stdout = old_stdout
-                sys.stderr = old_stderr
+                os.unlink(temp_file)
                 
+        except subprocess.TimeoutExpired:
+            return "", "실행 시간 초과 (30초)"
         except Exception as e:
             logger.error(f"Python 실행 오류: {e}")
             import traceback

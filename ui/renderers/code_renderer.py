@@ -12,7 +12,7 @@ logger = get_logger("code_renderer")
 class CodeRenderer:
     """코드 블록 렌더링"""
     
-    EXECUTABLE_LANGS = {'python', 'py', 'javascript', 'js'}
+    EXECUTABLE_LANGS = {'python', 'py', 'javascript', 'js', 'java'}
     
     def __init__(self):
         self.code_blocks = {}
@@ -141,7 +141,14 @@ class CodeRenderer:
         
         lang_lower = lang.lower() if lang else ''
         is_executable = lang_lower in self.EXECUTABLE_LANGS
-        exec_lang = 'python' if lang_lower in {'python', 'py'} else 'javascript'
+        if lang_lower in {'python', 'py'}:
+            exec_lang = 'python'
+        elif lang_lower in {'javascript', 'js'}:
+            exec_lang = 'javascript'
+        elif lang_lower == 'java':
+            exec_lang = 'java'
+        else:
+            exec_lang = 'python'
         
         lang_label = f'<div style="position: absolute; top: 8px; left: 12px; background: rgba(255,255,255,0.1); color: #aaa; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; z-index: 10;">{lang or "code"}</div>'
         
@@ -176,7 +183,14 @@ class CodeRenderer:
         
         lang_lower = lang.lower() if lang else ''
         is_executable = lang_lower in self.EXECUTABLE_LANGS
-        exec_lang = 'python' if lang_lower in {'python', 'py'} else 'javascript'
+        if lang_lower in {'python', 'py'}:
+            exec_lang = 'python'
+        elif lang_lower in {'javascript', 'js'}:
+            exec_lang = 'javascript'
+        elif lang_lower == 'java':
+            exec_lang = 'java'
+        else:
+            exec_lang = 'python'
         
         logger.info(f"[PACKAGED] 실행 가능: {is_executable}, 언어: {exec_lang}")
         

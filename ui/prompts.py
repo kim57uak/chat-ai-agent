@@ -60,10 +60,19 @@ class PromptManager:
                 ),
                 "formatting": "Use markdown formatting for readability. Use emojis to enhance structure. Code blocks: plain text only, no HTML.",
                 "code_rules": (
-                    "Code formatting: Python code MUST use proper indentation (4 spaces per level). "
-                    "Code blocks: ALWAYS specify language (```python, ```javascript, ```js). "
-                    "Plain text only, no HTML tags/entities. "
-                    "NEVER include explanatory comments in code - write clean, self-documenting code only."
+                    "Code blocks: Specify language (```python, ```javascript, ```java). Plain text only, no HTML. No comments - clean code only. "
+                    "Python: 4-space indent. JavaScript: const/let, semicolons. Java: camelCase, proper access modifiers."
+                ),
+                "program_language_execution_rules": (
+                    "Code Execution Rules:\n"
+                    "Python: Import matplotlib base module first, set backend to Agg, then import pyplot. "
+                    "Set Korean font (AppleGothic for macOS) and unicode_minus=False. "
+                    "Save plots to file with close(), never use show(). Avoid deprecated functions. "
+                    "Use UTF-8 encoding for all file operations (open, CSV read/write with utf-8-sig for Excel).\n"
+                    "JavaScript: Use strict mode, modern syntax (const/let, async/await), UTF-8 for file I/O.\n"
+                    "Java: Include package, use try-with-resources, UTF-8 charset.\n"
+                    "All: Absolute paths, error handling, no deprecated APIs, UTF-8 encoding. "
+                    "Output files: Save in same directory as source file unless user specifies different path."
                 ),
                 "mermaid_rules": "Diagrams: ```mermaid\n[code]\n```. English only, plain arrows (-->). Mindmap: use 'mindmap' + root((text)), NOT flowchart. ERD: UPPERCASE entities, crow's foot notation, essential attributes only (no FK).",
                 "agent_base": "Wait for tool results before final answer. Use exact function names and parameter schemas from tool descriptions.",
@@ -156,6 +165,7 @@ class PromptManager:
                 common["tool_usage"],
                 common["formatting"],
                 common["code_rules"],
+                common["program_language_execution_rules"],
                 common["mermaid_rules"],
                 common["agent_base"],
                 common["react_format"],
@@ -172,6 +182,8 @@ class PromptManager:
                 common["response_tone"],
                 common["emoji_usage"],
                 common["formatting"],
+                common["code_rules"],
+                common["program_language_execution_rules"],
                 common["mermaid_rules"],
                 common["ask_mode"],
                 model_specific,
@@ -295,6 +307,7 @@ class PromptManager:
             self.get_tool_prompt(model_type),
             common["formatting"],
             common["code_rules"],
+            common["program_language_execution_rules"],
             common["mermaid_rules"],
             common["execution_rules"],
             model_specific.get("system_enhancement", ""),

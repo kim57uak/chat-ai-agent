@@ -90,43 +90,53 @@ class ConversationHistory:
         return msg_id
 
     def get_context_messages(self) -> List[Dict]:
-        """Get messages for AI context using hybrid approach"""
+        """Get messages for AI context using conversation pairs"""
         if not self.hybrid_mode:
             return self._get_legacy_context()
         
-        # 하이브리드 방식: 사용자 메시지와 AI 응답을 별도로 처리
-        user_messages = []
-        ai_messages = []
+        # 대화 쌍 기반 수집 (시간순 유지)
+        pairs = []
+        current_pair = []
         
-        # 역순으로 순회하여 최근 메시지부터 수집
-        for msg in reversed(self.current_session):
+        # 시간순으로 순회하여 대화 쌍 구성
+        for msg in self.current_session:
             if msg["role"] == "user":
-                if len(user_messages) < self.user_message_limit:
-                    user_messages.insert(0, msg)
+                # 새로운 쌍 시작
+                if current_pair:
+                    pairs.append(current_pair)
+                current_pair = [msg]
             elif msg["role"] in ["assistant", "agent"]:
-                if len(ai_messages) < self.ai_response_limit:
-                    ai_messages.insert(0, msg)
+                # 현재 쌍에 AI 응답 추가
+                if current_pair:
+                    current_pair.append(msg)
+        
+        # 마지막 쌍 추가
+        if current_pair:
+            pairs.append(current_pair)
+        
+        # 최근 N쌍만 선택 (user_message_limit 사용)
+        max_pairs = self.user_message_limit
+        recent_pairs = pairs[-max_pairs:] if len(pairs) > max_pairs else pairs
+        
+        # 평탄화 및 토큰 제한 적용
+        all_messages = []
+        for pair in recent_pairs:
+            all_messages.extend(pair)
         
         # AI 응답에 토큰 제한 적용
-        ai_messages = self._apply_token_limit(ai_messages)
-        
-        # 시간순으로 병합
-        all_messages = user_messages + ai_messages
-        all_messages.sort(key=lambda x: x["timestamp"])
+        all_messages = self._apply_token_limit_to_messages(all_messages)
         
         return [{"role": msg["role"], "content": self._clean_content_for_ai(msg["content"])} for msg in all_messages]
 
     def _apply_token_limit(self, ai_messages: List[Dict]) -> List[Dict]:
-        """Apply token limit to AI responses"""
+        """Apply token limit to AI responses (legacy)"""
         if not ai_messages:
             return []
         
         total_tokens = 0
         filtered_messages = []
         
-        # 최신 메시지부터 토큰 제한까지 추가
         for msg in reversed(ai_messages):
-            # 정확한 토큰 수가 있으면 사용, 없으면 추정
             msg_tokens = msg.get("output_tokens") or msg.get("total_tokens") or msg.get("token_count", self._estimate_tokens(msg["content"]))
             if total_tokens + msg_tokens <= self.ai_response_token_limit:
                 filtered_messages.insert(0, msg)
@@ -135,6 +145,52 @@ class ConversationHistory:
                 break
         
         return filtered_messages
+    
+    def _apply_token_limit_to_messages(self, messages: List[Dict]) -> List[Dict]:
+        """Apply token limit to all messages while preserving conversation flow"""
+        if not messages:
+            return []
+        
+        # 대화 쌍으로 재구성
+        pairs = []
+        current_pair = []
+        
+        for msg in messages:
+            if msg["role"] == "user":
+                if current_pair:
+                    pairs.append(current_pair)
+                current_pair = [msg]
+            elif msg["role"] in ["assistant", "agent"]:
+                if current_pair:
+                    current_pair.append(msg)
+        
+        if current_pair:
+            pairs.append(current_pair)
+        
+        # 역순으로 토큰 제한 적용 (최신 대화 우선)
+        total_ai_tokens = 0
+        filtered_pairs = []
+        
+        for pair in reversed(pairs):
+            # 쌍의 AI 응답 토큰 계산
+            pair_ai_tokens = 0
+            for msg in pair:
+                if msg["role"] in ["assistant", "agent"]:
+                    pair_ai_tokens += msg.get("output_tokens") or msg.get("total_tokens") or msg.get("token_count", self._estimate_tokens(msg["content"]))
+            
+            # 토큰 제한 확인 (최소 1쌍은 유지)
+            if not filtered_pairs or total_ai_tokens + pair_ai_tokens <= self.ai_response_token_limit:
+                filtered_pairs.insert(0, pair)
+                total_ai_tokens += pair_ai_tokens
+            else:
+                break
+        
+        # 평탄화
+        result = []
+        for pair in filtered_pairs:
+            result.extend(pair)
+        
+        return result
 
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count (캐싱)"""

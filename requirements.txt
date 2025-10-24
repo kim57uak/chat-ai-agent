@@ -57,6 +57,7 @@ pillow
 matplotlib
 seaborn
 scikit-learn
+astropy
 pluggy==1.6.0
 propcache==0.3.2
 proto-plus==1.26.1
@@ -71,11 +72,11 @@ pyinstaller-hooks-contrib==2025.8
 pymdown-extensions==10.16.1
 pyparsing==3.2.3
 PyPDF2==3.0.1
-PyQt6>=6.9.1
-PyQt6-Qt6>=6.9.1
-PyQt6-WebEngine>=6.9.0
-PyQt6-WebEngine-Qt6>=6.9.1
-PyQt6_sip>=13.10.2
+PyQt6==6.8.0
+PyQt6-Qt6==6.8.2
+PyQt6-WebEngine==6.8.0
+PyQt6-WebEngine-Qt6==6.8.2
+PyQt6_sip==13.8.0
 pytest==8.4.1
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
@@ -109,6 +110,7 @@ zstandard==0.23.0
 # Security and Encryption
 keyring>=24.0.0
 cryptography==42.0.8
+pycryptodome>=3.20.0
 pykrx>=1.0.51
 
 # Logging

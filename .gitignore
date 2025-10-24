@@ -12,6 +12,7 @@ config_local.json
 *.zip
 *.pyz
 *.spec
+!my_genie.spec
 *build_**/
 /dist/
 .idea/

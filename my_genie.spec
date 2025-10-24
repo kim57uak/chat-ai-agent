@@ -9,9 +9,11 @@ block_cipher = None
 
 # Collect packages completely
 cryptography_datas, cryptography_binaries, cryptography_hiddenimports = collect_all('cryptography')
+pycryptodome_datas, pycryptodome_binaries, pycryptodome_hiddenimports = collect_all('Crypto')
 loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
 keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
 pygments_datas, pygments_binaries, pygments_hiddenimports = collect_all('pygments')
+astropy_datas, astropy_binaries, astropy_hiddenimports = collect_all('astropy')
 
 # Data science packages - explicit collect_all to ensure all submodules included
 pandas_datas, pandas_binaries, pandas_hiddenimports = collect_all('pandas')
@@ -62,13 +64,15 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=(
-        cryptography_binaries + loguru_binaries + keyring_binaries + pygments_binaries +
-        pandas_binaries + numpy_binaries + matplotlib_binaries + seaborn_binaries + scipy_binaries
+        cryptography_binaries + pycryptodome_binaries + loguru_binaries + keyring_binaries + pygments_binaries +
+        pandas_binaries + numpy_binaries + matplotlib_binaries + seaborn_binaries + scipy_binaries +
+        astropy_binaries
     ),
     datas=(
         datas + 
-        cryptography_datas + loguru_datas + keyring_datas + pygments_datas +
-        pandas_datas + numpy_datas + matplotlib_datas + seaborn_datas + scipy_datas
+        cryptography_datas + pycryptodome_datas + loguru_datas + keyring_datas + pygments_datas +
+        pandas_datas + numpy_datas + matplotlib_datas + seaborn_datas + scipy_datas +
+        astropy_datas
     ),
     hiddenimports=[
         # PyQt6
@@ -92,6 +96,15 @@ a = Analysis(
         # Security & Encryption
         'keyring',
         'keyring.backends',
+        'Crypto',
+        'Crypto.Cipher',
+        'Crypto.Cipher.AES',
+        'Crypto.Protocol',
+        'Crypto.Protocol.KDF',
+        'Crypto.Hash',
+        'Crypto.Hash.SHA1',
+        'Crypto.Util',
+        'Crypto.Util.Padding',
         
         # Logging
         'loguru',
@@ -103,6 +116,12 @@ a = Analysis(
         'anthropic',
         'openai',
         'google.generativeai',
+        
+        # Pygments - code highlighting
+        'pygments.lexers',
+        'pygments.styles',
+        'pygments.formatters',
+        'pygments.formatters.html',
         
         # Data science - explicit imports from hook files to ensure modules are found
         # pandas (from hook-pandas.py)
@@ -147,9 +166,9 @@ a = Analysis(
         'tools',
         'utils',
     ] + (
-        cryptography_hiddenimports + loguru_hiddenimports + keyring_hiddenimports + pygments_hiddenimports +
+        cryptography_hiddenimports + pycryptodome_hiddenimports + loguru_hiddenimports + keyring_hiddenimports + pygments_hiddenimports +
         pandas_hiddenimports + numpy_hiddenimports + matplotlib_hiddenimports + 
-        seaborn_hiddenimports + scipy_hiddenimports
+        seaborn_hiddenimports + scipy_hiddenimports + astropy_hiddenimports
     ),
     hookspath=['hooks'],
     hooksconfig={},
@@ -160,6 +179,7 @@ a = Analysis(
         'hooks/rthook_matplotlib.py',
         'hooks/rthook_scipy.py',
         'hooks/rthook_seaborn.py',
+        'hooks/rthook_astropy.py',
     ],
     excludes=[
         # Large ML libraries not needed
@@ -209,7 +229,7 @@ if sys.platform == 'win32':
         a.zipfiles,
         a.datas,
         [],
-        name='ChatAIAgent',
+        name='MyGenie',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -230,7 +250,7 @@ elif sys.platform == 'darwin':
         a.scripts,
         [],
         exclude_binaries=True,
-        name='ChatAIAgent',
+        name='MyGenie',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
@@ -251,14 +271,14 @@ elif sys.platform == 'darwin':
         strip=False,
         upx=False,
         upx_exclude=[],
-        name='ChatAIAgent'
+        name='MyGenie'
     )
     
     app = BUNDLE(
         coll,
-        name='ChatAIAgent_beta.app',
+        name='MyGenie.app',
         icon='image/Agentic_AI_transparent.png' if Path('image/Agentic_AI_transparent.png').exists() else None,
-        bundle_identifier='com.chataiagent.beta.app',
+        bundle_identifier='com.mygenie.app',
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'NSAppleScriptEnabled': False,
@@ -269,7 +289,7 @@ elif sys.platform == 'darwin':
             },
             'CFBundleDocumentTypes': [
                 {
-                    'CFBundleTypeName': 'ChatAIAgent Document',
+                    'CFBundleTypeName': 'MyGenie Document',
                     'CFBundleTypeIconFile': 'Agentic_AI_transparent.png',
                     'LSItemContentTypes': ['public.plain-text'],
                     'LSHandlerRank': 'Owner'
@@ -286,7 +306,7 @@ else:
         a.zipfiles,
         a.datas,
         [],
-        name='ChatAIAgent',
+        name='MyGenie',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,

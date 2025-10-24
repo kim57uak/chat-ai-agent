@@ -28,8 +28,8 @@ class ContentRenderer:
         try:
             # 1단계: 특수 콘텐츠를 placeholder로 변환
             text = self.image_renderer.process(text)
-            text = self._clean_html_blocks(text)
-            text = self.mermaid_renderer.process(text)  # Mermaid → placeholder
+            text = self.mermaid_renderer.process(text)  # Mermaid → placeholder (먼저!)
+            text = self._clean_html_blocks(text)        # HTML 정리 (Mermaid 후)
             text = self.code_renderer.process(text)     # Code → placeholder
             
             # 2단계: 마크다운 처리 (placeholder는 보호됨)
@@ -44,12 +44,24 @@ class ContentRenderer:
             return text
     
     def _clean_html_blocks(self, text: str) -> str:
-        """HTML 코드 블록 정리"""
+        """HTML 코드 블록 정리 - Mermaid 보호"""
+        # CRITICAL: Mermaid placeholder가 있으면 전체 건너뛰기
         if '__MERMAID_PLACEHOLDER_' in text:
+            logger.debug(f"[CONTENT] Mermaid placeholder 감지 - _clean_html_blocks 건너뛰기")
+            return text
+        
+        # Mermaid 키워드 감지
+        if any(keyword in text.lower() for keyword in ['mermaid', 'graph td', 'graph lr', 'sequencediagram', 'flowchart']):
+            logger.debug(f"[CONTENT] Mermaid 키워드 감지 - _clean_html_blocks 건너뛰기")
             return text
         
         def clean(match):
             content = match.group(1)
+            
+            # CRITICAL: Mermaid 코드블록은 정리하지 않음
+            if 'mermaid' in content.lower() or 'graph' in content or 'sequenceDiagram' in content:
+                return match.group(0)  # 원본 그대로 반환
+            
             content = re.sub(r'<[^>]+>', '', content)
             content = content.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
             content = content.replace('&quot;', '"').replace('&#x27;', "'")

@@ -124,6 +124,31 @@ class SessionManager:
         clean_text = clean_text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
         return clean_text.strip()
     
+    def _restore_mermaid_code(self, html: str) -> str:
+        """Mermaid HTML을 원본 코드로 복원"""
+        if not html or '<div class="mermaid"' not in html:
+            return html
+        
+        def extract_code(match):
+            content = match.group(1)
+            # HTML 태그 제거
+            content = re.sub(r'<[^>]+>', '', content)
+            # HTML 엔티티 디코딩
+            content = content.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+            content = content.replace('&quot;', '"').replace('&#39;', "'")
+            # 앞뒤 공백 정리
+            content = content.strip()
+            return f'```mermaid\n{content}\n```'
+        
+        # Mermaid div 블록을 코드 블록으로 변환
+        html = re.sub(
+            r'<div class="diagram"[^>]*>\s*<div class="mermaid"[^>]*>([\s\S]*?)</div>\s*</div>',
+            extract_code,
+            html
+        )
+        
+        return html
+    
     def add_message(self, session_id: int, role: str, content: str, 
                    content_html: str = None, token_count: int = 0, tool_calls: str = None) -> int:
         """메시지 추가"""
@@ -131,6 +156,10 @@ class SessionManager:
         
         # content 필드에는 HTML 태그 제거된 텍스트 저장
         clean_content = self._remove_html_tags(content)
+        
+        # content_html에서 Mermaid HTML을 원본 코드로 복원
+        if content_html:
+            content_html = self._restore_mermaid_code(content_html)
         
         message_id = self.db.add_message(session_id, role, clean_content, content_html, token_count, tool_calls)
         logger.debug(f"SESSION_MANAGER] 메시지 삽입 성공 - message_id: {message_id}")
@@ -145,8 +174,10 @@ class SessionManager:
         else:
             messages = self.db.get_messages(session_id, limit, offset)
         
-        # DB에서 로드 시에는 렌더링하지 않음 (표시 시점에 렌더링)
-        # content_html이 있으면 그대로 사용, 없으면 content 사용
+        # 기존 DB의 Mermaid HTML을 원본 코드로 복원
+        for message in messages:
+            if message.get('content_html'):
+                message['content_html'] = self._restore_mermaid_code(message['content_html'])
         
         logger.debug(f"GET_MESSAGES] 반환할 메시지 수: {len(messages)}")
         return messages

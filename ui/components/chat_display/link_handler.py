@@ -150,11 +150,34 @@ class LinkHandler(QObject):
             import traceback
             traceback.print_exc()
     
+    @pyqtSlot()
+    def showProgressBar(self):
+        """프로그레스바 표시"""
+        try:
+            if hasattr(self, 'chat_widget') and self.chat_widget:
+                if hasattr(self.chat_widget, 'show_progress_bar'):
+                    self.chat_widget.show_progress_bar()
+        except Exception as e:
+            logger.error(f"[PROGRESS] 프로그레스바 표시 오류: {e}")
+    
+    @pyqtSlot()
+    def hideProgressBar(self):
+        """프로그레스바 숨김"""
+        try:
+            if hasattr(self, 'chat_widget') and self.chat_widget:
+                if hasattr(self.chat_widget, 'hide_progress_bar'):
+                    self.chat_widget.hide_progress_bar()
+        except Exception as e:
+            logger.error(f"[PROGRESS] 프로그레스바 숨김 오류: {e}")
+    
     @pyqtSlot(str, str)
     def executeCode(self, code, language):
         """코드 실행"""
         try:
             logger.debug(f"[EXECUTE] 코드 실행 시작: {language}, {len(code)}문자")
+            
+            # 프로그레스바 표시
+            self.showProgressBar()
             
             from ui.components.code_executor import CodeExecutor
             
@@ -168,11 +191,14 @@ class LinkHandler(QObject):
             
         except Exception as e:
             logger.error(f"[EXECUTE] 코드 실행 오류: {e}", exc_info=True)
+            self.hideProgressBar()
             self._show_execution_result("", f"실행 오류: {str(e)}")
     
     def _on_execution_finished(self, output, error):
         """코드 실행 완료 처리"""
         logger.debug(f"[EXECUTE] 실행 완료 - 출력: {len(output)}문자, 오류: {len(error)}문자")
+        # 프로그레스바 숨김
+        self.hideProgressBar()
         self._show_execution_result(output, error)
     
     def _show_execution_result(self, output, error):

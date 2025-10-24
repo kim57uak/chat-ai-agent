@@ -212,10 +212,10 @@ class MainWindow(QMainWindow):
                     if session:
                         session_name = f" - {session['title']}"
             
-            self.setWindowTitle(f'AIChat - {theme_name}{session_name}')
+            self.setWindowTitle(f'MyGenie - {theme_name}{session_name}')
         except Exception as e:
             logger.debug(f"창 제목 업데이트 오류: {e}")
-            self.setWindowTitle('AIChat')
+            self.setWindowTitle('MyGenie')
     
     def save_message_to_session(self, role: str, content: str, token_count: int = 0, content_html: str = None):
         """메시지 저장 (SessionController에 위임)"""
@@ -297,22 +297,10 @@ class MainWindow(QMainWindow):
         """메모리 경고 처리"""
         logger.debug(f"메모리 사용률 경고: {memory_percent:.1f}%")
     
+    
     def closeEvent(self, event):
-        """애플리케이션 종료 처리 - 크래시 방지 강화"""
-        try:
-            logger.debug("애플리케이션 종료 시작")
-        except:
-            print("애플리케이션 종료 시작")
-        
-        # CRITICAL: 모든 단축키 제거 - QShortcutMap 크래시 방지
-        try:
-            for action in self.findChildren(QAction):
-                action.setShortcut("")
-        except:
-            pass
-        
-        # 이벤트 먼저 accept - 크래시 방지
-        event.accept()
+        """애플리케이션 종료 처리"""
+        logger.debug("애플리케이션 종료 시작")
         
         try:
             # SafeTimer 정리
@@ -322,7 +310,6 @@ class MainWindow(QMainWindow):
             if self.session_timer is not None:
                 try:
                     self.session_timer.stop()
-                    self.session_timer.deleteLater()
                 except:
                     pass
             
@@ -367,6 +354,7 @@ class MainWindow(QMainWindow):
             except:
                 print(f"종료 중 오류: {e}")
         
+        event.accept()
         try:
             logger.debug("애플리케이션 종료 완료")
         except:

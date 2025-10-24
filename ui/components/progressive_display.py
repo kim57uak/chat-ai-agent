@@ -27,8 +27,13 @@ class ProgressiveDisplay(QObject):
         # 빈 컨테이너 생성
         self._create_empty_content(message_id)
         
-        # 줄별로 순차적 렌더링
-        self._display_lines_sequentially(message_id, lines, 0, delay_per_line, None)
+        # 전체 텍스트를 미리 렌더링 (코드 블록 보호)
+        from ui.renderers import ContentRenderer
+        renderer = ContentRenderer()
+        full_formatted = renderer.render(text)
+        
+        # 줄별로 순차적 표시 (렌더링된 텍스트 사용)
+        self._display_lines_sequentially(message_id, lines, 0, delay_per_line, full_formatted)
     
     def _create_empty_content(self, message_id):
         """빈 컨텐츠 컨테이너 생성"""
@@ -51,10 +56,10 @@ class ProgressiveDisplay(QObject):
             self.display_complete.emit()
             return
         
-        # 원본 텍스트의 현재까지 부분만 렌더링
+        # 원본 텍스트의 현재까지 부분만 추출
         current_text = '\n'.join(lines[:current_index + 1])
         
-        # 현재 텍스트를 다시 렌더링
+        # 전체 렌더링된 텍스트에서 현재 부분만 추출
         from ui.renderers import ContentRenderer
         renderer = ContentRenderer()
         current_formatted = renderer.render(current_text)

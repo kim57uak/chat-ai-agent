@@ -263,6 +263,7 @@ class PackageBuilder:
         required_packages = [
             # Core dependencies with hooks
             ('cryptography', '42.0.8'),
+            ('Crypto', None),  # pycryptodome
             ('keyring', None),
             ('loguru', None),
             # UI and framework
@@ -344,7 +345,7 @@ class PackageBuilder:
                 "--log-level=INFO",
                 f"--distpath=dist",
                 f"--workpath=build",
-                "chat_ai_agent.spec",
+                "my_genie.spec",
             ]
             print(f"🚀 병렬 빌드 시작: {' '.join(cmd)}")
 
@@ -377,7 +378,7 @@ class PackageBuilder:
         dist_dir = self.project_root / "dist"
 
         if self.system == "Darwin":  # macOS
-            app_path = dist_dir / "ChatAIAgent_beta.app"
+            app_path = dist_dir / "MyGenie.app"
             if app_path.exists():
                 print(f"✓ macOS app created: {app_path}")
 
@@ -388,7 +389,7 @@ class PackageBuilder:
                     print(f"⚠ DMG creation failed: {e}")
 
         elif self.system == "Windows":
-            exe_path = dist_dir / "ChatAIAgent.exe"
+            exe_path = dist_dir / "MyGenie.exe"
             if exe_path.exists():
                 print(f"✓ Windows executable created: {exe_path}")
 
@@ -396,7 +397,7 @@ class PackageBuilder:
                 try:
                     import zipfile
 
-                    zip_path = dist_dir / "ChatAIAgent-Windows.zip"
+                    zip_path = dist_dir / "MyGenie-Windows.zip"
                     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                         zipf.write(exe_path, exe_path.name)
                     print(f"✓ ZIP package created: {zip_path}")
@@ -404,7 +405,7 @@ class PackageBuilder:
                     print(f"⚠ ZIP creation failed: {e}")
 
         else:  # Linux
-            exe_path = dist_dir / "ChatAIAgent"
+            exe_path = dist_dir / "MyGenie"
             if exe_path.exists():
                 print(f"✓ Linux executable created: {exe_path}")
 
@@ -412,7 +413,7 @@ class PackageBuilder:
                 try:
                     import tarfile
 
-                    tar_path = dist_dir / "ChatAIAgent-Linux.tar.gz"
+                    tar_path = dist_dir / "MyGenie-Linux.tar.gz"
                     with tarfile.open(tar_path, "w:gz") as tar:
                         tar.add(exe_path, exe_path.name)
                     print(f"✓ TAR.GZ package created: {tar_path}")
@@ -424,7 +425,7 @@ class PackageBuilder:
         dist_dir = self.project_root / "dist"
 
         if self.system == "Darwin":
-            app_path = dist_dir / "ChatAIAgent_beta.app"
+            app_path = dist_dir / "MyGenie.app"
             resources_path = app_path / "Contents" / "Resources"
 
             if resources_path.exists():
@@ -448,7 +449,7 @@ class PackageBuilder:
             
             # cryptography 모듈 확인
             print("\n🔐 Verifying cryptography module:")
-            internal_path = dist_dir / "ChatAIAgent" / "_internal"
+            internal_path = dist_dir / "MyGenie" / "_internal"
             if internal_path.exists():
                 crypto_found = False
                 crypto_dirs = []
@@ -483,7 +484,7 @@ class PackageBuilder:
 
     def _create_dmg_with_ui(self, app_path: Path, dist_dir: Path):
         """드래그 앤 드롭 UI가 있는 DMG 생성"""
-        dmg_name = "ChatAIAgent-macOS_beta"
+        dmg_name = "MyGenie-macOS"
         temp_dmg = dist_dir / f"{dmg_name}-temp.dmg"
         final_dmg = dist_dir / f"{dmg_name}.dmg"
         temp_dir = self.project_root / "temp_dmg"
@@ -509,7 +510,7 @@ class PackageBuilder:
         
         # 임시 DMG 생성
         subprocess.run([
-            "hdiutil", "create", "-volname", "ChatAIAgent",
+            "hdiutil", "create", "-volname", "MyGenie",
             "-srcfolder", str(temp_dir), "-ov", "-format", "UDRW",
             str(temp_dmg)
         ], check=True)
@@ -535,7 +536,7 @@ class PackageBuilder:
         # Finder 설정 적용
         applescript = f'''
 tell application "Finder"
-    tell disk "ChatAIAgent"
+    tell disk "MyGenie"
         open
         set current view of container window to icon view
         set toolbar visible of container window to false
@@ -544,7 +545,7 @@ tell application "Finder"
         set viewOptions to the icon view options of container window
         set arrangement of viewOptions to not arranged
         set icon size of viewOptions to 128
-        set position of item "ChatAIAgent_beta.app" of container window to {{150, 200}}
+        set position of item "MyGenie.app" of container window to {{150, 200}}
         set position of item "Applications" of container window to {{450, 200}}
         close
         open
@@ -589,11 +590,11 @@ end tell
         dist_dir = self.project_root / "dist"
         
         if self.system == "Darwin":
-            exe_path = dist_dir / "ChatAIAgent" / "ChatAIAgent"
+            exe_path = dist_dir / "MyGenie" / "MyGenie"
         elif self.system == "Windows":
-            exe_path = dist_dir / "ChatAIAgent.exe"
+            exe_path = dist_dir / "MyGenie.exe"
         else:
-            exe_path = dist_dir / "ChatAIAgent"
+            exe_path = dist_dir / "MyGenie"
         
         if not exe_path.exists():
             print(f"❌ 실행 파일을 찾을 수 없습니다: {exe_path}")

@@ -60,33 +60,30 @@ class MenuManager:
         
         settings_menu.addSeparator()
         
-        # Session panel toggle
+        # Session panel toggle (단축키 제거 - WebEngine 충돌 방지)
         self.main_window.session_panel_action = QAction('세션 패널 표시', self.main_window)
         self.main_window.session_panel_action.setCheckable(True)
         self.main_window.session_panel_action.setChecked(True)
-        self.main_window.session_panel_action.setShortcut('Ctrl+[')
         self.main_window.session_panel_action.triggered.connect(
             self.main_window.layout_manager.toggle_session_panel
         )
         settings_menu.addAction(self.main_window.session_panel_action)
         
-        # Token usage toggle
+        # Token usage toggle (단축키 제거 - WebEngine 충돌 방지)
         self.main_window.token_usage_action = QAction('토큰 사용량 표시', self.main_window)
         self.main_window.token_usage_action.setCheckable(True)
         self.main_window.token_usage_action.setChecked(True)
-        self.main_window.token_usage_action.setShortcut('Ctrl+]')
         self.main_window.token_usage_action.triggered.connect(
             self.main_window.layout_manager.toggle_token_display
         )
         settings_menu.addAction(self.main_window.token_usage_action)
         
-        # Glassmorphism toggle
+        # Glassmorphism toggle (단축키 제거 - WebEngine 충돌 방지)
         self.main_window.glassmorphism_action = QAction('글래스모피즘 효과', self.main_window)
         self.main_window.glassmorphism_action.setCheckable(True)
         self.main_window.glassmorphism_action.setChecked(
             theme_manager.material_manager.is_glassmorphism_enabled()
         )
-        self.main_window.glassmorphism_action.setShortcut('Ctrl+G')
         self.main_window.glassmorphism_action.triggered.connect(self._toggle_glassmorphism)
         settings_menu.addAction(self.main_window.glassmorphism_action)
         

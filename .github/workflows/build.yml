@@ -44,7 +44,10 @@ jobs:
     
     - name: Build Windows executable
       run: |
+        chcp 65001
+        $env:PYTHONIOENCODING="utf-8"
         python build_mygenie.py
+      shell: pwsh
     
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4

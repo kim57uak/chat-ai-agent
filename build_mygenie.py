@@ -587,7 +587,7 @@ end tell
         dmg_size = final_dmg.stat().st_size / (1024 * 1024)
         print(f"✓ DMG 생성 완료: {final_dmg.name} ({dmg_size:.1f}MB)")
         print(f"  📝 다운로드 크기: {dmg_size:.1f}MB")
-        print(f"  💾 설치 후 크기: {app_size_str} (심볼릭 링크 유지)")
+        print(f"  💾 설치 후 크기: {size_mb:.1f}MB (심볼릭 링크 유지)")
         print("  📌 사용자는 DMG를 열고 앱을 Applications 폴더로 드래그하여 설치")
         print("  ⚠️  기존 설치된 앱이 있다면 삭제 후 재설치 권장")
 

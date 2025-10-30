@@ -219,27 +219,25 @@ class PackageBuilder:
         print("✓ Reset user_config_path.json (외부 경로 초기화)")
 
     def clean_build(self):
-        """빌드 디렉토리 및 캐시 정리 (venv는 build.sh에서 처리)"""
+        """빌드 디렉토리 및 캐시 정리 (크로스 플랫폼 호환)"""
         print("🧹 빌드 환경 정리 중...")
 
         # 1. 기존 빌드 디렉토리 삭제
-        dirs_to_clean = ["build", "dist"]
+        dirs_to_clean = ["build" if self.system != "Windows" else "build_windows", "dist", "dist_windows"]
         for dir_name in dirs_to_clean:
             dir_path = self.project_root / dir_name
             if dir_path.exists():
                 try:
-                    subprocess.run(["chmod", "-R", "755", str(dir_path)], check=False)
                     shutil.rmtree(dir_path)
                     print(f"✓ Cleaned {dir_name}")
                 except Exception as e:
                     print(f"⚠ {dir_name} 삭제 중 오류: {e}")
 
-        # 2. __pycache__ 재귀적 삭제
+        # 2. __pycache__ 재귀적 삭제 (Python으로 처리)
         try:
-            subprocess.run(
-                ["find", str(self.project_root), "-name", "__pycache__", "-type", "d", "-exec", "rm", "-rf", "{}", "+"],
-                check=False, capture_output=True
-            )
+            for pycache in self.project_root.rglob("__pycache__"):
+                if pycache.is_dir():
+                    shutil.rmtree(pycache)
             print("✓ Cleaned __pycache__")
         except Exception as e:
             print(f"⚠ __pycache__ 정리 중 오류: {e}")
@@ -337,14 +335,18 @@ class PackageBuilder:
 
         os.environ["PYINSTALLER_COMPILE_BOOTLOADER_PARALLEL"] = str(parallel_jobs)
         
+        # Windows에서는 dist_windows, build_windows 사용
+        dist_path = "dist_windows" if self.system == "Windows" else "dist"
+        build_path = "build_windows" if self.system == "Windows" else "build"
+        
         try:
             cmd = [
                 "pyinstaller",
                 "--noconfirm",
                 "--clean",
                 "--log-level=INFO",
-                f"--distpath=dist",
-                f"--workpath=build",
+                f"--distpath={dist_path}",
+                f"--workpath={build_path}",
                 "my_genie.spec",
             ]
             print(f"🚀 병렬 빌드 시작: {' '.join(cmd)}")
@@ -375,7 +377,7 @@ class PackageBuilder:
 
     def create_distribution_package(self):
         """Create distribution packages"""
-        dist_dir = self.project_root / "dist"
+        dist_dir = self.project_root / ("dist_windows" if self.system == "Windows" else "dist")
 
         if self.system == "Darwin":  # macOS
             app_path = dist_dir / "MyGenie.app"
@@ -389,7 +391,7 @@ class PackageBuilder:
                     print(f"⚠ DMG creation failed: {e}")
 
         elif self.system == "Windows":
-            exe_path = dist_dir / "MyGenie.exe"
+            exe_path = dist_dir / "MyGenie_beta.exe"
             if exe_path.exists():
                 print(f"✓ Windows executable created: {exe_path}")
 
@@ -397,7 +399,7 @@ class PackageBuilder:
                 try:
                     import zipfile
 
-                    zip_path = dist_dir / "MyGenie-Windows.zip"
+                    zip_path = dist_dir / "MyGenie_beta-Windows.zip"
                     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                         zipf.write(exe_path, exe_path.name)
                     print(f"✓ ZIP package created: {zip_path}")
@@ -422,7 +424,7 @@ class PackageBuilder:
 
     def verify_build(self):
         """Verify build contents"""
-        dist_dir = self.project_root / "dist"
+        dist_dir = self.project_root / ("dist_windows" if self.system == "Windows" else "dist")
 
         if self.system == "Darwin":
             app_path = dist_dir / "MyGenie.app"
@@ -483,7 +485,11 @@ class PackageBuilder:
         return True
 
     def _create_dmg_with_ui(self, app_path: Path, dist_dir: Path):
-        """드래그 앤 드롭 UI가 있는 DMG 생성"""
+        """드래그 앤 드롭 UI가 있는 DMG 생성 (macOS 전용)"""
+        if self.system != "Darwin":
+            print("⚠ DMG creation is only available on macOS")
+            return
+            
         dmg_name = "MyGenie-macOS"
         temp_dmg = dist_dir / f"{dmg_name}-temp.dmg"
         final_dmg = dist_dir / f"{dmg_name}.dmg"
@@ -496,10 +502,10 @@ class PackageBuilder:
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
         
-        # 앱 번들 실제 디스크 사용량 확인
-        result = subprocess.run(['du', '-sh', str(app_path)], capture_output=True, text=True)
-        app_size_str = result.stdout.split()[0] if result.returncode == 0 else "Unknown"
-        print(f"📦 앱 번들 실제 크기: {app_size_str}")
+        # 앱 번들 실제 디스크 사용량 확인 (Python으로 계산)
+        total_size = sum(f.stat().st_size for f in app_path.rglob('*') if f.is_file())
+        size_mb = total_size / (1024 * 1024)
+        print(f"📦 앱 번들 실제 크기: {size_mb:.1f}MB")
         print(f"   (설치 시 이 크기만큼 디스크 공간 사용)")
         
         # 임시 디렉토리 생성 (심볼릭 링크 유지)
@@ -587,12 +593,12 @@ end tell
 
     def test_executable(self):
         """빌드된 실행 파일 테스트"""
-        dist_dir = self.project_root / "dist"
+        dist_dir = self.project_root / ("dist_windows" if self.system == "Windows" else "dist")
         
         if self.system == "Darwin":
             exe_path = dist_dir / "MyGenie" / "MyGenie"
         elif self.system == "Windows":
-            exe_path = dist_dir / "MyGenie.exe"
+            exe_path = dist_dir / "MyGenie_beta.exe"
         else:
             exe_path = dist_dir / "MyGenie"
         
@@ -629,20 +635,19 @@ end tell
         return True
 
     def show_results(self):
-        """Show build results"""
-        dist_dir = self.project_root / "dist"
+        """Show build results (크로스 플랫폼 호환)"""
+        dist_dir = self.project_root / ("dist_windows" if self.system == "Windows" else "dist")
         if dist_dir.exists():
             print("\n📁 Generated files:")
             for item in dist_dir.iterdir():
                 if item.is_file():
                     size_mb = item.stat().st_size / (1024 * 1024)
                     print(f"   - {item.name} ({size_mb:.1f}MB)")
-                elif item.is_dir() and item.suffix == '.app':
-                    result = subprocess.run(['du', '-sh', str(item)], capture_output=True, text=True)
-                    size_str = result.stdout.split()[0] if result.returncode == 0 else "Unknown"
-                    print(f"   - {item.name}/ ({size_str})")
-                else:
-                    print(f"   - {item.name}/ (directory)")
+                elif item.is_dir():
+                    # 디렉토리 크기 계산 (Python으로 처리)
+                    total_size = sum(f.stat().st_size for f in item.rglob('*') if f.is_file())
+                    size_mb = total_size / (1024 * 1024)
+                    print(f"   - {item.name}/ ({size_mb:.1f}MB)")
 
     def build_parallel_tasks(self, parallel_jobs=None):
         """병렬로 실행할 수 있는 작업들을 동시에 처리"""

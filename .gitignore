@@ -15,9 +15,11 @@ config_local.json
 !my_genie.spec
 *build_**/
 /dist/
+/dist_windows/
 .idea/
 *.dmg
 build/*
+build_windows/*
 test*
 config.json
 .amazonq

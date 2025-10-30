@@ -229,7 +229,7 @@ if sys.platform == 'win32':
         a.zipfiles,
         a.datas,
         [],
-        name='MyGenie',
+        name='MyGenie_beta',
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,

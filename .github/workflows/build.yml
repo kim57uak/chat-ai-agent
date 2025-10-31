@@ -136,39 +136,46 @@ jobs:
     
     - name: Build macOS executable
       run: |
+        # Skip DMG creation in build script
+        export SKIP_DMG_CREATION=1
         python build_mygenie.py
     
-    - name: Optimize and recreate DMG
+    - name: Strip and optimize app bundle
       run: |
         if [ -d "dist/MyGenie.app" ]; then
           echo "Original app size:"
           du -sh dist/MyGenie.app
           
-          # Remove unnecessary files
+          # Remove debug symbols and unnecessary files
           find dist/MyGenie.app -name "*.pyc" -delete
           find dist/MyGenie.app -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
           find dist/MyGenie.app -name "*.a" -delete
           find dist/MyGenie.app -name "*.la" -delete
           
+          # Strip binaries to reduce size
+          find dist/MyGenie.app -type f \( -name "*.so" -o -name "*.dylib" \) -exec strip -x {} \; 2>/dev/null || true
+          
           echo "Optimized app size:"
           du -sh dist/MyGenie.app
-          
-          # Remove old DMG and recreate with proper compression
-          rm -f dist/MyGenie-macOS.dmg
-          
-          # Create temporary directory with symlinks preserved
+        fi
+    
+    - name: Create optimized DMG
+      run: |
+        if [ -d "dist/MyGenie.app" ]; then
+          # Create temporary directory
           mkdir -p temp_dmg
-          cp -R dist/MyGenie.app temp_dmg/
+          ditto dist/MyGenie.app temp_dmg/MyGenie.app
           ln -s /Applications temp_dmg/Applications
           
-          # Create compressed DMG directly
-          hdiutil create -volname "MyGenie" -srcfolder temp_dmg -ov -format UDZO dist/MyGenie-macOS.dmg
+          # Create highly compressed DMG
+          hdiutil create -volname "MyGenie" -srcfolder temp_dmg -ov -format UDBZ dist/MyGenie-macOS.dmg
           
           # Cleanup
           rm -rf temp_dmg
           
           echo "Final DMG size:"
           du -h dist/MyGenie-macOS.dmg
+          ls -lh dist/MyGenie-macOS.dmg
         fi
     
     - name: Upload macOS artifact

@@ -1,5 +1,5 @@
 {
-  "osm-mcp-server": true,
+  "osm-mcp-server": false,
   "hanatourApi": false,
   "mysql": false,
   "bitbucket": false,
@@ -9,7 +9,7 @@
   "excel-stdio": false,
   "gmail": false,
   "json-mcp-server": false,
-  "search-mcp-server": true,
+  "search-mcp-server": false,
   "github": false,
   "filesystem": false,
   "youtube_transcript": false,
@@ -18,5 +18,8 @@
   "sale-product-search": false,
   "pollinations": false,
   "taskmaster-ai": false,
-  "korea-stock-analyzer": false
+  "korea-stock-analyzer": false,
+  "search-economy-index": true,
+  "pdf-operations": true,
+  "swagger-mcp": true
 }

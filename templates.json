@@ -22,8 +22,8 @@
     ],
     "favorite": true,
     "created_at": "2025-09-20T01:35:50.628930",
-    "used_count": 6,
-    "last_used": "2025-09-21T01:29:20.489622"
+    "used_count": 7,
+    "last_used": "2025-10-29T22:12:25.055467"
   },
   {
     "name": "웹 검색 및 요약",
@@ -35,8 +35,8 @@
     ],
     "favorite": false,
     "created_at": "2025-09-20T01:35:50.628932",
-    "used_count": 3,
-    "last_used": "2025-09-23T00:53:43.446157"
+    "used_count": 4,
+    "last_used": "2025-10-29T22:12:47.201677"
   },
   {
     "name": "비즈니스 이메일 작성",
@@ -74,5 +74,17 @@
     "created_at": "2025-09-29T22:39:45.472795",
     "used_count": 0,
     "last_used": null
+  },
+  {
+    "name": "Swagger API 요약",
+    "content": "{대상} 의 상세스펙을 알려죠.\n뎁스를 주어서 가독성 있게 보여죠.\n샘플 In,Out json 만들어죠.\nin,Out Dto 만들어죠\nLombok Getter,Setter,Builder를 적용해죠",
+    "category": "💼 업무용",
+    "variables": [
+      "대상"
+    ],
+    "favorite": false,
+    "created_at": "2025-10-29T22:12:11.974289",
+    "used_count": 5,
+    "last_used": "2025-10-30T11:39:08.987968"
   }
 ]

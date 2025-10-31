@@ -99,20 +99,15 @@ def setup_loguru():
     return logger
 
 def _get_log_dir() -> Path:
-    """Get log directory with fallback"""
+    """Get log directory with cross-platform support"""
     try:
-        from utils.config_path import config_path_manager
-        user_path = config_path_manager.get_user_config_path()
-        if user_path:
-            return user_path / "logs"
-    except:
-        pass
-    
-    try:
-        return Path.home() / ".chat-ai-agent" / "logs"
-    except:
-        import tempfile
-        return Path(tempfile.gettempdir()) / "chat-ai-agent" / "logs"
+        from utils.path_helper import get_log_dir
+        return get_log_dir()
+    except Exception:
+        # Fallback
+        log_dir = Path("logs")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        return log_dir
 
 # Global logger instance
 app_logger = setup_loguru()

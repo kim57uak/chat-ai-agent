@@ -42,13 +42,24 @@ jobs:
         pip install boto3 replicate==1.0.7 SQLAlchemy==2.0.41
         pip install loguru black
     
-    - name: Clean build directories
+    - name: Purge and clean build environment
       run: |
+        # Remove build directories
         if (Test-Path build_windows) { Remove-Item -Recurse -Force build_windows }
         if (Test-Path dist_windows) { Remove-Item -Recurse -Force dist_windows }
-        Get-ChildItem -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
-        Get-ChildItem -Recurse -File -Filter *.pyc | Remove-Item -Force
+        Get-ChildItem -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Recurse -File -Filter *.pyc | Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Recurse -File -Filter *.pyo | Remove-Item -Force -ErrorAction SilentlyContinue
+        
+        # Purge all caches
         if (Test-Path $env:USERPROFILE\.pyinstaller_cache) { Remove-Item -Recurse -Force $env:USERPROFILE\.pyinstaller_cache }
+        pip cache purge
+        python -m pip cache purge
+        
+        # Clear temp
+        if (Test-Path $env:TEMP\pyinstaller*) { Remove-Item -Recurse -Force $env:TEMP\pyinstaller* -ErrorAction SilentlyContinue }
+        
+        Write-Host "✅ Purge completed"
       shell: pwsh
     
     - name: Build Windows executable
@@ -105,24 +116,35 @@ jobs:
         pip install boto3 replicate==1.0.7 SQLAlchemy==2.0.41
         pip install loguru black
     
-    - name: Clean build directories
+    - name: Purge and clean build environment
       run: |
-        rm -rf build dist __pycache__
+        # Remove build directories
+        rm -rf build dist __pycache__ temp_dmg
         find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
         find . -type f -name "*.pyc" -delete
+        find . -type f -name "*.pyo" -delete
+        
+        # Purge all caches
         rm -rf ~/.pyinstaller_cache
+        pip cache purge || true
+        python -m pip cache purge || true
+        
+        # Clear system temp
+        rm -rf /tmp/pyinstaller* 2>/dev/null || true
+        
+        echo "✅ Purge completed"
     
     - name: Build macOS executable
       run: |
         python build_mygenie.py
     
-    - name: Optimize DMG size
+    - name: Optimize and recreate DMG
       run: |
-        if [ -f "dist/MyGenie-macOS.dmg" ]; then
-          echo "Original DMG size:"
-          du -h dist/MyGenie-macOS.dmg
+        if [ -d "dist/MyGenie.app" ]; then
+          echo "Original app size:"
+          du -sh dist/MyGenie.app
           
-          # Remove unnecessary files from app bundle
+          # Remove unnecessary files
           find dist/MyGenie.app -name "*.pyc" -delete
           find dist/MyGenie.app -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
           find dist/MyGenie.app -name "*.a" -delete
@@ -130,6 +152,23 @@ jobs:
           
           echo "Optimized app size:"
           du -sh dist/MyGenie.app
+          
+          # Remove old DMG and recreate with proper compression
+          rm -f dist/MyGenie-macOS.dmg
+          
+          # Create temporary directory with symlinks preserved
+          mkdir -p temp_dmg
+          cp -R dist/MyGenie.app temp_dmg/
+          ln -s /Applications temp_dmg/Applications
+          
+          # Create compressed DMG directly
+          hdiutil create -volname "MyGenie" -srcfolder temp_dmg -ov -format UDZO dist/MyGenie-macOS.dmg
+          
+          # Cleanup
+          rm -rf temp_dmg
+          
+          echo "Final DMG size:"
+          du -h dist/MyGenie-macOS.dmg
         fi
     
     - name: Upload macOS artifact

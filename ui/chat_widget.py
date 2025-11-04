@@ -135,33 +135,16 @@ class ChatWidget(QWidget):
         input_container_layout.setContentsMargins(8, 8, 8, 8)
         input_container_layout.setSpacing(8)
         
-        # 모드 토글 버튼
-        self.mode_toggle = QPushButton("🧠", self)
-        self.mode_toggle.setCheckable(True)
-        self.mode_toggle.setChecked(False)
-        self.mode_toggle.setFixedHeight(48)  # 5% 더 줄임
-        
-        # 토글 버튼 호버 효과 스타일 (35% 증가)
-        toggle_style = """
-        QPushButton {
-            background: transparent;
-            border: none;
-            font-size: 32px;
-        }
-        QPushButton:hover {
-            background: transparent;
-            font-size: 43px;
-        }
-        QPushButton:pressed {
-            background: transparent;
-            font-size: 30px;
-        }
-        QPushButton:checked {
-            background: transparent;
-        }
-        """
-        self.mode_toggle.setStyleSheet(toggle_style)
-        self.mode_toggle.setToolTip("Ask 모드 - 뇌")
+        # 모드 선택 콤보박스 (기존 토글 버튼 교체)
+        self.mode_combo = QComboBox(self)
+        self.mode_combo.addItem("💬 Ask", "simple")
+        self.mode_combo.addItem("🔧 Agent", "tool")
+        self.mode_combo.addItem("🧠 RAG", "rag")
+        self.mode_combo.setCurrentIndex(0)
+        self.mode_combo.setFixedHeight(48)
+        self.mode_combo.setMinimumWidth(130)
+        self.mode_combo.currentIndexChanged.connect(self._on_mode_combo_changed)
+        self._update_mode_combo_style()
         
         # 드래그 핸들
         self.drag_handle = QWidget(self)
@@ -193,7 +176,7 @@ class ChatWidget(QWidget):
         # 컨테이너 스타일
         self._update_input_container_style(self.input_container)
         
-        input_container_layout.addWidget(self.mode_toggle, 0, Qt.AlignmentFlag.AlignVCenter)
+        input_container_layout.addWidget(self.mode_combo, 0, Qt.AlignmentFlag.AlignVCenter)
         input_container_layout.addWidget(self.input_text, 1)
         
         # 오른쪽 버튼 컨테이너
@@ -271,7 +254,6 @@ class ChatWidget(QWidget):
         self.send_button.clicked.connect(self.send_message)
         self.cancel_button.clicked.connect(self.cancel_request)
         self.upload_button.clicked.connect(self.upload_file)
-        self.mode_toggle.clicked.connect(self.toggle_mode)
         
         # AI 프로세서 시그널 연결
         self.ai_processor.finished.connect(self.on_ai_response)
@@ -303,24 +285,115 @@ class ChatWidget(QWidget):
         else:
             QTextEdit.keyPressEvent(self.input_text, event)
     
-    def toggle_mode(self):
-        """모드 토글"""
-        safe_single_shot(0, self._update_toggle_ui, self)
-    
-    def _update_toggle_ui(self):
-        """토글 UI 업데이트"""
+    def _update_mode_combo_style(self):
+        """모드 콤보박스 스타일 업데이트"""
         try:
-            is_agent_mode = self.mode_toggle.isChecked()
-            if is_agent_mode:
-                self.mode_toggle.setText("🤖")
-                self.mode_toggle.setToolTip("Agent 모드 - 로봇이 도구를 사용합니다")
-                self.input_text.setPlaceholderText("도구를 사용한 메시지 입력... (Enter로 전송, Shift+Enter로 줄바꿈)")
+            if theme_manager.use_material_theme:
+                colors = theme_manager.material_manager.get_theme_colors()
+                primary = colors.get('primary', '#bb86fc')
+                surface = colors.get('surface', '#1e1e1e')
+                text = colors.get('text_primary', '#ffffff')
+                
+                style = f"""
+                QComboBox {{
+                    background-color: {surface};
+                    color: {text};
+                    border: 2px solid {primary};
+                    border-radius: 12px;
+                    padding: 8px 12px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+                }}
+                QComboBox:hover {{
+                    border-color: {primary};
+                    background-color: {primary}20;
+                }}
+                QComboBox::drop-down {{
+                    border: none;
+                    width: 30px;
+                }}
+                QComboBox::down-arrow {{
+                    image: none;
+                    border-left: 5px solid transparent;
+                    border-right: 5px solid transparent;
+                    border-top: 6px solid {primary};
+                    margin-right: 8px;
+                }}
+                QComboBox QAbstractItemView {{
+                    background-color: {surface};
+                    color: {text};
+                    border: 2px solid {primary};
+                    border-radius: 8px;
+                    selection-background-color: {primary};
+                    selection-color: {surface};
+                    padding: 4px;
+                }}
+                QComboBox QAbstractItemView::item {{
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    min-height: 30px;
+                }}
+                QComboBox QAbstractItemView::item:hover {{
+                    background-color: {primary}40;
+                }}
+                """
             else:
-                self.mode_toggle.setText("🧠")
-                self.mode_toggle.setToolTip("Ask 모드 - 뇌로 생각합니다")
-                self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
+                style = """
+                QComboBox {
+                    background-color: #2a2a2a;
+                    color: #ffffff;
+                    border: 2px solid #666666;
+                    border-radius: 12px;
+                    padding: 8px 12px;
+                    font-size: 14px;
+                    font-weight: 600;
+                }
+                QComboBox:hover {
+                    border-color: #888888;
+                }
+                QComboBox::drop-down {
+                    border: none;
+                    width: 30px;
+                }
+                QComboBox::down-arrow {
+                    image: none;
+                    border-left: 5px solid transparent;
+                    border-right: 5px solid transparent;
+                    border-top: 6px solid #666666;
+                    margin-right: 8px;
+                }
+                QComboBox QAbstractItemView {
+                    background-color: #2a2a2a;
+                    color: #ffffff;
+                    border: 2px solid #666666;
+                    border-radius: 8px;
+                    selection-background-color: #666666;
+                    padding: 4px;
+                }
+                QComboBox QAbstractItemView::item {
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    min-height: 30px;
+                }
+                """
+            
+            self.mode_combo.setStyleSheet(style)
         except Exception as e:
-            logger.debug(f"토글 UI 업데이트 오류: {e}")
+            logger.debug(f"콤보박스 스타일 업데이트 오류: {e}")
+    
+    def _on_mode_combo_changed(self, index):
+        """모드 콤보박스 변경 핸들러"""
+        mode_value = self.mode_combo.itemData(index)
+        logger.info(f"Chat mode changed to: {mode_value}")
+        
+        # 모드에 따라 placeholder 변경
+        if mode_value == "simple":
+            self.input_text.setPlaceholderText("메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)")
+        elif mode_value == "tool":
+            self.input_text.setPlaceholderText("도구를 사용한 메시지 입력... (Enter로 전송, Shift+Enter로 줄바꿈)")
+        elif mode_value == "rag":
+            self.input_text.setPlaceholderText("RAG 모드: 문서 검색 + 도구 사용... (Enter로 전송, Shift+Enter로 줄바꿈)")
     
     def send_message(self):
         """메시지 전송"""
@@ -419,15 +492,17 @@ class ChatWidget(QWidget):
             logger.debug(f"하이브리드 히스토리 로드됨: {len(validated_history)}개 메시지 (모델: {model})")
             
             try:
-                is_agent_mode = self.mode_toggle.isChecked()
-                use_agent = is_agent_mode
+                mode_value = self.mode_combo.currentData()
+                use_agent = mode_value in ["tool", "rag"]
+                chat_mode = mode_value
             except Exception as e:
                 logger.debug(f"모드 확인 오류: {e}")
                 use_agent = False
+                chat_mode = "simple"
             
             self.ai_processor.process_request(
                 api_key, model, validated_history, user_text,
-                agent_mode=use_agent, file_prompt=file_prompt
+                agent_mode=use_agent, file_prompt=file_prompt, chat_mode=chat_mode
             )
         except Exception as e:
             try:
@@ -1004,6 +1079,10 @@ class ChatWidget(QWidget):
             
             # 버튼 스타일도 업데이트
             self._update_button_styles()
+            
+            # 콤보박스 스타일 업데이트
+            if hasattr(self, 'mode_combo'):
+                self._update_mode_combo_style()
             
             # 강제로 전체 위젯 다시 그리기
             self.repaint()

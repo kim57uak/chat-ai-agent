@@ -11,9 +11,9 @@ logger = get_logger("korean_embeddings")
 
 
 class KoreanEmbeddings(BaseEmbeddings):
-    """한국어 임베딩 모델 (dragonkue/KoEn-E5-Tiny)"""
+    """한국어 임베딩 모델 (exp-models/dragonkue-KoEn-E5-Tiny)"""
     
-    def __init__(self, model_name: str = "dragonkue/KoEn-E5-Tiny", cache_folder: str = None):
+    def __init__(self, model_name: str = "exp-models/dragonkue-KoEn-E5-Tiny", cache_folder: str = None):
         """
         Initialize Korean embeddings
         
@@ -24,7 +24,7 @@ class KoreanEmbeddings(BaseEmbeddings):
         self.model_name = model_name
         self.cache_folder = cache_folder
         self.model = None
-        self._dimension = 384  # E5-Tiny dimension
+        self._dimension = 384  # multilingual-e5-small dimension
         
         self._load_model()
         logger.info(f"Korean embeddings initialized: {model_name}")
@@ -33,12 +33,35 @@ class KoreanEmbeddings(BaseEmbeddings):
         """Load embedding model (lazy loading)"""
         try:
             from sentence_transformers import SentenceTransformer
+            from pathlib import Path
+            import sys
+            
+            # 로컬 모델 경로 결정
+            if getattr(sys, 'frozen', False):
+                # 패키징된 앱
+                if sys.platform == 'darwin':
+                    base_path = Path(sys.executable).parent.parent / 'Resources'
+                else:
+                    base_path = Path(sys.executable).parent
+            else:
+                # 개발 환경
+                base_path = Path(__file__).parent.parent.parent.parent
+            
+            local_model_path = base_path / "models" / "embeddings" / "dragonkue-KoEn-E5-Tiny"
+            
+            # 로컬 모델이 있으면 사용, 없으면 HuggingFace에서 다운로드
+            if local_model_path.exists():
+                model_path = str(local_model_path)
+                logger.info(f"Loading local model from: {model_path}")
+            else:
+                model_path = self.model_name
+                logger.info(f"Loading model from HuggingFace: {model_path}")
             
             self.model = SentenceTransformer(
-                self.model_name,
+                model_path,
                 cache_folder=self.cache_folder
             )
-            logger.info(f"Loaded model: {self.model_name}")
+            logger.info(f"Loaded model: {model_path}")
             
         except ImportError:
             logger.warning("sentence-transformers not installed, using mock mode")

@@ -42,7 +42,7 @@ class AIProcessor(QObject):
         self._executor.shutdown(wait=False)
         logger.info("AIProcessor 스레드 풀 종료")
     
-    def process_request(self, api_key, model, messages, user_text=None, agent_mode=False, file_prompt=None):
+    def process_request(self, api_key, model, messages, user_text=None, agent_mode=False, file_prompt=None, chat_mode="simple"):
         """AI 요청 처리 - 대화 히스토리 포함"""
         def _process():
             request_start_time = time.time()
@@ -155,6 +155,13 @@ class AIProcessor(QObject):
                 self._current_client = client
                 self._current_model = model
                 
+                # RAG 모드일 경우 RAG Manager 초기화
+                if chat_mode == "rag":
+                    from core.rag.rag_manager import RAGManager
+                    if not hasattr(client, 'rag_manager'):
+                        client.rag_manager = RAGManager()
+                    logger.info("RAG mode activated")
+                
                 # 대화 히스토리 설정
                 if messages:
                     client.conversation_history = messages
@@ -181,12 +188,51 @@ class AIProcessor(QObject):
                         used_tools = []
                 else:
                     # 일반 텍스트 처리
-                    if agent_mode:
+                    if chat_mode == "rag":
+                        # RAG 모드: RAG + Multi-Agent
+                        logger.info(f"RAG mode processing: {processed_user_text[:50]}")
+                        
+                        # RAG Manager 가져오기
+                        from core.rag.rag_manager import RAGManager
+                        if not hasattr(client, 'rag_manager'):
+                            client.rag_manager = RAGManager()
+                        
+                        # RAG 검색 먼저 수행
+                        rag_results = client.rag_manager.search(processed_user_text, k=3)
+                        
+                        if rag_results:
+                            # RAG 결과를 컨텍스트로 추가
+                            context = "\n\n[관련 문서]\n"
+                            for i, doc in enumerate(rag_results, 1):
+                                context += f"{i}. {doc.page_content[:200]}...\n\n"
+                            
+                            enhanced_text = f"{context}\n[사용자 질문]\n{processed_user_text}"
+                            logger.info(f"RAG: Found {len(rag_results)} documents")
+                        else:
+                            enhanced_text = processed_user_text
+                            logger.info("RAG: No documents found")
+                        
+                        # RAG 모드: 문서 검색 + 도구 사용 가능
+                        if messages:
+                            full_messages = messages + [{'role': 'user', 'content': enhanced_text}]
+                            result = client.chat(full_messages, force_agent=True)
+                            if isinstance(result, tuple):
+                                response, used_tools = result
+                            else:
+                                response = result
+                                used_tools = []
+                        else:
+                            result = client.agent_chat(enhanced_text)
+                            if isinstance(result, tuple):
+                                response, used_tools = result
+                            else:
+                                response = result
+                                used_tools = []
+                        sender = 'RAG+Agent'
+                    elif agent_mode:
                         # 에이전트 모드: 도구 사용 가능
                         if messages:
-                            # 히스토리를 포함한 메시지 리스트 생성
                             full_messages = messages + [{'role': 'user', 'content': processed_user_text}]
-                            # AIClient.chat() 메서드를 통해 force_agent=True 전달
                             result = client.chat(full_messages, force_agent=True)
                             if isinstance(result, tuple):
                                 response, used_tools = result

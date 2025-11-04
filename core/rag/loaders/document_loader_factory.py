@@ -67,11 +67,7 @@ class DocumentLoaderFactory:
                 if text.strip():
                     doc = Document(
                         page_content=text,
-                        metadata={
-                            "source": str(path),
-                            "page": i + 1,
-                            "total_pages": len(reader.pages)
-                        }
+                        metadata={"source": str(path)}
                     )
                     documents.append(doc)
             
@@ -124,12 +120,7 @@ class DocumentLoaderFactory:
                 
                 doc = Document(
                     page_content=text,
-                    metadata={
-                        "source": str(path),
-                        "sheet": sheet_name,
-                        "rows": len(df),
-                        "columns": list(df.columns)
-                    }
+                    metadata={"source": str(path)}
                 )
                 documents.append(doc)
             
@@ -151,11 +142,7 @@ class DocumentLoaderFactory:
             
             doc = Document(
                 page_content=text,
-                metadata={
-                    "source": str(path),
-                    "rows": len(df),
-                    "columns": list(df.columns)
-                }
+                metadata={"source": str(path)}
             )
             
             logger.info(f"Loaded CSV: {path.name}")
@@ -168,23 +155,30 @@ class DocumentLoaderFactory:
     @staticmethod
     def _load_text(path: Path) -> List[Document]:
         """Load text file"""
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                text = f.read()
-            
-            if text.strip():
-                doc = Document(
-                    page_content=text,
-                    metadata={"source": str(path)}
-                )
-                logger.info(f"Loaded text: {path.name}")
-                return [doc]
-            
-            return []
-            
-        except Exception as e:
-            logger.error(f"Failed to load text: {e}")
-            return []
+        encodings = ['utf-8', 'euc-kr', 'cp949', 'latin-1']
+        
+        for encoding in encodings:
+            try:
+                with open(path, 'r', encoding=encoding) as f:
+                    text = f.read()
+                
+                if text.strip():
+                    doc = Document(
+                        page_content=text,
+                        metadata={"source": str(path)}
+                    )
+                    logger.info(f"Loaded text: {path.name} ({encoding})")
+                    return [doc]
+                return []
+                
+            except (UnicodeDecodeError, LookupError):
+                continue
+            except Exception as e:
+                logger.error(f"Failed to load text: {e}")
+                return []
+        
+        logger.error(f"Failed to decode: {path.name}")
+        return []
     
     @staticmethod
     def _load_powerpoint(path: Path) -> List[Document]:
@@ -205,11 +199,7 @@ class DocumentLoaderFactory:
                     text = "\n".join(text_parts)
                     doc = Document(
                         page_content=text,
-                        metadata={
-                            "source": str(path),
-                            "slide": i + 1,
-                            "total_slides": len(prs.slides)
-                        }
+                        metadata={"source": str(path)}
                     )
                     documents.append(doc)
             
@@ -252,10 +242,7 @@ class DocumentLoaderFactory:
             
             doc = Document(
                 page_content=f"[Image: {path.name}]",
-                metadata={
-                    "source": str(path),
-                    "type": "image"
-                }
+                metadata={"source": str(path)}
             )
             
             return [doc]

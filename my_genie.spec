@@ -46,6 +46,9 @@ datas = [
     # Web templates and static files
     ('ui/components/web/templates', 'ui/components/web/templates'),
     ('ui/components/web/static', 'ui/components/web/static'),
+    
+    # Embedding models
+    ('models/embeddings/dragonkue-KoEn-E5-Tiny', 'models/embeddings/dragonkue-KoEn-E5-Tiny'),
 ]
 
 # Filter existing files
@@ -117,6 +120,11 @@ a = Analysis(
         'openai',
         'google.generativeai',
         
+        # Embeddings
+        'sentence_transformers',
+        'sentence_transformers.models',
+        'sentence_transformers.util',
+        
         # Pygments - code highlighting
         'pygments.lexers',
         'pygments.styles',
@@ -186,7 +194,6 @@ a = Analysis(
         'torch',
         'torchvision', 
         'torchaudio',
-        'transformers',
         'tensorflow',
         'keras',
         'plotly',

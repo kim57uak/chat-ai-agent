@@ -37,8 +37,11 @@ class LanceDBStore(BaseVectorStore):
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self.db = lancedb.connect(str(self.db_path))
             logger.info(f"Connected to LanceDB at {self.db_path}")
-        except ImportError:
-            logger.warning("lancedb not installed, using mock mode")
+        except ImportError as e:
+            logger.error(f"lancedb not installed: {e}")
+            self.db = None
+        except Exception as e:
+            logger.error(f"Failed to connect to LanceDB: {e}", exc_info=True)
             self.db = None
     
     def add_documents(self, documents: List[Document], **kwargs) -> List[str]:
@@ -52,8 +55,8 @@ class LanceDBStore(BaseVectorStore):
         Returns:
             List of document IDs
         """
-        if not self.db:
-            logger.warning("LanceDB not available, skipping add_documents")
+        if self.db is None:
+            logger.error(f"LanceDB not available: db={self.db}, db_path={self.db_path}")
             return []
         
         try:
@@ -105,8 +108,16 @@ class LanceDBStore(BaseVectorStore):
         Returns:
             List of similar documents
         """
-        if not self.db or not self.table:
+        if self.db is None:
             logger.warning("LanceDB not available, returning empty results")
+            return []
+        
+        # 테이블 열기 시도
+        if self.table is None and self.table_name in self.db.table_names():
+            self.table = self.db.open_table(self.table_name)
+        
+        if self.table is None:
+            logger.warning(f"Table {self.table_name} not found, returning empty results")
             return []
         
         try:

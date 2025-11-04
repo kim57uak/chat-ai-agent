@@ -28,3 +28,4 @@ config.json
 mcp.json
 conversation_history.json
 *_results.json
+models/embeddings/

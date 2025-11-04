@@ -20,6 +20,7 @@ class MenuManager:
         """메뉴바 생성"""
         menubar = self.main_window.menuBar()
         self._create_settings_menu(menubar)
+        self._create_rag_menu(menubar)
         self._create_security_menu(menubar)
     
     def _create_settings_menu(self, menubar):
@@ -93,6 +94,102 @@ class MenuManager:
         reset_layout_action = QAction('레이아웃 초기화', self.main_window)
         reset_layout_action.triggered.connect(self.main_window.layout_manager.reset_layout)
         settings_menu.addAction(reset_layout_action)
+    
+    def _create_rag_menu(self, menubar):
+        """랜 메뉴 생성"""
+        rag_menu = menubar.addMenu('RAG')
+        
+        # 문서 관리
+        doc_manager_action = QAction('📁 문서 관리', self.main_window)
+        doc_manager_action.triggered.connect(self._open_document_manager)
+        rag_menu.addAction(doc_manager_action)
+        
+        # RAG 설정
+        rag_settings_action = QAction('⚙️ RAG 설정', self.main_window)
+        rag_settings_action.triggered.connect(self._open_rag_settings)
+        rag_menu.addAction(rag_settings_action)
+        
+        rag_menu.addSeparator()
+        
+        # 테스트
+        test_rag_action = QAction('🧪 RAG 테스트', self.main_window)
+        test_rag_action.triggered.connect(self._test_rag_system)
+        rag_menu.addAction(test_rag_action)
+    
+    def _open_document_manager(self):
+        """문서 관리 대화상자 열기"""
+        try:
+            from ui.dialogs import RAGDocumentManager
+            
+            # RAG Manager는 대화상자에서 lazy 초기화
+            dialog = RAGDocumentManager(
+                parent=self.main_window
+            )
+            dialog.exec()
+            
+        except Exception as e:
+            logger.error(f"Failed to open document manager: {e}")
+            self._show_error("문서 관리", f"오류: {str(e)}")
+    
+    def _open_rag_settings(self):
+        """랜 설정 대화상자 열기"""
+        try:
+            from ui.dialogs import RAGSettingsDialog
+            from PyQt6.QtWidgets import QDialog
+            
+            dialog = RAGSettingsDialog(self.main_window)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                settings = dialog.get_settings()
+                logger.info(f"RAG settings updated: {settings}")
+                
+        except Exception as e:
+            logger.error(f"Failed to open RAG settings: {e}")
+            self._show_error("RAG 설정", f"오류: {str(e)}")
+    
+    def _test_rag_system(self):
+        """랜 시스템 테스트"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        try:
+            from core.rag.rag_manager import RAGManager
+            
+            # RAG Manager 초기화
+            if not hasattr(self.main_window, 'rag_manager'):
+                self.main_window.rag_manager = RAGManager()
+            
+            manager = self.main_window.rag_manager
+            
+            if manager.is_available():
+                msg = "✅ RAG 시스템이 정상적으로 동작합니다!\n\n"
+                msg += f"💾 Vector Store: {manager.vectorstore.__class__.__name__}\n"
+                msg += f"🧠 Embeddings: {manager.embeddings.__class__.__name__}"
+            else:
+                msg = "⚠️ RAG 시스템을 사용할 수 없습니다.\n\n"
+                msg += "lancedb 또는 필요한 라이브러리를 설치해주세요."
+            
+            msg_box = QMessageBox(self.main_window)
+            msg_box.setIcon(QMessageBox.Icon.Information)
+            msg_box.setWindowTitle("RAG 테스트")
+            msg_box.setText(msg)
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            self.main_window.theme_controller.apply_dialog_theme(msg_box)
+            msg_box.exec()
+            
+        except Exception as e:
+            logger.error(f"RAG test failed: {e}")
+            self._show_error("RAG 테스트", f"오류: {str(e)}")
+    
+    def _show_error(self, title: str, message: str):
+        """오류 메시지 표시"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        msg_box = QMessageBox(self.main_window)
+        msg_box.setIcon(QMessageBox.Icon.Critical)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        self.main_window.theme_controller.apply_dialog_theme(msg_box)
+        msg_box.exec()
     
     def _create_security_menu(self, menubar):
         """보안 메뉴 생성"""

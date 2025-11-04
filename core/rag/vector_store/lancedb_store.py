@@ -1,0 +1,232 @@
+"""
+LanceDB Vector Store Implementation
+"""
+
+from typing import List, Dict, Any, Optional
+from pathlib import Path
+from langchain.schema import Document
+from core.logging import get_logger
+from .base_vector_store import BaseVectorStore
+
+logger = get_logger("lancedb_store")
+
+
+class LanceDBStore(BaseVectorStore):
+    """LanceDB 벡터 스토어 구현"""
+    
+    def __init__(self, db_path: str, table_name: str = "documents"):
+        """
+        Initialize LanceDB store
+        
+        Args:
+            db_path: Database path
+            table_name: Table name
+        """
+        self.db_path = Path(db_path)
+        self.table_name = table_name
+        self.db = None
+        self.table = None
+        
+        self._init_database()
+        logger.info(f"LanceDB initialized: {db_path}/{table_name}")
+    
+    def _init_database(self):
+        """Initialize database (lazy loading)"""
+        try:
+            import lancedb
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self.db = lancedb.connect(str(self.db_path))
+            logger.info(f"Connected to LanceDB at {self.db_path}")
+        except ImportError:
+            logger.warning("lancedb not installed, using mock mode")
+            self.db = None
+    
+    def add_documents(self, documents: List[Document], **kwargs) -> List[str]:
+        """
+        Add documents to LanceDB
+        
+        Args:
+            documents: List of documents
+            **kwargs: Additional parameters (embeddings, etc.)
+            
+        Returns:
+            List of document IDs
+        """
+        if not self.db:
+            logger.warning("LanceDB not available, skipping add_documents")
+            return []
+        
+        try:
+            # 문서를 LanceDB 형식으로 변환
+            data = []
+            doc_ids = []
+            
+            for i, doc in enumerate(documents):
+                doc_id = f"doc_{i}_{hash(doc.page_content)}"
+                doc_ids.append(doc_id)
+                
+                data.append({
+                    "id": doc_id,
+                    "text": doc.page_content,
+                    "metadata": doc.metadata,
+                    "vector": kwargs.get("embeddings", [None])[i] if "embeddings" in kwargs else None
+                })
+            
+            # 테이블이 없으면 생성
+            if self.table_name not in self.db.table_names():
+                self.table = self.db.create_table(self.table_name, data)
+            else:
+                self.table = self.db.open_table(self.table_name)
+                self.table.add(data)
+            
+            logger.info(f"Added {len(documents)} documents to LanceDB")
+            return doc_ids
+            
+        except Exception as e:
+            logger.error(f"Failed to add documents: {e}")
+            return []
+    
+    def search(
+        self, 
+        query: str, 
+        k: int = 5, 
+        filter: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> List[Document]:
+        """
+        Search similar documents
+        
+        Args:
+            query: Search query
+            k: Number of results
+            filter: Metadata filter
+            **kwargs: query_vector for vector search
+            
+        Returns:
+            List of similar documents
+        """
+        if not self.db or not self.table:
+            logger.warning("LanceDB not available, returning empty results")
+            return []
+        
+        try:
+            # 벡터 검색
+            if "query_vector" in kwargs:
+                results = self.table.search(kwargs["query_vector"]).limit(k)
+            else:
+                # 텍스트 검색 (fallback)
+                results = self.table.search(query).limit(k)
+            
+            # 메타데이터 필터 적용
+            if filter:
+                results = results.where(self._build_filter_expression(filter))
+            
+            # Document 객체로 변환
+            documents = []
+            for row in results.to_list():
+                doc = Document(
+                    page_content=row.get("text", ""),
+                    metadata=row.get("metadata", {})
+                )
+                documents.append(doc)
+            
+            logger.info(f"Found {len(documents)} documents for query: {query[:50]}")
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+            return []
+    
+    def delete(self, ids: List[str]) -> bool:
+        """
+        Delete documents by IDs
+        
+        Args:
+            ids: List of document IDs
+            
+        Returns:
+            Success status
+        """
+        if not self.table:
+            return False
+        
+        try:
+            self.table.delete(f"id IN {ids}")
+            logger.info(f"Deleted {len(ids)} documents")
+            return True
+        except Exception as e:
+            logger.error(f"Delete failed: {e}")
+            return False
+    
+    def get_document(self, doc_id: str) -> Optional[Document]:
+        """
+        Get document by ID
+        
+        Args:
+            doc_id: Document ID
+            
+        Returns:
+            Document or None
+        """
+        if not self.table:
+            return None
+        
+        try:
+            results = self.table.search().where(f"id = '{doc_id}'").limit(1).to_list()
+            if results:
+                row = results[0]
+                return Document(
+                    page_content=row.get("text", ""),
+                    metadata=row.get("metadata", {})
+                )
+        except Exception as e:
+            logger.error(f"Get document failed: {e}")
+        
+        return None
+    
+    def update_metadata(self, doc_id: str, metadata: Dict[str, Any]) -> bool:
+        """
+        Update document metadata
+        
+        Args:
+            doc_id: Document ID
+            metadata: New metadata
+            
+        Returns:
+            Success status
+        """
+        if not self.table:
+            return False
+        
+        try:
+            # LanceDB는 직접 업데이트를 지원하지 않으므로 삭제 후 재추가
+            doc = self.get_document(doc_id)
+            if doc:
+                doc.metadata.update(metadata)
+                self.delete([doc_id])
+                self.add_documents([doc])
+                logger.info(f"Updated metadata for document {doc_id}")
+                return True
+        except Exception as e:
+            logger.error(f"Update metadata failed: {e}")
+        
+        return False
+    
+    def _build_filter_expression(self, filter: Dict[str, Any]) -> str:
+        """
+        Build filter expression for LanceDB
+        
+        Args:
+            filter: Metadata filter
+            
+        Returns:
+            Filter expression string
+        """
+        expressions = []
+        for key, value in filter.items():
+            if isinstance(value, str):
+                expressions.append(f"metadata.{key} = '{value}'")
+            else:
+                expressions.append(f"metadata.{key} = {value}")
+        
+        return " AND ".join(expressions)

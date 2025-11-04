@@ -1,7 +1,7 @@
 """메시지 변환 처리를 담당하는 모듈"""
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain.schema import HumanMessage, SystemMessage, AIMessage, BaseMessage
 from core.logging import get_logger
 
 logger = get_logger("message_converter")
@@ -61,3 +61,31 @@ class StandardMessageConverter(MessageConverter):
             return HumanMessage(content=content)
         else:
             return SystemMessage(content=content)
+    
+    @staticmethod
+    def dict_to_langchain(msg_dict: Dict) -> BaseMessage:
+        """Dict → LangChain Message 변환"""
+        role = msg_dict.get("role", "assistant")
+        content = msg_dict.get("content", "")
+        
+        if role == "user":
+            return HumanMessage(content=content)
+        elif role == "system":
+            return SystemMessage(content=content)
+        else:
+            return AIMessage(content=content)
+    
+    @staticmethod
+    def langchain_to_dict(message: BaseMessage) -> Dict:
+        """LangChain Message → Dict 변환"""
+        if isinstance(message, HumanMessage):
+            role = "user"
+        elif isinstance(message, SystemMessage):
+            role = "system"
+        else:
+            role = "assistant"
+        
+        return {
+            "role": role,
+            "content": message.content
+        }

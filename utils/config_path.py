@@ -59,16 +59,36 @@ class ConfigPathManager:
     
     def _load_user_config_path(self):
         """Load user-configured path from settings."""
-        settings_file = self._base_path / 'user_config_path.json'
-        if settings_file.exists():
-            try:
-                with open(settings_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    path_str = data.get('config_path')
-                    if path_str and Path(path_str).exists():
-                        self._user_config_path = Path(path_str)
-            except Exception as e:
-                logger.error(f"Failed to load user config path: {e}")
+        # 우선순위: 1) _base_path 2) 사용자 데이터 디렉토리
+        possible_settings = [
+            self._base_path / 'user_config_path.json',  # 기존 위치 (개발/패키징 모두)
+        ]
+        
+        # 패키징 환경에서 추가 경로 확인
+        if getattr(sys, 'frozen', False):
+            if os.name == 'nt':  # Windows
+                data_dir = Path.home() / "AppData" / "Local" / "ChatAIAgent"
+            elif sys.platform == 'darwin':  # macOS
+                data_dir = Path.home() / "Library" / "Application Support" / "ChatAIAgent"
+            else:  # Linux
+                data_dir = Path.home() / ".config" / "chat-ai-agent"
+            
+            possible_settings.append(data_dir / 'user_config_path.json')
+        
+        # 존재하는 첫 번째 파일 사용
+        for settings_file in possible_settings:
+            if settings_file.exists():
+                try:
+                    with open(settings_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        path_str = data.get('config_path')
+                        if path_str and Path(path_str).exists():
+                            self._user_config_path = Path(path_str)
+                            logger.info(f"Loaded user config from: {settings_file}")
+                            return
+                except Exception as e:
+                    logger.error(f"Failed to load from {settings_file}: {e}")
+                    continue
     
     def set_user_config_path(self, path: str) -> bool:
         """Set user configuration path."""
@@ -81,8 +101,30 @@ class ConfigPathManager:
             
             # Save to settings file
             settings_file = self._base_path / 'user_config_path.json'
-            with open(settings_file, 'w', encoding='utf-8') as f:
-                json.dump({'config_path': str(config_path)}, f, ensure_ascii=False, indent=2)
+            
+            # 패키징 환경에서 _base_path가 읽기 전용이면 대체 경로 사용
+            try:
+                with open(settings_file, 'w', encoding='utf-8') as f:
+                    json.dump({'config_path': str(config_path)}, f, ensure_ascii=False, indent=2)
+                logger.info(f"Saved to: {settings_file}")
+            except (OSError, PermissionError) as e:
+                # 폴백: 사용자 데이터 디렉토리
+                if getattr(sys, 'frozen', False):
+                    if os.name == 'nt':
+                        data_dir = Path.home() / "AppData" / "Local" / "ChatAIAgent"
+                    elif sys.platform == 'darwin':
+                        data_dir = Path.home() / "Library" / "Application Support" / "ChatAIAgent"
+                    else:
+                        data_dir = Path.home() / ".config" / "chat-ai-agent"
+                    
+                    data_dir.mkdir(parents=True, exist_ok=True)
+                    settings_file = data_dir / 'user_config_path.json'
+                    
+                    with open(settings_file, 'w', encoding='utf-8') as f:
+                        json.dump({'config_path': str(config_path)}, f, ensure_ascii=False, indent=2)
+                    logger.info(f"Saved to fallback: {settings_file}")
+                else:
+                    raise
             
             return True
         except Exception as e:

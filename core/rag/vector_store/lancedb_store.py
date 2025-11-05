@@ -14,14 +14,17 @@ logger = get_logger("lancedb_store")
 class LanceDBStore(BaseVectorStore):
     """LanceDB 벡터 스토어 구현"""
     
-    def __init__(self, db_path: str, table_name: str = "documents"):
+    def __init__(self, db_path: Optional[str] = None, table_name: str = "documents"):
         """
         Initialize LanceDB store
         
         Args:
-            db_path: Database path
+            db_path: Database path (None for default user config path)
             table_name: Table name
         """
+        if db_path is None:
+            db_path = self._get_default_db_path()
+        
         self.db_path = Path(db_path)
         self.table_name = table_name
         self.db = None
@@ -29,6 +32,40 @@ class LanceDBStore(BaseVectorStore):
         
         self._init_database()
         logger.info(f"LanceDB initialized: {db_path}/{table_name}")
+    
+    def _get_default_db_path(self) -> str:
+        """기본 벡터 DB 경로 반환 (SQLite와 동일한 로직)"""
+        try:
+            # 지연 import로 순환 참조 방지
+            from utils.config_path import config_path_manager
+            
+            # 사용자 설정 경로가 있으면 사용 (vectordb 폴더)
+            user_config_path = config_path_manager.get_user_config_path()
+            if user_config_path and user_config_path.exists():
+                db_path = user_config_path / "vectordb"
+                db_path.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Using user-configured vector DB path: {db_path}")
+                return str(db_path)
+            else:
+                logger.info("No user config path set, using default")
+        except ImportError as e:
+            logger.warning(f"config_path_manager not available: {e}")
+        except AttributeError as e:
+            logger.warning(f"config_path_manager not initialized: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to get user config path: {e}")
+        
+        # 폴백: 기본 외부 경로
+        import os
+        
+        if os.name == "nt":  # Windows
+            data_dir = Path.home() / "AppData" / "Local" / "ChatAIAgent" / "vectordb"
+        else:  # macOS, Linux
+            data_dir = Path.home() / ".chat-ai-agent" / "vectordb"
+        
+        data_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Using default vector DB path: {data_dir}")
+        return str(data_dir)
     
     def _init_database(self):
         """Initialize database (lazy loading)"""

@@ -253,27 +253,3 @@ class DocumentLoaderFactory:
         except Exception as e:
             logger.error(f"Failed to load image: {e}")
             return []
-    
-
-                        continue
-            
-            ole.close()
-            
-            if text_parts:
-                full_text = '\n'.join(text_parts)
-                doc = Document(
-                    page_content=full_text,
-                    metadata={"source": str(path)}
-                )
-                logger.info(f"Loaded HWP: {path.name}")
-                return [doc]
-            
-            logger.warning(f"No text extracted from HWP: {path.name}")
-            return []
-            
-        except ImportError:
-            logger.error("olefile not installed. Install with: pip install olefile")
-            return []
-        except Exception as e:
-            logger.error(f"Failed to load HWP: {e}")
-            return []

@@ -14,6 +14,11 @@ loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
 keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
 pygments_datas, pygments_binaries, pygments_hiddenimports = collect_all('pygments')
 astropy_datas, astropy_binaries, astropy_hiddenimports = collect_all('astropy')
+lancedb_datas, lancedb_binaries, lancedb_hiddenimports = collect_all('lancedb')
+sentence_transformers_datas, sentence_transformers_binaries, sentence_transformers_hiddenimports = collect_all('sentence_transformers')
+torch_datas, torch_binaries, torch_hiddenimports = collect_all('torch')
+transformers_datas, transformers_binaries, transformers_hiddenimports = collect_all('transformers')
+pyarrow_datas, pyarrow_binaries, pyarrow_hiddenimports = collect_all('pyarrow')
 
 # Data science packages - explicit collect_all to ensure all submodules included
 pandas_datas, pandas_binaries, pandas_hiddenimports = collect_all('pandas')
@@ -69,13 +74,13 @@ a = Analysis(
     binaries=(
         cryptography_binaries + pycryptodome_binaries + loguru_binaries + keyring_binaries + pygments_binaries +
         pandas_binaries + numpy_binaries + matplotlib_binaries + seaborn_binaries + scipy_binaries +
-        astropy_binaries
+        astropy_binaries + lancedb_binaries + sentence_transformers_binaries + torch_binaries + transformers_binaries + pyarrow_binaries
     ),
     datas=(
         datas + 
         cryptography_datas + pycryptodome_datas + loguru_datas + keyring_datas + pygments_datas +
         pandas_datas + numpy_datas + matplotlib_datas + seaborn_datas + scipy_datas +
-        astropy_datas
+        astropy_datas + lancedb_datas + sentence_transformers_datas + torch_datas + transformers_datas + pyarrow_datas
     ),
     hiddenimports=[
         # PyQt6
@@ -120,10 +125,24 @@ a = Analysis(
         'openai',
         'google.generativeai',
         
-        # Embeddings
+        # Embeddings & Vector DB
         'sentence_transformers',
         'sentence_transformers.models',
         'sentence_transformers.util',
+        'sentence_transformers.SentenceTransformer',
+        'transformers',
+        'transformers.models',
+        'transformers.models.auto',
+        'torch',
+        'torch.nn',
+        'torch.nn.functional',
+        'lancedb',
+        'lancedb.db',
+        'lancedb.table',
+        'lancedb.embeddings',
+        'lancedb.query',
+        'pyarrow',
+        'pyarrow.parquet',
         
         # Pygments - code highlighting
         'pygments.lexers',
@@ -176,7 +195,8 @@ a = Analysis(
     ] + (
         cryptography_hiddenimports + pycryptodome_hiddenimports + loguru_hiddenimports + keyring_hiddenimports + pygments_hiddenimports +
         pandas_hiddenimports + numpy_hiddenimports + matplotlib_hiddenimports + 
-        seaborn_hiddenimports + scipy_hiddenimports + astropy_hiddenimports
+        seaborn_hiddenimports + scipy_hiddenimports + astropy_hiddenimports + lancedb_hiddenimports + sentence_transformers_hiddenimports +
+        torch_hiddenimports + transformers_hiddenimports + pyarrow_hiddenimports
     ),
     hookspath=['hooks'],
     hooksconfig={},
@@ -191,14 +211,12 @@ a = Analysis(
     ],
     excludes=[
         # Large ML libraries not needed
-        'torch',
         'torchvision', 
         'torchaudio',
         'tensorflow',
         'keras',
         'plotly',
         'bokeh',
-        'pyarrow',
         'fastparquet',
         'PIL.ImageQt',
         'cv2',

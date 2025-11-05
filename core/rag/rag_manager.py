@@ -15,31 +15,14 @@ logger = get_logger("rag_manager")
 class RAGManager:
     """RAG 시스템 통합 관리자"""
     
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: Optional[str] = None):
         """
         Initialize RAG Manager
         
         Args:
-            db_path: Vector database path
+            db_path: Vector database path (None for auto-detection)
         """
-        if db_path is None:
-            from utils.config_path import config_path_manager
-            from pathlib import Path
-            
-            # 사용자 설정 경로가 있으면 사용 (vectordb 서브폴더에 저장)
-            user_path = config_path_manager.get_user_config_path()
-            if user_path and user_path.exists():
-                db_path = user_path / "vectordb"
-                db_path.mkdir(parents=True, exist_ok=True)
-                db_path = str(db_path)
-                logger.info(f"Using user config path for vectordb: {db_path}")
-            else:
-                # Fallback: 홈 디렉토리
-                db_path = Path.home() / ".chat-ai-agent" / "vectordb"
-                db_path.mkdir(parents=True, exist_ok=True)
-                db_path = str(db_path)
-                logger.info(f"Using fallback path for vectordb: {db_path}")
-        
+        # LanceDBStore가 자동으로 경로를 찾도록 None 전달
         self.db_path = db_path
         self.vectorstore = None
         self.embeddings = None
@@ -58,9 +41,9 @@ class RAGManager:
             self.embeddings = KoreanEmbeddings()
             logger.info("Embeddings initialized")
             
-            # Vector store 초기화
+            # Vector store 초기화 (None이면 자동으로 사용자 경로 사용)
             from core.rag.vector_store.lancedb_store import LanceDBStore
-            self.vectorstore = LanceDBStore(self.db_path)
+            self.vectorstore = LanceDBStore(db_path=self.db_path)
             logger.info("Vector store initialized")
             
         except Exception as e:

@@ -159,14 +159,24 @@ class LanceDBStore(BaseVectorStore):
             Success status
         """
         if not self.table:
+            logger.error("Table not available for delete")
+            return False
+        
+        if not ids:
+            logger.warning("No IDs provided for delete")
             return False
         
         try:
-            self.table.delete(f"id IN {ids}")
-            logger.info(f"Deleted {len(ids)} documents")
+            # LanceDB delete 문법: "id IN ('id1', 'id2', 'id3')"
+            ids_str = ", ".join([f"'{id}'" for id in ids])
+            delete_expr = f"id IN ({ids_str})"
+            logger.info(f"Deleting with expression: {delete_expr}")
+            
+            self.table.delete(delete_expr)
+            logger.info(f"Successfully deleted {len(ids)} documents")
             return True
         except Exception as e:
-            logger.error(f"Delete failed: {e}")
+            logger.error(f"Delete failed: {e}", exc_info=True)
             return False
     
     def get_document(self, doc_id: str) -> Optional[Document]:

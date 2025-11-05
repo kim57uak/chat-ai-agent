@@ -35,16 +35,19 @@ class DocumentLoaderFactory:
         # 파일 형식별 로더 선택
         if file_type == '.pdf':
             return DocumentLoaderFactory._load_pdf(path)
-        elif file_type in ['.docx', '.doc']:
+        elif file_type == '.docx':
             return DocumentLoaderFactory._load_word(path)
         elif file_type in ['.xlsx', '.xls']:
             return DocumentLoaderFactory._load_excel(path)
+        elif file_type == '.pptx':
+            return DocumentLoaderFactory._load_powerpoint(path)
+        elif file_type in ['.hwp', '.hwpx']:
+            logger.warning(f"HWP files not supported: {file_type}")
+            return []
         elif file_type == '.csv':
             return DocumentLoaderFactory._load_csv(path)
         elif file_type == '.txt':
             return DocumentLoaderFactory._load_text(path)
-        elif file_type in ['.pptx', '.ppt']:
-            return DocumentLoaderFactory._load_powerpoint(path)
         elif file_type == '.json':
             return DocumentLoaderFactory._load_json(path)
         elif file_type in ['.png', '.jpg', '.jpeg']:
@@ -249,4 +252,28 @@ class DocumentLoaderFactory:
             
         except Exception as e:
             logger.error(f"Failed to load image: {e}")
+            return []
+    
+
+                        continue
+            
+            ole.close()
+            
+            if text_parts:
+                full_text = '\n'.join(text_parts)
+                doc = Document(
+                    page_content=full_text,
+                    metadata={"source": str(path)}
+                )
+                logger.info(f"Loaded HWP: {path.name}")
+                return [doc]
+            
+            logger.warning(f"No text extracted from HWP: {path.name}")
+            return []
+            
+        except ImportError:
+            logger.error("olefile not installed. Install with: pip install olefile")
+            return []
+        except Exception as e:
+            logger.error(f"Failed to load HWP: {e}")
             return []

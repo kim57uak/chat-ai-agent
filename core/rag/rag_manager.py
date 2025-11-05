@@ -24,12 +24,21 @@ class RAGManager:
         """
         if db_path is None:
             from utils.config_path import config_path_manager
+            from pathlib import Path
+            
+            # 사용자 설정 경로가 있으면 사용 (vectordb 서브폴더에 저장)
             user_path = config_path_manager.get_user_config_path()
-            if user_path:
-                db_path = str(user_path / "vectordb")
+            if user_path and user_path.exists():
+                db_path = user_path / "vectordb"
+                db_path.mkdir(parents=True, exist_ok=True)
+                db_path = str(db_path)
+                logger.info(f"Using user config path for vectordb: {db_path}")
             else:
-                from pathlib import Path
-                db_path = str(Path.home() / ".chat-ai-agent" / "vectordb")
+                # Fallback: 홈 디렉토리
+                db_path = Path.home() / ".chat-ai-agent" / "vectordb"
+                db_path.mkdir(parents=True, exist_ok=True)
+                db_path = str(db_path)
+                logger.info(f"Using fallback path for vectordb: {db_path}")
         
         self.db_path = db_path
         self.vectorstore = None

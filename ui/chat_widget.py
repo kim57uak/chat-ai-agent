@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTextEdit, QLineEdit, QPushBu
                              QTextBrowser, QPlainTextEdit, QComboBox)
 from ui.components.modern_progress_bar import ModernProgressBar
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer, QSize
 from PyQt6.QtGui import QFont
 import weakref
 
@@ -127,24 +127,23 @@ class ChatWidget(QWidget):
     def _setup_input_area(self):
         """입력 영역 설정"""
         input_layout = QHBoxLayout()
-        input_layout.setSpacing(4)  # 전체 간격 줄임
+        input_layout.setSpacing(8)
         
-        # 입력 컨테이너
-        self.input_container = QWidget(self)
-        input_container_layout = QHBoxLayout(self.input_container)
-        input_container_layout.setContentsMargins(8, 8, 8, 8)
-        input_container_layout.setSpacing(8)
-        
-        # 모드 선택 콤보박스 (기존 토글 버튼 교체)
+        # 모드 선택 콤보박스 (입력창 밖으로 이동)
         self.mode_combo = QComboBox(self)
         self.mode_combo.addItem("💬 Ask", "simple")
         self.mode_combo.addItem("🔧 Agent", "tool")
         self.mode_combo.addItem("🧠 RAG", "rag")
         self.mode_combo.setCurrentIndex(0)
-        self.mode_combo.setFixedHeight(48)
-        self.mode_combo.setMinimumWidth(130)
+        self.mode_combo.setFixedSize(150, 114)  # 버튼과 동일한 높이
         self.mode_combo.currentIndexChanged.connect(self._on_mode_combo_changed)
         self._update_mode_combo_style()
+        
+        # 입력 컨테이너
+        self.input_container = QWidget(self)
+        input_container_layout = QHBoxLayout(self.input_container)
+        input_container_layout.setContentsMargins(4, 4, 4, 4)
+        input_container_layout.setSpacing(4)
         
         # 드래그 핸들
         self.drag_handle = QWidget(self)
@@ -176,7 +175,6 @@ class ChatWidget(QWidget):
         # 컨테이너 스타일
         self._update_input_container_style(self.input_container)
         
-        input_container_layout.addWidget(self.mode_combo, 0, Qt.AlignmentFlag.AlignVCenter)
         input_container_layout.addWidget(self.input_text, 1)
         
         # 오른쪽 버튼 컨테이너
@@ -212,11 +210,10 @@ class ChatWidget(QWidget):
         button_layout.addWidget(self.upload_button)
         button_layout.addWidget(self.cancel_button)
         
-        # 메인 레이아웃에 추가
-        input_layout.addSpacing(0)  # 왼쪽 간격 제거
+        # 메인 레이아웃에 추가: 모드 | 입력창 | 버튼
+        input_layout.addWidget(self.mode_combo, 0)  # 모드 선택
         input_layout.addWidget(self.input_container, 1)  # 입력창이 대부분 차지
         input_layout.addWidget(button_container, 0)  # 버튼은 고정 크기
-        input_layout.addSpacing(0)  # 오른쪽 간격 제거
         
         # 드래그 핸들과 입력 영역을 수직 레이아웃으로 배치
         input_with_handle = QVBoxLayout()
@@ -299,10 +296,10 @@ class ChatWidget(QWidget):
                     background-color: {surface};
                     color: {text};
                     border: 2px solid {primary};
-                    border-radius: 12px;
-                    padding: 8px 12px;
-                    font-size: 14px;
-                    font-weight: 600;
+                    border-radius: 16px;
+                    padding: 0px;
+                    font-size: 22px;
+                    font-weight: 700;
                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
                 }}
                 QComboBox:hover {{
@@ -311,31 +308,38 @@ class ChatWidget(QWidget):
                 }}
                 QComboBox::drop-down {{
                     border: none;
-                    width: 30px;
+                    width: 0px;
                 }}
                 QComboBox::down-arrow {{
                     image: none;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid {primary};
-                    margin-right: 8px;
+                    width: 0px;
+                    height: 0px;
                 }}
                 QComboBox QAbstractItemView {{
                     background-color: {surface};
                     color: {text};
                     border: 2px solid {primary};
-                    border-radius: 8px;
+                    border-radius: 16px;
                     selection-background-color: {primary};
                     selection-color: {surface};
-                    padding: 4px;
+                    padding: 12px;
+                    outline: none;
+                    min-width: 220px;
                 }}
                 QComboBox QAbstractItemView::item {{
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    min-height: 30px;
+                    padding: 28px 36px;
+                    border-radius: 12px;
+                    min-height: 80px;
+                    font-size: 26px;
+                    font-weight: 700;
+                    margin: 6px;
                 }}
                 QComboBox QAbstractItemView::item:hover {{
                     background-color: {primary}40;
+                }}
+                QComboBox QAbstractItemView::item:selected {{
+                    background-color: {primary};
+                    color: {surface};
                 }}
                 """
             else:
@@ -344,37 +348,40 @@ class ChatWidget(QWidget):
                     background-color: #2a2a2a;
                     color: #ffffff;
                     border: 2px solid #666666;
-                    border-radius: 12px;
-                    padding: 8px 12px;
-                    font-size: 14px;
-                    font-weight: 600;
+                    border-radius: 16px;
+                    padding: 0px;
+                    font-size: 22px;
+                    font-weight: 700;
                 }
                 QComboBox:hover {
                     border-color: #888888;
+                    background-color: #333333;
                 }
                 QComboBox::drop-down {
                     border: none;
-                    width: 30px;
+                    width: 0px;
                 }
                 QComboBox::down-arrow {
                     image: none;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid #666666;
-                    margin-right: 8px;
+                    width: 0px;
+                    height: 0px;
                 }
                 QComboBox QAbstractItemView {
                     background-color: #2a2a2a;
                     color: #ffffff;
                     border: 2px solid #666666;
-                    border-radius: 8px;
+                    border-radius: 16px;
                     selection-background-color: #666666;
-                    padding: 4px;
+                    padding: 12px;
+                    min-width: 220px;
                 }
                 QComboBox QAbstractItemView::item {
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    min-height: 30px;
+                    padding: 28px 36px;
+                    border-radius: 12px;
+                    min-height: 80px;
+                    font-size: 26px;
+                    font-weight: 700;
+                    margin: 6px;
                 }
                 """
             

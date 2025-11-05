@@ -198,7 +198,21 @@ class AIProcessor(QObject):
                             client.rag_manager = RAGManager()
                         
                         # RAG 검색 먼저 수행
-                        rag_results = client.rag_manager.search(processed_user_text, k=3)
+                        # 설정에서 top_k 가져오기
+                        try:
+                            from utils.config_path import config_path_manager
+                            import json
+                            config_path = config_path_manager.get_config_path('rag_config.json')
+                            if config_path.exists():
+                                with open(config_path, 'r', encoding='utf-8') as f:
+                                    rag_config = json.load(f)
+                                    top_k = rag_config.get('top_k', 5)
+                            else:
+                                top_k = 5
+                        except:
+                            top_k = 5
+                        
+                        rag_results = client.rag_manager.search(processed_user_text, k=top_k)
                         
                         if rag_results:
                             # RAG 결과를 컨텍스트로 추가

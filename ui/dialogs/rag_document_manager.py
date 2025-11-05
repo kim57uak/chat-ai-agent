@@ -105,7 +105,9 @@ class RAGDocumentManager(QDialog):
                 return
             
             # LanceDB에서 문서 목록 가져오기
+            logger.info(f"Loading documents from: {self.rag_manager.db_path}")
             df = vectorstore.table.to_pandas()
+            logger.info(f"Loaded {len(df)} chunks from vectorstore")
             
             # 파일별로 그룹화
             files = defaultdict(lambda: {"chunks": 0, "type": "", "date": ""})
@@ -155,7 +157,14 @@ class RAGDocumentManager(QDialog):
             self,
             "Select Document",
             "",
-            "Documents (*.pdf *.docx *.txt *.csv *.xlsx);;All Files (*)"
+            "All Documents (*.pdf *.docx *.xlsx *.xls *.pptx *.hwp *.hwpx *.csv *.txt *.json);;"
+            "MS Word (*.docx);;"
+            "MS Excel (*.xlsx *.xls);;"
+            "MS PowerPoint (*.pptx);;"
+            "Hangul (*.hwp *.hwpx);;"
+            "PDF (*.pdf);;"
+            "Text (*.txt *.csv *.json);;"
+            "All Files (*)"
         )
         
         if not file_path:
@@ -216,18 +225,28 @@ class RAGDocumentManager(QDialog):
                     filenames.append(filename)
                 
                 # 파일명으로 문서 ID 찾기
+                logger.info(f"Deleting files: {filenames}")
                 df = vectorstore.table.to_pandas()
+                logger.info(f"Total chunks in DB: {len(df)}")
+                
                 doc_ids = []
                 for _, row in df.iterrows():
                     metadata = row.get('metadata', {})
                     source = metadata.get('source', '')
-                    if Path(source).name in filenames:
+                    filename = Path(source).name if source else ''
+                    if filename in filenames:
                         doc_ids.append(row.get('id'))
+                        logger.debug(f"Found chunk to delete: {row.get('id')} from {filename}")
                 
                 if doc_ids:
-                    vectorstore.delete(doc_ids)
-                    self.status_label.setText(f"Deleted {len(filenames)} document(s)")
-                    logger.info(f"Deleted {len(doc_ids)} chunks from {len(filenames)} files")
+                    logger.info(f"Deleting {len(doc_ids)} chunks")
+                    success = vectorstore.delete(doc_ids)
+                    if success:
+                        self.status_label.setText(f"Deleted {len(filenames)} document(s)")
+                        logger.info(f"Successfully deleted {len(doc_ids)} chunks from {len(filenames)} files")
+                    else:
+                        self.status_label.setText("Delete failed")
+                        logger.error("Delete operation failed")
                 else:
                     self.status_label.setText("No matching documents found")
                 

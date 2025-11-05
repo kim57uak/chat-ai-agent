@@ -28,6 +28,7 @@ from ui.chat_widget_styles import ChatWidgetStylesMixin
 from ui.chat_widget_session import ChatWidgetSessionMixin
 from ui.chat_widget_scroll import ChatWidgetScrollMixin
 from ui.chat_widget_message import ChatWidgetMessageMixin
+from ui.chat_widget_welcome import ChatWidgetWelcomeMixin
 
 from datetime import datetime
 import os
@@ -67,7 +68,7 @@ def safe_single_shot(delay, callback, widget=None):
             pass
 
 
-class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScrollMixin, ChatWidgetMessageMixin, QWidget):
+class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScrollMixin, ChatWidgetMessageMixin, ChatWidgetWelcomeMixin, QWidget):
     """메인 채팅 위젯 - 컴포넌트들을 조합하여 사용 (Composition over Inheritance)"""
     
     def __init__(self, parent=None):
@@ -398,179 +399,6 @@ class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScroll
             safe_single_shot(1000, self._show_welcome_message, self)
     
     # 상태 표시 업데이트 삭제 - 좌측 패널로 이동
-    
-    def _load_previous_conversations(self):
-        """이전 대화 로드"""
-        try:
-            self._welcome_shown = True  # 웰컴 메시지 표시됨 플래그
-            self.conversation_history.load_from_file()
-            all_messages = self.conversation_history.current_session
-            
-            if all_messages:
-                # 페이징 설정에 따라 초기 로드 개수 결정
-                display_messages = all_messages[-self.initial_load_count:] if len(all_messages) > self.initial_load_count else all_messages
-                
-                unique_contents = set()
-                unique_messages = []
-                
-                for msg in display_messages:
-                    role = msg.get('role', '')
-                    content = msg.get('content', '')
-                    
-                    if not content or not content.strip():
-                        continue
-                    
-                    content_key = f"{role}:{content[:50]}"
-                    if content_key not in unique_contents:
-                        unique_contents.add(content_key)
-                        unique_messages.append(msg)
-                
-                if unique_messages:
-                    for msg in unique_messages:
-                        role = msg.get('role', '')
-                        content = msg.get('content', '')
-                        model = msg.get('model', '')
-                        
-                        if role == 'user':
-                            self.chat_display.append_message('사용자', content, message_id=msg.get('id'))
-                        elif role == 'assistant':
-                            # 토큰 정보 추출 - 실시간과 동일한 형식
-                            token_info = ""
-                            input_tokens = msg.get('input_tokens', 0)
-                            output_tokens = msg.get('output_tokens', 0)
-                            total_tokens = msg.get('total_tokens', 0)
-                            
-                            # 실시간과 동일한 형식: 전체(인/아웃)
-                            if input_tokens > 0 and output_tokens > 0 and total_tokens > 0:
-                                token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
-                            elif total_tokens > 0:
-                                token_info = f" | 📊 {total_tokens:,}토큰"
-                            elif msg.get('token_count', 0) > 0:
-                                token_info = f" | 📊 {msg['token_count']:,}토큰"
-                            
-                            # 테마 색상 가져오기
-                            colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
-                            is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
-                            text_dim = colors.get('text_secondary', '#666666' if is_light else '#a0a0a0')
-                            
-                            # 모델 정보가 있으면 표시하고 센더 정보로 모델명 전달
-                            if model and model != 'unknown':
-                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 {model}{token_info}</div>\n</div>"
-                                # 모델명을 original_sender로 전달하여 포맷팅에 활용
-                                self.chat_display.append_message('AI', enhanced_content, original_sender=model, message_id=msg.get('id'))
-                            else:
-                                enhanced_content = f"{content}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 AI{token_info}</div>\n</div>" if token_info else content
-                                self.chat_display.append_message('AI', enhanced_content, message_id=msg.get('id'))
-                    
-                    # 이전 대화 로드 후 웰컴 메시지 표시
-                    stats = self.conversation_history.get_stats()
-                    total_tokens = stats.get('total_tokens', 0)
-                    model_stats = stats.get('model_stats', {})
-                    
-                    token_summary = f"📊 전체 토큰: {total_tokens:,}개"
-                    if model_stats:
-                        model_breakdown = []
-                        for model, data in model_stats.items():
-                            if model != 'unknown':
-                                model_breakdown.append(f"{model}: {data['tokens']:,}")
-                        if model_breakdown:
-                            token_summary += f" ({', '.join(model_breakdown)})"
-                    
-                    welcome_msg = self._generate_welcome_message(len(unique_messages), token_summary)
-                    self.chat_display.append_message('시스템', welcome_msg)
-                else:
-                    # 빈 히스토리일 때도 토큰 통계 표시
-                    stats = self.conversation_history.get_stats()
-                    total_tokens = stats.get('total_tokens', 0)
-                    welcome_msg = self._generate_welcome_message(0, f"📊 전체 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
-                    self.chat_display.append_message('시스템', welcome_msg)
-            else:
-                # 빈 히스토리일 때도 토큰 통계 표시
-                stats = self.conversation_history.get_stats()
-                total_tokens = stats.get('total_tokens', 0)
-                welcome_msg = self._generate_welcome_message(0, f"📊 누적 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
-                self.chat_display.append_message('시스템', welcome_msg)
-                
-        except Exception as e:
-            logger.debug(f"대화 기록 로드 오류: {e}")
-            # 오류 시에도 토큰 통계 표시 시도
-            try:
-                stats = self.conversation_history.get_stats()
-                total_tokens = stats.get('total_tokens', 0)
-                welcome_msg = self._generate_welcome_message(0, f"📊 전체 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
-                self.chat_display.append_message('시스템', welcome_msg)
-            except:
-                welcome_msg = self._generate_welcome_message(0, None)
-                self.chat_display.append_message('시스템', welcome_msg)
-    
-    def _show_welcome_message(self):
-        """웰컴 메시지 표시"""
-        try:
-            stats = self.conversation_history.get_stats()
-            total_tokens = stats.get('total_tokens', 0)
-            welcome_msg = self._generate_welcome_message(0, f"📊 누적 토큰: {total_tokens:,}개" if total_tokens > 0 else None)
-            self.chat_display.append_message('시스템', welcome_msg)
-        except Exception as e:
-            logger.debug(f"웰컴 메시지 표시 오류: {e}")
-            welcome_msg = self._generate_welcome_message(0, None)
-            self.chat_display.append_message('시스템', welcome_msg)
-    
-    def _ensure_welcome_message(self):
-        """웰컴 메시지 보장 (웹뷰 로드 시간 초과 시 대비책)"""
-        try:
-            if not hasattr(self, '_welcome_shown'):
-                self._welcome_shown = True
-                self._show_welcome_message()
-        except Exception as e:
-            logger.debug(f"웰컴 메시지 보장 오류: {e}")
-    
-    def _generate_welcome_message(self, message_count=0, token_info=None):
-        """테마 색상이 적용된 환영 메시지 생성"""
-        try:
-            # 테마 색상 가져오기
-            colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
-            primary_color = colors.get('primary', '#bb86fc')
-            is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
-            text_color = colors.get('on_surface', colors.get('text_primary', '#1a1a1a' if is_light else '#ffffff'))
-            
-            # 기본 환영 메시지
-            welcome_parts = [
-                f'<div style="color: {primary_color}; font-weight: bold; font-size: 1.2em;">🧞 MyGenie에 오신 것을 환영합니다! ✨</div>',
-                '',
-                f'<span style="color: {text_color};">💫 당신만을 위한 AI 지니, 원하는 모든 것을 이루어드립니다</span>',
-                ''
-            ]
-            
-            # 이전 대화 정보 추가
-            if message_count > 0:
-                welcome_parts.append(f'🔄 **이전 대화**: {message_count}개 메시지 로드됨')
-            
-            # 토큰 정보 추가
-            if token_info:
-                welcome_parts.append(token_info)
-            
-            if message_count > 0 or token_info:
-                welcome_parts.append('')
-            
-            # 기능 안내
-            welcome_parts.extend([
-                f'<div style="color: {primary_color}; font-weight: bold;">🎯 MyGenie의 능력:</div>',
-                f'<span style="color: {text_color};">• 💬 **수다 떨기**: 심심하면 말 걸어주세요</span>',
-                f'<span style="color: {text_color};">• 🔧 **만능 해결사**: 검색, DB, API... 못하는 게 뭐예요?</span>',
-                f'<span style="color: {text_color};">• 📎 **파일 읽어드림**: 문서, 이미지, 데이터 다 봐드려요</span>',
-                f'<span style="color: {text_color};">• ▶️ **코드 돌려드림**: Python, JS, Java 바로 실행</span>',
-                '',
-                f'<span style="color: {text_color};">⚠️ **솔직 고백**: 완벽하진 않아요. 의심은 미덕입니다!</span>'
-            ])
-            
-            return '\n'.join(welcome_parts)
-            
-        except Exception as e:
-            logger.debug(f"환영 메시지 생성 오류: {e}")
-            import traceback
-            traceback.print_exc()
-            # 오류 시 기본 메시지 반환
-            return '🧞 **MyGenie에 오신 것을 환영합니다!** ✨\n\n💫 당신만을 위한 AI 지니, 원하는 모든 것을 이루어드립니다'
     
     def close(self):
         """위젯 종료 (리소스 정리)"""

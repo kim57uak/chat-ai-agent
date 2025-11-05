@@ -27,6 +27,7 @@ from ui.styles.theme_manager import theme_manager
 from ui.chat_widget_styles import ChatWidgetStylesMixin
 from ui.chat_widget_session import ChatWidgetSessionMixin
 from ui.chat_widget_scroll import ChatWidgetScrollMixin
+from ui.chat_widget_message import ChatWidgetMessageMixin
 
 from datetime import datetime
 import os
@@ -66,7 +67,7 @@ def safe_single_shot(delay, callback, widget=None):
             pass
 
 
-class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScrollMixin, QWidget):
+class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScrollMixin, ChatWidgetMessageMixin, QWidget):
     """메인 채팅 위젯 - 컴포넌트들을 조합하여 사용 (Composition over Inheritance)"""
     
     def __init__(self, parent=None):
@@ -314,106 +315,6 @@ class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScroll
         
         self._process_new_message(user_text)
     
-    def _process_new_message(self, user_text):
-        """새 메시지 처리"""
-        self.request_start_time = datetime.now()
-        
-        # 사용자 입력 시에만 토큰 누적기 초기화 (사용자가 직접 입력한 경우만)
-        logger.debug(f"[ChatWidget] 사용자 메시지 입력 - 토큰 누적기 상태 확인")
-        # 대화가 비활성 상태일 때만 시작
-        if not token_accumulator.conversation_active:
-            token_accumulator.start_conversation()
-        else:
-            logger.debug(f"[ChatWidget] 대화가 이미 진행 중 - 토큰 계속 누적")
-        
-        # 사용자 메시지를 히스토리에 즉시 추가 (하이브리드 방식에서는 즉시 추가)
-        message_id = self.conversation_history.add_message('user', user_text)
-        self.messages.append({'role': 'user', 'content': user_text})
-        
-        # 메인 윈도우에 사용자 메시지 저장 알림
-        logger.debug(f"[CHAT_WIDGET] 사용자 메시지 저장 시도: {user_text[:50]}...")
-        main_window = self._find_main_window()
-        if main_window and hasattr(main_window, 'save_message_to_session'):
-            main_window.save_message_to_session('user', user_text, 0)
-        else:
-            logger.debug(f"[CHAT_WIDGET] MainWindow를 찾을 수 없거나 save_message_to_session 메소드 없음")
-        
-        self.chat_display.append_message('사용자', user_text, message_id=message_id)
-        self.input_text.clear()
-        
-        # 사용자 메시지 후 맨 하단으로 스크롤 - 더 긴 지연
-        safe_single_shot(500, self._scroll_to_bottom, self)
-        
-        model = load_last_model()
-        api_key = load_model_api_key(model)
-        # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
-        
-        if not api_key:
-            self.chat_display.append_message('시스템', 'API Key가 설정되어 있지 않습니다. 환경설정에서 입력해 주세요.')
-            return
-        
-        # 파일 처리
-        if self.uploaded_file_content:
-            if "[IMAGE_BASE64]" in self.uploaded_file_content:
-                combined_prompt = f'{user_text}\n\n{self.uploaded_file_content}'
-            else:
-                combined_prompt = f'업로드된 파일 ({self.uploaded_file_name})에 대한 사용자 요청: {user_text}\n\n파일 내용:\n{self.uploaded_file_content}'
-            
-            self._start_ai_request(api_key, model, None, combined_prompt)
-            self.uploaded_file_content = None
-            self.uploaded_file_name = None
-        else:
-            self._start_ai_request(api_key, model, user_text)
-    
-    def _start_ai_request(self, api_key, model, user_text, file_prompt=None):
-        """AI 요청 시작"""
-        self.ui_manager.set_ui_enabled(False)
-        self.ui_manager.show_loading(True)
-        
-        safe_single_shot(0, lambda: self._prepare_and_send_request(api_key, model, user_text, file_prompt), self)
-    
-    def _prepare_and_send_request(self, api_key, model, user_text, file_prompt=None):
-        """요청 준비 및 전송 - 모든 모델에 하이브리드 히스토리 사용"""
-        try:
-            # logger 안전 체크
-            if 'logger' not in globals():
-                from core.logging import get_logger
-                global logger
-                logger = get_logger("chat_widget")
-            # 모든 모델에 대해 하이브리드 방식으로 컨텍스트 메시지 가져오기
-            context_messages = self.conversation_history.get_context_messages()
-            
-            validated_history = []
-            # 유효한 메시지만 필터링
-            for msg in context_messages:
-                if msg.get('content') and msg.get('content').strip():
-                    validated_history.append({
-                        'role': msg['role'],
-                        'content': msg['content']
-                    })
-            
-            logger.debug(f"하이브리드 히스토리 로드됨: {len(validated_history)}개 메시지 (모델: {model})")
-            
-            try:
-                mode_value = self.mode_combo.currentData()
-                use_agent = mode_value in ["tool", "rag"]
-                chat_mode = mode_value
-            except Exception as e:
-                logger.debug(f"모드 확인 오류: {e}")
-                use_agent = False
-                chat_mode = "simple"
-            
-            self.ai_processor.process_request(
-                api_key, model, validated_history, user_text,
-                agent_mode=use_agent, file_prompt=file_prompt, chat_mode=chat_mode
-            )
-        except Exception as e:
-            try:
-                logger.debug(f"AI 요청 준비 오류: {e}")
-            except:
-                print(f"AI 요청 준비 오류: {e}")
-            safe_single_shot(0, lambda: self.on_ai_error(f"요청 준비 중 오류: {e}"), self)
-    
     def upload_file(self):
         """파일 업로드"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -480,99 +381,6 @@ class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScroll
         
         logger.debug("취소 요청 완료")
     
-    def on_ai_response(self, sender, text, used_tools):
-        """AI 응답 처리"""
-        logger.debug(f"AI 응답 받음 - 길이: {len(text)}자")
-        
-        # 응답 시간 계산
-        response_time = ""
-        if self.request_start_time:
-            elapsed = datetime.now() - self.request_start_time
-            response_time = f" ({elapsed.total_seconds():.1f}초)"
-        
-        current_model = load_last_model()
-        
-        # 사용된 도구 정보
-        tools_info = ""
-        if '에이전트' in sender and used_tools:
-            tool_emojis = self._get_tool_emoji_list(used_tools)
-            tools_text = ", ".join([f"{emoji} {tool}" for emoji, tool in tool_emojis])
-            tools_info = f"\n\n*사용된 도구: {tools_text}*"
-        
-        # 토큰 정보 추가
-        token_info = ""
-        current_status = status_display.current_status
-        input_tokens = current_status.get('input_tokens', 0)
-        output_tokens = current_status.get('output_tokens', 0)
-        total_tokens = current_status.get('total_tokens', 0)
-        
-        # 토큰 누적기에서 누적 토큰 가져오기
-        current_input, current_output, current_total = token_accumulator.get_total()
-        if current_total > 0:
-            input_tokens = current_input
-            output_tokens = current_output
-            total_tokens = current_total
-        
-        # 토큰 정보 표시 - Material Design 스타일 적용
-        if total_tokens > 0:
-            if input_tokens > 0 and output_tokens > 0:
-                token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
-            else:
-                token_info = f" | 📊 {total_tokens:,}토큰"
-        
-        # 테마 색상 가져오기
-        colors = theme_manager.material_manager.get_theme_colors() if theme_manager.use_material_theme else {}
-        is_light = not theme_manager.material_manager.is_dark_theme() if theme_manager.use_material_theme else False
-        text_color = colors.get('on_surface', colors.get('text_primary', '#1a1a1a' if is_light else '#ffffff'))
-        text_dim = colors.get('text_secondary', '#666666' if is_light else '#a0a0a0')
-        
-        # Material Design 스타일 적용된 하단 정보
-        enhanced_text = f"{text}{tools_info}\n\n<div class='ai-footer'>\n<div class='ai-info' style='color: {text_dim};'>🤖 {current_model}{response_time}{token_info}</div>\n<div class='ai-warning' style='color: {text_dim};'>⚠️ AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.</div>\n</div>"
-        
-        # 표시용 sender 결정
-        display_sender = '에이전트' if '에이전트' in sender else 'AI'
-        
-        # AI 응답을 히스토리에 추가 - 토큰 정보 포함
-        current_status = status_display.current_status
-        input_tokens = current_status.get('input_tokens', 0)
-        output_tokens = current_status.get('output_tokens', 0)
-        total_tokens = current_status.get('total_tokens', 0)
-        
-        # 토큰 누적기에서 누적 토큰 가져오기
-        current_input, current_output, current_total = token_accumulator.get_total()
-        if current_total > 0:
-            input_tokens = current_input
-            output_tokens = current_output
-            total_tokens = current_total
-        
-        ai_message_id = self.conversation_history.add_message(
-            'assistant', text, current_model, 
-            input_tokens=input_tokens if input_tokens > 0 else None,
-            output_tokens=output_tokens if output_tokens > 0 else None,
-            total_tokens=total_tokens if total_tokens > 0 else None
-        )
-        # self.conversation_history.save_to_file()  # JSON 저장 비활성화
-        self.messages.append({'role': 'assistant', 'content': text})
-        
-        # 메인 윈도우에 AI 메시지 저장 알림 (HTML 포함)
-        logger.debug(f"[CHAT_WIDGET] AI 메시지 저장 시도: {text[:50]}...")
-        main_window = self._find_main_window()
-        if main_window and hasattr(main_window, 'save_message_to_session'):
-            # AI 메시지는 원본 텍스트를 저장하고 enhanced_text를 HTML로 저장
-            main_window.save_message_to_session('assistant', text, total_tokens, enhanced_text)
-        else:
-            logger.debug(f"[CHAT_WIDGET] MainWindow를 찾을 수 없거나 save_message_to_session 메소드 없음")
-        
-        self.chat_display.append_message(display_sender, enhanced_text, original_sender=sender, progressive=True, message_id=ai_message_id)
-        
-        # AI 응답 후 맨 하단으로 스크롤 - 더 적극적으로
-        safe_single_shot(800, self._scroll_to_bottom, self)
-        
-        # 모델 라벨 업데이트 삭제 - 좌측 패널로 이동
-        
-        self.ui_manager.set_ui_enabled(True)
-        self.ui_manager.show_loading(False)
-    
     def on_ai_streaming(self, sender, partial_text):
         """스트리밍 처리"""
         pass  # 현재 버전에서는 스트리밍 비활성화
@@ -580,69 +388,6 @@ class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScroll
     def on_streaming_complete(self, sender, full_text, used_tools):
         """스트리밍 완료 처리"""
         pass  # 현재 버전에서는 스트리밍 비활성화
-    
-    def on_ai_error(self, msg):
-        """AI 오류 처리"""
-        error_time = ""
-        if self.request_start_time:
-            elapsed = datetime.now() - self.request_start_time
-            error_time = f" (오류발생시간: {elapsed.total_seconds():.1f}초)"
-        
-        # 토큰 사용량 정보 추가 (오류 시에도 표시)
-        token_info = ""
-        current_status = status_display.current_status
-        if current_status.get('total_tokens', 0) > 0:
-            total_tokens = current_status['total_tokens']
-            input_tokens = current_status.get('input_tokens', 0)
-            output_tokens = current_status.get('output_tokens', 0)
-            if input_tokens > 0 and output_tokens > 0:
-                token_info = f" | 📊 {total_tokens:,}토큰 (IN:{input_tokens:,} OUT:{output_tokens:,})"
-            else:
-                token_info = f" | 📊 {total_tokens:,}토큰"
-        
-        current_model = load_last_model()
-        enhanced_msg = f"{msg}{error_time}\n\n---\n*🤖 {current_model}{token_info}*\n⚠️ *AI 답변은 부정확할 수 있습니다. 중요한 정보는 반드시 검증하세요.*" if token_info else f"{msg}{error_time}"
-        
-        self.chat_display.append_message('시스템', enhanced_msg)
-        
-        # 오류 메시지 후 맨 하단으로 스크롤
-        safe_single_shot(300, self._scroll_to_bottom, self)
-        
-        self.ui_manager.set_ui_enabled(True)
-        self.ui_manager.show_loading(False)
-    
-    def _get_tool_emoji_list(self, used_tools):
-        """사용된 도구 이모티콘 목록"""
-        if not used_tools:
-            return []
-        
-        emoji_map = {
-            'search': '🔍', 'web': '🌐', 'url': '🌐', 'fetch': '📄',
-            'database': '🗄️', 'mysql': '🗄️', 'sql': '🗄️',
-            'travel': '✈️', 'tour': '✈️', 'hotel': '🏨', 'flight': '✈️',
-            'map': '🗺️', 'location': '📍', 'geocode': '📍',
-            'weather': '🌤️', 'email': '📧', 'file': '📁',
-            'excel': '📊', 'chart': '📈', 'image': '🖼️',
-            'translate': '🌐', 'api': '🔧'
-        }
-        
-        result = []
-        for tool in used_tools:
-            tool_name = str(tool).lower()
-            emoji = "⚡"
-            
-            for keyword, e in emoji_map.items():
-                if keyword in tool_name:
-                    emoji = e
-                    break
-            
-            display_name = str(tool)
-            if '.' in display_name:
-                display_name = display_name.split('.')[-1]
-            
-            result.append((emoji, display_name))
-        
-        return result[:5]
     
     def _on_webview_loaded(self, ok):
         """웹뷰 로드 완료"""

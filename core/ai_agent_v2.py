@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from core.models.model_strategy_factory import ModelStrategyFactory
 from core.chat.simple_chat_processor import SimpleChatProcessor
 from core.chat.tool_chat_processor import ToolChatProcessor
+from core.chat.chat_mode_manager import ChatModeManager, ChatMode
 from core.conversation_history import ConversationHistory
 from core.token_tracker import token_tracker
 from tools.langchain.langchain_tools import MCPTool, MCPToolRegistry
@@ -24,13 +25,21 @@ class AIAgentV2:
         # 전략 패턴으로 모델별 처리 분리
         self.model_strategy = ModelStrategyFactory.create_strategy(api_key, model_name)
         
-        # 채팅 처리기들
+        # 채팅 모드 관리자
+        self.mode_manager = ChatModeManager(self.model_strategy)
+        
+        # 채팅 처리기들 (하위 호환성)
         self.simple_processor = SimpleChatProcessor(self.model_strategy)
         self.tool_processor = None  # 지연 로딩
+        self.rag_processor = None  # 지연 로딩
         
         # 도구 및 대화 히스토리
         self.tools: List[MCPTool] = []
         self.conversation_history = ConversationHistory()
+        
+        # RAG 관련
+        self.vectorstore = None
+        self.mcp_client = None
         
         # 초기화
         self._load_mcp_tools()
@@ -116,8 +125,31 @@ class AIAgentV2:
         response, _ = self.simple_processor.process_message(user_input, conversation_history)
         return response
     
+    def set_chat_mode(self, mode: str):
+        """채팅 모드 설정"""
+        try:
+            chat_mode = ChatMode(mode)
+            self.mode_manager.set_mode(chat_mode)
+            self.logger.info(f"채팅 모드 변경: {mode}")
+        except ValueError:
+            self.logger.error(f"잘못된 채팅 모드: {mode}")
+    
+    def set_vectorstore(self, vectorstore):
+        """벡터 스토어 설정 (RAG용)"""
+        self.vectorstore = vectorstore
+        self.logger.info("벡터 스토어 설정됨")
+    
+    def set_mcp_client(self, mcp_client):
+        """MCP 클라이언트 설정 (RAG용)"""
+        self.mcp_client = mcp_client
+        self.logger.info("MCP 클라이언트 설정됨")
+    
     def _should_use_tools(self, user_input: str) -> bool:
         """도구 사용 여부 결정"""
+        # RAG 모드면 항상 RAG 프로세서 사용
+        if self.mode_manager.current_mode == ChatMode.RAG:
+            return True
+        
         if not self.tools:
             self.logger.info(f"도구가 없어서 도구 사용 안함: {len(self.tools)}개")
             return False
@@ -134,14 +166,24 @@ class AIAgentV2:
         return result
     
     def _process_with_tools(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
-        """도구를 사용한 처리 - 5단계 대화 히스토리 포함"""
-        # 도구 처리기 지연 로딩
-        if not self.tool_processor:
-            self.tool_processor = ToolChatProcessor(self.model_strategy, self.tools)
-        
+        """도구를 사용한 처리 - 모드에 따라 프로세서 선택"""
         # 대화 히스토리가 없으면 내부 히스토리에서 5단계 가져오기
         if not conversation_history:
             conversation_history = self.conversation_history.get_context_messages()
+        
+        # RAG 모드
+        if self.mode_manager.current_mode == ChatMode.RAG:
+            processor = self.mode_manager.get_processor(
+                mode=ChatMode.RAG,
+                vectorstore=self.vectorstore,
+                mcp_client=self.mcp_client,
+                tools=self.tools
+            )
+            return processor.process_message(user_input, conversation_history)
+        
+        # TOOL 모드 (기존 로직)
+        if not self.tool_processor:
+            self.tool_processor = ToolChatProcessor(self.model_strategy, self.tools)
         
         return self.tool_processor.process_message(user_input, conversation_history)
     

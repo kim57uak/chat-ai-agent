@@ -65,37 +65,74 @@ class MCPAgent(BaseAgent):
         return wrapped_tools
     
     def _create_executor(self) -> AgentExecutor:
-        """Create OpenAI functions agent with MCP tools"""
+        """Create agent with MCP tools (model-specific)"""
         if not self.tools:
             logger.warning("No MCP tools available")
             return None
         
-        # 프롬프트 생성
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a helpful assistant with access to various tools."),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
-        
-        # Agent 생성
-        agent = create_openai_functions_agent(self.llm, self.tools, prompt)
-        
-        # AgentExecutor 생성
-        executor = AgentExecutor(
-            agent=agent,
-            tools=self.tools,
-            verbose=True,
-            max_iterations=5,
-            max_execution_time=30,
-            return_intermediate_steps=True
-        )
-        
-        logger.info(f"MCP agent executor created with {len(self.tools)} tools")
-        return executor
+        try:
+            # Gemini 모델 체크
+            model_name = str(getattr(self.llm, 'model_name', '') or getattr(self.llm, 'model', '')).lower()
+            is_gemini = 'gemini' in model_name
+            logger.info(f"Model detection: {model_name}, is_gemini: {is_gemini}")
+            
+            if is_gemini:
+                # Gemini: ReAct Agent 사용
+                from langchain.agents import create_react_agent
+                from langchain.prompts import PromptTemplate
+                
+                template = """Answer the following questions as best you can. You have access to the following tools:
+
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+
+Question: {input}
+Thought:{agent_scratchpad}"""
+                
+                prompt = PromptTemplate.from_template(template)
+                agent = create_react_agent(self.llm, self.tools, prompt)
+            else:
+                # OpenAI: Functions Agent 사용
+                prompt = ChatPromptTemplate.from_messages([
+                    ("system", "You are a helpful assistant with access to various tools."),
+                    ("human", "{input}"),
+                    MessagesPlaceholder(variable_name="agent_scratchpad"),
+                ])
+                agent = create_openai_functions_agent(self.llm, self.tools, prompt)
+            
+            # AgentExecutor 생성
+            executor = AgentExecutor(
+                agent=agent,
+                tools=self.tools,
+                verbose=True,
+                max_iterations=5,
+                max_execution_time=30,
+                return_intermediate_steps=True,
+                handle_parsing_errors=True
+            )
+            
+            logger.info(f"MCP agent executor created with {len(self.tools)} tools (Gemini: {is_gemini})")
+            return executor
+            
+        except Exception as e:
+            logger.error(f"Failed to create agent executor: {e}")
+            return None
     
     def can_handle(self, query: str, context: Optional[Dict] = None) -> bool:
         """
-        Check if query requires MCP tools using LLM
+        Check if query requires MCP tools using LLM context understanding
         
         Args:
             query: User query
@@ -104,29 +141,42 @@ class MCPAgent(BaseAgent):
         Returns:
             True if MCP tools needed
         """
-        from langchain.schema import HumanMessage
-        
         if not self.tools:
             return False
         
+        from langchain.schema import HumanMessage
+        
+        # 도구 목록 생성 (최대 10개)
+        tool_descriptions = "\n".join([
+            f"- {t.name}: {t.description}" 
+            for t in self.tools[:10]
+        ])
+        
+        # Context 정보 추가
+        context_info = ""
+        if context:
+            context_info = f"\n\nContext: {str(context)[:200]}"
+        
+        prompt = f"""Analyze if this query requires using any of the available tools.
+
+Query: {query}{context_info}
+
+Available Tools:
+{tool_descriptions}
+
+Consider:
+1. Does the query mention files, databases, APIs, or external services?
+2. Can the tools help answer this query?
+3. Is this a simple conversation or does it need tool execution?
+
+Answer ONLY 'YES' or 'NO':"""
+        
         try:
-            # 사용 가능한 도구 목록
-            tool_list = "\n".join([f"- {t.name}: {t.description}" for t in self.tools[:10]])
-            
-            prompt = f"""Does this query require using any of these tools?
-
-Query: {query}
-
-Available tools:
-{tool_list}
-
-Answer only 'YES' or 'NO'."""
-            
             response = self.llm.invoke([HumanMessage(content=prompt)])
             decision = response.content.strip().upper()
-            
-            return "YES" in decision
-            
+            result = "YES" in decision
+            logger.info(f"MCP Agent can_handle: {result} for query: {query[:50]}...")
+            return result
         except Exception as e:
-            logger.error(f"LLM decision failed: {e}")
+            logger.error(f"MCP Agent can_handle failed: {e}")
             return False

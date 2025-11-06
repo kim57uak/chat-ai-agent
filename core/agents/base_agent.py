@@ -77,10 +77,21 @@ class BaseAgent(ABC):
             self.executor = self._create_executor()
         
         try:
-            result = self.executor.invoke({"input": query})
+            # Chain vs Agent 구분
+            from langchain.chains.base import Chain
+            
+            if isinstance(self.executor, Chain):
+                # Chain (RAGAgent): question + chat_history
+                result = self.executor.invoke({"question": query, "chat_history": []})
+            else:
+                # AgentExecutor: input 키 사용
+                result = self.executor.invoke({"input": query})
+            
+            # 결과 추출
+            output = result.get("answer") or result.get("output") or str(result)
             
             return AgentResult(
-                output=result.get("output", ""),
+                output=output,
                 intermediate_steps=result.get("intermediate_steps", []),
                 metadata={"agent": self.__class__.__name__}
             )

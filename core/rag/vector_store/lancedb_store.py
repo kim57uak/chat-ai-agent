@@ -159,11 +159,12 @@ class LanceDBStore(BaseVectorStore):
         
         try:
             # 벡터 검색
-            if "query_vector" in kwargs:
+            if "query_vector" in kwargs and kwargs["query_vector"]:
                 results = self.table.search(kwargs["query_vector"]).limit(k)
             else:
-                # 텍스트 검색 (fallback)
-                results = self.table.search(query).limit(k)
+                # 텍스트 검색 비활성화 (INVERTED 인덱스 필요)
+                logger.warning("Vector search requires query_vector, returning empty results")
+                return []
             
             # 메타데이터 필터 적용
             if filter:
@@ -288,3 +289,31 @@ class LanceDBStore(BaseVectorStore):
                 expressions.append(f"metadata.{key} = {value}")
         
         return " AND ".join(expressions)
+    
+    def as_retriever(self, **kwargs):
+        """
+        Return LangChain-compatible retriever
+        
+        Args:
+            **kwargs: search_kwargs (k, filter, etc.)
+            
+        Returns:
+            Retriever instance
+        """
+        from langchain.schema.retriever import BaseRetriever
+        from langchain.callbacks.manager import CallbackManagerForRetrieverRun
+        
+        class LanceDBRetriever(BaseRetriever):
+            vectorstore: Any
+            search_kwargs: Dict[str, Any] = {}
+            
+            def _get_relevant_documents(
+                self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+            ) -> List[Document]:
+                # embeddings를 통한 벡터 검색
+                from core.rag.embeddings.korean_embeddings import KoreanEmbeddings
+                embeddings = KoreanEmbeddings()
+                query_vector = embeddings.embed_query(query)
+                return self.vectorstore.search(query, query_vector=query_vector, **self.search_kwargs)
+        
+        return LanceDBRetriever(vectorstore=self, search_kwargs=kwargs.get('search_kwargs', {}))

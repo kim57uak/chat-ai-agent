@@ -78,6 +78,24 @@ class RAGChatProcessor(BaseChatProcessor):
             agents.append(mcp_agent)
             logger.info("MCP Agent initialized")
         
+        # Pandas Agent (항상 추가)
+        try:
+            from core.agents.pandas_agent import PandasAgent
+            pandas_agent = PandasAgent(llm=self.model_strategy.llm)
+            agents.append(pandas_agent)
+            logger.info("Pandas Agent initialized")
+        except Exception as e:
+            logger.warning(f"Pandas Agent initialization failed: {e}")
+        
+        # Python REPL Agent (항상 추가)
+        try:
+            from core.agents.python_repl_agent import PythonREPLAgent
+            python_agent = PythonREPLAgent(llm=self.model_strategy.llm)
+            agents.append(python_agent)
+            logger.info("Python REPL Agent initialized")
+        except Exception as e:
+            logger.warning(f"Python REPL Agent initialization failed: {e}")
+        
         return agents
     
     def process_message(
@@ -109,8 +127,9 @@ class RAGChatProcessor(BaseChatProcessor):
                 "model_name": self.model_strategy.model_name
             }
             
-            # Orchestrator 실행 (LLM이 자동으로 Agent 선택)
-            response = self.orchestrator.run(user_input, context)
+            # Orchestrator 실행
+            # 항상 병렬 최적화 실행 (Agent가 자동으로 협업)
+            response = self.orchestrator.execute_parallel_optimized(user_input, context)
             
             # 사용된 도구 추출 (향후 확장)
             used_tools = []

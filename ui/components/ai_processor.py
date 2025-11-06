@@ -155,12 +155,19 @@ class AIProcessor(QObject):
                 self._current_client = client
                 self._current_model = model
                 
-                # RAG 모드일 경우 RAG Manager 초기화
+                # RAG 모드일 경우 RAG Manager 초기화 및 Agent 모드 설정
                 if chat_mode == "rag":
                     from core.rag.rag_manager import RAGManager
                     if not hasattr(client, 'rag_manager'):
                         client.rag_manager = RAGManager()
-                    logger.info("RAG mode activated")
+                    
+                    # Agent에 RAG 모드 설정
+                    if hasattr(client, 'agent') and hasattr(client.agent, 'set_chat_mode'):
+                        client.agent.set_chat_mode("rag")
+                        client.agent.set_vectorstore(client.rag_manager.vectorstore)
+                        logger.info("RAG mode activated and configured")
+                    else:
+                        logger.warning("Agent does not support RAG mode configuration")
                 
                 # 대화 히스토리 설정
                 if messages:

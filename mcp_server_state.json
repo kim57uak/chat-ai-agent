@@ -20,6 +20,6 @@
   "taskmaster-ai": false,
   "korea-stock-analyzer": false,
   "search-economy-index": true,
-  "pdf-operations": true,
+  "pdf-operations": false,
   "swagger-mcp": true
 }

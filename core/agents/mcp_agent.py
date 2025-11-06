@@ -71,17 +71,70 @@ class MCPAgent(BaseAgent):
             return None
         
         try:
-            # Gemini 모델 체크
-            model_name = str(getattr(self.llm, 'model_name', '') or getattr(self.llm, 'model', '')).lower()
-            is_gemini = 'gemini' in model_name
-            logger.info(f"Model detection: {model_name}, is_gemini: {is_gemini}")
+            # 모델 타입 감지
+            from ui.prompts import prompt_manager
             
-            if is_gemini:
-                # Gemini: ReAct Agent 사용
+            model_name = str(getattr(self.llm, 'model_name', '') or getattr(self.llm, 'model', ''))
+            model_type = prompt_manager.get_provider_from_model(model_name)
+            is_gemini = 'gemini' in model_name.lower()
+            is_perplexity = 'sonar' in model_name.lower() or 'perplexity' in model_name.lower()
+            
+            logger.info(f"Model: {model_name}, Type: {model_type}, Gemini: {is_gemini}, Perplexity: {is_perplexity}")
+            
+            if is_gemini or is_perplexity:
+                # Gemini/Perplexity: ReAct Agent with centralized prompt
                 from langchain.agents import create_react_agent
                 from langchain.prompts import PromptTemplate
                 
-                template = """Answer the following questions as best you can. You have access to the following tools:
+                if is_perplexity:
+                    # Perplexity: Tool 모드와 동일한 상세 프롬프트 사용
+                    tool_usage_rules = prompt_manager.get_tool_prompt(ModelType.PERPLEXITY.value)
+                    execution_rules = prompt_manager.get_custom_prompt(ModelType.COMMON.value, "execution_rules")
+                    
+                    react_template = f"""You are an expert data analyst that uses tools to gather information and provides comprehensive analysis.
+
+**CRITICAL: THOROUGH OBSERVATION ANALYSIS REQUIRED**
+
+{tool_usage_rules}
+
+{execution_rules}
+
+**EXACT FORMAT (MANDATORY):**
+
+Thought: [Analyze what information is needed for the user's question]
+Action: [exact_tool_name]
+Action Input: {{{{"exact_parameter_name_from_schema": "value"}}}}
+
+(System provides Observation with tool results)
+
+Thought: [CRITICAL ANALYSIS STEP: Read the ENTIRE Observation carefully. Extract ALL key information including names, numbers, dates, details. Identify patterns and relationships. Organize findings logically. This analysis determines the quality of your Final Answer.]
+Final Answer: [Comprehensive Korean response based EXCLUSIVELY on Observation data. Include specific details, exact numbers, names, and all relevant information from the tool results. Structure the response clearly with proper formatting. Do NOT add external knowledge - use ONLY the data provided in the Observation.]
+
+**ANALYSIS REQUIREMENTS:**
+1. **COMPLETE DATA PROCESSING**: Read every part of the Observation
+2. **EXTRACT SPECIFICS**: Include exact names, numbers, dates from results
+3. **LOGICAL ORGANIZATION**: Structure information clearly
+4. **COMPREHENSIVE COVERAGE**: Address all aspects relevant to user's question
+5. **DATA-ONLY RESPONSES**: Base answer EXCLUSIVELY on Observation data
+
+**PARSING RULES:**
+- Use EXACT keywords: "Thought:", "Action:", "Action Input:", "Final Answer:"
+- Action Input MUST be valid JSON with EXACT parameter names from inputSchema
+- NEVER use generic names like "param", "value" - check the tool's inputSchema
+- NEVER mix Action and Final Answer
+- Analyze Observation thoroughly before Final Answer
+
+Tools: {{tools}}
+Tool names: {{tool_names}}
+
+Question: {{input}}
+Thought:{{agent_scratchpad}}"""
+                else:
+                    # Gemini: 중앙 관리 프롬프트 사용
+                    react_template = prompt_manager.get_react_template(model_type)
+                    if not react_template:
+                        # Fallback: 기본 ReAct 템플릿
+                        react_template = """Answer the following questions as best you can. You have access to the following tools:
 
 {tools}
 
@@ -101,29 +154,42 @@ Begin!
 Question: {input}
 Thought:{agent_scratchpad}"""
                 
-                prompt = PromptTemplate.from_template(template)
-                agent = create_react_agent(self.llm, self.tools, prompt)
+                prompt = PromptTemplate.from_template(react_template)
+                
+                # Perplexity/Gemini는 커스텀 파서 사용
+                if is_perplexity:
+                    from core.perplexity_output_parser import PerplexityOutputParser
+                    custom_parser = PerplexityOutputParser()
+                    agent = create_react_agent(self.llm, self.tools, prompt, output_parser=custom_parser)
+                elif is_gemini:
+                    from core.parsers.custom_react_parser import CustomReActParser
+                    custom_parser = CustomReActParser()
+                    agent = create_react_agent(self.llm, self.tools, prompt, output_parser=custom_parser)
+                else:
+                    agent = create_react_agent(self.llm, self.tools, prompt)
             else:
-                # OpenAI: Functions Agent 사용
+                # OpenAI: Functions Agent with system prompt
+                system_prompt = prompt_manager.get_agent_prompt(model_type) or "You are a helpful assistant with access to various tools."
+                
                 prompt = ChatPromptTemplate.from_messages([
-                    ("system", "You are a helpful assistant with access to various tools."),
+                    ("system", system_prompt),
                     ("human", "{input}"),
                     MessagesPlaceholder(variable_name="agent_scratchpad"),
                 ])
                 agent = create_openai_functions_agent(self.llm, self.tools, prompt)
             
-            # AgentExecutor 생성
+            # AgentExecutor 생성 (Tool 모드와 동일한 설정)
             executor = AgentExecutor(
                 agent=agent,
                 tools=self.tools,
                 verbose=True,
-                max_iterations=5,
-                max_execution_time=30,
+                max_iterations=10,
+                max_execution_time=60,
                 return_intermediate_steps=True,
-                handle_parsing_errors=True
+                handle_parsing_errors=True  # 자동 파싱 오류 처리
             )
             
-            logger.info(f"MCP agent executor created with {len(self.tools)} tools (Gemini: {is_gemini})")
+            logger.info(f"MCP agent executor created: {len(self.tools)} tools, Model: {model_type}")
             return executor
             
         except Exception as e:
@@ -143,6 +209,13 @@ Thought:{agent_scratchpad}"""
         """
         if not self.tools:
             return False
+        
+        # 캠싱 키 생성
+        cache_key = hash(query)
+        if cache_key in self._can_handle_cache:
+            result = self._can_handle_cache[cache_key]
+            logger.info(f"[CACHE HIT] MCPAgent.can_handle: {result}")
+            return result
         
         from langchain.schema import HumanMessage
         
@@ -172,10 +245,15 @@ Consider:
 Answer ONLY 'YES' or 'NO':"""
         
         try:
+            logger.info(f"[LLM REQ] MCPAgent.can_handle: {query[:30]}...")
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            decision = response.content.strip().upper()
+            logger.info(f"[LLM RES] MCPAgent.can_handle completed")
+            decision = response.content.strip().upper() if hasattr(response, 'content') else str(response).strip().upper()
             result = "YES" in decision
-            logger.info(f"MCP Agent can_handle: {result} for query: {query[:50]}...")
+            
+            # 캠싱 저장
+            self._can_handle_cache[cache_key] = result
+            logger.info(f"MCP Agent can_handle: {result}")
             return result
         except Exception as e:
             logger.error(f"MCP Agent can_handle failed: {e}")

@@ -140,7 +140,7 @@ Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
         
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            selected_name = response.content.strip()
+            selected_name = response.content.strip() if hasattr(response, 'content') else str(response).strip()
             
             # Agent 찾기 (부분 매칭 포함)
             for agent in self.agents:
@@ -243,17 +243,26 @@ Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
         if len(suitable_agents) == 1:
             return suitable_agents[0].execute(query, context).output
         
-        # 병렬 실행
+        # 병렬 실행 (각 Agent 독립 실행)
         results = []
         with ThreadPoolExecutor(max_workers=len(suitable_agents)) as executor:
-            future_to_agent = {executor.submit(agent.execute, query, context): agent for agent in suitable_agents}
+            # 각 Agent를 별도 함수로 래핑하여 독립성 보장
+            def execute_agent(agent, q, ctx):
+                # 각 Agent에 독립적인 context 전달 (RAG 문서 정보 제외)
+                clean_ctx = {k: v for k, v in (ctx or {}).items() if k not in ['documents', 'rag_mode_active']}
+                return agent.execute(q, clean_ctx)
             
-            for future in as_completed(future_to_agent, timeout=30):
+            future_to_agent = {executor.submit(execute_agent, agent, query, context): agent for agent in suitable_agents}
+            
+            for future in as_completed(future_to_agent, timeout=90):  # 전체 타임아웃 증가
                 agent = future_to_agent[future]
                 try:
-                    result = future.result(timeout=10)
+                    result = future.result(timeout=60)  # 개별 Agent 타임아웃 증가
                     if not result.metadata.get("error"):
                         results.append((agent.get_name(), result.output))
+                        logger.info(f"Agent {agent.get_name()} completed successfully")
+                except TimeoutError:
+                    logger.warning(f"Agent {agent.get_name()} timed out, skipping")
                 except Exception as e:
                     logger.error(f"Agent {agent.get_name()} failed: {e}")
         
@@ -262,7 +271,7 @@ Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
     
     def _select_multiple_agents(self, query: str, context: Optional[Dict], max_agents: int = 3) -> List[BaseAgent]:
         """
-        Select multiple suitable agents using can_handle method
+        Select multiple suitable agents using SINGLE LLM call
         
         Args:
             query: User query
@@ -272,27 +281,59 @@ Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
         Returns:
             List of selected agents
         """
-        selected = []
-        
-        # 모든 Agent의 can_handle 체크
+        # Agent 정보 수집
+        agent_info = []
         for agent in self.agents:
-            try:
-                if agent.can_handle(query, context or {}):
+            agent_info.append(f"- {agent.get_name()}: {agent.get_description()}")
+        
+        agents_text = "\n".join(agent_info)
+        
+        # 단일 LLM 호출로 모든 Agent 판단
+        prompt = f"""Analyze which agents can handle this query. You can select MULTIPLE agents if the query requires multiple capabilities.
+
+Query: {query}
+
+Available Agents:
+{agents_text}
+
+Analysis Guidelines:
+- Does the query need internal documents? Consider RAGAgent
+- Does the query need external/web information? Consider MCPAgent
+- Does the query need data analysis? Consider PandasAgent
+- Does the query need calculations/code? Consider PythonREPLAgent
+
+IMPORTANT:
+- If query requires BOTH internal knowledge AND external information, select BOTH agents
+- Think about what information sources are needed to fully answer the query
+- Select ALL relevant agents that can contribute (up to {max_agents})
+
+Return ONLY agent names (comma-separated, max {max_agents}):"""
+        
+        try:
+            logger.info(f"[AI REQ] Orchestrator selecting agents for: {query[:50]}...")
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            logger.info(f"[AI RES] Orchestrator agent selection completed")
+            
+            selected_names = response.content.strip() if hasattr(response, 'content') else str(response).strip()
+            
+            # Agent 매칭
+            selected = []
+            for agent in self.agents:
+                if agent.get_name() in selected_names:
                     selected.append(agent)
-                    logger.info(f"Agent {agent.get_name()} can handle query")
-                    
                     if len(selected) >= max_agents:
                         break
-            except Exception as e:
-                logger.error(f"Agent {agent.get_name()} can_handle check failed: {e}")
+            
+            if selected:
+                logger.info(f"Selected {len(selected)} agents: {[a.get_name() for a in selected]}")
+                return selected
         
-        # 선택된 Agent가 없으면 모두 사용 (최대 max_agents개)
-        if not selected:
-            logger.warning("No agents selected by can_handle, using all agents")
-            selected = self.agents[:max_agents]
+        except Exception as e:
+            logger.error(f"LLM agent selection failed: {e}")
         
-        logger.info(f"Selected {len(selected)} agents: {[a.get_name() for a in selected]}")
-        return selected
+        # Fallback: 첫 번째 Agent만 사용
+        logger.warning("Using fallback: first agent only")
+        return [self.agents[0]] if self.agents else []
     
     def _merge_results(self, results: List[tuple]) -> str:
         """
@@ -307,24 +348,49 @@ Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
         if not results:
             return "No results available"
         
-        if len(results) == 1:
-            return results[0][1]
+        # 긍정적 결과 우선 선택
+        positive_results = []
+        negative_results = []
         
-        # LLM으로 결과 통합
-        merged_text = "\n\n".join([f"**{name}:**\n{output}" for name, output in results])
+        for name, output in results:
+            output_stripped = output.strip()
+            
+            # 너무 짧은 응답 제외
+            if len(output_stripped) < 30:
+                logger.debug(f"Filtered short response from {name}")
+                continue
+            
+            # 부정적 키워드 체크 (문서/정보 없음)
+            negative_keywords = [
+                "문서에", "제공된 문서", "주어진 문서",
+                "없습니다", "없어요", "모릅니다",
+                "no information", "cannot provide", "not available"
+            ]
+            
+            is_negative = any(keyword in output_stripped[:100] for keyword in negative_keywords)
+            
+            if is_negative:
+                logger.debug(f"Negative response from {name}")
+                negative_results.append((name, output))
+            else:
+                logger.info(f"Positive response from {name}")
+                positive_results.append((name, output))
         
-        prompt = f"""Synthesize these agent results into a coherent answer:
-
-{merged_text}
-
-Provide a unified, comprehensive response:"""
-        
-        try:
-            response = self.llm.invoke([HumanMessage(content=prompt)])
-            return response.content
-        except Exception as e:
-            logger.error(f"Result merging failed: {e}")
+        # 긍정적 결과가 있으면 우선 사용
+        if positive_results:
+            if len(positive_results) == 1:
+                return positive_results[0][1]
+            
+            # 여러 긍정적 결과 병합
+            merged_text = "\n\n".join([f"**{name}:**\n{output}" for name, output in positive_results])
             return merged_text
+        
+        # 긍정적 결과 없으면 부정적 결과라도 반환
+        if negative_results:
+            logger.warning("Only negative results available")
+            return negative_results[0][1]
+        
+        return "No valid results available"
     
     def _get_agent_by_name(self, name: str) -> Optional[BaseAgent]:
         """Get agent by name"""

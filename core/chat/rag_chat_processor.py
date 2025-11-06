@@ -78,21 +78,25 @@ class RAGChatProcessor(BaseChatProcessor):
             agents.append(mcp_agent)
             logger.info("MCP Agent initialized")
         
-        # Pandas Agent (항상 추가)
+        # Pandas Agent (선택적)
         try:
             from core.agents.pandas_agent import PandasAgent
             pandas_agent = PandasAgent(llm=self.model_strategy.llm)
             agents.append(pandas_agent)
             logger.info("Pandas Agent initialized")
+        except ImportError:
+            logger.debug("Pandas Agent not available (not implemented)")
         except Exception as e:
             logger.warning(f"Pandas Agent initialization failed: {e}")
         
-        # Python REPL Agent (항상 추가)
+        # Python REPL Agent (선택적)
         try:
             from core.agents.python_repl_agent import PythonREPLAgent
             python_agent = PythonREPLAgent(llm=self.model_strategy.llm)
             agents.append(python_agent)
             logger.info("Python REPL Agent initialized")
+        except ImportError:
+            logger.debug("Python REPL Agent not available (not implemented)")
         except Exception as e:
             logger.warning(f"Python REPL Agent initialization failed: {e}")
         
@@ -137,8 +141,20 @@ class RAGChatProcessor(BaseChatProcessor):
             return self.format_response(response), used_tools
             
         except Exception as e:
-            logger.error(f"RAG chat processing error: {e}")
-            return f"처리 중 오류가 발생했습니다: {str(e)[:100]}", []
+            error_msg = str(e)
+            logger.error(f"RAG chat processing error: {error_msg}")
+            
+            # 병렬 실행 타임아웃 오류 처리
+            if "futures unfinished" in error_msg:
+                logger.warning("병렬 실행 타임아웃, 단일 Agent로 재시도")
+                try:
+                    response = self.orchestrator.run(user_input, context)
+                    return self.format_response(response), []
+                except Exception as retry_error:
+                    logger.error(f"Retry failed: {retry_error}")
+            
+            # 사용자 친화적 메시지
+            return "요청을 처리하는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.", []
     
     def supports_tools(self) -> bool:
         """도구 지원 여부"""

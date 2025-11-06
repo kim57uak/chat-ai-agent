@@ -23,9 +23,8 @@ class PythonREPLAgent(BaseAgent):
         Args:
             llm: LangChain LLM instance
         """
-        super().__init__("python_repl", llm)
         self.tool = PythonREPLTool()
-        self.agent = self._create_agent()
+        super().__init__(llm, tools=[self.tool])
     
     def can_handle(self, query: str, context: Dict[str, Any]) -> bool:
         """
@@ -38,6 +37,13 @@ class PythonREPLAgent(BaseAgent):
         Returns:
             True if can handle
         """
+        # 캠싱 키 생성
+        cache_key = hash(query)
+        if cache_key in self._can_handle_cache:
+            result = self._can_handle_cache[cache_key]
+            logger.info(f"[CACHE HIT] PythonREPLAgent.can_handle: {result}")
+            return result
+        
         from langchain.schema import HumanMessage
         
         prompt = f"""Does this query require Python code execution or programming?
@@ -54,41 +60,60 @@ Consider:
 Answer only 'YES' or 'NO'."""
         
         try:
+            logger.info(f"[LLM REQ] PythonREPLAgent.can_handle: {query[:30]}...")
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            decision = response.content.strip().upper()
-            return "YES" in decision
+            logger.info(f"[LLM RES] PythonREPLAgent.can_handle completed")
+            decision = response.content.strip().upper() if hasattr(response, 'content') else str(response).strip().upper()
+            result = "YES" in decision
+            
+            # 캠싱 저장
+            self._can_handle_cache[cache_key] = result
+            logger.info(f"Python REPL Agent can_handle: {result}")
+            return result
         except Exception as e:
             logger.error(f"LLM decision failed: {e}")
             return False
     
-    def _create_agent(self) -> AgentExecutor:
+    def _create_executor(self) -> AgentExecutor:
         """
         Create ReAct agent with Python REPL tool
         
         Returns:
             Agent executor
         """
-        # ReAct prompt template
-        template = """Answer the following questions as best you can. You have access to the following tools:
+        # ReAct prompt template - 자동 코드 실행
+        template = """You are a Python code execution assistant. When users ask for calculations, data processing, or programming tasks, you MUST:
 
+1. ALWAYS write and execute Python code to get accurate results
+2. DO NOT just explain - actually run the code
+3. Use the Python_REPL tool to execute code and get real results
+
+You have access to the following tools:
 {tools}
+
+Tool names: {tool_names}
 
 Use the following format:
 
 Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
+Thought: I need to write Python code to solve this
+Action: Python_REPL
+Action Input: [write complete Python code here]
+Observation: [execution result]
+Thought: I now have the result
+Final Answer: [present the result in a clear way]
 
-IMPORTANT: Only execute safe Python code. Do not execute code that:
-- Accesses file system (except reading)
-- Makes network requests
-- Modifies system settings
-- Runs infinite loops
+CRITICAL RULES:
+- When asked to calculate, compute, find, execute code -> ALWAYS use Python_REPL
+- Write complete, executable Python code
+- Use print() to show results
+- DO NOT just describe what the code would do - EXECUTE IT
+
+Safety Guidelines:
+- Only execute safe calculations and data processing
+- No file system modifications
+- No network requests
+- No system commands
 
 Begin!
 
@@ -97,11 +122,25 @@ Thought:{agent_scratchpad}"""
 
         prompt = PromptTemplate.from_template(template)
         
-        agent = create_react_agent(
-            llm=self.llm,
-            tools=[self.tool],
-            prompt=prompt
-        )
+        # Gemini용 커스텀 파서
+        model_name = str(getattr(self.llm, 'model_name', '') or getattr(self.llm, 'model', ''))
+        is_gemini = 'gemini' in model_name.lower()
+        
+        if is_gemini:
+            from core.parsers.custom_react_parser import CustomReActParser
+            custom_parser = CustomReActParser()
+            agent = create_react_agent(
+                llm=self.llm,
+                tools=[self.tool],
+                prompt=prompt,
+                output_parser=custom_parser
+            )
+        else:
+            agent = create_react_agent(
+                llm=self.llm,
+                tools=[self.tool],
+                prompt=prompt
+            )
         
         return AgentExecutor(
             agent=agent,
@@ -111,46 +150,7 @@ Thought:{agent_scratchpad}"""
             max_iterations=5
         )
     
-    def execute(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Execute Python code
-        
-        Args:
-            query: Code execution request
-            context: Additional context
-            
-        Returns:
-            Execution result
-        """
-        try:
-            # LLM 기반 보안 판단
-            safety_check = self._check_safety_with_llm(query)
-            if not safety_check["is_safe"]:
-                return {
-                    "success": False,
-                    "error": f"Safety check failed: {safety_check['reason']}"
-                }
-            
-            logger.info(f"Executing Python REPL query: {query[:100]}")
-            result = self.agent.invoke({"input": query})
-            
-            # Extract output
-            if isinstance(result, dict):
-                output = result.get("output", str(result))
-            else:
-                output = str(result)
-            
-            return {
-                "success": True,
-                "result": output
-            }
-            
-        except Exception as e:
-            logger.error(f"Python REPL execution failed: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": str(e)
-            }
+
     
     def _check_safety_with_llm(self, query: str) -> Dict[str, Any]:
         """
@@ -184,7 +184,7 @@ Response:"""
         
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            result = response.content.strip()
+            result = response.content.strip() if hasattr(response, 'content') else str(response).strip()
             
             if result.startswith("SAFE"):
                 return {"is_safe": True, "reason": ""}

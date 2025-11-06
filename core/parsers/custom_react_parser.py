@@ -29,7 +29,7 @@ class CustomReActParser(ReActOutputParser):
         
         # Action과 Action Input이 모두 있는 경우만 Action으로 처리
         action_match = re.search(r'Action:\s*([^\n\s]+)', text, re.IGNORECASE)
-        input_match = re.search(r'Action Input:\s*({.*?})', text, re.DOTALL | re.IGNORECASE)
+        input_match = re.search(r'Action Input:\s*({.*?}|[^\n]+)', text, re.DOTALL | re.IGNORECASE)
         
         if action_match and input_match:
             action = action_match.group(1).strip()
@@ -41,11 +41,15 @@ class CustomReActParser(ReActOutputParser):
             # JSON 파싱 시도
             try:
                 import json
-                parsed_input = json.loads(action_input)
+                if action_input.startswith('{'):
+                    parsed_input = json.loads(action_input)
+                else:
+                    # JSON이 아니면 query로 처리
+                    parsed_input = {"query": action_input}
             except:
-                parsed_input = action_input
+                parsed_input = {"query": action_input}
             
-            logger.debug(f"Action 추출 성공: {action}")
+            logger.debug(f"Action 추출 성공: {action}, Input: {parsed_input}")
             return AgentAction(action, parsed_input, text)
         
         # Final Answer가 있으면 우선 처리

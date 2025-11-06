@@ -5,19 +5,19 @@ ConversationalRetrievalChain 기반
 
 from typing import List, Dict, Optional
 from langchain.chains import ConversationalRetrievalChain
-from langchain.retrievers import MultiQueryRetriever
 from langchain.memory import ConversationBufferMemory
 from langchain.agents import AgentExecutor
 from langchain.tools import BaseTool
 from core.logging import get_logger
 from .base_agent import BaseAgent
-from core.rag.retrieval import MultiQueryRetrieverWrapper
 
 logger = get_logger("rag_agent")
 
 
 class RAGAgent(BaseAgent):
     """RAG (Retrieval-Augmented Generation) Agent"""
+    
+    is_chain_based = True  # Chain 사용
     
     def __init__(self, llm, vectorstore, memory=None, tools: Optional[List[BaseTool]] = None):
         """
@@ -38,33 +38,67 @@ class RAGAgent(BaseAgent):
         self.chain = None
     
     def _create_executor(self) -> AgentExecutor:
-        """Create RAG chain (not AgentExecutor)"""
+        """Create RAG chain (returns Chain, not AgentExecutor)"""
         try:
-            # 기본 retriever 사용 (embeddings 포함)
             retriever = self.vectorstore.as_retriever(search_kwargs={"k": 5})
             logger.info("Using base retriever with embeddings")
         except Exception as e:
             logger.error(f"Retriever creation failed: {e}")
             return None
         
-        # Conversational Retrieval Chain
-        from langchain.chains import LLMChain
+        from langchain.chains import LLMChain, RetrievalQA
         from langchain.chains.question_answering import load_qa_chain
+        from langchain.prompts import PromptTemplate
+        from ui.prompts import prompt_manager
         
-        # Memory와 함께 사용 시 output_key 명시
-        self.chain = ConversationalRetrievalChain(
-            retriever=retriever,
-            combine_docs_chain=load_qa_chain(self.llm, chain_type="stuff"),
-            question_generator=LLMChain(
-                llm=self.llm,
-                prompt=self._get_question_prompt()
-            ),
-            return_source_documents=True,
-            output_key="answer"  # 명시적 지정
+        # 모델 타입 감지
+        model_name = str(getattr(self.llm, 'model_name', '') or getattr(self.llm, 'model', ''))
+        model_type = prompt_manager.get_provider_from_model(model_name)
+        is_perplexity = 'sonar' in model_name.lower() or 'perplexity' in model_name.lower()
+        
+        # prompts.py의 시스템 프롬프트 사용
+        system_prompt = prompt_manager.get_system_prompt(model_type, use_tools=False)
+        
+        # RAG 특화 프롬프트 추가
+        rag_instruction = (
+            "\n\n**Document Retrieval Context**:\n"
+            "You have access to retrieved documents. Use them to provide accurate, detailed answers. "
+            "Cite document numbers when referencing specific information. "
+            "If documents don't contain the answer, clearly state that."
         )
         
-        logger.info("RAG chain created")
-        return self.chain  # Chain을 반환 (AgentExecutor 아님)
+        combined_prompt = system_prompt + rag_instruction
+        
+        # combine_docs_chain에 프롬프트 적용
+        doc_prompt = PromptTemplate.from_template(
+            combined_prompt + "\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+        )
+        
+        # Perplexity는 RetrievalQA 사용 (Tool 모드 방식)
+        if is_perplexity:
+            logger.info(f"Using RetrievalQA for Perplexity model: {model_name}")
+            self.chain = RetrievalQA.from_chain_type(
+                llm=self.llm,
+                chain_type="stuff",
+                retriever=retriever,
+                return_source_documents=True,
+                chain_type_kwargs={"prompt": doc_prompt},
+                verbose=True
+            )
+        else:
+            # 다른 모델은 ConversationalRetrievalChain 사용
+            from langchain.chains import ConversationalRetrievalChain
+            self.chain = ConversationalRetrievalChain.from_llm(
+                llm=self.llm,
+                retriever=retriever,
+                return_source_documents=True,
+                output_key="answer",
+                combine_docs_chain_kwargs={"prompt": doc_prompt},
+                verbose=True
+            )
+        
+        logger.info(f"RAG chain created (optimized: no question_generator) with {model_type} prompts")
+        return self.chain
     
     def _get_question_prompt(self):
         """Get question generation prompt"""
@@ -81,7 +115,7 @@ Standalone question:"""
     
     def can_handle(self, query: str, context: Optional[Dict] = None) -> bool:
         """
-        Check if query requires document retrieval using LLM context understanding
+        Check if query requires document retrieval (rule-based, no LLM call)
         
         Args:
             query: User query
@@ -90,32 +124,30 @@ Standalone question:"""
         Returns:
             True if query needs RAG
         """
-        from langchain.schema import HumanMessage
+        # RAG 모드가 명시적으로 활성화된 경우
+        if context and context.get('rag_mode_active'):
+            logger.info("RAG mode explicitly active")
+            return True
         
-        # Context 정보
-        context_info = ""
-        if context:
-            if context.get('documents'):
-                context_info += "\n- Documents are available in context"
-            context_info += f"\n- Additional context: {str(context)[:200]}"
+        # 문서가 컨텍스트에 있으면 RAG 사용
+        if context and context.get('documents'):
+            logger.info("Documents available in context")
+            return True
         
-        prompt = f"""Analyze if this query requires searching or retrieving information from documents.
-
-Query: {query}{context_info}
-
-Consider:
-1. Does the query ask for information that might be in stored documents?
-2. Does it require summarization, analysis, or retrieval of document content?
-3. Is there context indicating documents are available?
-
-Answer ONLY 'YES' or 'NO':"""
-        
+        # 벡터스토어가 비어있으면 RAG 불가
         try:
-            response = self.llm.invoke([HumanMessage(content=prompt)])
-            decision = response.content.strip().upper()
-            result = "YES" in decision
-            logger.info(f"RAG Agent can_handle: {result} for query: {query[:50]}...")
-            return result
-        except Exception as e:
-            logger.error(f"RAG Agent can_handle failed: {e}")
-            return False
+            if hasattr(self.vectorstore, '_collection'):
+                doc_count = self.vectorstore._collection.count()
+                if doc_count == 0:
+                    logger.info("No documents in vectorstore")
+                    return False
+        except:
+            pass
+        
+        # 키워드 기반 판단 (LLM 호출 없음)
+        rag_keywords = ['문서', '파일', '내용', '요약', '검색', 'document', 'file', 'search', 'summarize', 'find']
+        query_lower = query.lower()
+        result = any(keyword in query_lower for keyword in rag_keywords)
+        
+        logger.info(f"RAG Agent can_handle (rule-based): {result}")
+        return result

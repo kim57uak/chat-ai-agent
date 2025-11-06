@@ -130,8 +130,10 @@ class PerplexityStrategy(BaseModelStrategy):
                 ModelType.PERPLEXITY.value, user_input, available_tools
             )
             
-            response = self.llm._call(decision_prompt)
-            decision = response.strip().upper()
+            # BaseChatModel은 invoke 사용
+            from langchain_core.messages import HumanMessage
+            response = self.llm.invoke([HumanMessage(content=decision_prompt)])
+            decision = response.content.strip().upper() if hasattr(response, 'content') else str(response).strip().upper()
             
             TokenLogger.log_token_usage(
                 self.model_name, decision_prompt, decision, "tool_decision"
@@ -146,7 +148,7 @@ class PerplexityStrategy(BaseModelStrategy):
             return True
     
     def create_agent_executor(self, tools: List) -> Optional[AgentExecutor]:
-        """Perplexity ReAct 에이전트 생성 - 단순화된 구현"""
+        """Perplexity ReAct 에이전트 생성 (Tool 모드와 동일)"""
         if not tools:
             return None
         
@@ -202,14 +204,14 @@ Thought:{{agent_scratchpad}}"""
             # 에이전트 생성 시 커스텀 파서 사용
             agent = create_react_agent(self.llm, tools, react_prompt, output_parser=custom_parser)
             
+            # Tool 모드와 동일한 설정
             return AgentExecutor(
                 agent=agent,
                 tools=tools,
                 verbose=True,
-                max_iterations=5,
+                max_iterations=10,
                 max_execution_time=60,
-                handle_parsing_errors="CRITICAL: Follow the exact format. After receiving Observation, analyze ALL the data thoroughly in your Thought, then provide a comprehensive Final Answer based ONLY on the Observation data. Include specific details from the results.",
-                early_stopping_method="force",
+                handle_parsing_errors=True,  # Tool 모드와 동일
                 return_intermediate_steps=True,
             )
         except Exception as e:

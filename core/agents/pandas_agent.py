@@ -28,7 +28,7 @@ class PandasAgent(BaseAgent):
             llm: LangChain LLM
             dataframes: Dict of dataframe name -> DataFrame
         """
-        super().__init__(llm)
+        super().__init__(llm, tools=[])
         self.dataframes = dataframes or {}
         self.current_df = None
     
@@ -113,40 +113,4 @@ Answer only 'YES' or 'NO'."""
         logger.info(f"Pandas agent created with dataframe shape: {self.current_df.shape}")
         return executor
     
-    def execute(self, query: str, context: Optional[Dict] = None) -> AgentResult:
-        """
-        Execute pandas analysis
-        
-        Args:
-            query: User query
-            context: Additional context
-            
-        Returns:
-            AgentResult
-        """
-        try:
-            if self.current_df is None:
-                return AgentResult(
-                    output="No dataframe loaded. Please provide a CSV or Excel file.",
-                    metadata={"error": True}
-                )
-            
-            # Create executor if not exists
-            if not self.executor:
-                self.executor = self._create_executor()
-            
-            logger.info(f"Executing pandas query: {query}")
-            result = self.executor.invoke({"input": query})
-            
-            return AgentResult(
-                output=result.get("output", str(result)),
-                intermediate_steps=result.get("intermediate_steps", []),
-                metadata={"agent": self.__class__.__name__}
-            )
-            
-        except Exception as e:
-            logger.error(f"Pandas agent execution failed: {e}", exc_info=True)
-            return AgentResult(
-                output=f"Error: {str(e)}",
-                metadata={"error": True}
-            )
+

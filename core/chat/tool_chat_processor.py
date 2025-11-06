@@ -245,7 +245,8 @@ class ToolChatProcessor(BaseChatProcessor):
                 simple_processor = SimpleChatProcessor(self.model_strategy)
                 return simple_processor.process_message(user_input, conversation_history)
             
-            return f"도구 사용 중 오류가 발생했습니다: {str(e)[:100]}...", []
+            # 사용자 친화적 메시지
+            return "요청을 처리하는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.", []
     
     def _is_agent_stopped_error(self, error_msg: str) -> bool:
         """에이전트 중단 오류 메시지 감지"""

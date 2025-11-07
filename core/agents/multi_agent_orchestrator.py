@@ -139,8 +139,10 @@ Consider:
 Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
         
         try:
+            logger.info(f"[LLM REQ] Orchestrator single agent: {query[:30]}...")
             response = self.llm.invoke([HumanMessage(content=prompt)])
             selected_name = response.content.strip() if hasattr(response, 'content') else str(response).strip()
+            logger.info(f"[LLM RES] Single agent: {selected_name}")
             
             # Agent 찾기 (부분 매칭 포함)
             for agent in self.agents:
@@ -248,19 +250,34 @@ Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
         with ThreadPoolExecutor(max_workers=len(suitable_agents)) as executor:
             # 각 Agent를 별도 함수로 래핑하여 독립성 보장
             def execute_agent(agent, q, ctx):
-                # 각 Agent에 독립적인 context 전달 (RAG 문서 정보 제외)
+                # 각 Agent에 독립적인 context 전달 (RAG 문서 정보만 제외, unified_tracker는 유지)
                 clean_ctx = {k: v for k, v in (ctx or {}).items() if k not in ['documents', 'rag_mode_active']}
                 return agent.execute(q, clean_ctx)
             
             future_to_agent = {executor.submit(execute_agent, agent, query, context): agent for agent in suitable_agents}
             
-            for future in as_completed(future_to_agent, timeout=90):  # 전체 타임아웃 증가
+            for future in as_completed(future_to_agent, timeout=90):
                 agent = future_to_agent[future]
                 try:
-                    result = future.result(timeout=60)  # 개별 Agent 타임아웃 증가
-                    if not result.metadata.get("error"):
+                    result = future.result(timeout=60)
+                    if result and not result.metadata.get("error"):
                         results.append((agent.get_name(), result.output))
                         logger.info(f"Agent {agent.get_name()} completed successfully")
+                        
+                        # 토큰 추적 (unified_tracker 사용)
+                        if context and 'unified_tracker' in context:
+                            tracker = context['unified_tracker']
+                            if tracker and result.metadata.get('input_tokens'):
+                                tracker.track_agent(
+                                    agent_name=agent.get_name(),
+                                    model=context.get('model_name', 'unknown'),
+                                    input_tokens=result.metadata.get('input_tokens', 0),
+                                    output_tokens=result.metadata.get('output_tokens', 0),
+                                    tool_calls=result.metadata.get('tool_calls', []),
+                                    duration_ms=result.metadata.get('duration_ms', 0)
+                                )
+                    elif result and result.metadata.get("error"):
+                        logger.warning(f"Agent {agent.get_name()} returned error: {result.output}")
                 except TimeoutError:
                     logger.warning(f"Agent {agent.get_name()} timed out, skipping")
                 except Exception as e:
@@ -281,46 +298,75 @@ Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
         Returns:
             List of selected agents
         """
-        # Agent 정보 수집
+        # Agent 정보 수집 (description 활용)
         agent_info = []
         for agent in self.agents:
             agent_info.append(f"- {agent.get_name()}: {agent.get_description()}")
         
         agents_text = "\n".join(agent_info)
         
-        # 단일 LLM 호출로 모든 Agent 판단
-        prompt = f"""Analyze which agents can handle this query. You can select MULTIPLE agents if the query requires multiple capabilities.
+        # 동적 프롬프트 생성 (Agent description 기반)
+        prompt = f"""Analyze the query and select ALL agents needed to provide a complete answer. You can select MULTIPLE agents.
 
 Query: {query}
 
 Available Agents:
 {agents_text}
 
-Analysis Guidelines:
-- Does the query need internal documents? Consider RAGAgent
-- Does the query need external/web information? Consider MCPAgent
-- Does the query need data analysis? Consider PandasAgent
-- Does the query need calculations/code? Consider PythonREPLAgent
+**Selection Strategy:**
 
-IMPORTANT:
-- If query requires BOTH internal knowledge AND external information, select BOTH agents
-- Think about what information sources are needed to fully answer the query
-- Select ALL relevant agents that can contribute (up to {max_agents})
+1. **Single Information Source:**
+   - If query needs ONLY internal documents → Select agents with "document", "retrieval", "RAG" capabilities
+   - If query needs ONLY external/web data → Select agents with "web", "search", "external" capabilities
+   - If query needs ONLY data analysis → Select agents with "data", "analysis", "pandas" capabilities (PandasAgent)
+   - If query needs ONLY code execution → Select agents with "code", "python", "execution" capabilities (PythonREPLAgent)
+   - If query needs ONLY file operations → Select agents with "file", "filesystem" capabilities (FileSystemAgent)
 
-Return ONLY agent names (comma-separated, max {max_agents}):"""
+2. **Multiple Information Sources (CRITICAL):**
+   - If query asks to COMPARE, JUDGE, EVALUATE, or BENCHMARK:
+     → Select ALL relevant agents (e.g., internal + external)
+   - If query needs BOTH internal data AND external data:
+     → Select BOTH document retrieval AND web search agents
+   - Examples: "Compare our policy with competitors", "Is our benefit appropriate vs market?"
+
+3. **Complex Queries:**
+   - Analyze what information sources are needed
+   - Select ALL agents that can contribute
+   - Agents will run in parallel and results will be merged
+
+**Decision Process:**
+- Read agent descriptions carefully
+- Match query requirements with agent capabilities
+- Select ALL agents that can provide relevant information
+- Maximum {max_agents} agents
+
+**Output Format:**
+Return ONLY agent names separated by commas.
+Examples:
+- "RAGAgent, MCPAgent" (comparison query)
+- "RAGAgent" (internal only)
+- "MCPAgent" (external only)
+- "PandasAgent" (data analysis)
+- "FileManagementAgent" (file operations)
+
+Your answer:"""
         
         try:
-            logger.info(f"[AI REQ] Orchestrator selecting agents for: {query[:50]}...")
+            logger.info(f"[LLM REQ] Orchestrator selecting agents for: {query[:50]}...")
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            logger.info(f"[AI RES] Orchestrator agent selection completed")
-            
             selected_names = response.content.strip() if hasattr(response, 'content') else str(response).strip()
+            logger.info(f"[LLM RES] Orchestrator selected: {selected_names}")
             
-            # Agent 매칭
+            # Agent 매칭 (대소문자 무시, 부분 매칭)
             selected = []
+            selected_names_lower = selected_names.lower()
+            
             for agent in self.agents:
-                if agent.get_name() in selected_names:
+                agent_name = agent.get_name()
+                # 정확한 매칭 또는 부분 매칭
+                if agent_name in selected_names or agent_name.lower() in selected_names_lower:
                     selected.append(agent)
+                    logger.info(f"Matched agent: {agent_name}")
                     if len(selected) >= max_agents:
                         break
             

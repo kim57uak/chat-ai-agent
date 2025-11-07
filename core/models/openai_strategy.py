@@ -20,6 +20,20 @@ class OpenAIStrategy(BaseModelStrategy):
         """OpenAI LLM 생성"""
         params = self.get_model_parameters()
         
+        from langchain.callbacks.base import BaseCallbackHandler
+        
+        class GlobalTokenTracker(BaseCallbackHandler):
+            def __init__(self, strategy):
+                self.strategy = strategy
+            
+            def on_llm_end(self, response, **kwargs):
+                if response:
+                    # response 전체를 저장 (토큰 정보 포함)
+                    self.strategy._last_response = response
+                    from core.token_logger import TokenLogger
+                    inp, out = TokenLogger.extract_actual_tokens(response)
+                    logger.debug(f"GlobalTokenTracker saved: {inp}/{out} tokens")
+        
         llm = ChatOpenAI(
             model=self.model_name,
             openai_api_key=self.api_key,
@@ -29,10 +43,9 @@ class OpenAIStrategy(BaseModelStrategy):
             frequency_penalty=params.get('frequency_penalty', 0.0),
             presence_penalty=params.get('presence_penalty', 0.0),
             stop=params.get('stop', None),
+            callbacks=[GlobalTokenTracker(self)]
         )
         
-        # 토큰 사용량 추적을 위한 콜백 설정
-        self._setup_token_tracking_callbacks(llm)
         return llm
     
     def _setup_token_tracking_callbacks(self, llm):
@@ -149,12 +162,6 @@ class OpenAIStrategy(BaseModelStrategy):
             response = self.llm.invoke(messages)
             decision = response.content.strip().upper()
             
-            # 응답 객체 저장 (토큰 추출용)
-            self._last_response = response
-            
-            # 토큰 누적
-            token_accumulator.add_response_tokens(response, self.model_name, "도구 결정")
-            
             # 도구 결정 단계 종료
             input_text = "\n".join([str(msg.content) for msg in messages])
             token_tracker.end_step(
@@ -193,6 +200,7 @@ class OpenAIStrategy(BaseModelStrategy):
         ])
 
         agent = create_openai_tools_agent(self.llm, tools, prompt)
+        
         return AgentExecutor(
             agent=agent,
             tools=tools,
@@ -201,7 +209,7 @@ class OpenAIStrategy(BaseModelStrategy):
             max_execution_time=30,
             early_stopping_method="force",
             handle_parsing_errors="Check your output and make sure you are not providing both an Action and a Final Answer at the same time. Either provide an Action to use a tool, or provide a Final Answer to respond to the user.",
-            return_intermediate_steps=True,
+            return_intermediate_steps=True
         )
     
     def _get_ocr_prompt(self) -> str:

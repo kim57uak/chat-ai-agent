@@ -9,7 +9,10 @@ from core.agents.multi_agent_orchestrator import MultiAgentOrchestrator
 from core.agents.hybrid_analyzer import HybridAnalyzer
 from core.agents.rag_agent import RAGAgent
 from core.agents.mcp_agent import MCPAgent
+from core.token_tracking import get_unified_tracker, ChatModeType
+from core.token_tracker import token_tracker, StepType
 from core.logging import get_logger
+import time
 
 logger = get_logger("rag_chat_processor")
 
@@ -55,6 +58,10 @@ class RAGChatProcessor(BaseChatProcessor):
         
         logger.info(f"RAG Chat Processor initialized with {len(self.agents)} agents")
     
+    def set_session_id(self, session_id: int):
+        """Set session ID for token tracking"""
+        self.session_id = session_id
+    
     def _initialize_agents(self) -> List:
         """Initialize available agents"""
         agents = []
@@ -78,27 +85,23 @@ class RAGChatProcessor(BaseChatProcessor):
             agents.append(mcp_agent)
             logger.info("MCP Agent initialized")
         
-        # Pandas Agent (선택적)
-        try:
-            from core.agents.pandas_agent import PandasAgent
-            pandas_agent = PandasAgent(llm=self.model_strategy.llm)
-            agents.append(pandas_agent)
-            logger.info("Pandas Agent initialized")
-        except ImportError:
-            logger.debug("Pandas Agent not available (not implemented)")
-        except Exception as e:
-            logger.warning(f"Pandas Agent initialization failed: {e}")
-        
-        # Python REPL Agent (선택적)
+        # Python REPL Agent
         try:
             from core.agents.python_repl_agent import PythonREPLAgent
             python_agent = PythonREPLAgent(llm=self.model_strategy.llm)
             agents.append(python_agent)
             logger.info("Python REPL Agent initialized")
-        except ImportError:
-            logger.debug("Python REPL Agent not available (not implemented)")
         except Exception as e:
             logger.warning(f"Python REPL Agent initialization failed: {e}")
+        
+        # File System Agent
+        try:
+            from core.agents.filesystem_agent import FileSystemAgent
+            fs_agent = FileSystemAgent(llm=self.model_strategy.llm)
+            agents.append(fs_agent)
+            logger.info("File System Agent initialized")
+        except Exception as e:
+            logger.warning(f"File System Agent initialization failed: {e}")
         
         return agents
     
@@ -118,6 +121,28 @@ class RAGChatProcessor(BaseChatProcessor):
             (response, used_tools)
         """
         try:
+            # Unified tracker 시작
+            start_time = time.time()
+            unified_tracker = None
+            try:
+                from core.security.secure_path_manager import secure_path_manager
+                db_path = secure_path_manager.get_database_path()
+                unified_tracker = get_unified_tracker(db_path)
+                
+                # 세션 ID 가져오기
+                unified_tracker.start_conversation(
+                    mode=ChatModeType.RAG,
+                    model=self.model_strategy.model_name,
+                    session_id=self.session_id
+                )
+                logger.info(f"RAG mode unified tracker started: session={self.session_id}")
+            except Exception as e:
+                logger.error(f"Unified tracker initialization failed: {e}")
+                unified_tracker = None
+            
+            # 토큰 트래킹 시작
+            token_tracker.start_step(StepType.INITIAL_PROMPT, "RAG Chat Processing")
+            
             if not self.validate_input(user_input):
                 return "유효하지 않은 입력입니다.", []
             
@@ -125,18 +150,48 @@ class RAGChatProcessor(BaseChatProcessor):
                 logger.warning("No agents available, using simple response")
                 return self._simple_response(user_input), []
             
-            # Context 구성
+            # Context 구성 (모델명 포함)
             context = {
                 "conversation_history": conversation_history,
-                "model_name": self.model_strategy.model_name
+                "model_name": self.model_strategy.model_name,
+                "unified_tracker": unified_tracker,
+                "llm": self.model_strategy.llm  # Agent가 모델명 추출용
             }
             
             # Orchestrator 실행
-            # 항상 병렬 최적화 실행 (Agent가 자동으로 협업)
+            token_tracker.start_step(StepType.TOOL_EXECUTION, "Multi-Agent Execution")
             response = self.orchestrator.execute_parallel_optimized(user_input, context)
             
-            # 사용된 도구 추출 (향후 확장)
+            # unified_tracker에서 토큰 정보 추출
+            agent_tokens = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+            if unified_tracker and hasattr(unified_tracker, 'current_conversation'):
+                conv = unified_tracker.current_conversation
+                if conv:
+                    agent_tokens["input_tokens"] = conv.total_input
+                    agent_tokens["output_tokens"] = conv.total_output
+                    agent_tokens["total_tokens"] = conv.total_tokens
+            
+            token_tracker.end_step(
+                StepType.TOOL_EXECUTION,
+                "Multi-Agent Execution",
+                input_text=user_input,
+                output_text=response,
+                additional_info=agent_tokens
+            )
+            
             used_tools = []
+            
+            token_tracker.end_step(
+                StepType.FINAL_RESPONSE,
+                "RAG Chat Response",
+                input_text=user_input,
+                output_text=response,
+                additional_info=agent_tokens
+            )
+            
+            # Unified tracker 종료
+            if unified_tracker:
+                unified_tracker.end_conversation()
             
             return self.format_response(response), used_tools
             

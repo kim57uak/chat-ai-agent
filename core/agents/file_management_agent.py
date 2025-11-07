@@ -9,7 +9,7 @@ from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain.prompts import PromptTemplate
 from pathlib import Path
 from core.logging import get_logger
-from .base_agent import BaseAgent
+from .base_agent import BaseAgent, AgentResult
 
 logger = get_logger("file_management_agent")
 
@@ -25,10 +25,10 @@ class FileManagementAgent(BaseAgent):
             llm: LangChain LLM instance
             root_dir: Root directory for file operations (None for dynamic)
         """
-        super().__init__("file_management", llm)
+        super().__init__(llm, tools=[])
         self.root_dir = Path(root_dir) if root_dir else None
         self.toolkit = None
-        self.agent = None
+        self.executor = None
         
         if root_dir:
             self._initialize_toolkit(root_dir)
@@ -83,10 +83,16 @@ Respond with ONLY "YES" or "NO":"""
                 selected_tools=["read_file", "write_file", "list_directory"]
             )
             
-            # ReAct agent 생성
+            # ReAct agent 생성 - RAG 모드 최적화
             template = """Answer the following questions as best you can. You have access to the following tools:
 
 {tools}
+
+CRITICAL - RAG Mode Rules:
+1. After file operation completes → IMMEDIATELY provide Final Answer
+2. DO NOT perform multiple operations unless absolutely necessary
+3. Maximum 3 operations - then MUST provide Final Answer
+4. If operation succeeds → Stop and report result
 
 Use the following format:
 
@@ -114,12 +120,14 @@ Thought:{agent_scratchpad}"""
                 prompt=prompt
             )
             
-            self.agent = AgentExecutor(
+            self.executor = AgentExecutor(
                 agent=agent,
                 tools=self.toolkit.get_tools(),
                 verbose=True,
                 handle_parsing_errors=True,
-                max_iterations=5
+                max_iterations=3,
+                max_execution_time=30,
+                early_stopping_method="force"
             )
             
             logger.info(f"File management toolkit initialized: {root_dir}")
@@ -127,7 +135,14 @@ Thought:{agent_scratchpad}"""
         except Exception as e:
             logger.error(f"Failed to initialize toolkit: {e}")
     
-    def execute(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _create_executor(self) -> AgentExecutor:
+        """Create executor - BaseAgent compatibility"""
+        if not self.executor:
+            logger.warning("FileManagementAgent not initialized - no root_dir set")
+            return None
+        return self.executor
+    
+    def execute(self, query: str, context: Optional[Dict[str, Any]] = None) -> AgentResult:
         """
         Execute file management operation
         
@@ -144,22 +159,22 @@ Thought:{agent_scratchpad}"""
                 self._initialize_toolkit(context["root_dir"])
             
             # Check if toolkit initialized
-            if not self.toolkit or not self.agent:
-                return {
-                    "success": False,
-                    "error": "No root directory set. Please provide root_dir in context."
-                }
+            if not self.toolkit or not self.executor:
+                return AgentResult(
+                    output="No root directory set. Please provide root_dir in context.",
+                    metadata={"error": True}
+                )
             
             # LLM 기반 안전성 판단
             safety_check = self._check_safety_with_llm(query)
             if not safety_check["is_safe"]:
-                return {
-                    "success": False,
-                    "error": f"Safety check failed: {safety_check['reason']}"
-                }
+                return AgentResult(
+                    output=f"Safety check failed: {safety_check['reason']}",
+                    metadata={"error": True}
+                )
             
             logger.info(f"Executing file operation: {query[:100]}")
-            result = self.agent.invoke({"input": query})
+            result = self.executor.invoke({"input": query})
             
             # Extract output
             if isinstance(result, dict):
@@ -167,18 +182,17 @@ Thought:{agent_scratchpad}"""
             else:
                 output = str(result)
             
-            return {
-                "success": True,
-                "result": output,
-                "root_dir": str(self.root_dir)
-            }
+            return AgentResult(
+                output=output,
+                metadata={"root_dir": str(self.root_dir)}
+            )
             
         except Exception as e:
             logger.error(f"File management execution failed: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return AgentResult(
+                output=f"File operation failed: {str(e)}",
+                metadata={"error": True}
+            )
     
     def _check_safety_with_llm(self, query: str) -> Dict[str, Any]:
         """

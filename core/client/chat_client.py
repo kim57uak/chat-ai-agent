@@ -1,7 +1,7 @@
 """Chat client following SRP."""
 
 from typing import List, Dict, Any, Tuple, Optional, Callable
-from core.ai_agent import AIAgent
+from core.ai_agent_v2 import AIAgentV2
 from core.logging import get_logger
 
 logger = get_logger("chat_client")
@@ -13,7 +13,7 @@ class ChatClient:
     def __init__(self, api_key: str, model_name: str = "gpt-3.5-turbo"):
         self.api_key = api_key
         self.model_name = model_name
-        self.agent = AIAgent(api_key, model_name)
+        self.agent = AIAgentV2(api_key, model_name)
     
     def chat(self, user_input: str) -> str:
         """Simple chat without tools."""

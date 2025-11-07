@@ -50,6 +50,18 @@ class AIClient:
         self.agent = self._chat_client.agent
         self.conversation_history = self._conversation_manager.conversation_history
         self.user_prompt = self._prompt_manager._prompts
+    
+    def set_session_id(self, session_id: int):
+        """Set session ID for token tracking"""
+        from core.logging import get_logger
+        logger = get_logger('ai_client')
+        logger.info(f"AIClient.set_session_id({session_id}) called")
+        
+        if hasattr(self.agent, 'session_id'):
+            self.agent.session_id = session_id
+            logger.info(f"Agent session_id set to {session_id}")
+        else:
+            logger.warning(f"Agent has no session_id attribute")
 
     def chat(self, messages, force_agent=False):
         """토큰 최적화된 대화 기록 사용 (할당량 초과 시 청크 분할) - 안정성 개선"""

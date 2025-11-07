@@ -65,6 +65,13 @@ class MainWindow(QMainWindow):
         load_user_environment()
         logger.debug("환경변수 로드 완료")
         
+        # Token tracking 마이그레이션
+        try:
+            from core.token_tracking import auto_migrate_token_tracking
+            auto_migrate_token_tracking()
+        except Exception as e:
+            logger.warning(f"Token tracking migration skipped: {e}")
+        
         # 매니저 초기화
         self.menu_manager = MenuManager(self)
         self.theme_controller = ThemeController(self)

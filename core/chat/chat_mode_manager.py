@@ -55,7 +55,8 @@ class ChatModeManager:
         mode: Optional[ChatMode] = None,
         vectorstore=None,
         mcp_client=None,
-        tools=None
+        tools=None,
+        session_id: Optional[int] = None
     ) -> BaseChatProcessor:
         """
         Get chat processor for mode
@@ -80,6 +81,11 @@ class ChatModeManager:
         
         # 새 프로세서 생성
         processor = self._create_processor(mode, vectorstore, mcp_client, tools)
+        
+        # session_id 설정
+        if session_id is not None:
+            processor.session_id = session_id
+        
         self._processors[cache_key] = processor
         
         return processor

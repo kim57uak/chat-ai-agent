@@ -41,6 +41,9 @@ class AIAgentV2:
         self.vectorstore = None
         self.mcp_client = None
         
+        # 세션 ID (토큰 추적용)
+        self.session_id = None
+        
         # 초기화
         self._load_mcp_tools()
         self.conversation_history.load_from_file()
@@ -122,6 +125,7 @@ class AIAgentV2:
     
     def simple_chat_with_history(self, user_input: str, conversation_history: List[Dict]) -> str:
         """대화 기록을 포함한 단순 채팅"""
+        self.simple_processor.session_id = self.session_id
         response, _ = self.simple_processor.process_message(user_input, conversation_history)
         return response
     
@@ -177,13 +181,15 @@ class AIAgentV2:
                 mode=ChatMode.RAG,
                 vectorstore=self.vectorstore,
                 mcp_client=self.mcp_client,
-                tools=self.tools
+                tools=self.tools,
+                session_id=self.session_id
             )
             return processor.process_message(user_input, conversation_history)
         
         # TOOL 모드 (기존 로직)
         if not self.tool_processor:
             self.tool_processor = ToolChatProcessor(self.model_strategy, self.tools)
+            self.tool_processor.session_id = self.session_id
         
         return self.tool_processor.process_message(user_input, conversation_history)
     
@@ -196,6 +202,9 @@ class AIAgentV2:
         # 단순 채팅에서도 토큰 트래킹 시작 (현재 대화가 없는 경우)
         if not token_tracker.current_conversation:
             token_tracker.start_conversation(user_input, self.model_name)
+        
+        # session_id 설정
+        self.simple_processor.session_id = self.session_id
         
         response, used_tools = self.simple_processor.process_message(user_input, conversation_history)
         return response, used_tools

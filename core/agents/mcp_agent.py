@@ -14,7 +14,7 @@ logger = get_logger("mcp_agent")
 
 
 class MCPAgent(BaseAgent):
-    """MCP (Model Context Protocol) Agent"""
+    """Accesses external tools and web services including search engines, APIs, databases, and online resources. Handles real-time information retrieval and external data queries."""
     
     def __init__(self, llm, mcp_client, tools: Optional[List[BaseTool]] = None):
         """
@@ -86,12 +86,25 @@ class MCPAgent(BaseAgent):
                 from langchain.agents import create_react_agent
                 from langchain.prompts import PromptTemplate
                 
+                # RAG 모드 전용 추가 지침
+                rag_mode_instruction = """
+
+CRITICAL - RAG Mode Rules:
+1. After you get the information from tools → IMMEDIATELY output Final Answer
+2. DO NOT search for additional information unless absolutely necessary
+3. DO NOT repeat the same tool multiple times
+4. Maximum 3 tool uses - then you MUST provide Final Answer with available information
+5. If Observation contains the answer → Stop and provide Final Answer
+"""
+                
                 if is_perplexity:
                     # Perplexity: Tool 모드와 동일한 상세 프롬프트 사용
+                    from ui.prompts import ModelType
                     tool_usage_rules = prompt_manager.get_tool_prompt(ModelType.PERPLEXITY.value)
                     execution_rules = prompt_manager.get_custom_prompt(ModelType.COMMON.value, "execution_rules")
                     
                     react_template = f"""You are an expert data analyst that uses tools to gather information and provides comprehensive analysis.
+{rag_mode_instruction}
 
 **CRITICAL: THOROUGH OBSERVATION ANALYSIS REQUIRED**
 
@@ -134,15 +147,16 @@ Thought:{{agent_scratchpad}}"""
                     react_template = prompt_manager.get_react_template(model_type)
                     if not react_template:
                         # Fallback: 기본 ReAct 템플릿
-                        react_template = """Answer the following questions as best you can. You have access to the following tools:
+                        react_template = f"""Answer the following questions as best you can. You have access to the following tools:
+{rag_mode_instruction}
 
-{tools}
+{{tools}}
 
 Use the following format:
 
 Question: the input question you must answer
 Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
+Action: the action to take, should be one of [{{tool_names}}]
 Action Input: the input to the action
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
@@ -151,8 +165,8 @@ Final Answer: the final answer to the original input question
 
 Begin!
 
-Question: {input}
-Thought:{agent_scratchpad}"""
+Question: {{input}}
+Thought:{{agent_scratchpad}}"""
                 
                 prompt = PromptTemplate.from_template(react_template)
                 
@@ -178,15 +192,16 @@ Thought:{agent_scratchpad}"""
                 ])
                 agent = create_openai_functions_agent(self.llm, self.tools, prompt)
             
-            # AgentExecutor 생성 (Tool 모드와 동일한 설정)
+            # AgentExecutor 생성 - 무한 반복 방지
             executor = AgentExecutor(
                 agent=agent,
                 tools=self.tools,
                 verbose=True,
-                max_iterations=10,
-                max_execution_time=60,
+                max_iterations=3,  # 3회로 제한
+                max_execution_time=30,  # 30초로 제한
                 return_intermediate_steps=True,
-                handle_parsing_errors=True  # 자동 파싱 오류 처리
+                handle_parsing_errors=True,
+                early_stopping_method="force"  # 강제 종료
             )
             
             logger.info(f"MCP agent executor created: {len(self.tools)} tools, Model: {model_type}")
@@ -247,8 +262,8 @@ Answer ONLY 'YES' or 'NO':"""
         try:
             logger.info(f"[LLM REQ] MCPAgent.can_handle: {query[:30]}...")
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            logger.info(f"[LLM RES] MCPAgent.can_handle completed")
             decision = response.content.strip().upper() if hasattr(response, 'content') else str(response).strip().upper()
+            logger.info(f"[LLM RES] MCPAgent.can_handle: {decision}")
             result = "YES" in decision
             
             # 캠싱 저장

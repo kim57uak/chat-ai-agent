@@ -9,6 +9,7 @@ class BaseChatProcessor(ABC):
     def __init__(self, model_strategy):
         self.model_strategy = model_strategy
         self.response_formatter = ResponseFormatter()
+        self.session_id = None
     
     @abstractmethod
     def process_message(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:

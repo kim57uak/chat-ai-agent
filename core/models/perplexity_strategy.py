@@ -204,15 +204,14 @@ Thought:{{agent_scratchpad}}"""
             # 에이전트 생성 시 커스텀 파서 사용
             agent = create_react_agent(self.llm, tools, react_prompt, output_parser=custom_parser)
             
-            # Tool 모드와 동일한 설정
             return AgentExecutor(
                 agent=agent,
                 tools=tools,
                 verbose=True,
                 max_iterations=10,
                 max_execution_time=60,
-                handle_parsing_errors=True,  # Tool 모드와 동일
-                return_intermediate_steps=True,
+                handle_parsing_errors=True,
+                return_intermediate_steps=True
             )
         except Exception as e:
             logger.error(f"Perplexity agent creation failed: {e}")

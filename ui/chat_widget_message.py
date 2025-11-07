@@ -105,7 +105,8 @@ class ChatWidgetMessageMixin:
             
             self.ai_processor.process_request(
                 api_key, model, validated_history, user_text,
-                agent_mode=use_agent, file_prompt=file_prompt, chat_mode=chat_mode
+                agent_mode=use_agent, file_prompt=file_prompt, chat_mode=chat_mode,
+                session_id=self.current_session_id
             )
         except Exception as e:
             try:

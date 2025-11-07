@@ -228,6 +228,9 @@ a = Analysis(
         'pdb',
         'cProfile',
         'profile',
+        'tests',
+        'tests.integration',
+        'tests.performance',
         # Jupyter/IPython
         'IPython',
         'jupyter',
@@ -236,6 +239,18 @@ a = Analysis(
         'sympy',
         'networkx',
         'statsmodels',
+        # Build/monitoring scripts
+        'scripts',
+        'scripts.migrate_data',
+        'scripts.refactor_settings_dialog',
+        'scripts.verify_migration',
+        'scripts.verify_refactoring',
+        'find_unused_files',
+        'build_mygenie',
+        'cleanup_inactive_sessions',
+        'monitor_token_usage',
+        # Documentation
+        'examples',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

@@ -2,6 +2,7 @@ from typing import List, Dict, Tuple
 from .base_chat_processor import BaseChatProcessor
 from core.token_logger import TokenLogger
 from core.token_tracker import token_tracker, StepType
+from core.token_tracking import get_unified_tracker, ChatModeType
 from core.logging import get_logger
 import time
 
@@ -23,6 +24,22 @@ class ToolChatProcessor(BaseChatProcessor):
     def process_message(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
         """도구 사용 채팅 처리 - 시간 제한 및 반복 제한 적용"""
         try:
+            # Unified tracker 시작
+            start_time = time.time()
+            unified_tracker = None
+            try:
+                from core.security.secure_path_manager import secure_path_manager
+                db_path = secure_path_manager.get_database_path()
+                unified_tracker = get_unified_tracker(db_path)
+                unified_tracker.start_conversation(
+                    mode=ChatModeType.TOOL,
+                    model=self.model_strategy.model_name,
+                    session_id=self.session_id
+                )
+            except Exception as e:
+                logger.debug(f"Unified tracker not initialized: {e}")
+                unified_tracker = None
+            
             # 대화 트래킹 시작 (현재 대화가 없는 경우)
             if not token_tracker.current_conversation:
                 token_tracker.start_conversation(user_input, self.model_strategy.model_name)
@@ -110,8 +127,11 @@ class ToolChatProcessor(BaseChatProcessor):
                     
                     # 실제 토큰 정보 추출
                     actual_input, actual_output = 0, 0
-                    if hasattr(self.model_strategy, '_last_response'):
+                    if hasattr(self.model_strategy, '_last_response') and self.model_strategy._last_response:
                         actual_input, actual_output = TokenLogger.extract_actual_tokens(self.model_strategy._last_response)
+                        logger.info(f"실제 토큰 추출: IN:{actual_input}, OUT:{actual_output}")
+                    else:
+                        logger.warning("_last_response 없음 - 실제 토큰 추출 불가")
                     
                     # 도구 실행 단계 종료
                     token_tracker.end_step(
@@ -129,21 +149,17 @@ class ToolChatProcessor(BaseChatProcessor):
                         }
                     )
                     
-                    # 실제 토큰 정보 추출 시도
+                    # 실제 토큰 정보 추출
                     input_tokens, output_tokens = 0, 0
-                    if hasattr(self.model_strategy, '_last_response'):
+                    if hasattr(self.model_strategy, '_last_response') and self.model_strategy._last_response:
                         input_tokens, output_tokens = TokenLogger.extract_actual_tokens(self.model_strategy._last_response)
+                        logger.info(f"TOOL 모드 실제 토큰: IN:{input_tokens}, OUT:{output_tokens}")
                     
                     # 실제 토큰이 없으면 추정치 사용 (도구 결과 포함)
                     if input_tokens == 0 and output_tokens == 0:
                         input_tokens = TokenLogger.estimate_tokens(total_input_text, self.model_strategy.model_name)
                         output_tokens = TokenLogger.estimate_tokens(output_text, self.model_strategy.model_name)
-                    
-                    # 토큰 로깅
-                    if input_tokens > 0 or output_tokens > 0:
-                        TokenLogger.log_actual_token_usage(self.model_strategy.model_name, self.model_strategy._last_response if hasattr(self.model_strategy, '_last_response') else None, "mcp_agent_execution")
-                    else:
-                        TokenLogger.log_token_usage(self.model_strategy.model_name, total_input_text, output_text, "mcp_agent_execution")
+                        logger.warning(f"TOOL 모드 추정 토큰 사용: IN:{input_tokens}, OUT:{output_tokens}")
                     
                     # 대화 히스토리에 토큰 정보와 함께 저장
                     if hasattr(self, 'conversation_history') and self.conversation_history:
@@ -214,6 +230,40 @@ class ToolChatProcessor(BaseChatProcessor):
             
             elapsed = time.time() - start_time
             logger.debug(f"도구 채팅 완료: {elapsed:.2f}초")
+            
+            # Unified tracker 기록
+            if unified_tracker:
+                # 실제 토큰 추출
+                actual_input, actual_output = 0, 0
+                if hasattr(self.model_strategy, '_last_response') and self.model_strategy._last_response:
+                    actual_input, actual_output = TokenLogger.extract_actual_tokens(self.model_strategy._last_response)
+                    logger.info(f"TOOL 모드 실제 토큰: IN:{actual_input}, OUT:{actual_output}")
+                
+                # 실제 토큰이 없으면 추정치 사용 (도구 결과 포함)
+                if actual_input == 0 and actual_output == 0:
+                    input_text = user_input
+                    intermediate_steps = result.get("intermediate_steps", [])
+                    if intermediate_steps:
+                        for step in intermediate_steps:
+                            if len(step) >= 2:
+                                observation = str(step[1])
+                                input_text += "\n" + observation
+                    
+                    actual_input = TokenLogger.estimate_tokens(input_text, self.model_strategy.model_name)
+                    actual_output = TokenLogger.estimate_tokens(output, self.model_strategy.model_name)
+                    logger.warning(f"TOOL 모드 추정 토큰 사용: IN:{actual_input}, OUT:{actual_output}")
+                
+                if actual_input > 0:
+                    duration_ms = (time.time() - start_time) * 1000
+                    unified_tracker.track_agent(
+                        agent_name="MCPAgent",
+                        model=self.model_strategy.model_name,
+                        input_tokens=actual_input,
+                        output_tokens=actual_output,
+                        tool_calls=used_tools,
+                        duration_ms=duration_ms
+                    )
+                unified_tracker.end_conversation()
             
             # 대화 종료
             if token_tracker.current_conversation:

@@ -32,6 +32,22 @@ class PandasAgent(BaseAgent):
         self.dataframes = dataframes or {}
         self.current_df = None
     
+    def execute(self, query: str, context: Optional[Dict] = None) -> AgentResult:
+        """
+        Execute with auto file loading
+        """
+        # 파일 경로 감지 및 자동 로드
+        if self.current_df is None and re.search(r'\.(csv|xlsx?)', query, re.IGNORECASE):
+            match = re.search(r'([\w/\-\.]+\.(?:csv|xlsx?))', query, re.IGNORECASE)
+            if match:
+                file_path = match.group(1)
+                if Path(file_path).exists():
+                    logger.info(f"Auto-loading file: {file_path}")
+                    self.load_from_file("data", file_path)
+        
+        # BaseAgent의 execute 호출
+        return super().execute(query, context)
+    
     def can_handle(self, query: str, context: Optional[Dict] = None) -> bool:
         """
         Check if query requires data analysis using LLM
@@ -99,15 +115,31 @@ Answer only 'YES' or 'NO'."""
     
     def _create_executor(self) -> AgentExecutor:
         """Create Pandas agent executor"""
-        if not self.current_df is not None:
-            raise ValueError("No dataframe loaded")
+        if self.current_df is None:
+            logger.warning("PandasAgent not initialized - no dataframe loaded")
+            return None
         
         executor = create_pandas_dataframe_agent(
             llm=self.llm,
             df=self.current_df,
             agent_type=AgentType.OPENAI_FUNCTIONS,
             verbose=True,
-            allow_dangerous_code=True
+            allow_dangerous_code=True,
+            max_iterations=3,
+            max_execution_time=30,
+            agent_executor_kwargs={
+                "early_stopping_method": "force",
+                "handle_parsing_errors": True
+            },
+            prefix="""You are working with a pandas dataframe. 
+
+CRITICAL - RAG Mode Rules:
+1. After you get the analysis result → IMMEDIATELY provide Final Answer
+2. DO NOT run multiple queries unless absolutely necessary
+3. Maximum 3 operations - then MUST provide Final Answer
+4. If you have the data → Stop and answer
+
+Dataframe info:"""
         )
         
         logger.info(f"Pandas agent created with dataframe shape: {self.current_df.shape}")

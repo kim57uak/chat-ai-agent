@@ -4,7 +4,10 @@ ConversationalRetrievalChain 기반
 """
 
 from typing import List, Dict, Optional
-from langchain.chains import ConversationalRetrievalChain
+try:
+    from langchain.chains import ConversationalRetrievalChain
+except ImportError:
+    from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.agents import AgentExecutor
 from langchain.tools import BaseTool
@@ -15,7 +18,7 @@ logger = get_logger("rag_agent")
 
 
 class RAGAgent(BaseAgent):
-    """RAG (Retrieval-Augmented Generation) Agent"""
+    """Searches and retrieves information from internal documents stored in vector database. Answers questions based on uploaded files and company knowledge base."""
     
     is_chain_based = True  # Chain 사용
     
@@ -46,8 +49,10 @@ class RAGAgent(BaseAgent):
             logger.error(f"Retriever creation failed: {e}")
             return None
         
-        from langchain.chains import LLMChain, RetrievalQA
-        from langchain.chains.question_answering import load_qa_chain
+        try:
+            from langchain.chains import RetrievalQA
+        except ImportError:
+            from langchain.chains.retrieval_qa.base import RetrievalQA
         from langchain.prompts import PromptTemplate
         from ui.prompts import prompt_manager
         
@@ -87,7 +92,6 @@ class RAGAgent(BaseAgent):
             )
         else:
             # 다른 모델은 ConversationalRetrievalChain 사용
-            from langchain.chains import ConversationalRetrievalChain
             self.chain = ConversationalRetrievalChain.from_llm(
                 llm=self.llm,
                 retriever=retriever,

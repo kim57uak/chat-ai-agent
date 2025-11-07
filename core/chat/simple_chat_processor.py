@@ -2,7 +2,9 @@ from typing import List, Dict, Tuple
 from .base_chat_processor import BaseChatProcessor
 from core.token_logger import TokenLogger
 from core.token_tracker import token_tracker, StepType
+from core.token_tracking import get_unified_tracker, ChatModeType
 from core.logging import get_logger
+import time
 
 logger = get_logger('chat.simple')
 
@@ -13,7 +15,24 @@ class SimpleChatProcessor(BaseChatProcessor):
     def process_message(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
         """단순 채팅 처리 - 대화 히스토리 포함"""
         try:
-            # 토큰 트래킹 시작
+            # Unified tracker 시작
+            start_time = time.time()
+            unified_tracker = None
+            try:
+                from core.security.secure_path_manager import secure_path_manager
+                db_path = secure_path_manager.get_database_path()
+                unified_tracker = get_unified_tracker(db_path)
+                
+                unified_tracker.start_conversation(
+                    mode=ChatModeType.SIMPLE,
+                    model=self.model_strategy.model_name,
+                    session_id=self.session_id
+                )
+            except Exception as e:
+                logger.debug(f"Unified tracker start failed: {e}")
+                unified_tracker = None
+            
+            # 토큰 트래킹 시작 (기존 호환성)
             token_tracker.start_step(StepType.INITIAL_PROMPT, "Simple Chat Processing")
             
             # user_input 타입 검증 및 변환
@@ -87,9 +106,6 @@ class SimpleChatProcessor(BaseChatProcessor):
                     else:
                         response = self.model_strategy.llm.invoke(messages)
                 
-                # 응답 객체 저장 (토큰 추출용)
-                self.model_strategy._last_response = response
-                
                 logger.info(f"생성된 메시지 수: {len(messages)}")
                 
                 # 응답 처리 (모든 모델 대응)
@@ -145,19 +161,33 @@ class SimpleChatProcessor(BaseChatProcessor):
                 if not response_content or response_content.strip() == "":
                     response_content = "죄송합니다. 현재 응답을 생성할 수 없습니다. 잠시 후 다시 시도해 주세요."
             
-            # 토큰 사용량 로깅 및 트래킹 (Pollinations가 아닌 경우만)
+            # 토큰 사용량 로깅 및 트래킹
             if 'pollinations' not in self.model_strategy.model_name.lower():
-                # 기존 로깅
-                TokenLogger.log_messages_token_usage(
-                    self.model_strategy.model_name, messages, response_content, "simple_chat"
-                )
-                
-                # 토큰 트래킹 종료 - 실제 토큰 정보 추출
-                input_text = "\n".join([str(msg.content) if hasattr(msg, 'content') else str(msg) for msg in messages])
-                
                 # 실제 토큰 정보 추출
                 actual_input, actual_output = TokenLogger.extract_actual_tokens(response)
                 
+                # 추정치 사용 (실제 토큰이 없는 경우)
+                if actual_input == 0 and actual_output == 0:
+                    input_text = "\n".join([str(msg.content) if hasattr(msg, 'content') else str(msg) for msg in messages])
+                    actual_input = TokenLogger.estimate_tokens(input_text, self.model_strategy.model_name)
+                    actual_output = TokenLogger.estimate_tokens(response_content, self.model_strategy.model_name)
+                    logger.warning(f"ASK 모드 추정 토큰 사용: IN:{actual_input}, OUT:{actual_output}")
+                else:
+                    logger.info(f"ASK 모드 실제 토큰: IN:{actual_input}, OUT:{actual_output}")
+                
+                # Unified tracker 기록 (1회만)
+                if unified_tracker and actual_input > 0:
+                    duration_ms = (time.time() - start_time) * 1000
+                    unified_tracker.track_agent(
+                        agent_name="SimpleLLM",
+                        model=self.model_strategy.model_name,
+                        input_tokens=actual_input,
+                        output_tokens=actual_output,
+                        duration_ms=duration_ms
+                    )
+                
+                # 기존 토큰 트래커 (호환성)
+                input_text = "\n".join([str(msg.content) if hasattr(msg, 'content') else str(msg) for msg in messages])
                 token_tracker.end_step(
                     StepType.FINAL_RESPONSE,
                     "Simple Chat Response",
@@ -179,6 +209,10 @@ class SimpleChatProcessor(BaseChatProcessor):
                     input_text=input_text,
                     output_text=response_content
                 )
+            
+            # Unified tracker 종료 (session_id가 있을 때만 DB 저장)
+            if unified_tracker:
+                unified_tracker.end_conversation()
             
             return self.format_response(response_content), []
             

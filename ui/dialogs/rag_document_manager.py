@@ -171,11 +171,36 @@ class RAGDocumentManager(QDialog):
             return
         
         try:
+            from PyQt6.QtWidgets import QProgressDialog
+            from PyQt6.QtCore import Qt
+            
+            # 프로그레스 다이얼로그 생성
+            progress = QProgressDialog(
+                f"Uploading: {Path(file_path).name}",
+                "Cancel",
+                0, 100,
+                self
+            )
+            progress.setWindowTitle("Uploading Document")
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.setMinimumDuration(0)
+            progress.setValue(0)
+            
             self.status_label.setText(f"Uploading: {file_path}")
             logger.info(f"Starting upload: {file_path}")
             
+            # 로딩 단계
+            progress.setLabelText("Loading document...")
+            progress.setValue(20)
+            
             # RAG Manager를 통해 문서 추가
+            progress.setLabelText("Processing and embedding...")
+            progress.setValue(40)
+            
             success = self.rag_manager.add_document(file_path)
+            
+            progress.setValue(100)
+            progress.close()
             
             if success:
                 self.status_label.setText("Upload completed")

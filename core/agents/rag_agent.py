@@ -42,9 +42,12 @@ class RAGAgent(BaseAgent):
     
     def _create_executor(self) -> AgentExecutor:
         """Create RAG chain (returns Chain, not AgentExecutor)"""
+        # Load top_k from RAGConfigManager
+        top_k = self._load_top_k()
+        
         try:
-            retriever = self.vectorstore.as_retriever(search_kwargs={"k": 5})
-            logger.info("Using base retriever with embeddings")
+            retriever = self.vectorstore.as_retriever(search_kwargs={"k": top_k})
+            logger.info(f"Using base retriever with embeddings (k={top_k})")
         except Exception as e:
             logger.error(f"Retriever creation failed: {e}")
             return None
@@ -74,6 +77,11 @@ class RAGAgent(BaseAgent):
         
         combined_prompt = system_prompt + rag_instruction
         
+        # 🔍 DEBUG: 프롬프트 로깅
+        logger.info(f"[RAG PROMPT] System prompt length: {len(system_prompt)} chars")
+        logger.info(f"[RAG PROMPT] Combined prompt length: {len(combined_prompt)} chars")
+        logger.debug(f"[RAG PROMPT] Full prompt:\n{combined_prompt[:500]}...")  # 처음 500자만
+        
         # combine_docs_chain에 프롬프트 적용
         doc_prompt = PromptTemplate.from_template(
             combined_prompt + "\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
@@ -90,33 +98,25 @@ class RAGAgent(BaseAgent):
                 chain_type_kwargs={"prompt": doc_prompt},
                 verbose=True
             )
+            logger.info("✅ RetrievalQA chain created (single vector search)")
         else:
-            # 다른 모델은 ConversationalRetrievalChain 사용
+            # ConversationalRetrievalChain with rephrase disabled
             self.chain = ConversationalRetrievalChain.from_llm(
                 llm=self.llm,
                 retriever=retriever,
                 return_source_documents=True,
                 output_key="answer",
                 combine_docs_chain_kwargs={"prompt": doc_prompt},
+                rephrase_question=False,  # 질문 재작성 비활성화 (벡터 검색 1회)
                 verbose=True
             )
+            logger.info("✅ ConversationalRetrievalChain created with rephrase_question=False (single vector search)")
         
-        logger.info(f"RAG chain created (optimized: no question_generator) with {model_type} prompts")
+        logger.info(f"RAG chain created for {model_type}")
+        logger.info(f"[RAG CONFIG] Model: {model_name}, Type: {model_type}, Perplexity: {is_perplexity}")
         return self.chain
     
-    def _get_question_prompt(self):
-        """Get question generation prompt"""
-        from langchain.prompts import PromptTemplate
-        
-        template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
 
-Chat History:
-{chat_history}
-Follow Up Input: {question}
-Standalone question:"""
-        
-        return PromptTemplate.from_template(template)
-    
     def can_handle(self, query: str, context: Optional[Dict] = None) -> bool:
         """
         Check if query requires document retrieval (rule-based, no LLM call)
@@ -155,3 +155,15 @@ Standalone question:"""
         
         logger.info(f"RAG Agent can_handle (rule-based): {result}")
         return result
+    
+    def _load_top_k(self) -> int:
+        """Load top_k from RAGConfigManager (default: 10)"""
+        try:
+            from core.rag.config.rag_config_manager import RAGConfigManager
+            config_manager = RAGConfigManager()
+            top_k = config_manager.get_top_k()
+            logger.info(f"Loaded top_k={top_k} from RAGConfigManager")
+            return top_k
+        except Exception as e:
+            logger.warning(f"Failed to load top_k from config: {e}")
+            return 10  # Default

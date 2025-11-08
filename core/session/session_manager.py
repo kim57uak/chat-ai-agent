@@ -83,18 +83,46 @@ class SessionManager:
         
         return success
     
-    def delete_session(self, session_id: int, hard_delete: bool = True) -> bool:
+    def delete_session(self, session_id: int, hard_delete: bool = True, progress_callback=None) -> bool:
         """세션 삭제
         
         Args:
             session_id: 삭제할 세션 ID
             hard_delete: True=완전삭제, False=소프트삭제
+            progress_callback: 진행 상황 콜백 함수 (deleted_count, total_count)
         """
         if hard_delete:
-            # 하드 삭제: 메시지와 세션 모두 완전 삭제
             with self.db.get_connection() as conn:
-                # 메시지 먼저 삭제
-                conn.execute('DELETE FROM messages WHERE session_id = ?', (session_id,))
+                # 전체 메시지 수 확인
+                cursor = conn.execute('SELECT COUNT(*) FROM messages WHERE session_id = ?', (session_id,))
+                total_messages = cursor.fetchone()[0]
+                
+                if total_messages > 0:
+                    batch_size = 100
+                    deleted_count = 0
+                    
+                    while deleted_count < total_messages:
+                        # 배치 단위로 삭제
+                        conn.execute(f'''
+                            DELETE FROM messages 
+                            WHERE id IN (
+                                SELECT id FROM messages 
+                                WHERE session_id = ? 
+                                LIMIT {batch_size}
+                            )
+                        ''', (session_id,))
+                        conn.commit()
+                        
+                        deleted_count += batch_size
+                        if deleted_count > total_messages:
+                            deleted_count = total_messages
+                        
+                        # 진행 상황 콜백 호출
+                        if progress_callback:
+                            progress_callback(deleted_count, total_messages)
+                        
+                        logger.debug(f"메시지 삭제 진행: {deleted_count}/{total_messages}")
+                
                 # 세션 삭제
                 cursor = conn.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
                 conn.commit()

@@ -19,6 +19,7 @@ from .theme_applier import ThemeApplier
 from .model_selector import ModelSelector
 from .theme_selector import ThemeSelector
 from .template_handler import TemplateHandler
+from .topic_selector import TopicSelector
 
 logger = get_logger("session_panel")
 
@@ -41,6 +42,7 @@ class SessionPanel(QWidget):
         self.model_selector = ModelSelector(self)
         self.theme_selector = ThemeSelector(self)
         self.template_handler = TemplateHandler(self)
+        self.topic_selector = TopicSelector(self)
         
         self.setup_ui()
         self.load_sessions()
@@ -61,25 +63,30 @@ class SessionPanel(QWidget):
         top_buttons_layout.setContentsMargins(2, 2, 2, 2)
         top_buttons_layout.setSpacing(6)
 
-        self.new_session_btn = QPushButton("➕ New Session")
-        self.new_session_btn.setMinimumHeight(44)
+        self.new_session_btn = QPushButton("➕ NEW SESSION")
+        self.new_session_btn.setMinimumHeight(24)
         self.new_session_btn.clicked.connect(self.actions.create_new_session)
         top_buttons_layout.addWidget(self.new_session_btn)
 
-        self.model_button = QPushButton("🤖 Current Model")
-        self.model_button.setMinimumHeight(44)
+        self.model_button = QPushButton("🤖 CURRENT MODEL")
+        self.model_button.setMinimumHeight(24)
         self.model_button.clicked.connect(self.show_model_selector)
         top_buttons_layout.addWidget(self.model_button)
 
-        self.template_button = QPushButton("📋 Templates")
-        self.template_button.setMinimumHeight(44)
+        self.template_button = QPushButton("📋 TEMPLATES")
+        self.template_button.setMinimumHeight(24)
         self.template_button.clicked.connect(self.show_template_manager)
         top_buttons_layout.addWidget(self.template_button)
 
-        self.theme_button = QPushButton("🎨 Themes")
-        self.theme_button.setMinimumHeight(44)
+        self.theme_button = QPushButton("🎨 THEMES")
+        self.theme_button.setMinimumHeight(24)
         self.theme_button.clicked.connect(self.show_theme_selector)
         top_buttons_layout.addWidget(self.theme_button)
+
+        self.topic_button = QPushButton("📚 RAG TOPICS")
+        self.topic_button.setMinimumHeight(24)
+        self.topic_button.clicked.connect(self.show_topic_selector)
+        top_buttons_layout.addWidget(self.topic_button)
 
         layout.addLayout(top_buttons_layout)
 
@@ -220,6 +227,8 @@ class SessionPanel(QWidget):
         except Exception as e:
             logger.debug(f"현재 모델 표시 업데이트 오류: {e}")
             self.model_button.setText("🤖 Select Model")
+    
+
 
     def load_sessions_from_db(self):
         """앱 시작 시 세션 DB에서 로드"""
@@ -453,6 +462,10 @@ class SessionPanel(QWidget):
     def show_theme_selector(self):
         """테마 선택기 표시"""
         self.theme_selector.show(self.theme_button)
+    
+    def show_topic_selector(self):
+        """Topic 선택기 표시"""
+        self.topic_selector.show(self.topic_button)
 
     def on_stats_label_click(self, event):
         """통계 라벨 클릭 처리"""

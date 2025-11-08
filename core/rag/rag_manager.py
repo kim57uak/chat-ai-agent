@@ -26,6 +26,7 @@ class RAGManager:
         self.db_path = db_path
         self.vectorstore = None
         self.embeddings = None
+        self.storage = None
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50
@@ -45,6 +46,11 @@ class RAGManager:
             from core.rag.vector_store.lancedb_store import LanceDBStore
             self.vectorstore = LanceDBStore(db_path=self.db_path)
             logger.info("Vector store initialized")
+            
+            # Storage manager 초기화
+            from core.rag.storage.rag_storage_manager import RAGStorageManager
+            self.storage = RAGStorageManager(lazy_load_vector=True)
+            logger.info("Storage manager initialized")
             
         except Exception as e:
             logger.error(f"Failed to initialize RAG components: {e}")
@@ -93,13 +99,14 @@ class RAGManager:
             logger.error(f"Failed to add document: {e}")
             return False
     
-    def search(self, query: str, k: int = 5) -> List[Document]:
+    def search(self, query: str, k: int = 5, topic_id: Optional[str] = None) -> List[Document]:
         """
         Search similar documents
         
         Args:
             query: Search query
             k: Number of results
+            topic_id: Optional topic filter (None = use selected topic)
             
         Returns:
             List of similar documents
@@ -109,17 +116,33 @@ class RAGManager:
                 logger.warning("RAG components not initialized")
                 return []
             
+            # topic_id가 없으면 선택된 topic 사용
+            if topic_id is None and self.storage:
+                selected_topic = self.storage.get_selected_topic()
+                if selected_topic:
+                    topic_id = selected_topic['id']
+                    logger.info(f"Using selected topic: {selected_topic['name']}")
+            
             # 쿼리 임베딩
             query_vector = self.embeddings.embed_query(query)
             
-            # 검색
-            results = self.vectorstore.search(
-                query,
-                k=k,
-                query_vector=query_vector
-            )
+            # 검색 (선택된 topic으로 필터링)
+            if topic_id:
+                results = self.storage.search_chunks(
+                    query,
+                    k=k,
+                    topic_id=topic_id,
+                    query_vector=query_vector
+                )
+                logger.info(f"Found {len(results)} results in topic {topic_id} for: {query[:50]}")
+            else:
+                results = self.vectorstore.search(
+                    query,
+                    k=k,
+                    query_vector=query_vector
+                )
+                logger.info(f"Found {len(results)} results (all topics) for: {query[:50]}")
             
-            logger.info(f"Found {len(results)} results for: {query[:50]}")
             return results
             
         except Exception as e:

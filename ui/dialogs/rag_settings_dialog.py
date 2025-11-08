@@ -116,35 +116,52 @@ class RAGSettingsDialog(QDialog):
     def _load_settings(self):
         """설정 로드"""
         try:
-            from utils.config_path import config_path_manager
-            import json
+            from core.rag.config.rag_config_manager import RAGConfigManager
             
-            config_path = config_path_manager.get_config_path('rag_config.json')
-            if config_path.exists():
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    settings = json.load(f)
-                    
-                self.chunk_size.setValue(settings.get('chunk_size', 500))
-                self.chunk_overlap.setValue(settings.get('chunk_overlap', 50))
-                self.top_k.setValue(settings.get('top_k', 5))
-                
-                logger.info(f"Loaded RAG settings from {config_path}")
+            config_manager = RAGConfigManager()
+            chunking_config = config_manager.get_chunking_config()
+            retrieval_config = config_manager.get_retrieval_config()
+            
+            # Chunking 설정
+            sliding_window = chunking_config.get('strategies', {}).get('sliding_window', {})
+            window_size = sliding_window.get('window_size', 500)
+            overlap_ratio = sliding_window.get('overlap_ratio', 0.2)
+            overlap = int(window_size * overlap_ratio)
+            
+            self.chunk_size.setValue(window_size)
+            self.chunk_overlap.setValue(overlap)
+            
+            # Retrieval 설정
+            self.top_k.setValue(retrieval_config.get('top_k', 10))
+            
+            logger.info(f"Loaded RAG settings from RAGConfigManager")
         except Exception as e:
             logger.error(f"Failed to load settings: {e}")
     
     def _save_settings(self):
         """설정 저장"""
         try:
-            from utils.config_path import config_path_manager
-            import json
+            from core.rag.config.rag_config_manager import RAGConfigManager
             
-            settings = self.get_settings()
-            config_path = config_path_manager.get_config_path('rag_config.json')
+            config_manager = RAGConfigManager()
             
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(settings, f, ensure_ascii=False, indent=2)
+            # Chunking 설정 업데이트
+            chunk_size = self.chunk_size.value()
+            chunk_overlap = self.chunk_overlap.value()
+            overlap_ratio = chunk_overlap / chunk_size if chunk_size > 0 else 0.2
             
-            logger.info(f"Saved RAG settings to {config_path}")
+            config_manager.config['chunking']['strategies']['sliding_window'] = {
+                'window_size': chunk_size,
+                'overlap_ratio': overlap_ratio
+            }
+            
+            # Retrieval 설정 업데이트
+            config_manager.config['retrieval']['top_k'] = self.top_k.value()
+            
+            # 저장
+            config_manager._save_config(config_manager.config)
+            
+            logger.info(f"Saved RAG settings to RAGConfigManager")
             self.accept()
             
         except Exception as e:

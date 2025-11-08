@@ -58,25 +58,46 @@ class DocumentLoaderFactory:
     
     @staticmethod
     def _load_pdf(path: Path) -> List[Document]:
-        """Load PDF file"""
+        """Load PDF file with Korean support"""
         try:
-            from PyPDF2 import PdfReader
+            import pdfplumber
             
-            reader = PdfReader(str(path))
             documents = []
-            
-            for i, page in enumerate(reader.pages):
-                text = page.extract_text()
-                if text.strip():
-                    doc = Document(
-                        page_content=text,
-                        metadata={"source": str(path)}
-                    )
-                    documents.append(doc)
+            with pdfplumber.open(str(path)) as pdf:
+                for i, page in enumerate(pdf.pages):
+                    text = page.extract_text()
+                    if text and text.strip():
+                        doc = Document(
+                            page_content=text,
+                            metadata={"source": str(path), "page": i+1}
+                        )
+                        documents.append(doc)
             
             logger.info(f"Loaded PDF: {path.name} ({len(documents)} pages)")
             return documents
             
+        except ImportError:
+            logger.warning("pdfplumber not installed, falling back to PyPDF2")
+            try:
+                from PyPDF2 import PdfReader
+                
+                reader = PdfReader(str(path))
+                documents = []
+                
+                for i, page in enumerate(reader.pages):
+                    text = page.extract_text()
+                    if text and text.strip():
+                        doc = Document(
+                            page_content=text,
+                            metadata={"source": str(path), "page": i+1}
+                        )
+                        documents.append(doc)
+                
+                logger.info(f"Loaded PDF: {path.name} ({len(documents)} pages)")
+                return documents
+            except Exception as e:
+                logger.error(f"Failed to load PDF with PyPDF2: {e}")
+                return []
         except Exception as e:
             logger.error(f"Failed to load PDF: {e}")
             return []
@@ -89,6 +110,10 @@ class DocumentLoaderFactory:
             
             doc = DocxDocument(str(path))
             text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+            
+            # Ensure UTF-8
+            if isinstance(text, bytes):
+                text = text.decode('utf-8', errors='replace')
             
             if text.strip():
                 document = Document(
@@ -158,7 +183,7 @@ class DocumentLoaderFactory:
     @staticmethod
     def _load_text(path: Path) -> List[Document]:
         """Load text file"""
-        encodings = ['utf-8', 'euc-kr', 'cp949', 'latin-1']
+        encodings = ['utf-8', 'cp949', 'euc-kr']
         
         for encoding in encodings:
             try:
@@ -172,7 +197,6 @@ class DocumentLoaderFactory:
                     )
                     logger.info(f"Loaded text: {path.name} ({encoding})")
                     return [doc]
-                return []
                 
             except (UnicodeDecodeError, LookupError):
                 continue

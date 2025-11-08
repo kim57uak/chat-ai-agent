@@ -39,7 +39,7 @@ class LanceDBStore(BaseVectorStore):
             # 지연 import로 순환 참조 방지
             from utils.config_path import config_path_manager
             
-            # 사용자 설정 경로가 있으면 사용 (vectordb 폴더)
+            # 사용자 설정 경로가 있으면 사용 (vectordb 폴더 - db와 동일 레벨)
             user_config_path = config_path_manager.get_user_config_path()
             if user_config_path and user_config_path.exists():
                 db_path = user_config_path / "vectordb"
@@ -83,44 +83,79 @@ class LanceDBStore(BaseVectorStore):
     
     def add_documents(self, documents: List[Document], **kwargs) -> List[str]:
         """
-        Add documents to LanceDB
+        Add documents to LanceDB with extended metadata
         
         Args:
             documents: List of documents
-            **kwargs: Additional parameters (embeddings, etc.)
+            **kwargs: Additional parameters
+                - embeddings: Pre-computed embeddings
+                - document_id: SQLite document ID
+                - topic_id: Topic ID
+                - chunking_strategy: Chunking strategy name
             
         Returns:
-            List of document IDs
+            List of chunk IDs
         """
         if self.db is None:
             logger.error(f"LanceDB not available: db={self.db}, db_path={self.db_path}")
             return []
         
         try:
-            # 문서를 LanceDB 형식으로 변환
             data = []
-            doc_ids = []
+            chunk_ids = []
+            
+            document_id = kwargs.get("document_id")
+            topic_id = kwargs.get("topic_id")
+            chunking_strategy = kwargs.get("chunking_strategy", "sliding_window")
             
             for i, doc in enumerate(documents):
-                doc_id = f"doc_{i}_{hash(doc.page_content)}"
-                doc_ids.append(doc_id)
+                chunk_id = f"chunk_{document_id}_{i}" if document_id else f"chunk_{i}_{hash(doc.page_content)}"
+                chunk_ids.append(chunk_id)
+                
+                # Extended metadata
+                extended_metadata = {
+                    "source": doc.metadata.get("source", "unknown"),
+                    "document_id": document_id,
+                    "topic_id": topic_id,
+                    "chunk_index": i,
+                    "chunking_strategy": chunking_strategy,
+                    **doc.metadata  # 기존 메타데이터 유지
+                }
+                
+                # Ensure UTF-8 encoding for text
+                text_content = doc.page_content
+                if isinstance(text_content, bytes):
+                    text_content = text_content.decode('utf-8', errors='replace')
                 
                 data.append({
-                    "id": doc_id,
-                    "text": doc.page_content,
-                    "metadata": doc.metadata,
+                    "id": chunk_id,
+                    "text": text_content,
+                    "metadata": extended_metadata,
                     "vector": kwargs.get("embeddings", [None])[i] if "embeddings" in kwargs else None
                 })
             
-            # 테이블이 없으면 생성
+            # 테이블 생성 또는 추가
             if self.table_name not in self.db.table_names():
+                logger.debug(f"Creating new table: {self.table_name}")
                 self.table = self.db.create_table(self.table_name, data)
             else:
                 self.table = self.db.open_table(self.table_name)
-                self.table.add(data)
+                # 스키마 호환성 체크
+                try:
+                    logger.debug(f"Adding {len(data)} records to existing table")
+                    self.table.add(data)
+                    logger.debug("Records added successfully")
+                except Exception as e:
+                    if "not found in" in str(e):
+                        logger.warning(f"Schema mismatch, recreating table: {e}")
+                        self.db.drop_table(self.table_name)
+                        self.table = self.db.create_table(self.table_name, data)
+                    else:
+                        logger.error(f"Failed to add records: {e}", exc_info=True)
+                        raise
             
-            logger.info(f"Added {len(documents)} documents to LanceDB")
-            return doc_ids
+            logger.info(f"Added {len(documents)} chunks to LanceDB (doc_id={document_id}, topic_id={topic_id})")
+            return chunk_ids
             
         except Exception as e:
             logger.error(f"Failed to add documents: {e}")
@@ -134,16 +169,16 @@ class LanceDBStore(BaseVectorStore):
         **kwargs
     ) -> List[Document]:
         """
-        Search similar documents
+        Search similar chunks with optional topic filtering
         
         Args:
             query: Search query
             k: Number of results
-            filter: Metadata filter
+            filter: Metadata filter (e.g., {"topic_id": "topic_123"})
             **kwargs: query_vector for vector search
             
         Returns:
-            List of similar documents
+            List of similar document chunks
         """
         if self.db is None:
             logger.warning("LanceDB not available, returning empty results")
@@ -188,10 +223,10 @@ class LanceDBStore(BaseVectorStore):
     
     def delete(self, ids: List[str]) -> bool:
         """
-        Delete documents by IDs
+        Delete chunks by IDs
         
         Args:
-            ids: List of document IDs
+            ids: List of chunk IDs
             
         Returns:
             Success status
@@ -205,16 +240,103 @@ class LanceDBStore(BaseVectorStore):
             return False
         
         try:
-            # LanceDB delete 문법: "id IN ('id1', 'id2', 'id3')"
             ids_str = ", ".join([f"'{id}'" for id in ids])
             delete_expr = f"id IN ({ids_str})"
             logger.info(f"Deleting with expression: {delete_expr}")
             
             self.table.delete(delete_expr)
-            logger.info(f"Successfully deleted {len(ids)} documents")
+            logger.info(f"Successfully deleted {len(ids)} chunks")
             return True
         except Exception as e:
             logger.error(f"Delete failed: {e}", exc_info=True)
+            return False
+    
+    def delete_by_document_id(self, document_id: str) -> bool:
+        """
+        Delete all chunks belonging to a document
+        
+        Args:
+            document_id: SQLite document ID
+            
+        Returns:
+            Success status
+        """
+        if not self.db:
+            logger.warning("LanceDB not initialized")
+            return False
+            
+        try:
+            if self.table_name not in self.db.table_names():
+                logger.warning(f"Table {self.table_name} not found")
+                return True
+            
+            self.table = self.db.open_table(self.table_name)
+            
+            delete_expr = f"metadata['document_id'] = '{document_id}'"
+            logger.info(f"Deleting with expression: {delete_expr}")
+            
+            self.table.delete(delete_expr)
+            
+            # Optimize to physically remove deleted rows
+            try:
+                self.table.compact_files()
+                from datetime import timedelta
+                self.table.cleanup_old_versions(
+                    older_than=timedelta(seconds=0),
+                    delete_unverified=True
+                )
+                self.table.optimize()
+                logger.info(f"Optimized after deleting document {document_id}")
+            except Exception as e:
+                logger.warning(f"Optimize failed: {e}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Delete by document_id failed: {e}", exc_info=True)
+            return False
+    
+    def delete_by_topic_id(self, topic_id: str) -> bool:
+        """
+        Delete all chunks belonging to a topic
+        
+        Args:
+            topic_id: Topic ID
+            
+        Returns:
+            Success status
+        """
+        if not self.db:
+            logger.warning("LanceDB not initialized")
+            return False
+            
+        try:
+            if self.table_name not in self.db.table_names():
+                logger.warning(f"Table {self.table_name} not found")
+                return True
+            
+            self.table = self.db.open_table(self.table_name)
+            
+            delete_expr = f"metadata['topic_id'] = '{topic_id}'"
+            logger.info(f"Deleting chunks for topic: {topic_id}")
+            
+            self.table.delete(delete_expr)
+            
+            # Optimize to physically remove deleted rows
+            try:
+                self.table.compact_files()
+                from datetime import timedelta
+                self.table.cleanup_old_versions(
+                    older_than=timedelta(seconds=0),
+                    delete_unverified=True
+                )
+                self.table.optimize()
+                logger.info(f"Optimized after deleting topic {topic_id}")
+            except Exception as e:
+                logger.warning(f"Optimize failed: {e}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Delete by topic_id failed: {e}", exc_info=True)
             return False
     
     def get_document(self, doc_id: str) -> Optional[Document]:
@@ -303,6 +425,9 @@ class LanceDBStore(BaseVectorStore):
         from langchain.schema.retriever import BaseRetriever
         from langchain.callbacks.manager import CallbackManagerForRetrieverRun
         
+        # 클래스 레벨 캐시 (모든 인스턴스가 공유)
+        _query_cache = {}
+        
         class LanceDBRetriever(BaseRetriever):
             vectorstore: Any
             search_kwargs: Dict[str, Any] = {}
@@ -310,10 +435,35 @@ class LanceDBStore(BaseVectorStore):
             def _get_relevant_documents(
                 self, query: str, *, run_manager: CallbackManagerForRetrieverRun
             ) -> List[Document]:
-                # embeddings를 통한 벡터 검색
                 from core.rag.embeddings.korean_embeddings import KoreanEmbeddings
+                from core.logging import get_logger
+                logger = get_logger("lancedb_retriever")
+                
+                # 캐시 확인
+                if query in _query_cache:
+                    logger.info(f"[VECTOR QUERY] Using cached results for: {query}")
+                    return _query_cache[query]
+                
+                logger.info(f"[VECTOR QUERY] Original query: {query}")
+                
                 embeddings = KoreanEmbeddings()
                 query_vector = embeddings.embed_query(query)
-                return self.vectorstore.search(query, query_vector=query_vector, **self.search_kwargs)
+                
+                logger.info(f"[VECTOR QUERY] Embedding generated for: {query}")
+                
+                results = self.vectorstore.search(query, query_vector=query_vector, **self.search_kwargs)
+                
+                logger.info(f"[VECTOR QUERY] Found {len(results)} results for: {query}")
+                if results:
+                    logger.info(f"[VECTOR QUERY] Top result preview: {results[0].page_content[:100]}...")
+                    # 🔍 DEBUG: 검색된 모든 문서 로깅
+                    for idx, doc in enumerate(results[:3]):  # 상위 3개만
+                        logger.info(f"[VECTOR RESULT {idx+1}] Content: {doc.page_content[:200]}...")
+                        logger.info(f"[VECTOR RESULT {idx+1}] Metadata: {doc.metadata}")
+                
+                # 캐시 저장
+                _query_cache[query] = results
+                
+                return results
         
         return LanceDBRetriever(vectorstore=self, search_kwargs=kwargs.get('search_kwargs', {}))

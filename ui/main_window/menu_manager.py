@@ -96,13 +96,13 @@ class MenuManager:
         settings_menu.addAction(reset_layout_action)
     
     def _create_rag_menu(self, menubar):
-        """랜 메뉴 생성"""
+        """RAG 메뉴 생성"""
         rag_menu = menubar.addMenu('RAG')
         
-        # 문서 관리
-        doc_manager_action = QAction('📁 문서 관리', self.main_window)
-        doc_manager_action.triggered.connect(self._open_document_manager)
-        rag_menu.addAction(doc_manager_action)
+        # RAG 관리
+        rag_manager_action = QAction('📁 RAG 관리', self.main_window)
+        rag_manager_action.triggered.connect(self._open_document_manager)
+        rag_menu.addAction(rag_manager_action)
         
         # RAG 설정
         rag_settings_action = QAction('⚙️ RAG 설정', self.main_window)
@@ -119,16 +119,21 @@ class MenuManager:
     def _open_document_manager(self):
         """문서 관리 대화상자 열기"""
         try:
-            from ui.dialogs import RAGDocumentManager
+            from ui.rag.rag_management_window import RAGManagementWindow
+            from core.rag.storage.rag_storage_manager import RAGStorageManager
+            from core.rag.embeddings.embedding_factory import EmbeddingFactory
+            from core.rag.config.rag_config_manager import RAGConfigManager
             
-            # RAG Manager는 대화상자에서 lazy 초기화
-            dialog = RAGDocumentManager(
-                parent=self.main_window
-            )
-            dialog.exec()
+            # RAG 윈도우가 없으면 생성 (지연 초기화)
+            if not hasattr(self.main_window, 'rag_window'):
+                self.main_window.rag_window = RAGManagementWindow(self.main_window)
+            
+            self.main_window.rag_window.show()
+            self.main_window.rag_window.raise_()
+            self.main_window.rag_window.activateWindow()
             
         except Exception as e:
-            logger.error(f"Failed to open document manager: {e}")
+            logger.error(f"Failed to open document manager: {e}", exc_info=True)
             self._show_error("문서 관리", f"오류: {str(e)}")
     
     def _open_rag_settings(self):

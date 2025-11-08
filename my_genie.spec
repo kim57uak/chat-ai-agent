@@ -20,6 +20,11 @@ torch_datas, torch_binaries, torch_hiddenimports = collect_all('torch')
 transformers_datas, transformers_binaries, transformers_hiddenimports = collect_all('transformers')
 pyarrow_datas, pyarrow_binaries, pyarrow_hiddenimports = collect_all('pyarrow')
 
+# LangChain - CRITICAL for RAG functionality
+langchain_datas, langchain_binaries, langchain_hiddenimports = collect_all('langchain')
+langchain_core_datas, langchain_core_binaries, langchain_core_hiddenimports = collect_all('langchain_core')
+langchain_community_datas, langchain_community_binaries, langchain_community_hiddenimports = collect_all('langchain_community')
+
 # Data science packages - explicit collect_all to ensure all submodules included
 pandas_datas, pandas_binaries, pandas_hiddenimports = collect_all('pandas')
 numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
@@ -74,13 +79,15 @@ a = Analysis(
     binaries=(
         cryptography_binaries + pycryptodome_binaries + loguru_binaries + keyring_binaries + pygments_binaries +
         pandas_binaries + numpy_binaries + matplotlib_binaries + seaborn_binaries + scipy_binaries +
-        astropy_binaries + lancedb_binaries + sentence_transformers_binaries + torch_binaries + transformers_binaries + pyarrow_binaries
+        astropy_binaries + lancedb_binaries + sentence_transformers_binaries + torch_binaries + transformers_binaries + pyarrow_binaries +
+        langchain_binaries + langchain_core_binaries + langchain_community_binaries
     ),
     datas=(
         datas + 
         cryptography_datas + pycryptodome_datas + loguru_datas + keyring_datas + pygments_datas +
         pandas_datas + numpy_datas + matplotlib_datas + seaborn_datas + scipy_datas +
-        astropy_datas + lancedb_datas + sentence_transformers_datas + torch_datas + transformers_datas + pyarrow_datas
+        astropy_datas + lancedb_datas + sentence_transformers_datas + torch_datas + transformers_datas + pyarrow_datas +
+        langchain_datas + langchain_core_datas + langchain_community_datas
     ),
     hiddenimports=[
         # PyQt6
@@ -124,6 +131,46 @@ a = Analysis(
         'anthropic',
         'openai',
         'google.generativeai',
+        
+        # LangChain - CRITICAL for RAG
+        'langchain',
+        'langchain.chains',
+        'langchain.chains.conversational_retrieval',
+        'langchain.chains.conversational_retrieval.base',
+        'langchain.chains.retrieval_qa',
+        'langchain.chains.retrieval_qa.base',
+        'langchain.chains.combine_documents',
+        'langchain.chains.combine_documents.stuff',
+        'langchain.chains.question_answering',
+        'langchain.memory',
+        'langchain.memory.buffer',
+        'langchain.prompts',
+        'langchain.prompts.prompt',
+        'langchain.schema',
+        'langchain.schema.messages',
+        'langchain.schema.document',
+        'langchain.schema.retriever',
+        'langchain.retrievers',
+        'langchain.vectorstores',
+        'langchain.vectorstores.base',
+        'langchain.embeddings',
+        'langchain.embeddings.base',
+        'langchain.llms',
+        'langchain.llms.base',
+        'langchain.chat_models',
+        'langchain.chat_models.base',
+        'langchain.agents',
+        'langchain.agents.agent',
+        'langchain.tools',
+        'langchain.tools.base',
+        'langchain_core',
+        'langchain_core.messages',
+        'langchain_core.prompts',
+        'langchain_core.output_parsers',
+        'langchain_core.runnables',
+        'langchain_community',
+        'langchain_community.vectorstores',
+        'langchain_community.embeddings',
         
         # Embeddings & Vector DB
         'sentence_transformers',
@@ -196,7 +243,8 @@ a = Analysis(
         cryptography_hiddenimports + pycryptodome_hiddenimports + loguru_hiddenimports + keyring_hiddenimports + pygments_hiddenimports +
         pandas_hiddenimports + numpy_hiddenimports + matplotlib_hiddenimports + 
         seaborn_hiddenimports + scipy_hiddenimports + astropy_hiddenimports + lancedb_hiddenimports + sentence_transformers_hiddenimports +
-        torch_hiddenimports + transformers_hiddenimports + pyarrow_hiddenimports
+        torch_hiddenimports + transformers_hiddenimports + pyarrow_hiddenimports +
+        langchain_hiddenimports + langchain_core_hiddenimports + langchain_community_hiddenimports
     ),
     hookspath=['hooks'],
     hooksconfig={},

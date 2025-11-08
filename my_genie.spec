@@ -14,6 +14,16 @@ loguru_datas, loguru_binaries, loguru_hiddenimports = collect_all('loguru')
 keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all('keyring')
 pygments_datas, pygments_binaries, pygments_hiddenimports = collect_all('pygments')
 astropy_datas, astropy_binaries, astropy_hiddenimports = collect_all('astropy')
+lancedb_datas, lancedb_binaries, lancedb_hiddenimports = collect_all('lancedb')
+sentence_transformers_datas, sentence_transformers_binaries, sentence_transformers_hiddenimports = collect_all('sentence_transformers')
+torch_datas, torch_binaries, torch_hiddenimports = collect_all('torch')
+transformers_datas, transformers_binaries, transformers_hiddenimports = collect_all('transformers')
+pyarrow_datas, pyarrow_binaries, pyarrow_hiddenimports = collect_all('pyarrow')
+
+# LangChain - CRITICAL for RAG functionality
+langchain_datas, langchain_binaries, langchain_hiddenimports = collect_all('langchain')
+langchain_core_datas, langchain_core_binaries, langchain_core_hiddenimports = collect_all('langchain_core')
+langchain_community_datas, langchain_community_binaries, langchain_community_hiddenimports = collect_all('langchain_community')
 
 # Data science packages - explicit collect_all to ensure all submodules included
 pandas_datas, pandas_binaries, pandas_hiddenimports = collect_all('pandas')
@@ -46,6 +56,9 @@ datas = [
     # Web templates and static files
     ('ui/components/web/templates', 'ui/components/web/templates'),
     ('ui/components/web/static', 'ui/components/web/static'),
+    
+    # Embedding models
+    ('models/embeddings/dragonkue-KoEn-E5-Tiny', 'models/embeddings/dragonkue-KoEn-E5-Tiny'),
 ]
 
 # Filter existing files
@@ -66,13 +79,15 @@ a = Analysis(
     binaries=(
         cryptography_binaries + pycryptodome_binaries + loguru_binaries + keyring_binaries + pygments_binaries +
         pandas_binaries + numpy_binaries + matplotlib_binaries + seaborn_binaries + scipy_binaries +
-        astropy_binaries
+        astropy_binaries + lancedb_binaries + sentence_transformers_binaries + torch_binaries + transformers_binaries + pyarrow_binaries +
+        langchain_binaries + langchain_core_binaries + langchain_community_binaries
     ),
     datas=(
         datas + 
         cryptography_datas + pycryptodome_datas + loguru_datas + keyring_datas + pygments_datas +
         pandas_datas + numpy_datas + matplotlib_datas + seaborn_datas + scipy_datas +
-        astropy_datas
+        astropy_datas + lancedb_datas + sentence_transformers_datas + torch_datas + transformers_datas + pyarrow_datas +
+        langchain_datas + langchain_core_datas + langchain_community_datas
     ),
     hiddenimports=[
         # PyQt6
@@ -116,6 +131,65 @@ a = Analysis(
         'anthropic',
         'openai',
         'google.generativeai',
+        
+        # LangChain - CRITICAL for RAG
+        'langchain',
+        'langchain.chains',
+        'langchain.chains.conversational_retrieval',
+        'langchain.chains.conversational_retrieval.base',
+        'langchain.chains.retrieval_qa',
+        'langchain.chains.retrieval_qa.base',
+        'langchain.chains.combine_documents',
+        'langchain.chains.combine_documents.stuff',
+        'langchain.chains.question_answering',
+        'langchain.memory',
+        'langchain.memory.buffer',
+        'langchain.prompts',
+        'langchain.prompts.prompt',
+        'langchain.schema',
+        'langchain.schema.messages',
+        'langchain.schema.document',
+        'langchain.schema.retriever',
+        'langchain.retrievers',
+        'langchain.vectorstores',
+        'langchain.vectorstores.base',
+        'langchain.embeddings',
+        'langchain.embeddings.base',
+        'langchain.llms',
+        'langchain.llms.base',
+        'langchain.chat_models',
+        'langchain.chat_models.base',
+        'langchain.agents',
+        'langchain.agents.agent',
+        'langchain.tools',
+        'langchain.tools.base',
+        'langchain_core',
+        'langchain_core.messages',
+        'langchain_core.prompts',
+        'langchain_core.output_parsers',
+        'langchain_core.runnables',
+        'langchain_community',
+        'langchain_community.vectorstores',
+        'langchain_community.embeddings',
+        
+        # Embeddings & Vector DB
+        'sentence_transformers',
+        'sentence_transformers.models',
+        'sentence_transformers.util',
+        'sentence_transformers.SentenceTransformer',
+        'transformers',
+        'transformers.models',
+        'transformers.models.auto',
+        'torch',
+        'torch.nn',
+        'torch.nn.functional',
+        'lancedb',
+        'lancedb.db',
+        'lancedb.table',
+        'lancedb.embeddings',
+        'lancedb.query',
+        'pyarrow',
+        'pyarrow.parquet',
         
         # Pygments - code highlighting
         'pygments.lexers',
@@ -168,7 +242,9 @@ a = Analysis(
     ] + (
         cryptography_hiddenimports + pycryptodome_hiddenimports + loguru_hiddenimports + keyring_hiddenimports + pygments_hiddenimports +
         pandas_hiddenimports + numpy_hiddenimports + matplotlib_hiddenimports + 
-        seaborn_hiddenimports + scipy_hiddenimports + astropy_hiddenimports
+        seaborn_hiddenimports + scipy_hiddenimports + astropy_hiddenimports + lancedb_hiddenimports + sentence_transformers_hiddenimports +
+        torch_hiddenimports + transformers_hiddenimports + pyarrow_hiddenimports +
+        langchain_hiddenimports + langchain_core_hiddenimports + langchain_community_hiddenimports
     ),
     hookspath=['hooks'],
     hooksconfig={},
@@ -183,15 +259,12 @@ a = Analysis(
     ],
     excludes=[
         # Large ML libraries not needed
-        'torch',
         'torchvision', 
         'torchaudio',
-        'transformers',
         'tensorflow',
         'keras',
         'plotly',
         'bokeh',
-        'pyarrow',
         'fastparquet',
         'PIL.ImageQt',
         'cv2',
@@ -203,6 +276,9 @@ a = Analysis(
         'pdb',
         'cProfile',
         'profile',
+        'tests',
+        'tests.integration',
+        'tests.performance',
         # Jupyter/IPython
         'IPython',
         'jupyter',
@@ -211,6 +287,18 @@ a = Analysis(
         'sympy',
         'networkx',
         'statsmodels',
+        # Build/monitoring scripts
+        'scripts',
+        'scripts.migrate_data',
+        'scripts.refactor_settings_dialog',
+        'scripts.verify_migration',
+        'scripts.verify_refactoring',
+        'find_unused_files',
+        'build_mygenie',
+        'cleanup_inactive_sessions',
+        'monitor_token_usage',
+        # Documentation
+        'examples',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

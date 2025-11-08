@@ -1,5 +1,5 @@
 {
-  "current_theme": "mkga_theme",
+  "current_theme": "crypto_bitcoin",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -1335,5 +1335,6 @@
         "surface_opacity": 0.73
       }
     }
-  }
+  },
+  "glassmorphism_enabled": true
 }

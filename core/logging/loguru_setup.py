@@ -55,7 +55,7 @@ def setup_loguru():
         rotation="10 MB",
         retention="30 days",
         compression="zip",
-        enqueue=use_async,  # Async only in dev mode
+        enqueue=use_async,
         backtrace=True,
         diagnose=True
     )

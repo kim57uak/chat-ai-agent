@@ -1,0 +1,7 @@
+{
+  "vector_db": "LanceDB",
+  "embedding_model": "dragonkue-KoEn-E5-Tiny",
+  "chunk_size": 1000,
+  "chunk_overlap": 100,
+  "top_k": 5
+}

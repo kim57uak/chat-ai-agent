@@ -42,23 +42,38 @@ class SecurePathManager:
     
     def _get_user_data_path(self) -> Path:
         """사용자 데이터 저장 경로 반환"""
-        if os.name == 'nt':  # Windows
+        try:
+            from utils.config_path import config_path_manager
+            user_path = config_path_manager.get_user_config_path()
+            if user_path and user_path.exists():
+                logger.info(f"User data path: {user_path}")
+                return user_path
+        except Exception as e:
+            logger.warning(f"Failed to get user config path: {e}")
+        
+        # 폴백: 기본 경로
+        if os.name == 'nt':
             base_dir = Path.home() / "AppData" / "Local" / "ChatAIAgent"
-        elif sys.platform == 'darwin':  # macOS
+        elif sys.platform == 'darwin':
             base_dir = Path.home() / "Library" / "Application Support" / "ChatAIAgent"
-        else:  # Linux
+        else:
             base_dir = Path.home() / ".config" / "chat-ai-agent"
         
         base_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"User data path: {base_dir}")
+        logger.info(f"Default data path: {base_dir}")
         return base_dir
     
     def get_secure_database_path(self, filename: str = "chat_sessions_encrypted.db") -> Path:
         """보안 데이터베이스 파일 경로 반환"""
-        # 항상 사용자 데이터 디렉토리에 저장 (보안상 중요)
-        db_path = self._user_data_path / filename
+        # db 서브폴더에 저장
+        db_path = self._user_data_path / "db" / filename
+        db_path.parent.mkdir(parents=True, exist_ok=True)
         logger.info(f"Secure database path: {db_path}")
         return db_path
+    
+    def get_database_path(self) -> str:
+        """데이터베이스 경로 반환 (문자열)"""
+        return str(self.get_secure_database_path())
     
     def get_secure_config_path(self, filename: str = "config_encrypted.json") -> Path:
         """보안 설정 파일 경로 반환"""

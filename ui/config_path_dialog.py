@@ -82,16 +82,19 @@ class ConfigPathDialog(QDialog):
             QMessageBox.warning(self, "경고", "경로를 선택해주세요.")
             return
         
-        if config_path_manager.set_user_config_path(path):
-            QMessageBox.information(
-                self, 
-                "완료", 
-                f"설정 파일 경로가 변경되었습니다:\n{path}\n\n"
-                "애플리케이션을 재시작하면 새 경로의 설정 파일을 사용합니다."
-            )
-            self.accept()
-        else:
-            QMessageBox.critical(self, "오류", "경로 설정에 실패했습니다.")
+        try:
+            if config_path_manager.set_user_config_path(path):
+                QMessageBox.information(
+                    self, 
+                    "완료", 
+                    f"설정 파일 경로가 변경되었습니다:\n{path}\n\n"
+                    "애플리케이션을 재시작하면 새 경로의 설정 파일을 사용합니다."
+                )
+                self.accept()
+            else:
+                QMessageBox.critical(self, "오류", "경로 설정에 실패했습니다.\n로그를 확인하세요.")
+        except Exception as e:
+            QMessageBox.critical(self, "오류", f"경로 설정 중 오류 발생:\n{str(e)}")
     
     def _reset_to_default(self):
         """Reset to default (no user path)."""

@@ -5,11 +5,14 @@ Token usage display component for showing detailed token consumption
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QTextEdit, QGroupBox, QScrollArea,
                             QFrame, QProgressBar, QTableWidget, QTableWidgetItem,
-                            QHeaderView, QTabWidget)
+                            QHeaderView, QTabWidget, QComboBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QObject
 from PyQt6.QtGui import QFont, QPalette
 from core.token_tracker import token_tracker, StepType
 from core.token_accumulator import token_accumulator
+from core.token_tracking import get_unified_tracker
+from core.token_tracking.data_adapter import DataAdapter
+from typing import Dict, Optional
 import json
 from datetime import datetime
 from core.logging import get_logger
@@ -82,6 +85,15 @@ class TokenUsageDisplay(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.unified_tracker = None
+        try:
+            from core.security.secure_path_manager import secure_path_manager
+            db_path = secure_path_manager.get_database_path()
+            self.unified_tracker = get_unified_tracker(db_path)
+            logger.info(f"Unified tracker connected: {db_path}")
+        except Exception as e:
+            logger.warning(f"Unified tracker not available: {e}")
+        
         self.setup_ui()
         self.setup_timer()
         self.setup_async_processing()
@@ -110,6 +122,19 @@ class TokenUsageDisplay(QWidget):
             }
         """)
         layout.addWidget(title)
+        
+        # 기간 필터
+        filter_layout = QHBoxLayout()
+        filter_layout.setSpacing(4)
+        
+        self.period_combo = QComboBox()
+        self.period_combo.addItems(["Current", "7 Days", "30 Days", "All Time"])
+        self.period_combo.currentTextChanged.connect(self.on_period_changed)
+        self.period_combo.setMinimumHeight(32)
+        filter_layout.addWidget(self.period_combo)
+        filter_layout.addStretch()
+        
+        layout.addLayout(filter_layout)
         
         # 탭 위젯 - 패딩 최소화
         self.tab_widget = QTabWidget()
@@ -256,39 +281,88 @@ class TokenUsageDisplay(QWidget):
         """통계 탭 생성"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 스크롤 영역 추가
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
         
         # 전체 통계
-        self.overall_stats_group = QGroupBox("Overall Statistics")
+        self.overall_stats_group = QGroupBox("📊 Overall")
         stats_layout = QVBoxLayout(self.overall_stats_group)
         
         self.total_conversations_label = QLabel("Total Conversations: 0")
-        self.avg_tokens_label = QLabel("Average Tokens per Conversation: 0")
-        self.total_tokens_label = QLabel("Total Tokens Used: 0")
-        self.avg_accuracy_label = QLabel("Average Accuracy: 0%")
+        self.total_tokens_label = QLabel("Total Tokens: 0")
+        self.total_cost_label = QLabel("Total Cost: $0.00")
+        self.avg_tokens_label = QLabel("Avg Tokens/Conv: 0")
+        
+        for label in [self.total_conversations_label, self.total_tokens_label,
+                     self.total_cost_label, self.avg_tokens_label]:
+            label.setStyleSheet("font-size: 14px; font-weight: 600; padding: 4px 8px;")
         
         stats_layout.addWidget(self.total_conversations_label)
-        stats_layout.addWidget(self.avg_tokens_label)
         stats_layout.addWidget(self.total_tokens_label)
-        stats_layout.addWidget(self.avg_accuracy_label)
+        stats_layout.addWidget(self.total_cost_label)
+        stats_layout.addWidget(self.avg_tokens_label)
+        
+        # Mode breakdown (NEW)
+        self.mode_stats_group = QGroupBox("💬 Mode Breakdown")
+        mode_layout = QVBoxLayout(self.mode_stats_group)
+        self.mode_stats_text = QTextEdit()
+        self.mode_stats_text.setMaximumHeight(100)
+        self.mode_stats_text.setReadOnly(True)
+        mode_layout.addWidget(self.mode_stats_text)
         
         # 모델별 통계
-        self.model_stats_group = QGroupBox("Model Statistics")
+        self.model_stats_group = QGroupBox("🤖 Model Statistics")
         model_layout = QVBoxLayout(self.model_stats_group)
-        
         self.model_stats_text = QTextEdit()
-        self.model_stats_text.setMaximumHeight(150)
+        self.model_stats_text.setMaximumHeight(120)
         self.model_stats_text.setReadOnly(True)
         model_layout.addWidget(self.model_stats_text)
         
-        layout.addWidget(self.overall_stats_group)
-        layout.addWidget(self.model_stats_group)
-        layout.addStretch()
+        # Agent breakdown (NEW)
+        self.agent_stats_group = QGroupBox("🔧 Agent Breakdown")
+        agent_layout = QVBoxLayout(self.agent_stats_group)
+        self.agent_stats_text = QTextEdit()
+        self.agent_stats_text.setMaximumHeight(100)
+        self.agent_stats_text.setReadOnly(True)
+        agent_layout.addWidget(self.agent_stats_text)
+        
+        # Cost Analysis (NEW)
+        self.cost_analysis_group = QGroupBox("💰 Cost Analysis")
+        cost_layout = QVBoxLayout(self.cost_analysis_group)
+        self.most_expensive_label = QLabel("Most Expensive: -")
+        self.most_used_label = QLabel("Most Used: -")
+        self.avg_cost_label = QLabel("Avg Cost/1K tokens: $0.000000")
+        
+        for label in [self.most_expensive_label, self.most_used_label, self.avg_cost_label]:
+            label.setStyleSheet("font-size: 14px; font-weight: 600; padding: 4px 8px;")
+        
+        cost_layout.addWidget(self.most_expensive_label)
+        cost_layout.addWidget(self.most_used_label)
+        cost_layout.addWidget(self.avg_cost_label)
+        
+        scroll_layout.addWidget(self.overall_stats_group)
+        scroll_layout.addWidget(self.mode_stats_group)
+        scroll_layout.addWidget(self.model_stats_group)
+        scroll_layout.addWidget(self.agent_stats_group)
+        scroll_layout.addWidget(self.cost_analysis_group)
+        scroll_layout.addStretch()
+        
+        scroll.setWidget(scroll_content)
+        layout.addWidget(scroll)
         
         return widget
     
     def create_control_buttons(self, layout):
         """컨트롤 버튼 생성 - 더 큰 버튼, 명확한 아이콘"""
-        button_layout = QVBoxLayout()  # 세로 배치로 변경
+        button_layout = QHBoxLayout()  # 가로 배치
         button_layout.setContentsMargins(4, 4, 4, 4)
         button_layout.setSpacing(4)
         
@@ -296,7 +370,7 @@ class TokenUsageDisplay(QWidget):
         self.refresh_button.clicked.connect(self.refresh_display)
         self.refresh_button.setMinimumHeight(36)
         
-        self.export_button = QPushButton("📤 Export JSON")
+        self.export_button = QPushButton("📤 Export")
         self.export_button.clicked.connect(self.export_data)
         self.export_button.setMinimumHeight(36)
         
@@ -610,7 +684,7 @@ class TokenUsageDisplay(QWidget):
         """자동 새로고침 타이머 설정 - 성능 최적화"""
         self.refresh_timer = QTimer()
         self.refresh_timer.timeout.connect(self.refresh_display)
-        self.refresh_timer.start(2000)  # 2초마다 새로고침 (성능 최적화)
+        self.refresh_timer.start(500)  # 0.5초마다 새로고침
         
         # 데이터 변경 감지용 캐시
         self._last_stats_hash = None
@@ -631,7 +705,7 @@ class TokenUsageDisplay(QWidget):
         # 비동기 처리 타이머 (무거운 작업용)
         self.async_timer = QTimer()
         self.async_timer.timeout.connect(self.data_processor.process_data)
-        self.async_timer.start(5000)  # 5초마다 비동기 처리
+        self.async_timer.start(1000)  # 1초마다 비동기 처리
     
     def refresh_display(self):
         """화면 새로고침 - 변경된 데이터만 업데이트"""
@@ -651,7 +725,8 @@ class TokenUsageDisplay(QWidget):
                 if current_steps != self._last_steps_count:
                     self.update_steps_table()
                 
-                # 통계는 비동기로 처리됨 (별도 처리 불필요)
+                # 통계 업데이트
+                self.update_statistics()
                 
                 self._last_stats_hash = current_hash
                 self._last_steps_count = current_steps
@@ -825,20 +900,30 @@ class TokenUsageDisplay(QWidget):
     
     def update_statistics(self):
         """통계 정보 업데이트"""
+        # Try unified tracker first
+        if self.unified_tracker:
+            self._update_statistics_unified()
+            return
+        
+        # Fallback to legacy tracker
         history = token_tracker.conversation_history
         current_conv = token_tracker.current_conversation
         
-        # 현재 대화도 포함하여 계산
         all_conversations = list(history)
         if current_conv and current_conv not in history:
             all_conversations.append(current_conv)
         
         if not all_conversations:
             self.total_conversations_label.setText("Total Conversations: 0")
-            self.avg_tokens_label.setText("Average Tokens per Conversation: 0")
-            self.total_tokens_label.setText("Total Tokens Used: 0")
-            self.avg_accuracy_label.setText("Average Accuracy: 0%")
+            self.avg_tokens_label.setText("Avg Tokens/Conv: 0")
+            self.total_tokens_label.setText("Total Tokens: 0")
+            if hasattr(self, 'total_cost_label'):
+                self.total_cost_label.setText("Total Cost: $0.00")
+            if hasattr(self, 'mode_stats_text'):
+                self.mode_stats_text.clear()
             self.model_stats_text.clear()
+            if hasattr(self, 'agent_stats_text'):
+                self.agent_stats_text.clear()
             return
         
         # 전체 통계
@@ -856,9 +941,12 @@ class TokenUsageDisplay(QWidget):
         avg_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0
         
         self.total_conversations_label.setText(f"Total Conversations: {total_conversations}")
-        self.avg_tokens_label.setText(f"Average Tokens per Conversation: {avg_tokens:.1f}")
-        self.total_tokens_label.setText(f"Total Tokens Used: {total_tokens:,}")
-        self.avg_accuracy_label.setText(f"Average Accuracy: {avg_accuracy:.1f}%")
+        self.avg_tokens_label.setText(f"Avg Tokens/Conv: {avg_tokens:.1f}")
+        self.total_tokens_label.setText(f"Total Tokens: {total_tokens:,}")
+        if hasattr(self, 'total_cost_label'):
+            self.total_cost_label.setText("Total Cost: $0.000000")
+        if hasattr(self, 'avg_accuracy_label'):
+            self.avg_accuracy_label.setText(f"Avg Accuracy: {avg_accuracy:.1f}%")
         
         # 모델별 통계
         model_stats = {}
@@ -919,8 +1007,8 @@ class TokenUsageDisplay(QWidget):
         avg_tokens = total_tokens / total_conversations if total_conversations > 0 else 0
         
         self.total_conversations_label.setText(f"Total Conversations: {total_conversations}")
-        self.avg_tokens_label.setText(f"Average Tokens per Conversation: {avg_tokens:.1f}")
-        self.total_tokens_label.setText(f"Total Tokens Used: {total_tokens:,}")
+        self.avg_tokens_label.setText(f"Avg Tokens/Conv: {avg_tokens:.1f}")
+        self.total_tokens_label.setText(f"Total Tokens: {total_tokens:,}")
         
         # 모델별 통계 텍스트 생성
         stats_text = ""
@@ -932,11 +1020,98 @@ class TokenUsageDisplay(QWidget):
         
         self.model_stats_text.setPlainText(stats_text)
     
+    def _update_statistics_unified(self):
+        """통합 트래커로 통계 업데이트"""
+        try:
+            # 현재 세션 통계
+            stats = self.unified_tracker.get_session_stats()
+            
+            # Mode breakdown (전체)
+            mode_breakdown = self.unified_tracker.get_mode_breakdown()
+            
+            # Model breakdown (전체)
+            model_breakdown = self.unified_tracker.get_model_breakdown()
+            
+            # Agent breakdown (전체)
+            agent_breakdown = self.unified_tracker.get_agent_breakdown()
+            
+            # Overall 통계
+            total_tokens = sum(data['total_tokens'] for data in model_breakdown.values()) if model_breakdown else 0
+            total_cost = sum(data['total_cost'] for data in model_breakdown.values()) if model_breakdown else 0.0
+            total_convs = len(set(mode_breakdown.keys())) if mode_breakdown else 0
+            
+            self.total_conversations_label.setText(f"Total Conversations: {total_convs}")
+            self.total_tokens_label.setText(f"Total Tokens: {total_tokens:,}")
+            self.total_cost_label.setText(f"Total Cost: ${total_cost:.6f}")
+            avg_tokens = total_tokens // total_convs if total_convs > 0 else 0
+            self.avg_tokens_label.setText(f"Avg Tokens/Conv: {avg_tokens:,}")
+            
+            # Mode Breakdown
+            if mode_breakdown:
+                mode_text = ""
+                for mode, data in mode_breakdown.items():
+                    mode_text += f"{mode.upper()}:\n"
+                    mode_text += f"  Tokens: {data['total_tokens']:,}\n"
+                    mode_text += f"  Cost: ${data['total_cost']:.6f}\n\n"
+                self.mode_stats_text.setPlainText(mode_text)
+            else:
+                self.mode_stats_text.setPlainText("No data yet")
+            
+            # Model Breakdown
+            if model_breakdown:
+                model_text = ""
+                for model, data in model_breakdown.items():
+                    model_text += f"{model}:\n"
+                    model_text += f"  Tokens: {data['total_tokens']:,}\n"
+                    model_text += f"  Cost: ${data['total_cost']:.6f}\n"
+                    model_text += f"  Count: {data['count']}\n\n"
+                self.model_stats_text.setPlainText(model_text)
+            else:
+                self.model_stats_text.setPlainText("No data yet")
+            
+            # Agent Breakdown
+            if agent_breakdown:
+                agent_text = ""
+                for agent, data in agent_breakdown.items():
+                    agent_text += f"{agent}:\n"
+                    agent_text += f"  Tokens: {data['total_tokens']:,}\n"
+                    agent_text += f"  Cost: ${data['total_cost']:.6f}\n"
+                    agent_text += f"  Count: {data['count']}\n\n"
+                self.agent_stats_text.setPlainText(agent_text)
+            else:
+                self.agent_stats_text.setPlainText("No data yet")
+            
+            # Cost Analysis
+            if model_breakdown:
+                # Most expensive model
+                most_expensive = max(model_breakdown.items(), key=lambda x: x[1]['total_cost'])
+                self.most_expensive_label.setText(f"Most Expensive: {most_expensive[0]} (${most_expensive[1]['total_cost']:.6f})")
+                
+                # Most used model
+                most_used = max(model_breakdown.items(), key=lambda x: x[1]['total_tokens'])
+                self.most_used_label.setText(f"Most Used: {most_used[0]} ({most_used[1]['total_tokens']:,} tokens)")
+                
+                # Average cost per 1K tokens
+                if total_tokens > 0:
+                    avg_cost_per_1k = (total_cost / total_tokens) * 1000
+                    self.avg_cost_label.setText(f"Avg Cost/1K tokens: ${avg_cost_per_1k:.6f}")
+            else:
+                self.most_expensive_label.setText("Most Expensive: -")
+                self.most_used_label.setText("Most Used: -")
+                self.avg_cost_label.setText("Avg Cost/1K tokens: $0.000000")
+            
+        except Exception as e:
+            logger.error(f"통합 트래커 통계 업데이트 오류: {e}", exc_info=True)
+    
     def clear_history(self):
         """히스토리 지우기"""
         token_tracker.conversation_history.clear()
         if hasattr(token_tracker, 'current_conversation'):
             token_tracker.current_conversation = None
+        
+        if self.unified_tracker and hasattr(self.unified_tracker, '_session_cache'):
+            self.unified_tracker._session_cache.clear()
+        
         self.refresh_display()
     
     def on_token_updated(self, token_info):
@@ -952,6 +1127,120 @@ class TokenUsageDisplay(QWidget):
                 self.refresh_display()
         except Exception as e:
             logger.error(f"토큰 업데이트 처리 오류: {e}")
+    
+    def on_period_changed(self, period: str):
+        """기간 필터 변경"""
+        if not self.unified_tracker:
+            return
+        
+        try:
+            if period == "Current":
+                # 현재 세션만
+                self.tab_widget.setTabEnabled(1, True)  # Steps 탭 활성화
+                self.update_statistics()
+                self.update_steps_table()
+            else:
+                # 기간 필터: Steps 탭 비활성화 (DB에 step 데이터 없음)
+                self.tab_widget.setTabEnabled(1, False)
+                if period == "7 Days":
+                    self._update_statistics_period(7)
+                elif period == "30 Days":
+                    self._update_statistics_period(30)
+                elif period == "All Time":
+                    self._update_statistics_period(None)
+        except Exception as e:
+            logger.error(f"기간 필터 변경 오류: {e}")
+    
+    def _update_statistics_period(self, days: int = None):
+        """기간별 통계 업데이트"""
+        try:
+            if days:
+                stats = self.unified_tracker.get_historical_stats(days)
+            else:
+                # All time
+                mode_breakdown = self.unified_tracker.get_mode_breakdown()
+                model_breakdown = self.unified_tracker.get_model_breakdown()
+                agent_breakdown = self.unified_tracker.get_agent_breakdown()
+                
+                stats = {
+                    'mode_breakdown': mode_breakdown,
+                    'model_breakdown': model_breakdown,
+                    'agent_breakdown': agent_breakdown
+                }
+            
+            # 통계 표시
+            self._display_period_stats(stats)
+            
+        except Exception as e:
+            logger.error(f"기간별 통계 업데이트 오류: {e}")
+    
+    def _display_period_stats(self, stats: Dict):
+        """기간별 통계 표시"""
+        mode_breakdown = stats.get('mode_breakdown', {})
+        model_breakdown = stats.get('model_breakdown', {})
+        agent_breakdown = stats.get('agent_breakdown', {})
+        
+        # Overall
+        total_tokens = sum(d.get('total_tokens', 0) for d in model_breakdown.values())
+        total_cost = sum(d.get('total_cost', 0) for d in model_breakdown.values())
+        total_convs = sum(d.get('count', 0) for d in mode_breakdown.values())
+        
+        self.total_conversations_label.setText(f"Total Conversations: {total_convs}")
+        self.total_tokens_label.setText(f"Total Tokens: {total_tokens:,}")
+        self.total_cost_label.setText(f"Total Cost: ${total_cost:.6f}")
+        avg_tokens = total_tokens // total_convs if total_convs > 0 else 0
+        self.avg_tokens_label.setText(f"Avg Tokens/Conv: {avg_tokens:,}")
+        
+        # Mode
+        if mode_breakdown:
+            mode_text = ""
+            for mode, data in mode_breakdown.items():
+                mode_text += f"{mode.upper()}:\n"
+                mode_text += f"  Tokens: {data.get('total_tokens', 0):,}\n"
+                mode_text += f"  Cost: ${data.get('total_cost', 0):.6f}\n\n"
+            self.mode_stats_text.setPlainText(mode_text)
+        else:
+            self.mode_stats_text.setPlainText("No data")
+        
+        # Model
+        if model_breakdown:
+            model_text = ""
+            for model, data in model_breakdown.items():
+                model_text += f"{model}:\n"
+                model_text += f"  Tokens: {data.get('total_tokens', 0):,}\n"
+                model_text += f"  Cost: ${data.get('total_cost', 0):.6f}\n"
+                model_text += f"  Count: {data.get('count', 0)}\n\n"
+            self.model_stats_text.setPlainText(model_text)
+        else:
+            self.model_stats_text.setPlainText("No data")
+        
+        # Agent
+        if agent_breakdown:
+            agent_text = ""
+            for agent, data in agent_breakdown.items():
+                agent_text += f"{agent}:\n"
+                agent_text += f"  Tokens: {data.get('total_tokens', 0):,}\n"
+                agent_text += f"  Cost: ${data.get('total_cost', 0):.6f}\n"
+                agent_text += f"  Count: {data.get('count', 0)}\n\n"
+            self.agent_stats_text.setPlainText(agent_text)
+        else:
+            self.agent_stats_text.setPlainText("No data")
+        
+        # Cost Analysis
+        if model_breakdown:
+            most_expensive = max(model_breakdown.items(), key=lambda x: x[1].get('total_cost', 0))
+            self.most_expensive_label.setText(f"Most Expensive: {most_expensive[0]} (${most_expensive[1].get('total_cost', 0):.6f})")
+            
+            most_used = max(model_breakdown.items(), key=lambda x: x[1].get('total_tokens', 0))
+            self.most_used_label.setText(f"Most Used: {most_used[0]} ({most_used[1].get('total_tokens', 0):,} tokens)")
+            
+            if total_tokens > 0:
+                avg_cost_per_1k = (total_cost / total_tokens) * 1000
+                self.avg_cost_label.setText(f"Avg Cost/1K tokens: ${avg_cost_per_1k:.6f}")
+        else:
+            self.most_expensive_label.setText("Most Expensive: -")
+            self.most_used_label.setText("Most Used: -")
+            self.avg_cost_label.setText("Avg Cost/1K tokens: $0.000000")
     
     def closeEvent(self, event):
         """위젯 종료 시 스레드 정리"""

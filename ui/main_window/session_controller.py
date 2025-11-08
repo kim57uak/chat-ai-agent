@@ -101,6 +101,10 @@ class SessionController:
         """새 세션 생성 이벤트 처리"""
         self.current_session_id = session_id
         self.main_window.current_session_id = session_id
+        
+        # AIClient에 session_id 설정
+        if hasattr(self.main_window, 'ai_client') and self.main_window.ai_client:
+            self.main_window.ai_client.set_session_id(session_id)
         self._auto_session_created = True
         
         self.main_window._update_window_title()
@@ -168,6 +172,10 @@ class SessionController:
                 if session_manager:
                     self.current_session_id = session_manager.create_session(title)
                     self.main_window.current_session_id = self.current_session_id
+                    
+                    # AIClient에 session_id 설정
+                    if hasattr(self.main_window, 'ai_client') and self.main_window.ai_client:
+                        self.main_window.ai_client.set_session_id(self.current_session_id)
                 else:
                     logger.debug(f"[AUTO_SESSION] 오류 - session_manager가 초기화되지 않음")
                     return

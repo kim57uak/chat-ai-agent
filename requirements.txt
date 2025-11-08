@@ -37,12 +37,16 @@ jsonpatch==1.33
 jsonpointer==3.0.0
 langchain
 langchain-anthropic
+langchain-community
 langchain-core
+langchain-experimental
 langchain-google-genai
 langchain-openai
 langchain-perplexity
 langchain-text-splitters
 langsmith
+lancedb
+sentence-transformers
 lxml==6.0.0
 macholib==1.16.3
 Markdown==3.8.2

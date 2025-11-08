@@ -37,34 +37,22 @@ class EncryptedDatabase:
         self._init_database()
 
     def _get_default_db_path(self) -> str:
-        """기본 데이터베이스 경로 반환"""
+        """기본 데이터베이스 경로 반환 (secure_path_manager와 통합)"""
         try:
-            # 기존 ConfigPathManager와 연동
-            from utils.config_path import config_path_manager
-
-            # 사용자 설정 경로가 있으면 사용 (db 서브폴더에 저장)
-            user_config_path = config_path_manager.get_user_config_path()
-            if user_config_path and user_config_path.exists():
-                db_path = user_config_path / "db" / "chat_sessions_encrypted.db"
-                db_path.parent.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Using user-configured DB path: {db_path}")
-                return str(db_path)
-            else:
-                logger.info("No user config path set, using default")
+            from core.security.secure_path_manager import secure_path_manager
+            db_path = secure_path_manager.get_database_path()
+            logger.info(f"Using unified DB path: {db_path}")
+            return db_path
         except Exception as e:
-            logger.warning(f"Failed to get user config path: {e}")
-
-        # 폴백: 기본 외부 경로 (db 서브폴더 사용)
-        import os
-
-        if os.name == "nt":  # Windows
-            data_dir = Path.home() / "AppData" / "Local" / "ChatAIAgent" / "db"
-        else:  # macOS, Linux
-            data_dir = Path.home() / ".chat-ai-agent" / "db"
-
-        data_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Using default DB path: {data_dir / 'chat_sessions_encrypted.db'}")
-        return str(data_dir / "chat_sessions_encrypted.db")
+            logger.error(f"Failed to get unified DB path: {e}")
+            # 폴백
+            import os
+            if os.name == "nt":
+                data_dir = Path.home() / "AppData" / "Local" / "ChatAIAgent"
+            else:
+                data_dir = Path.home() / ".chat-ai-agent"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            return str(data_dir / "chat_sessions_encrypted.db")
 
     def _init_database(self):
         """데이터베이스 초기화"""

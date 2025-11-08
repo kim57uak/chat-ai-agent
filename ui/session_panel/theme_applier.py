@@ -110,7 +110,7 @@ class ThemeApplier:
                     border-radius: 20px;
                     font-weight: 800;
                     font-size: 16px;
-                    padding: 16px 20px;
+                    padding: 6px 20px;
                     margin: 6px;
                 }}
                 QPushButton:hover {{
@@ -150,7 +150,7 @@ class ThemeApplier:
         panel.search_edit.setStyleSheet(styles['search'])
         panel.session_list.setStyleSheet(styles['list'])
         
-        for btn_name in ['new_session_btn', 'model_button', 'template_button', 'theme_button']:
+        for btn_name in ['new_session_btn', 'model_button', 'template_button', 'theme_button', 'topic_button']:
             if hasattr(panel, btn_name):
                 getattr(panel, btn_name).setStyleSheet(styles['button'])
         

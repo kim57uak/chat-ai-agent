@@ -78,6 +78,19 @@ class AIAgent:
         """모델 정보 반환"""
         return self._agent_v2.get_model_info()
     
+    # RAG 모드 지원
+    def set_chat_mode(self, mode: str):
+        """채팅 모드 설정 (simple/tool/rag)"""
+        return self._agent_v2.set_chat_mode(mode)
+    
+    def set_vectorstore(self, vectorstore):
+        """벡터 스토어 설정 (RAG용)"""
+        return self._agent_v2.set_vectorstore(vectorstore)
+    
+    def set_mcp_client(self, mcp_client):
+        """MCP 클라이언트 설정 (RAG용)"""
+        return self._agent_v2.set_mcp_client(mcp_client)
+    
     # 기존 복잡한 메서드들은 단순화하여 호환성 유지
     def _gemini_tool_chat(self, user_input: str):
         """Gemini 도구 채팅 - 단순화된 호환성 버전"""

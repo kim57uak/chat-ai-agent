@@ -103,12 +103,39 @@ class SessionActions:
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
+                from PyQt6.QtWidgets import QProgressDialog
+                from PyQt6.QtCore import Qt
+                
+                # 진행 대화상자 생성
+                progress = QProgressDialog(
+                    f"메시지 삭제 중...",
+                    None,
+                    0,
+                    session['message_count'],
+                    self.panel
+                )
+                progress.setWindowTitle("세션 삭제")
+                progress.setWindowModality(Qt.WindowModality.WindowModal)
+                progress.setCancelButton(None)
+                progress.setMinimumDuration(0)
+                progress.show()
+                
+                def update_progress(deleted, total):
+                    progress.setValue(deleted)
+                    progress.setLabelText(f"메시지 삭제 중... ({deleted}/{total})")
+                    from PyQt6.QtWidgets import QApplication
+                    QApplication.processEvents()
+                
                 # 먼저 UI에서 해당 아이템 제거
                 self.panel._remove_session_item(self.panel.current_session_id)
 
                 success = session_manager.delete_session(
-                    self.panel.current_session_id, hard_delete=True
+                    self.panel.current_session_id, 
+                    hard_delete=True,
+                    progress_callback=update_progress
                 )
+                
+                progress.close()
 
                 if success:
                     # 메인 윈도우의 현재 세션 ID도 초기화
@@ -155,9 +182,39 @@ class SessionActions:
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
+                from PyQt6.QtWidgets import QProgressDialog
+                from PyQt6.QtCore import Qt
+                
+                # 진행 대화상자 생성
+                progress = QProgressDialog(
+                    f"메시지 삭제 중...",
+                    None,
+                    0,
+                    session['message_count'],
+                    self.panel
+                )
+                progress.setWindowTitle("세션 삭제")
+                progress.setWindowModality(Qt.WindowModality.WindowModal)
+                progress.setCancelButton(None)
+                progress.setMinimumDuration(0)
+                progress.show()
+                
+                def update_progress(deleted, total):
+                    progress.setValue(deleted)
+                    progress.setLabelText(f"메시지 삭제 중... ({deleted}/{total})")
+                    from PyQt6.QtWidgets import QApplication
+                    QApplication.processEvents()
+                
                 self.panel._remove_session_item(session_id)
 
-                success = session_manager.delete_session(session_id, hard_delete=True)
+                success = session_manager.delete_session(
+                    session_id, 
+                    hard_delete=True,
+                    progress_callback=update_progress
+                )
+                
+                progress.close()
+                
                 if success:
                     if hasattr(self.panel, "main_window") and self.panel.main_window:
                         if self.panel.main_window.current_session_id == session_id:

@@ -30,6 +30,27 @@ class GeminiStrategy(BaseModelStrategy):
             max_retries = 3
             request_timeout = 30
         
+        from langchain.callbacks.base import BaseCallbackHandler
+        
+        class GlobalTokenTracker(BaseCallbackHandler):
+            def __init__(self, strategy):
+                self.strategy = strategy
+            
+            def on_llm_end(self, response, **kwargs):
+                if response:
+                    # response 전체를 저장 (토큰 정보 포함)
+                    self.strategy._last_response = response
+                    from core.token_logger import TokenLogger
+                    inp, out = TokenLogger.extract_actual_tokens(response)
+                    
+                    # 디버그: response 구조 확인
+                    if inp == 0 and out == 0:
+                        logger.warning(f"No tokens in response. Type: {type(response)}, Has generations: {hasattr(response, 'generations')}, Has llm_output: {hasattr(response, 'llm_output')}")
+                        if hasattr(response, 'llm_output'):
+                            logger.warning(f"llm_output keys: {response.llm_output.keys() if response.llm_output else 'None'}")
+                    else:
+                        logger.debug(f"GlobalTokenTracker saved: {inp}/{out} tokens")
+        
         llm = ChatGoogleGenerativeAI(
             model=self.model_name,
             google_api_key=self.api_key,
@@ -41,10 +62,9 @@ class GeminiStrategy(BaseModelStrategy):
             stop_sequences=params.get('stop_sequences', None),
             max_retries=max_retries,
             request_timeout=request_timeout,
+            callbacks=[GlobalTokenTracker(self)]
         )
         
-        # 토큰 사용량 추적을 위한 콜백 설정
-        self._setup_token_tracking_callbacks(llm)
         return llm
     
     def _setup_token_tracking_callbacks(self, llm):
@@ -197,9 +217,6 @@ class GeminiStrategy(BaseModelStrategy):
             llm_elapsed = time.time() - llm_start
             decision = response.content.strip().upper()
             
-            # 응답 객체 저장 (토큰 추출용)
-            self._last_response = response
-            
             # 도구 결정 단계 종료
             input_text = "\n".join([str(msg.content) for msg in messages])
             token_tracker.end_step(
@@ -349,9 +366,9 @@ Final Answer: [response based on observation]
             verbose=True,
             max_iterations=max_iterations,
             max_execution_time=max_execution_time,
-            handle_parsing_errors=True,  # 커스텀 파서가 처리
+            handle_parsing_errors=True,
             early_stopping_method="force",
-            return_intermediate_steps=True,
+            return_intermediate_steps=True
         )
     
     def _get_ocr_prompt(self) -> str:

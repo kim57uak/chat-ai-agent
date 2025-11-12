@@ -37,14 +37,19 @@ class RAGManager:
     def _init_components(self):
         """Initialize components"""
         try:
-            # Embeddings 초기화
-            from core.rag.embeddings.korean_embeddings import KoreanEmbeddings
-            self.embeddings = KoreanEmbeddings()
+            # Embeddings 초기화 (설정된 모델 사용)
+            from core.rag.embeddings.embedding_factory import EmbeddingFactory
+            self.embeddings = EmbeddingFactory.create_embeddings()
             logger.info("Embeddings initialized")
             
-            # Vector store 초기화 (None이면 자동으로 사용자 경로 사용)
+            # Vector store 초기화 (현재 모델에 맞는 테이블 사용)
             from core.rag.vector_store.lancedb_store import LanceDBStore
-            self.vectorstore = LanceDBStore(db_path=self.db_path)
+            from core.rag.embeddings.embedding_model_manager import EmbeddingModelManager
+            
+            manager = EmbeddingModelManager()
+            table_name = manager.get_table_name()
+            
+            self.vectorstore = LanceDBStore(db_path=self.db_path, table_name=table_name)
             logger.info("Vector store initialized")
             
             # Storage manager 초기화
@@ -57,7 +62,7 @@ class RAGManager:
     
     def add_document(self, file_path: str) -> bool:
         """
-        Add document to RAG system
+        Add document to RAG system with proper chunking strategy
         
         Args:
             file_path: Document file path
@@ -66,21 +71,15 @@ class RAGManager:
             Success status
         """
         try:
-            # 문서 로드
+            # 문서 로드 (청킹 전략 자동 적용)
             from core.rag.loaders.document_loader_factory import DocumentLoaderFactory
-            documents = DocumentLoaderFactory.load_document(file_path)
+            chunks = DocumentLoaderFactory.load_document(file_path)
             
-            if not documents:
-                logger.warning(f"No documents loaded from {file_path}")
+            if not chunks:
+                logger.warning(f"No chunks loaded from {file_path}")
                 return False
             
-            # 청크 분할
-            chunks = []
-            for doc in documents:
-                split_docs = self.text_splitter.split_documents([doc])
-                chunks.extend(split_docs)
-            
-            logger.info(f"Split into {len(chunks)} chunks")
+            logger.info(f"Loaded {len(chunks)} chunks with auto-chunking strategy")
             
             # 임베딩 생성
             texts = [chunk.page_content for chunk in chunks]
@@ -152,3 +151,42 @@ class RAGManager:
     def is_available(self) -> bool:
         """Check if RAG system is available"""
         return self.vectorstore is not None and self.embeddings is not None
+    
+    def get_current_model_info(self) -> dict:
+        """현재 사용 중인 임베딩 모델 정보 반환"""
+        if hasattr(self.embeddings, 'get_model_info'):
+            return self.embeddings.get_model_info()
+        else:
+            return {
+                "model_name": "Unknown",
+                "dimension": getattr(self.embeddings, 'dimension', 0)
+            }
+    
+    def refresh_embeddings(self):
+        """임베딩 모델 새로고침 (모델 변경 시 호출)"""
+        try:
+            from core.rag.embeddings.embedding_factory import EmbeddingFactory
+            from core.rag.embeddings.embedding_model_manager import EmbeddingModelManager
+            
+            # 새 임베딩 모델 로드
+            self.embeddings = EmbeddingFactory.create_embeddings()
+            
+            # 새 테이블로 벡터 스토어 업데이트
+            manager = EmbeddingModelManager()
+            table_name = manager.get_table_name()
+            
+            if self.vectorstore:
+                self.vectorstore.table_name = table_name
+                # 테이블 재초기화
+                self.vectorstore.table = None
+                if self.vectorstore.db and table_name in self.vectorstore.db.table_names():
+                    self.vectorstore.table = self.vectorstore.db.open_table(table_name)
+                    logger.info(f"Switched to table: {table_name}")
+                else:
+                    logger.info(f"Table {table_name} not found, will be created when needed")
+            
+            logger.info("Embeddings refreshed successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to refresh embeddings: {e}")
+            return False

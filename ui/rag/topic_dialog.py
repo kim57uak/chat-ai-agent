@@ -42,6 +42,9 @@ class TopicDialog(QDialog):
         """Initialize UI"""
         layout = QVBoxLayout(self)
         
+        # Apply theme style
+        self.setStyleSheet(self._get_dialog_style())
+        
         # Name
         layout.addWidget(QLabel("Name:"))
         self.name_input = QLineEdit()
@@ -77,6 +80,119 @@ class TopicDialog(QDialog):
         btn_layout.addWidget(save_btn)
         
         layout.addLayout(btn_layout)
+    
+    def _get_dialog_style(self):
+        """Get web-style dialog from theme"""
+        from ui.styles.material_theme_manager import material_theme_manager
+        
+        colors = material_theme_manager.get_theme_colors()
+        bg = colors.get('background', '#1e293b')
+        surface = colors.get('surface', '#334155')
+        primary = colors.get('primary', '#6366f1')
+        primary_variant = colors.get('primary_variant', '#4f46e5')
+        text_color = colors.get('text_primary', '#f1f5f9')
+        border = colors.get('border', '#475569')
+        surface_variant = colors.get('surface_variant', '#475569')
+        
+        # RGB 추출
+        try:
+            r = int(primary[1:3], 16)
+            g = int(primary[3:5], 16)
+            b = int(primary[5:7], 16)
+            r2 = int(primary_variant[1:3], 16)
+            g2 = int(primary_variant[3:5], 16)
+            b2 = int(primary_variant[5:7], 16)
+        except:
+            r, g, b = 99, 102, 241
+            r2, g2, b2 = 79, 70, 229
+        
+        return f"""
+            QDialog {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba({r}, {g}, {b}, 0.05),
+                    stop:1 rgba({r2}, {g2}, {b2}, 0.05));
+                color: {text_color};
+            }}
+            QLabel {{
+                color: {text_color};
+                font-size: 14px;
+                font-weight: 500;
+                padding: 6px 0;
+            }}
+            QLineEdit, QTextEdit {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {surface},
+                    stop:1 {surface_variant});
+                color: {text_color};
+                border: 2px solid rgba({r}, {g}, {b}, 0.2);
+                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 14px;
+            }}
+            QLineEdit:focus, QTextEdit:focus {{
+                border-color: rgba({r}, {g}, {b}, 1);
+                background-color: {surface};
+            }}
+            QLineEdit:hover, QTextEdit:hover {{
+                border-color: rgba({r}, {g}, {b}, 0.5);
+            }}
+            QComboBox {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {surface},
+                    stop:1 {surface_variant});
+                color: {text_color};
+                border: 2px solid rgba({r}, {g}, {b}, 0.2);
+                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 14px;
+                min-height: 24px;
+            }}
+            QComboBox:hover {{
+                border-color: rgba({r}, {g}, {b}, 0.5);
+            }}
+            QComboBox:focus {{
+                border-color: rgba({r}, {g}, {b}, 1);
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 24px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba({r}, {g}, {b}, 0.3),
+                    stop:1 rgba({r2}, {g2}, {b2}, 0.3));
+                border-radius: 4px;
+                margin: 2px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid {text_color};
+                width: 0;
+                height: 0;
+            }}
+            QPushButton {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba({r}, {g}, {b}, 1),
+                    stop:1 rgba({r2}, {g2}, {b2}, 1));
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: 600;
+                margin: 4px;
+            }}
+            QPushButton:hover {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba({r2}, {g2}, {b2}, 1),
+                    stop:1 rgba({r}, {g}, {b}, 1));
+            }}
+            QPushButton:pressed {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba({r2}, {g2}, {b2}, 0.8),
+                    stop:1 rgba({r}, {g}, {b}, 0.8));
+            }}
+        """
     
     def _load_topic_data(self):
         """Load topic data for editing"""

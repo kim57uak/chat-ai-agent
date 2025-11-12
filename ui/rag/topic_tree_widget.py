@@ -21,7 +21,7 @@ class TopicTreeWidget(QTreeWidget):
         """Initialize topic tree widget"""
         super().__init__(parent)
         
-        self.setHeaderLabels(["Topics", "Documents"])
+        self.setHeaderLabels(["Topics", "Docs"])
         self.setColumnWidth(0, 200)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
@@ -31,7 +31,7 @@ class TopicTreeWidget(QTreeWidget):
     
     def load_topics(self, topics):
         """
-        Load topics into tree
+        Load topics into tree (모든 토픽 표시)
         
         Args:
             topics: List of topic dicts
@@ -39,11 +39,13 @@ class TopicTreeWidget(QTreeWidget):
         self.clear()
         self.topics_map.clear()
         
-        # Create items
+        # Create items (모든 토픽 표시)
         for topic in topics:
             item = QTreeWidgetItem()
             item.setText(0, topic['name'])
-            item.setText(1, str(topic.get('document_count', 0)))
+            # 현재 모델 문서 수 표시
+            doc_count = topic.get('current_model_doc_count', topic.get('document_count', 0))
+            item.setText(1, str(doc_count))
             item.setData(0, Qt.ItemDataRole.UserRole, topic['id'])
             self.topics_map[topic['id']] = item
         

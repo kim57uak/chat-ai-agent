@@ -68,7 +68,7 @@ class MultiAgentOrchestrator:
     
     def _select_agent_fallback(self, query: str, context: Optional[Dict] = None) -> Optional[BaseAgent]:
         """
-        Fallback: Rule-based agent selection
+        Fallback: Rule-based agent selection with file path priority
         
         Args:
             query: User query
@@ -77,8 +77,25 @@ class MultiAgentOrchestrator:
         Returns:
             Selected agent or None
         """
-        # Agent의 can_handle 메서드 활용 (우선순위: PandasAgent > SQLAgent > RAGAgent > MCPAgent)
-        priority_order = ['pandas', 'sql', 'rag', 'mcp']
+        import re
+        
+        # 절대 경로 패턴 검사 (Windows: C:\, macOS/Linux: /)
+        abs_path_pattern = r'(?:[A-Za-z]:[/\\]|/)[^\s]+\.(?:csv|xlsx?|txt|pdf|json)'
+        if re.search(abs_path_pattern, query, re.IGNORECASE):
+            # CSV/Excel 파일이면 PandasAgent 우선
+            if re.search(r'\.(?:csv|xlsx?)', query, re.IGNORECASE):
+                for agent in self.agents:
+                    if 'pandas' in agent.get_name().lower():
+                        logger.info(f"Fallback selected (file path): {agent.get_name()}")
+                        return agent
+            # 기타 파일은 FileSystemAgent
+            for agent in self.agents:
+                if 'filesystem' in agent.get_name().lower():
+                    logger.info(f"Fallback selected (file path): {agent.get_name()}")
+                    return agent
+        
+        # Agent의 can_handle 메서드 활용 (우선순위: PandasAgent > PythonREPLAgent > FileSystemAgent > SQLAgent > RAGAgent > MCPAgent)
+        priority_order = ['pandas', 'python', 'filesystem', 'sql', 'rag', 'mcp']
         
         # 우선순위별로 체크
         for priority_name in priority_order:
@@ -124,22 +141,17 @@ class MultiAgentOrchestrator:
             context_info = f"\nContext: {context}"
         
         # LLM에게 Agent 선택 요청
-        prompt = f"""Analyze the query and context, then select the MOST appropriate agent.
+        prompt = f"""Select optimal agent for user query.
 
 Query: {query}{context_info}
 
-Available Agents:
+Agents:
 {agents_text}
 
-Consider:
-1. Query intent and requirements
-2. Agent capabilities and strengths
-3. Context information if provided
-
-Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
+Analyze query intent and match with agent capabilities. Return ONLY agent name:"""
         
         try:
-            logger.info(f"[LLM REQ] Orchestrator single agent: {query[:30]}...")
+            logger.info(f"[LLM REQ] Orchestrator single agent: {query[:50]}...")
             response = self.llm.invoke([HumanMessage(content=prompt)])
             selected_name = response.content.strip() if hasattr(response, 'content') else str(response).strip()
             logger.info(f"[LLM RES] Single agent: {selected_name}")
@@ -306,50 +318,14 @@ Return ONLY the exact agent name (e.g., "RAGAgent" or "MCPAgent"):"""
         agents_text = "\n".join(agent_info)
         
         # 동적 프롬프트 생성 (Agent description 기반)
-        prompt = f"""Analyze the query and select ALL agents needed to provide a complete answer. You can select MULTIPLE agents.
+        prompt = f"""Select optimal agent(s) for user query. Max {max_agents} agents.
 
 Query: {query}
 
-Available Agents:
+Agents:
 {agents_text}
 
-**Selection Strategy:**
-
-1. **Single Information Source:**
-   - If query needs ONLY internal documents → Select agents with "document", "retrieval", "RAG" capabilities
-   - If query needs ONLY external/web data → Select agents with "web", "search", "external" capabilities
-   - If query needs ONLY data analysis → Select agents with "data", "analysis", "pandas" capabilities (PandasAgent)
-   - If query needs ONLY code execution → Select agents with "code", "python", "execution" capabilities (PythonREPLAgent)
-   - If query needs ONLY file operations → Select agents with "file", "filesystem" capabilities (FileSystemAgent)
-
-2. **Multiple Information Sources (CRITICAL):**
-   - If query asks to COMPARE, JUDGE, EVALUATE, or BENCHMARK:
-     → Select ALL relevant agents (e.g., internal + external)
-   - If query needs BOTH internal data AND external data:
-     → Select BOTH document retrieval AND web search agents
-   - Examples: "Compare our policy with competitors", "Is our benefit appropriate vs market?"
-
-3. **Complex Queries:**
-   - Analyze what information sources are needed
-   - Select ALL agents that can contribute
-   - Agents will run in parallel and results will be merged
-
-**Decision Process:**
-- Read agent descriptions carefully
-- Match query requirements with agent capabilities
-- Select ALL agents that can provide relevant information
-- Maximum {max_agents} agents
-
-**Output Format:**
-Return ONLY agent names separated by commas.
-Examples:
-- "RAGAgent, MCPAgent" (comparison query)
-- "RAGAgent" (internal only)
-- "MCPAgent" (external only)
-- "PandasAgent" (data analysis)
-- "FileManagementAgent" (file operations)
-
-Your answer:"""
+Analyze query intent and match with agent capabilities. Select ONE or MULTIPLE agents as needed. Return agent name(s), comma-separated:"""
         
         try:
             logger.info(f"[LLM REQ] Orchestrator selecting agents for: {query[:50]}...")
@@ -357,14 +333,18 @@ Your answer:"""
             selected_names = response.content.strip() if hasattr(response, 'content') else str(response).strip()
             logger.info(f"[LLM RES] Orchestrator selected: {selected_names}")
             
-            # Agent 매칭 (대소문자 무시, 부분 매칭)
+            # Agent 매칭 (대소문자 무시, 양방향 부분 매칭)
             selected = []
             selected_names_lower = selected_names.lower()
             
             for agent in self.agents:
                 agent_name = agent.get_name()
-                # 정확한 매칭 또는 부분 매칭
-                if agent_name in selected_names or agent_name.lower() in selected_names_lower:
+                agent_name_lower = agent_name.lower()
+                # 양방향 부분 매칭
+                if (agent_name in selected_names or 
+                    agent_name_lower in selected_names_lower or
+                    selected_names in agent_name or
+                    selected_names_lower in agent_name_lower):
                     selected.append(agent)
                     logger.info(f"Matched agent: {agent_name}")
                     if len(selected) >= max_agents:

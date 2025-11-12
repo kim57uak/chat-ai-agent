@@ -1,7 +1,87 @@
 {
-  "vector_db": "LanceDB",
-  "embedding_model": "dragonkue-KoEn-E5-Tiny",
-  "chunk_size": 1000,
-  "chunk_overlap": 100,
-  "top_k": 5
+  "embedding": {
+    "current": "jinaai_jina-embeddings-v2-base-code",
+    "models": {
+      "dragonkue-KoEn-E5-Tiny": {
+        "type": "local",
+        "model": "exp-models/dragonkue-KoEn-E5-Tiny",
+        "dimension": 384,
+        "enable_cache": true,
+        "use_custom_model": false,
+        "custom_model_path": ""
+      },
+      "jinaai_jina-embeddings-v2-base-code": {
+        "type": "local",
+        "model_path": "/Users/dolpaks/Downloads/ai_file_folder/config/models/jinaai_jina-embeddings-v2-base-code",
+        "dimension": 768,
+        "enable_cache": true
+      }
+    }
+  },
+  "chunking": {
+    "default_strategy": "sliding_window",
+    "strategies": {
+      "sliding_window": {
+        "window_size": 500,
+        "overlap_ratio": 0.2
+      },
+      "semantic": {
+        "threshold_type": "percentile",
+        "threshold_amount": 95
+      }
+    }
+  },
+  "batch_upload": {
+    "max_workers": 4,
+    "max_file_size_mb": 50,
+    "exclude_patterns": [
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__",
+      "node_modules",
+      ".git",
+      "venv",
+      "__pycache__"
+    ]
+  },
+  "retrieval": {
+    "top_k": 10
+  }
 }

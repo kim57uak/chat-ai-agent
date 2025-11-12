@@ -14,7 +14,7 @@ logger = get_logger("mcp_agent")
 
 
 class MCPAgent(BaseAgent):
-    """Accesses external tools and web services including search engines, APIs, databases, and online resources. Handles real-time information retrieval and external data queries."""
+    """External tools and web services. Use for: web search, API calls, real-time information, external databases, online resources. NOT for internal documents - use RAGAgent for knowledge base search."""
     
     def __init__(self, llm, mcp_client, tools: Optional[List[BaseTool]] = None):
         """

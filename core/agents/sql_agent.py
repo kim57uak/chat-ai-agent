@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 from langchain_community.agent_toolkits import create_sql_agent
 from langchain_community.utilities import SQLDatabase
 from langchain.agents.agent_types import AgentType
+from langchain.agents import AgentExecutor
 from core.logging import get_logger
 from .base_agent import BaseAgent
 
@@ -14,7 +15,7 @@ logger = get_logger("sql_agent")
 
 
 class SQLAgent(BaseAgent):
-    """SQL 데이터베이스 쿼리 Agent"""
+    """SQL database queries and operations. Use for: querying databases, executing SQL, retrieving database records, database analysis. NOT for CSV/Excel files - use PandasAgent for file-based data."""
     
     def __init__(self, llm):
         """
@@ -27,7 +28,7 @@ class SQLAgent(BaseAgent):
             DB connection is established dynamically via context['db_uri']
             Supports: MySQL, PostgreSQL, SQLite, Oracle, SQL Server
         """
-        super().__init__("sql", llm)
+        super().__init__(llm)
         self.db = None
         self.agent = None
         self.current_db_uri = None
@@ -172,6 +173,13 @@ Respond with ONLY "YES" or "NO":"""
                 "install_cmd": ""
             }
     
+    def _create_executor(self) -> AgentExecutor:
+        """Create SQL agent executor"""
+        if not self.agent:
+            logger.warning("SQL agent not initialized - no database connected")
+            return None
+        return self.agent
+    
     def execute(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Execute SQL query
@@ -187,17 +195,19 @@ Respond with ONLY "YES" or "NO":"""
             # Connect if db_uri provided
             if context and "db_uri" in context:
                 if not self.connect(context["db_uri"]):
-                    return {
-                        "success": False,
-                        "error": "Failed to connect to database"
-                    }
+                    from .base_agent import AgentResult
+                    return AgentResult(
+                        output="Failed to connect to database",
+                        metadata={"error": True}
+                    )
             
             # Check if connected
             if self.db is None or self.agent is None:
-                return {
-                    "success": False,
-                    "error": "No database connected. Please provide db_uri."
-                }
+                from .base_agent import AgentResult
+                return AgentResult(
+                    output="No database connected. Please provide db_uri.",
+                    metadata={"error": True}
+                )
             
             # Execute query
             logger.info(f"Executing SQL query: {query}")
@@ -209,18 +219,19 @@ Respond with ONLY "YES" or "NO":"""
             else:
                 output = str(result)
             
-            return {
-                "success": True,
-                "result": output,
-                "tables": self.get_table_names()
-            }
+            from .base_agent import AgentResult
+            return AgentResult(
+                output=output,
+                metadata={"tables": self.get_table_names()}
+            )
             
         except Exception as e:
             logger.error(f"SQL agent execution failed: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            from .base_agent import AgentResult
+            return AgentResult(
+                output=f"SQL execution failed: {str(e)}",
+                metadata={"error": True}
+            )
     
     def get_table_names(self) -> list:
         """

@@ -201,46 +201,17 @@ class AIProcessor(QObject):
                 else:
                     # 일반 텍스트 처리
                     if chat_mode == "rag":
-                        # RAG 모드: RAG + Multi-Agent
-                        logger.info(f"RAG mode processing: {processed_user_text[:50]}")
+                        # RAG 모드: 항상 Agent 모드로 처리 (Multi-Agent 시스템)
+                        logger.info(f"RAG mode: Force agent mode for multi-agent selection: {processed_user_text[:50]}")
                         
                         # RAG Manager 가져오기
                         from core.rag.rag_manager import RAGManager
                         if not hasattr(client, 'rag_manager'):
                             client.rag_manager = RAGManager()
                         
-                        # RAG 검색 먼저 수행
-                        # 설정에서 top_k 가져오기
-                        try:
-                            from utils.config_path import config_path_manager
-                            import json
-                            config_path = config_path_manager.get_config_path('rag_config.json')
-                            if config_path.exists():
-                                with open(config_path, 'r', encoding='utf-8') as f:
-                                    rag_config = json.load(f)
-                                    top_k = rag_config.get('top_k', 5)
-                            else:
-                                top_k = 5
-                        except:
-                            top_k = 5
-                        
-                        rag_results = client.rag_manager.search(processed_user_text, k=top_k)
-                        
-                        if rag_results:
-                            # RAG 결과를 컨텍스트로 추가
-                            context = "\n\n[관련 문서]\n"
-                            for i, doc in enumerate(rag_results, 1):
-                                context += f"{i}. {doc.page_content[:200]}...\n\n"
-                            
-                            enhanced_text = f"{context}\n[사용자 질문]\n{processed_user_text}"
-                            logger.info(f"RAG: Found {len(rag_results)} documents")
-                        else:
-                            enhanced_text = processed_user_text
-                            logger.info("RAG: No documents found")
-                        
-                        # RAG 모드: 문서 검색 + 도구 사용 가능
+                        # 항상 Agent 모드로 처리 (Multi-Agent가 적절한 Agent 선택)
                         if messages:
-                            full_messages = messages + [{'role': 'user', 'content': enhanced_text}]
+                            full_messages = messages + [{'role': 'user', 'content': processed_user_text}]
                             result = client.chat(full_messages, force_agent=True)
                             if isinstance(result, tuple):
                                 response, used_tools = result
@@ -248,13 +219,13 @@ class AIProcessor(QObject):
                                 response = result
                                 used_tools = []
                         else:
-                            result = client.agent_chat(enhanced_text)
+                            result = client.agent_chat(processed_user_text)
                             if isinstance(result, tuple):
                                 response, used_tools = result
                             else:
                                 response = result
                                 used_tools = []
-                        sender = 'RAG+Agent'
+                        sender = 'Multi-Agent'
                     elif agent_mode:
                         # 에이전트 모드: 도구 사용 가능
                         if messages:

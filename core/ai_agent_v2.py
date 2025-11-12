@@ -109,9 +109,12 @@ class AIAgentV2:
     ) -> Tuple[str, List]:
         """대화 기록을 포함한 메시지 처리"""
         try:
-            if force_agent and self.tools:
+            # RAG 모드이거나 force_agent=True이고 도구가 있으면 Agent 모드
+            if force_agent and (self.tools or self.mode_manager.current_mode == ChatMode.RAG):
+                self.logger.info(f"Agent 모드 처리: force_agent={force_agent}, tools={len(self.tools)}, mode={self.mode_manager.current_mode}")
                 return self._process_with_tools(user_input, conversation_history)
             else:
+                self.logger.info(f"Simple 모드 처리: force_agent={force_agent}, tools={len(self.tools)}, mode={self.mode_manager.current_mode}")
                 return self._process_simple(user_input, conversation_history)
                 
         except Exception as e:
@@ -170,21 +173,57 @@ class AIAgentV2:
         return result
     
     def _process_with_tools(self, user_input: str, conversation_history: List[Dict] = None) -> Tuple[str, List]:
-        """도구를 사용한 처리 - 모드에 따라 프로세서 선택"""
+        """도구를 사용한 처리 - LLM 기반 Multi-Agent 선택"""
         # 대화 히스토리가 없으면 내부 히스토리에서 5단계 가져오기
         if not conversation_history:
             conversation_history = self.conversation_history.get_context_messages()
         
-        # RAG 모드
+        # RAG 모드: RAG Agent 기본 실행 + 필요시 추가 Agent 선택
         if self.mode_manager.current_mode == ChatMode.RAG:
-            processor = self.mode_manager.get_processor(
-                mode=ChatMode.RAG,
-                vectorstore=self.vectorstore,
-                mcp_client=self.mcp_client,
-                tools=self.tools,
-                session_id=self.session_id
-            )
-            return processor.process_message(user_input, conversation_history)
+            self.logger.info("RAG 모드: RAG Agent 기본 실행")
+            
+            # 1. RAG Agent 먼저 실행
+            if self.vectorstore:
+                rag_processor = self.mode_manager.get_processor(
+                    mode=ChatMode.RAG,
+                    vectorstore=self.vectorstore,
+                    mcp_client=self.mcp_client,
+                    tools=self.tools,
+                    session_id=self.session_id
+                )
+                rag_response, rag_tools = rag_processor.process_message(user_input, conversation_history)
+                
+                # 2. RAG 응답이 충분한지 LLM이 판단
+                needs_additional_agent = self._check_if_additional_agent_needed(user_input, rag_response)
+                
+                if not needs_additional_agent:
+                    self.logger.info("RAG Agent 응답으로 충분함")
+                    return rag_response, rag_tools
+                
+                # 3. 추가 Agent 필요시 선택 및 실행
+                self.logger.info("추가 Agent 필요: LLM 기반 Agent 선택")
+                available_agents = self._load_additional_agents()  # RAG 제외
+                
+                if available_agents:
+                    selected_agent = self._select_agent_with_llm(user_input, available_agents)
+                    if selected_agent:
+                        self.logger.info(f"추가 선택된 Agent: {selected_agent['name']}")
+                        additional_response, additional_tools = self._execute_selected_agent(selected_agent, user_input, conversation_history)
+                        
+                        # RAG + 추가 Agent 응답 결합
+                        combined_response = f"{rag_response}\n\n---\n\n{additional_response}"
+                        combined_tools = rag_tools + additional_tools
+                        return combined_response, combined_tools
+                
+                # 추가 Agent 실패시 RAG 응답만 반환
+                return rag_response, rag_tools
+            
+            # vectorstore 없으면 기본 처리
+            self.logger.warning("RAG 모드이지만 vectorstore가 없음")
+            if not self.tool_processor:
+                self.tool_processor = ToolChatProcessor(self.model_strategy, self.tools)
+                self.tool_processor.session_id = self.session_id
+            return self.tool_processor.process_message(user_input, conversation_history)
         
         # TOOL 모드 (기존 로직)
         if not self.tool_processor:
@@ -212,6 +251,265 @@ class AIAgentV2:
     def get_available_tools(self) -> List[str]:
         """사용 가능한 도구 목록 반환"""
         return [tool.name for tool in self.tools]
+    
+    def _check_if_additional_agent_needed(self, user_input: str, rag_response: str) -> bool:
+        """추가 Agent가 필요한지 LLM이 판단"""
+        prompt = f"""Does the user's question require additional tools beyond document search?
+
+User Question: {user_input}
+RAG Response: {rag_response[:500]}...
+
+Select YES if user needs:
+- External web search or real-time information
+- File operations (create, modify, delete)
+- Calculations or code execution
+- Database queries
+- Other external tools
+
+Select NO if:
+- RAG response fully answers the question
+- Only document-based information needed
+- Question is completely satisfied
+
+Answer only 'YES' or 'NO'."""
+        
+        try:
+            from langchain.schema import HumanMessage
+            response = self.model_strategy.llm.invoke([HumanMessage(content=prompt)])
+            decision = response.content.strip().upper() if hasattr(response, 'content') else str(response).strip().upper()
+            result = "YES" in decision
+            self.logger.info(f"Additional agent needed: {result}")
+            return result
+        except Exception as e:
+            self.logger.error(f"Additional agent check failed: {e}")
+            return False
+    
+    def _load_additional_agents(self) -> List[Dict[str, Any]]:
+        """추가 Agent들 로드 (RAG Agent 제외)"""
+        agents = []
+        
+        try:
+            # MCP Agent
+            if self.tools:
+                from core.agents.mcp_agent import MCPAgent
+                agents.append({
+                    "name": "MCPAgent", 
+                    "description": "External tool usage. Use for: web search, API calls, file operations, system commands, real-time data retrieval.",
+                    "class": MCPAgent,
+                    "init_params": {"llm": self.model_strategy.llm, "tools": self.tools}
+                })
+            
+            # 추가 Agent들을 동적으로 로드 (RAG, SQL Agent 제외)
+            try:
+                import importlib
+                import pkgutil
+                from core.agents import base_agent
+                
+                # 비활성화할 Agent 목록
+                disabled_agents = ['core.agents.sql_agent', 'core.agents.rag_agent']
+                
+                # core.agents 모듈에서 모든 Agent 클래스 찾기
+                agents_module = importlib.import_module('core.agents')
+                for importer, modname, ispkg in pkgutil.iter_modules(agents_module.__path__, agents_module.__name__ + "."):
+                    if (modname.endswith('_agent') and 
+                        modname not in ['core.agents.base_agent', 'core.agents.mcp_agent'] and
+                        modname not in disabled_agents):
+                        try:
+                            module = importlib.import_module(modname)
+                            for attr_name in dir(module):
+                                attr = getattr(module, attr_name)
+                                if (isinstance(attr, type) and 
+                                    issubclass(attr, base_agent.BaseAgent) and 
+                                    attr != base_agent.BaseAgent and
+                                    hasattr(attr, '__doc__') and attr.__doc__):
+                                    
+                                    agents.append({
+                                        "name": attr.__name__,
+                                        "description": attr.__doc__.strip(),
+                                        "class": attr,
+                                        "init_params": {"llm": self.model_strategy.llm}
+                                    })
+                        except Exception as e:
+                            self.logger.debug(f"Agent 로드 실패: {modname} - {e}")
+            
+            except Exception as e:
+                self.logger.debug(f"동적 Agent 로드 실패: {e}")
+            
+            self.logger.info(f"로드된 추가 Agent: {len(agents)}개 - {[a['name'] for a in agents]}")
+            return agents
+            
+        except Exception as e:
+            self.logger.error(f"추가 Agent 로드 오류: {e}")
+            return []
+    
+    def _load_all_agents(self) -> List[Dict[str, Any]]:
+        """사용 가능한 모든 Agent 로드 (우선순위 순서)"""
+        agents = []
+        
+        try:
+            # RAG Agent
+            if self.vectorstore:
+                from core.agents.rag_agent import RAGAgent
+                agents.append({
+                    "name": "RAGAgent",
+                    "description": "Internal knowledge base search. Use for: retrieving information from uploaded documents, searching company knowledge base, answering questions based on internal files.",
+                    "class": RAGAgent,
+                    "init_params": {"llm": self.model_strategy.llm, "vectorstore": self.vectorstore}
+                })
+            
+            # MCP Agent
+            if self.tools:
+                from core.agents.mcp_agent import MCPAgent
+                agents.append({
+                    "name": "MCPAgent", 
+                    "description": "External tool usage. Use for: web search, API calls, file operations, system commands, real-time data retrieval.",
+                    "class": MCPAgent,
+                    "init_params": {"llm": self.model_strategy.llm, "tools": self.tools}
+                })
+            
+            # 추가 Agent들을 동적으로 로드 (SQLAgent 제외)
+            try:
+                import importlib
+                import pkgutil
+                from core.agents import base_agent
+                
+                # 비활성화할 Agent 목록
+                disabled_agents = ['core.agents.sql_agent']
+                
+                # core.agents 모듈에서 모든 Agent 클래스 찾기
+                agents_module = importlib.import_module('core.agents')
+                for importer, modname, ispkg in pkgutil.iter_modules(agents_module.__path__, agents_module.__name__ + "."):
+                    if (modname.endswith('_agent') and 
+                        modname not in ['core.agents.base_agent', 'core.agents.rag_agent', 'core.agents.mcp_agent'] and
+                        modname not in disabled_agents):
+                        try:
+                            module = importlib.import_module(modname)
+                            for attr_name in dir(module):
+                                attr = getattr(module, attr_name)
+                                if (isinstance(attr, type) and 
+                                    issubclass(attr, base_agent.BaseAgent) and 
+                                    attr != base_agent.BaseAgent and
+                                    hasattr(attr, '__doc__') and attr.__doc__):
+                                    
+                                    agents.append({
+                                        "name": attr.__name__,
+                                        "description": attr.__doc__.strip(),
+                                        "class": attr,
+                                        "init_params": {"llm": self.model_strategy.llm}
+                                    })
+                        except Exception as e:
+                            self.logger.debug(f"Agent 로드 실패: {modname} - {e}")
+            
+            except Exception as e:
+                self.logger.debug(f"동적 Agent 로드 실패: {e}")
+            
+            self.logger.info(f"로드된 Agent: {len(agents)}개 - {[a['name'] for a in agents]}")
+            return agents
+            
+        except Exception as e:
+            self.logger.error(f"Agent 로드 오류: {e}")
+            return []
+    
+    def _select_agent_with_llm(self, user_input: str, available_agents: List[Dict]) -> Optional[Dict]:
+        """사용자 입력에 기반하여 LLM이 적절한 Agent 선택"""
+        if not available_agents:
+            return None
+        
+        try:
+            # Agent 선택 프롬프트 생성
+            agent_descriptions = "\n".join([
+                f"{i+1}. {agent['name']}: {agent['description']}"
+                for i, agent in enumerate(available_agents)
+            ])
+            
+            selection_prompt = f"""
+You are an AI agent selector. Choose the SINGLE MOST OPTIMAL agent for the user's request.
+
+Available Agents:
+{agent_descriptions}
+
+User Request: "{user_input}"
+
+CRITICAL SELECTION RULES:
+1. Analyze the PRIMARY intent of the request
+2. Select ONLY ONE agent - the MOST specialized for the PRIMARY task
+3. Priority order when multiple agents could work:
+   - Data analysis/statistics/calculations on CSV/Excel → PandasAgent ONLY
+   - Simple file reading without analysis → FileSystemAgent ONLY
+   - Mathematical calculations without files → PythonREPLAgent ONLY
+   - Web search/external APIs → MCPAgent ONLY
+
+Examples:
+- "Analyze CSV file" → PandasAgent (analysis is primary intent)
+- "Calculate average from data.csv" → PandasAgent (data analysis)
+- "Read file content" → FileSystemAgent (simple reading)
+- "Generate random numbers" → PythonREPLAgent (calculation only)
+
+Respond with ONLY the agent number (1-{len(available_agents)}) that is MOST optimal.
+If no agent is suitable, respond with "0".
+"""
+            
+            # LLM에게 Agent 선택 요청
+            response = self.model_strategy.llm.invoke(selection_prompt)
+            
+            # 응답에서 숫자 추출
+            import re
+            numbers = re.findall(r'\d+', str(response.content if hasattr(response, 'content') else response))
+            
+            if numbers:
+                selected_num = int(numbers[0])
+                if 1 <= selected_num <= len(available_agents):
+                    selected_agent = available_agents[selected_num - 1]
+                    self.logger.info(f"LLM Agent 선택: {selected_agent['name']} (입력: {user_input[:50]})")
+                    return selected_agent
+            
+            self.logger.info(f"LLM Agent 선택 실패: 응답={response}")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"LLM Agent 선택 오류: {e}")
+            return None
+    
+    def _execute_selected_agent(self, agent_info: Dict, user_input: str, conversation_history: List[Dict]) -> Tuple[str, List]:
+        """선택된 Agent 실행"""
+        try:
+            agent_class = agent_info["class"]
+            init_params = agent_info["init_params"]
+            
+            # Agent 인스턴스 생성
+            agent = agent_class(**init_params)
+            
+            # RAG Agent인 경우 특별 처리
+            if agent_info["name"] == "RAGAgent":
+                processor = self.mode_manager.get_processor(
+                    mode=ChatMode.RAG,
+                    vectorstore=self.vectorstore,
+                    mcp_client=self.mcp_client,
+                    tools=self.tools,
+                    session_id=self.session_id
+                )
+                return processor.process_message(user_input, conversation_history)
+            
+            # MCP Agent인 경우 Tool Processor 사용
+            elif agent_info["name"] == "MCPAgent":
+                if not self.tool_processor:
+                    self.tool_processor = ToolChatProcessor(self.model_strategy, self.tools)
+                    self.tool_processor.session_id = self.session_id
+                return self.tool_processor.process_message(user_input, conversation_history)
+            
+            # 기타 Agent들은 BaseAgent의 execute 메서드 사용
+            else:
+                # BaseAgent 기반 Agent들은 execute 메서드 사용
+                context = {
+                    'conversation_history': conversation_history,
+                    'model_name': self.model_name
+                }
+                result = agent.execute(user_input, context)
+                return result.output, []
+            
+        except Exception as e:
+            self.logger.error(f"Agent 실행 오류: {e}")
+            return f"Agent 실행 오류: {str(e)[:100]}...", []
     
     def get_model_info(self) -> Dict[str, Any]:
         """모델 정보 반환"""

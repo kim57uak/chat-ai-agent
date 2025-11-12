@@ -18,7 +18,7 @@ logger = get_logger("rag_agent")
 
 
 class RAGAgent(BaseAgent):
-    """Searches and retrieves information from internal documents stored in vector database. Answers questions based on uploaded files and company knowledge base."""
+    """Internal knowledge base search. Use for: retrieving information from uploaded documents, searching company knowledge base, answering questions based on internal files. NOT for external/web information - use MCPAgent for web search."""
     
     is_chain_based = True  # Chain 사용
     
@@ -50,6 +50,7 @@ class RAGAgent(BaseAgent):
             logger.info(f"Using base retriever with embeddings (k={top_k})")
         except Exception as e:
             logger.error(f"Retriever creation failed: {e}")
+            logger.error(f"Available vectorstore methods: {[m for m in dir(self.vectorstore) if not m.startswith('_')]}")
             return None
         
         try:
@@ -59,10 +60,13 @@ class RAGAgent(BaseAgent):
         from langchain.prompts import PromptTemplate
         from ui.prompts import prompt_manager
         
-        # 모델 타입 감지
-        model_name = str(getattr(self.llm, 'model_name', '') or getattr(self.llm, 'model', ''))
-        model_type = prompt_manager.get_provider_from_model(model_name)
-        is_perplexity = 'sonar' in model_name.lower() or 'perplexity' in model_name.lower()
+        # 채팅 모델 정보 (답변 생성용)
+        chat_model_name = str(getattr(self.llm, 'model_name', '') or getattr(self.llm, 'model', ''))
+        model_type = prompt_manager.get_provider_from_model(chat_model_name)
+        is_perplexity = 'sonar' in chat_model_name.lower() or 'perplexity' in chat_model_name.lower()
+        
+        # 임베딩 모델 정보 (벡터 검색용)
+        embedding_model_name = self._get_current_embedding_model()
         
         # prompts.py의 시스템 프롬프트 사용
         system_prompt = prompt_manager.get_system_prompt(model_type, use_tools=False)
@@ -89,7 +93,7 @@ class RAGAgent(BaseAgent):
         
         # Perplexity는 RetrievalQA 사용 (Tool 모드 방식)
         if is_perplexity:
-            logger.info(f"Using RetrievalQA for Perplexity model: {model_name}")
+            logger.info(f"Using RetrievalQA for Perplexity chat model: {chat_model_name}")
             self.chain = RetrievalQA.from_chain_type(
                 llm=self.llm,
                 chain_type="stuff",
@@ -113,7 +117,8 @@ class RAGAgent(BaseAgent):
             logger.info("✅ ConversationalRetrievalChain created with rephrase_question=False (single vector search)")
         
         logger.info(f"RAG chain created for {model_type}")
-        logger.info(f"[RAG CONFIG] Model: {model_name}, Type: {model_type}, Perplexity: {is_perplexity}")
+        logger.info(f"[RAG CONFIG] Chat Model: {chat_model_name}, Type: {model_type}, Perplexity: {is_perplexity}")
+        logger.info(f"[RAG CONFIG] Embedding Model: {embedding_model_name}")
         return self.chain
     
 
@@ -167,3 +172,14 @@ class RAGAgent(BaseAgent):
         except Exception as e:
             logger.warning(f"Failed to load top_k from config: {e}")
             return 10  # Default
+    
+    def _get_current_embedding_model(self) -> str:
+        """현재 임베딩 모델명 반환"""
+        try:
+            from core.rag.embeddings.embedding_model_manager import EmbeddingModelManager
+            manager = EmbeddingModelManager()
+            return manager.get_current_model()
+        except Exception as e:
+            logger.warning(f"Failed to get embedding model: {e}")
+            from ..constants import DEFAULT_EMBEDDING_MODEL
+            return DEFAULT_EMBEDDING_MODEL

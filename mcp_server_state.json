@@ -9,7 +9,7 @@
   "excel-stdio": false,
   "gmail": false,
   "json-mcp-server": false,
-  "search-mcp-server": true,
+  "search-mcp-server": false,
   "github": false,
   "filesystem": false,
   "youtube_transcript": false,
@@ -19,7 +19,7 @@
   "pollinations": false,
   "taskmaster-ai": false,
   "korea-stock-analyzer": false,
-  "search-economy-index": true,
+  "search-economy-index": false,
   "pdf-operations": false,
   "swagger-mcp": true
 }

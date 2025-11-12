@@ -13,7 +13,7 @@ logger = get_logger("search_dialog")
 class SearchDialog(QDialog):
     """RAG 검색 다이얼로그"""
     
-    def __init__(self, storage_manager, embeddings, parent=None):
+    def __init__(self, storage_manager, embeddings, parent=None, selected_topic_id=None):
         """
         Initialize search dialog
         
@@ -21,10 +21,12 @@ class SearchDialog(QDialog):
             storage_manager: RAGStorageManager instance
             embeddings: Embedding model
             parent: Parent widget
+            selected_topic_id: Currently selected topic ID for filtering
         """
         super().__init__(parent)
         self.storage = storage_manager
         self.embeddings = embeddings
+        self.selected_topic_id = selected_topic_id
         
         self.setWindowTitle("RAG Search")
         self.setMinimumSize(600, 400)
@@ -34,6 +36,16 @@ class SearchDialog(QDialog):
     def _init_ui(self):
         """Initialize UI"""
         layout = QVBoxLayout(self)
+        
+        # Topic info
+        if self.selected_topic_id:
+            topic_label = QLabel(f"📁 검색 범위: Topic {self.selected_topic_id}")
+            topic_label.setStyleSheet("color: #1976d2; font-weight: bold; padding: 5px;")
+            layout.addWidget(topic_label)
+        else:
+            topic_label = QLabel("🌍 검색 범위: 전체 토픽")
+            topic_label.setStyleSheet("color: #666; padding: 5px;")
+            layout.addWidget(topic_label)
         
         # Query input
         query_layout = QHBoxLayout()
@@ -79,14 +91,19 @@ class SearchDialog(QDialog):
         
         try:
             # Generate query embedding
+            logger.info(f"[SEARCH] Generating embedding for query: {query}")
             query_vector = self.embeddings.embed_query(query)
+            logger.info(f"[SEARCH] Embedding generated, dimension: {len(query_vector)}")
             
-            # Search
+            # Search with topic filter
+            logger.info(f"[SEARCH] Searching with topic_id: {self.selected_topic_id}")
             results = self.storage.search_chunks(
                 query=query,
                 k=k,
+                topic_id=self.selected_topic_id,
                 query_vector=query_vector
             )
+            logger.info(f"[SEARCH] Found {len(results)} results")
             
             # Display results
             if results:

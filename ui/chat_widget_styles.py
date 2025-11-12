@@ -280,22 +280,24 @@ class ChatWidgetStylesMixin:
         """입력창 스타일 동적 업데이트"""
         try:
             if theme_manager.use_material_theme and colors:
-                if colors.get('primary') == '#6B7280':
+                is_light = colors.get('type') == 'light'
+                if is_light:
                     input_text_style = f"""
                     QTextEdit {{
                         background-color: #FFFFFF;
-                        color: #374151;
-                        border: 1px solid {colors.get('divider', '#E5E7EB')};
+                        color: #1F2937;
+                        border: 2px solid {colors.get('divider', '#E5E7EB')};
                         border-radius: 12px;
                         font-size: 15px;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                        padding: 4px;
+                        padding: 8px;
                         selection-background-color: {colors.get('primary', '#6B7280')};
                         selection-color: #FFFFFF;
                     }}
                     QTextEdit:focus {{
                         border-color: {colors.get('primary', '#6B7280')};
                         border-width: 2px;
+                        background-color: #FAFAFA;
                     }}
                     """
                 else:
@@ -316,22 +318,24 @@ class ChatWidgetStylesMixin:
                     """
             elif theme_manager.use_material_theme:
                 colors = theme_manager.material_manager.get_theme_colors()
-                if colors.get('primary') == '#6B7280':
+                is_light = colors.get('type') == 'light'
+                if is_light:
                     input_text_style = f"""
                     QTextEdit {{
                         background-color: #FFFFFF;
-                        color: #374151;
-                        border: 1px solid {colors.get('divider', '#E5E7EB')};
+                        color: #1F2937;
+                        border: 2px solid {colors.get('divider', '#E5E7EB')};
                         border-radius: 12px;
                         font-size: 15px;
                         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-                        padding: 4px;
+                        padding: 8px;
                         selection-background-color: {colors.get('primary', '#6B7280')};
                         selection-color: #FFFFFF;
                     }}
                     QTextEdit:focus {{
                         border-color: {colors.get('primary', '#6B7280')};
                         border-width: 2px;
+                        background-color: #FAFAFA;
                     }}
                     """
                 else:

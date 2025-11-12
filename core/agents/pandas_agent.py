@@ -18,7 +18,7 @@ logger = get_logger("pandas_agent")
 
 
 class PandasAgent(BaseAgent):
-    """Pandas DataFrame analysis agent"""
+    """Data analysis and statistics. Use ONLY when user asks to: analyze/calculate/summarize/aggregate data, compute statistics, find patterns, compare values. NOT for simple file reading - use FileSystemAgent to just read file content."""
     
     def __init__(self, llm, dataframes: Optional[Dict[str, pd.DataFrame]] = None):
         """
@@ -36,11 +36,19 @@ class PandasAgent(BaseAgent):
         """
         Execute with auto file loading
         """
-        # 파일 경로 감지 및 자동 로드
-        if self.current_df is None and re.search(r'\.(csv|xlsx?)', query, re.IGNORECASE):
-            match = re.search(r'([\w/\-\.]+\.(?:csv|xlsx?))', query, re.IGNORECASE)
+        # 절대 경로 패턴 (Windows: C:\, D:\, macOS/Linux: /)
+        abs_path_pattern = r'(?:[A-Za-z]:[/\\]|/)[^\s]+\.(?:csv|xlsx?)'
+        # 상대 경로 패턴
+        rel_path_pattern = r'[\w/\-\.]+\.(?:csv|xlsx?)'
+        
+        if self.current_df is None:
+            # 절대 경로 우선 검색
+            match = re.search(abs_path_pattern, query, re.IGNORECASE)
+            if not match:
+                match = re.search(rel_path_pattern, query, re.IGNORECASE)
+            
             if match:
-                file_path = match.group(1)
+                file_path = match.group(0)
                 if Path(file_path).exists():
                     logger.info(f"Auto-loading file: {file_path}")
                     self.load_from_file("data", file_path)
@@ -59,17 +67,24 @@ class PandasAgent(BaseAgent):
         Returns:
             True if query needs data analysis
         """
-        # 파일 경로 감지 및 자동 로드
-        if re.search(r'\.(csv|xlsx?)', query, re.IGNORECASE):
-            match = re.search(r'([\w/\-\.]+\.(?:csv|xlsx?))', query, re.IGNORECASE)
-            if match:
-                file_path = match.group(1)
-                if Path(file_path).exists():
-                    self.load_from_file("data", file_path)
+        # Auto-load file if path detected
+        abs_path_pattern = r'(?:[A-Za-z]:[/\\]|/)[^\s]+\.(?:csv|xlsx?)'
+        rel_path_pattern = r'[\w/\-\.]+\.(?:csv|xlsx?)'
         
-        # DataFrame이 로드되어 있으면 LLM으로 판단
-        if self.current_df is not None:
-            prompt = f"""Does this query require data analysis or manipulation?
+        match = re.search(abs_path_pattern, query, re.IGNORECASE)
+        if not match:
+            match = re.search(rel_path_pattern, query, re.IGNORECASE)
+        
+        if match:
+            file_path = match.group(0)
+            if Path(file_path).exists():
+                self.load_from_file("data", file_path)
+        
+        # Only handle if DataFrame loaded
+        if self.current_df is None:
+            return False
+        
+        prompt = f"""Does this query require data analysis, statistics, or calculations?
 
 Query: {query}
 
@@ -77,17 +92,27 @@ DataFrame info:
 - Shape: {self.current_df.shape}
 - Columns: {list(self.current_df.columns)}
 
+Select YES if user wants:
+- Data analysis, statistics, calculations
+- Summaries, aggregations, insights
+- Mathematical operations on data
+- Processing or manipulating data
+
+Select NO if user wants:
+- Simple file reading/viewing
+- Display content without analysis
+
 Answer only 'YES' or 'NO'."""
-            
-            try:
-                response = self.llm.invoke([HumanMessage(content=prompt)])
-                decision = response.content.strip().upper()
-                return "YES" in decision
-            except Exception as e:
-                logger.error(f"LLM decision failed: {e}")
-                return False
         
-        return False
+        try:
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            decision = response.content.strip().upper()
+            result = "YES" in decision
+            logger.info(f"Pandas Agent can_handle: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"LLM decision failed: {e}")
+            return False
     
     def load_from_file(self, name: str, filepath: str):
         """Load dataframe from file"""
@@ -127,19 +152,27 @@ Answer only 'YES' or 'NO'."""
             allow_dangerous_code=True,
             max_iterations=3,
             max_execution_time=30,
-            agent_executor_kwargs={
-                "early_stopping_method": "force",
-                "handle_parsing_errors": True
-            },
-            prefix="""You are working with a pandas dataframe. 
+            early_stopping_method="force",
+            handle_parsing_errors=True,
+            prefix=f"""You are working with a pandas dataframe named 'df'.
 
-CRITICAL - RAG Mode Rules:
-1. After you get the analysis result → IMMEDIATELY provide Final Answer
-2. DO NOT run multiple queries unless absolutely necessary
-3. Maximum 3 operations - then MUST provide Final Answer
-4. If you have the data → Stop and answer
+CRITICAL RULES:
+1. ALWAYS use the FULL dataframe 'df' - NEVER use df.head() or df.sample()
+2. The dataframe has {self.current_df.shape[0]} rows and {self.current_df.shape[1]} columns
+3. Columns: {list(self.current_df.columns)}
+4. After getting results → IMMEDIATELY provide Final Answer
+5. Maximum 3 operations then MUST answer
 
-Dataframe info:"""
+Dataframe info:""",
+            suffix="""IMPORTANT: When analyzing data, use the ENTIRE dataframe.
+
+Example - CORRECT:
+df.groupby('이름')['점수'].mean()  # Uses ALL rows
+
+Example - WRONG:
+df.head().groupby('이름')['점수'].mean()  # Only uses first 5 rows!
+
+Begin!"""
         )
         
         logger.info(f"Pandas agent created with dataframe shape: {self.current_df.shape}")

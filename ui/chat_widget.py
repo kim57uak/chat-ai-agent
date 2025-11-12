@@ -142,6 +142,24 @@ class ChatWidget(ChatWidgetStylesMixin, ChatWidgetSessionMixin, ChatWidgetScroll
         self.mode_combo.addItem("🧠 RAG", "rag")
         self.mode_combo.setCurrentIndex(0)
         self.mode_combo.setFixedSize(150, 114)  # 버튼과 동일한 높이
+        
+        # 드롭다운 폭을 선택 영역과 정확히 동일하게
+        self.mode_combo.view().setFixedWidth(150)
+        self.mode_combo.setStyleSheet("""
+            QComboBox QAbstractItemView {
+                width: 150px;
+                min-width: 150px;
+                max-width: 150px;
+                padding: 0px;
+                margin: 0px;
+                border: 1px solid #555555;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px;
+                margin: 0px;
+            }
+        """)
+        
         self.mode_combo.currentIndexChanged.connect(self._on_mode_combo_changed)
         self._update_mode_combo_style()
         

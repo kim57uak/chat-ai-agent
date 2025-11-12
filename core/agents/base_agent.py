@@ -120,7 +120,17 @@ class BaseAgent(ABC):
                     tool_name = getattr(action, 'tool', 'unknown')
                     logger.info(f"  Tool {i}: {tool_name}")
             
-            # 결과 검증 및 처리 (Tool 모드 방식)
+            # 결과 검증 및 처리
+            # LLM이 도구 결과를 직접 출력할지 가공할지 판단
+            if intermediate_steps and (not output or len(output.strip()) < 50):
+                tool_output = self._extract_tool_results(intermediate_steps)
+                if tool_output and len(tool_output) > 100:
+                    # LLM에게 가공 필요 여부 판단 요청
+                    needs_formatting = self._check_formatting_needed(query, tool_output)
+                    if not needs_formatting:
+                        logger.info(f"Direct tool output (no formatting needed): {len(tool_output)} chars")
+                        output = tool_output
+            
             if not output or not output.strip() or len(output.strip()) < 10:
                 logger.warning(f"{self.get_name()} returned insufficient output, extracting from intermediate_steps")
                 if intermediate_steps:
@@ -241,6 +251,46 @@ class BaseAgent(ABC):
         
         logger.debug(f"Extracted {len(chat_history)} conversation pairs from history")
         return chat_history
+    
+    def _check_formatting_needed(self, query: str, tool_output: str) -> bool:
+        """
+        Check if LLM formatting is needed for tool output
+        
+        Args:
+            query: User query
+            tool_output: Raw tool output
+            
+        Returns:
+            True if formatting needed, False for direct output
+        """
+        prompt = f"""User asked: "{query[:100]}"
+
+Tool returned: {tool_output[:500]}...
+
+Does this need AI formatting/summarization?
+
+Select YES if:
+- User wants summary/analysis/insights
+- Output needs explanation/context
+- Data needs restructuring/formatting
+
+Select NO if:
+- User wants raw data/file content
+- Simple read/view/show request
+- Output is already clear
+
+Answer only 'YES' or 'NO'."""
+        
+        try:
+            from langchain.schema import HumanMessage
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            decision = response.content.strip().upper()
+            result = "YES" in decision
+            logger.info(f"Formatting needed: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"Formatting check failed: {e}")
+            return True  # 기본값: 가공 수행
     
     def _get_max_history_pairs(self) -> int:
         """

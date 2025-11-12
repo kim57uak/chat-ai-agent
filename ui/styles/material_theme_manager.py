@@ -101,6 +101,11 @@ class MaterialThemeManager:
         theme = self.get_current_theme()
         return theme.get("type", "dark") == "dark"
     
+    def get_current_theme_type(self) -> str:
+        """현재 테마 타입 반환 (light/dark/special)"""
+        theme = self.get_current_theme()
+        return theme.get("type", "dark")
+    
     def generate_qt_stylesheet(self) -> str:
         """Qt 호환 스타일시트 생성"""
         from .qt_compatible_theme import generate_qt_compatible_stylesheet

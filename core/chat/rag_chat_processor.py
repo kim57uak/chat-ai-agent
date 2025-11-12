@@ -94,6 +94,15 @@ class RAGChatProcessor(BaseChatProcessor):
         except Exception as e:
             logger.warning(f"Python REPL Agent initialization failed: {e}")
         
+        # Pandas Agent
+        try:
+            from core.agents.pandas_agent import PandasAgent
+            pandas_agent = PandasAgent(llm=self.model_strategy.llm)
+            agents.append(pandas_agent)
+            logger.info("Pandas Agent initialized")
+        except Exception as e:
+            logger.warning(f"Pandas Agent initialization failed: {e}")
+        
         # File System Agent
         try:
             from core.agents.filesystem_agent import FileSystemAgent
@@ -158,9 +167,23 @@ class RAGChatProcessor(BaseChatProcessor):
                 "llm": self.model_strategy.llm  # Agent가 모델명 추출용
             }
             
-            # Orchestrator 실행
-            token_tracker.start_step(StepType.TOOL_EXECUTION, "Multi-Agent Execution")
-            response = self.orchestrator.execute_parallel_optimized(user_input, context)
+            # RAG Agent 먼저 실행
+            token_tracker.start_step(StepType.TOOL_EXECUTION, "RAG Agent Execution")
+            
+            rag_agent = None
+            for agent in self.agents:
+                if 'RAG' in agent.get_name():
+                    rag_agent = agent
+                    break
+            
+            if rag_agent:
+                logger.info("Executing RAG Agent first")
+                rag_result = rag_agent.execute(user_input, context)
+                response = rag_result.output
+                logger.info(f"RAG Agent response length: {len(response)}")
+            else:
+                logger.warning("No RAG Agent found, using orchestrator")
+                response = self.orchestrator.execute_parallel_optimized(user_input, context)
             
             # unified_tracker에서 토큰 정보 추출
             agent_tokens = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}

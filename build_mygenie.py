@@ -389,6 +389,8 @@ class PackageBuilder:
                     self._create_dmg_with_ui(app_path, dist_dir)
                 except Exception as e:
                     print(f"⚠ DMG creation failed: {e}")
+                    import traceback
+                    traceback.print_exc()
 
         elif self.system == "Windows":
             exe_path = dist_dir / "MyGenie_beta.exe"

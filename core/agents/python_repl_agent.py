@@ -14,7 +14,7 @@ logger = get_logger("python_repl_agent")
 
 
 class PythonREPLAgent(BaseAgent):
-    """Executes Python code for calculations, data processing, and algorithm implementation. Handles mathematical computations and code execution tasks."""
+    """Python code execution for calculations and algorithms. Use for: mathematical computations, custom algorithms, code execution, data transformations without file loading. NOT for file analysis - use PandasAgent for CSV/Excel."""
     
     def __init__(self, llm, tools: Optional[List] = None):
         """
@@ -98,7 +98,7 @@ Thought:{agent_scratchpad}"""
     
     def can_handle(self, query: str, context: Optional[Dict] = None) -> bool:
         """
-        Check if query requires Python code execution
+        Check if query requires Python code execution using LLM
         
         Args:
             query: User query
@@ -107,14 +107,25 @@ Thought:{agent_scratchpad}"""
         Returns:
             True if Python execution needed
         """
-        # Keywords indicating code execution need
-        code_keywords = [
-            'calculate', 'compute', 'run', 'execute', 'code', 'python',
-            '계산', '실행', '코드', '파이썬', '알고리즘', '함수'
-        ]
+        prompt = f"""Does this query require Python code execution for calculations, data processing, or algorithm implementation?
+
+Query: {query}
+
+Consider:
+- Mathematical calculations
+- Data transformations
+- Algorithm implementations
+- Code execution tasks
+
+Answer only 'YES' or 'NO'."""
         
-        query_lower = query.lower()
-        result = any(keyword in query_lower for keyword in code_keywords)
-        
-        logger.info(f"Python REPL Agent can_handle: {result}")
-        return result
+        try:
+            from langchain.schema import HumanMessage
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            decision = response.content.strip().upper()
+            result = "YES" in decision
+            logger.info(f"Python REPL Agent can_handle: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"LLM decision failed: {e}")
+            return False

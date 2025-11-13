@@ -28,26 +28,25 @@ class RAGStorageManager:
     def __init__(self, sqlite_path: Optional[str] = None, 
                  lancedb_path: Optional[str] = None,
                  lazy_load_vector: bool = False):
-        if self._initialized:
-            if sqlite_path and sqlite_path != getattr(self, '_sqlite_path', None):
-                logger.warning(f"RAGStorageManager already initialized with different path")
-            return
-        
-        self._sqlite_path = sqlite_path
-        self._lancedb_path = lancedb_path
         """
-        Initialize RAG storage manager
+        Initialize RAG storage manager (Singleton)
         
         Args:
             sqlite_path: SQLite database path (None for auto-detection)
             lancedb_path: LanceDB path (None for auto-detection)
             lazy_load_vector: Lazy load vector store (True for UI operations)
         """
+        if self._initialized:
+            return
+        
+        self._sqlite_path = sqlite_path
+        self._lancedb_path = lancedb_path
+        
         self.topic_db = TopicDatabase(sqlite_path)
         self.lancedb_path = lancedb_path
         self.vector_store = None if lazy_load_vector else LanceDBStore(lancedb_path)
         self._initialized = True
-        logger.info(f"RAG Storage Manager initialized (lazy_vector={lazy_load_vector})")
+        logger.info(f"RAG Storage Manager initialized (Singleton, lazy_vector={lazy_load_vector})")
     
     def _ensure_vector_store(self):
         """Lazy load vector store"""
@@ -66,9 +65,9 @@ class RAGStorageManager:
         """Get topic"""
         return self.topic_db.get_topic(topic_id)
     
-    def get_all_topics(self) -> List[Dict]:
+    def get_all_topics(self, embedding_model: Optional[str] = None) -> List[Dict]:
         """Get all topics"""
-        return self.topic_db.get_all_topics()
+        return self.topic_db.get_all_topics(embedding_model)
     
     def get_selected_topic(self) -> Optional[Dict]:
         """Get selected topic"""
@@ -86,6 +85,10 @@ class RAGStorageManager:
                     description: Optional[str] = None) -> bool:
         """Update topic"""
         return self.topic_db.update_topic(topic_id, name, description)
+    
+    def update_document_chunks(self, doc_id: str, chunk_count: int):
+        """문서 청크 수 업데이트"""
+        return self.topic_db.update_document_chunks(doc_id, chunk_count)
     
     def delete_topic(self, topic_id: str, progress_callback=None) -> bool:
         """
@@ -182,7 +185,7 @@ class RAGStorageManager:
     
     def create_document(self, topic_id: str, filename: str, file_path: str,
                        file_type: str, file_size: int = 0,
-                       chunking_strategy: str = "sliding_window") -> str:
+                       chunking_strategy: str = "unknown") -> str:
         """Create document metadata"""
         return self.topic_db.create_document(
             topic_id, filename, file_path, file_type, 
@@ -193,52 +196,37 @@ class RAGStorageManager:
         """Get document"""
         return self.topic_db.get_document(doc_id)
     
-    def get_documents_by_topic(self, topic_id: str) -> List[Dict]:
+    def get_documents_by_topic(self, topic_id: str, embedding_model: Optional[str] = None) -> List[Dict]:
         """Get documents by topic"""
-        return self.topic_db.get_documents_by_topic(topic_id)
+        return self.topic_db.get_documents_by_topic(topic_id, embedding_model)
     
     def delete_document(self, doc_id: str) -> bool:
         """
         Delete document with cascading deletion
         
         Deletes:
-        1. All chunks in LanceDB
+        1. All chunks in LanceDB (논리적 삭제)
         2. Document metadata in SQLite
+        
+        Note: 물리적 삭제(optimize)는 수동으로 수행하거나 주기적으로 실행
         
         Returns:
             Success status
         """
         try:
-            # 1. Delete vectors without compact
+            # 1. Delete vectors (논리적 삭제만)
             self._ensure_vector_store()
-            if self.vector_store and self.vector_store.table:
-                delete_expr = f"metadata['document_id'] = '{doc_id}'"
-                self.vector_store.table.delete(delete_expr)
+            if self.vector_store and self.vector_store.db and self.vector_store.table_name in self.vector_store.db.table_names():
+                try:
+                    table = self.vector_store.db.open_table(self.vector_store.table_name)
+                    delete_expr = f"metadata['document_id'] = '{doc_id}'"
+                    table.delete(delete_expr)
+                    logger.info(f"Logically deleted vectors for document {doc_id}")
+                except Exception as e:
+                    logger.warning(f"Vector delete failed for {doc_id}: {e}")
             
             # 2. Delete document metadata
             self.topic_db.delete_document(doc_id)
-            
-            # 3. Optimize to physically remove deleted data
-            self._ensure_vector_store()
-            try:
-                if self.vector_store and self.vector_store.db and self.vector_store.table_name in self.vector_store.db.table_names():
-                    table = self.vector_store.db.open_table(self.vector_store.table_name)
-                    
-                    # Step 1: Compact files
-                    table.compact_files()
-                    
-                    # Step 2: Cleanup old versions
-                    from datetime import timedelta
-                    table.cleanup_old_versions(
-                        older_than=timedelta(seconds=0),
-                        delete_unverified=True
-                    )
-                    
-                    # Step 3: Optimize to physically remove
-                    table.optimize()
-                    logger.info(f"Vector DB optimized after deleting document {doc_id}")
-            except Exception as e:
-                logger.error(f"Optimize failed: {e}", exc_info=True)
             
             logger.info(f"Document deleted: {doc_id}")
             return True
@@ -271,12 +259,25 @@ class RAGStorageManager:
         
         # Add to LanceDB with extended metadata
         self._ensure_vector_store()
+        
+        # Get embedding model name from current embeddings instance
+        embedding_model = "unknown"
+        try:
+            from core.rag.config.rag_config_manager import RAGConfigManager
+            config_manager = RAGConfigManager()
+            current_model = config_manager.get_current_embedding_model()
+            embedding_model = current_model
+            logger.info(f"[VECTOR STORE] Using embedding model: {embedding_model}")
+        except Exception as e:
+            logger.warning(f"Failed to get embedding model info: {e}")
+        
         chunk_ids = self.vector_store.add_documents(
             chunks,
             embeddings=embeddings,
             document_id=doc_id,
             topic_id=doc["topic_id"],
-            chunking_strategy=chunking_strategy
+            chunking_strategy=chunking_strategy,
+            embedding_model=embedding_model
         )
         
         # Update chunk count in SQLite
@@ -325,6 +326,64 @@ class RAGStorageManager:
             "total_documents": total_docs,
             "topics": topics
         }
+    
+    def optimize_vector_db(self) -> Dict:
+        """
+        Manually optimize vector database (SAFE MODE)
+        
+        Performs:
+        1. Compact files (merge fragments)
+        2. Cleanup old versions (1시간 이상 된 것만)
+        3. Optimize (physically remove deleted rows)
+        
+        Returns:
+            Statistics dict with cleanup info
+        """
+        try:
+            self._ensure_vector_store()
+            
+            if not self.vector_store or not self.vector_store.db:
+                return {"success": False, "error": "Vector store not available"}
+            
+            if self.vector_store.table_name not in self.vector_store.db.table_names():
+                return {"success": False, "error": "No table to optimize"}
+            
+            table = self.vector_store.db.open_table(self.vector_store.table_name)
+            
+            # 최적화 전 행 수 확인
+            before_count = table.count_rows()
+            logger.info(f"Before optimization: {before_count} rows")
+            
+            # Step 1: Compact files (안전)
+            table.compact_files()
+            logger.info("✓ Compacted files")
+            
+            # Step 2: Cleanup old versions (안전하게)
+            from datetime import timedelta
+            stats = table.cleanup_old_versions(
+                older_than=timedelta(hours=1),  # ✅ 1시간 이상 된 것만
+                delete_unverified=False  # ✅ 검증된 것만 삭제
+            )
+            logger.info(f"✓ Cleanup stats: {stats}")
+            
+            # Step 3: Optimize (물리적 삭제)
+            table.optimize()
+            logger.info("✓ Optimize completed")
+            
+            # 최적화 후 행 수 확인
+            after_count = table.count_rows()
+            logger.info(f"After optimization: {after_count} rows (freed: {before_count - after_count})")
+            
+            return {
+                "success": True,
+                "cleanup_stats": stats,
+                "before_count": before_count,
+                "after_count": after_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Optimize failed: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
     
     def close(self):
         """Close all connections"""

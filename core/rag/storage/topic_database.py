@@ -5,6 +5,8 @@ SQLite 기반 토픽 및 문서 메타데이터 관리
 
 import sqlite3
 import hashlib
+import threading
+import time
 from typing import List, Dict, Optional
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +16,7 @@ logger = get_logger("topic_database")
 
 
 class TopicDatabase:
-    """토픽 및 문서 메타데이터 관리 데이터베이스"""
+    """토픽 및 문서 메타데이터 관리 데이터베이스 (Thread-safe)"""
     
     def __init__(self, db_path: Optional[str] = None):
         """
@@ -29,12 +31,18 @@ class TopicDatabase:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         
+        # Thread safety: 모든 쓰기 작업 직렬화
+        self._write_lock = threading.Lock()
+        
         self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=30.0)
         self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA synchronous=NORMAL")
+        self.conn.execute("PRAGMA cache_size=-64000")
+        self.conn.execute("PRAGMA temp_store=MEMORY")
         self.conn.row_factory = sqlite3.Row
         self._init_database()
         
-        logger.info(f"Topic database initialized: {self.db_path}")
+        logger.info(f"Topic database initialized (thread-safe): {self.db_path}")
     
     def _get_default_db_path(self) -> str:
         """기본 데이터베이스 경로 반환"""
@@ -88,6 +96,7 @@ class TopicDatabase:
                 file_size INTEGER,
                 chunk_count INTEGER DEFAULT 0,
                 chunking_strategy TEXT,
+                embedding_model TEXT,
                 upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
             )
@@ -104,6 +113,11 @@ class TopicDatabase:
             ON documents(topic_id)
         """)
         
+        self.conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_documents_model 
+            ON documents(embedding_model)
+        """)
+        
         self.conn.commit()
         
         # is_selected 컬럼 추가 (기존 DB 호환)
@@ -111,6 +125,14 @@ class TopicDatabase:
             self.conn.execute("ALTER TABLE topics ADD COLUMN is_selected INTEGER DEFAULT 0")
             self.conn.commit()
             logger.info("Added is_selected column to topics table")
+        except sqlite3.OperationalError:
+            pass
+        
+        # embedding_model 컬럼 추가 (기존 DB 호환)
+        try:
+            self.conn.execute("ALTER TABLE documents ADD COLUMN embedding_model TEXT")
+            self.conn.commit()
+            logger.info("Added embedding_model column to documents table")
         except sqlite3.OperationalError:
             pass
         
@@ -133,12 +155,14 @@ class TopicDatabase:
         """
         topic_id = self._generate_id(name)
         
-        self.conn.execute("""
-            INSERT INTO topics (id, name, parent_id, description)
-            VALUES (?, ?, ?, ?)
-        """, (topic_id, name, parent_id, description))
+        with self._write_lock:
+            self.conn.execute("""
+                INSERT INTO topics (id, name, parent_id, description)
+                VALUES (?, ?, ?, ?)
+            """, (topic_id, name, parent_id, description))
+            
+            self.conn.commit()
         
-        self.conn.commit()
         logger.info(f"Created topic: {name} ({topic_id})")
         return topic_id
     
@@ -151,11 +175,27 @@ class TopicDatabase:
         row = cursor.fetchone()
         return dict(row) if row else None
     
-    def get_all_topics(self) -> List[Dict]:
-        """모든 토픽 조회"""
-        cursor = self.conn.execute("""
-            SELECT * FROM topics ORDER BY name
-        """)
+    def get_all_topics(self, embedding_model: Optional[str] = None) -> List[Dict]:
+        """모든 토픽 조회 (현재 모델 기준 문서 수 계산)"""
+        if embedding_model and self._has_embedding_model_column():
+            # 현재 모델의 문서 수만 계산
+            cursor = self.conn.execute("""
+                SELECT t.*, 
+                       COALESCE(d.doc_count, 0) as current_model_doc_count
+                FROM topics t
+                LEFT JOIN (
+                    SELECT topic_id, COUNT(*) as doc_count
+                    FROM documents 
+                    WHERE embedding_model = ?
+                    GROUP BY topic_id
+                ) d ON t.id = d.topic_id
+                ORDER BY t.name
+            """, (embedding_model,))
+        else:
+            # 전체 문서 수 (기존 동작 또는 컴럼 없음)
+            cursor = self.conn.execute("""
+                SELECT * FROM topics ORDER BY name
+            """)
         
         return [dict(row) for row in cursor.fetchall()]
     
@@ -171,15 +211,17 @@ class TopicDatabase:
     def set_selected_topic(self, topic_id: str) -> bool:
         """토픽 선택"""
         try:
-            # 모든 토픽 선택 해제
-            self.conn.execute("UPDATE topics SET is_selected = 0")
+            with self._write_lock:
+                # 모든 토픽 선택 해제
+                self.conn.execute("UPDATE topics SET is_selected = 0")
+                
+                # 해당 토픽 선택
+                self.conn.execute("""
+                    UPDATE topics SET is_selected = 1 WHERE id = ?
+                """, (topic_id,))
+                
+                self.conn.commit()
             
-            # 해당 토픽 선택
-            self.conn.execute("""
-                UPDATE topics SET is_selected = 1 WHERE id = ?
-            """, (topic_id,))
-            
-            self.conn.commit()
             logger.info(f"Selected topic: {topic_id}")
             return True
         except Exception as e:
@@ -189,8 +231,10 @@ class TopicDatabase:
     def clear_selected_topic(self) -> bool:
         """토픽 선택 해제"""
         try:
-            self.conn.execute("UPDATE topics SET is_selected = 0")
-            self.conn.commit()
+            with self._write_lock:
+                self.conn.execute("UPDATE topics SET is_selected = 0")
+                self.conn.commit()
+            
             logger.info("Cleared topic selection")
             return True
         except Exception as e:
@@ -216,8 +260,10 @@ class TopicDatabase:
         params.append(topic_id)
         query = f"UPDATE topics SET {', '.join(updates)} WHERE id = ?"
         
-        self.conn.execute(query, params)
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute(query, params)
+            self.conn.commit()
+        
         logger.info(f"Updated topic: {topic_id}")
         return True
     
@@ -233,53 +279,88 @@ class TopicDatabase:
         doc_ids = [doc["id"] for doc in documents]
         
         # 2. 토픽 삭제 (CASCADE로 문서도 자동 삭제)
-        self.conn.execute("DELETE FROM topics WHERE id = ?", (topic_id,))
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute("DELETE FROM topics WHERE id = ?", (topic_id,))
+            self.conn.commit()
         
         logger.info(f"Deleted topic: {topic_id} ({len(doc_ids)} documents)")
         return doc_ids
     
     def increment_document_count(self, topic_id: str):
         """토픽 문서 수 증가"""
-        self.conn.execute("""
-            UPDATE topics SET document_count = document_count + 1
-            WHERE id = ?
-        """, (topic_id,))
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute("""
+                UPDATE topics SET document_count = document_count + 1
+                WHERE id = ?
+            """, (topic_id,))
+            self.conn.commit()
     
     def decrement_document_count(self, topic_id: str):
         """토픽 문서 수 감소"""
-        self.conn.execute("""
-            UPDATE topics SET document_count = document_count - 1
-            WHERE id = ?
-        """, (topic_id,))
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute("""
+                UPDATE topics SET document_count = document_count - 1
+                WHERE id = ?
+            """, (topic_id,))
+            self.conn.commit()
     
     # ========== Document CRUD ==========
     
     def create_document(self, topic_id: str, filename: str, file_path: str,
                        file_type: str, file_size: int = 0,
-                       chunking_strategy: str = "sliding_window") -> str:
+                       chunking_strategy: str = "sliding_window",
+                       embedding_model: Optional[str] = None) -> str:
         """
-        문서 생성
+        문서 생성 (Retry on I/O error)
         
         Returns:
             생성된 문서 ID
         """
         doc_id = self._generate_id(f"{filename}_{topic_id}")
         
-        self.conn.execute("""
-            INSERT INTO documents 
-            (id, topic_id, filename, file_path, file_type, file_size, chunking_strategy)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (doc_id, topic_id, filename, file_path, file_type, file_size, chunking_strategy))
-        
-        # 토픽 문서 수 증가
-        self.increment_document_count(topic_id)
-        
-        self.conn.commit()
-        logger.info(f"Created document: {filename} ({doc_id})")
-        return doc_id
+        for attempt in range(3):
+            try:
+                with self._write_lock:
+                    if self._has_embedding_model_column():
+                        if embedding_model is None:
+                            embedding_model = self._get_current_embedding_model()
+                        
+                        self.conn.execute("""
+                            INSERT INTO documents 
+                            (id, topic_id, filename, file_path, file_type, file_size, chunking_strategy, embedding_model)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (doc_id, topic_id, filename, file_path, file_type, file_size, chunking_strategy, embedding_model))
+                    else:
+                        self.conn.execute("""
+                            INSERT INTO documents 
+                            (id, topic_id, filename, file_path, file_type, file_size, chunking_strategy)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (doc_id, topic_id, filename, file_path, file_type, file_size, chunking_strategy))
+                    
+                    self.conn.execute("""
+                        UPDATE topics SET document_count = document_count + 1
+                        WHERE id = ?
+                    """, (topic_id,))
+                    
+                    self.conn.commit()
+                
+                logger.info(f"Created document: {filename} ({doc_id})")
+                return doc_id
+                
+            except sqlite3.OperationalError as e:
+                if "disk i/o error" in str(e).lower() or "database is locked" in str(e).lower():
+                    if attempt < 2:
+                        wait = 0.1 * (2 ** attempt)
+                        logger.warning(f"DB error (attempt {attempt+1}/3): {e}, retry in {wait}s")
+                        time.sleep(wait)
+                        try:
+                            self.conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
+                        except:
+                            pass
+                    else:
+                        raise
+                else:
+                    raise
     
     def get_document(self, doc_id: str) -> Optional[Dict]:
         """문서 조회"""
@@ -290,22 +371,32 @@ class TopicDatabase:
         row = cursor.fetchone()
         return dict(row) if row else None
     
-    def get_documents_by_topic(self, topic_id: str) -> List[Dict]:
-        """토픽별 문서 목록"""
-        cursor = self.conn.execute("""
-            SELECT * FROM documents 
-            WHERE topic_id = ?
-            ORDER BY upload_date DESC
-        """, (topic_id,))
+    def get_documents_by_topic(self, topic_id: str, embedding_model: Optional[str] = None) -> List[Dict]:
+        """토픽별 문서 목록 (현재 임베딩 모델 기준 필터링)"""
+        if embedding_model and self._has_embedding_model_column():
+            # 현재 모델의 문서만 조회
+            cursor = self.conn.execute("""
+                SELECT * FROM documents 
+                WHERE topic_id = ? AND embedding_model = ?
+                ORDER BY upload_date DESC
+            """, (topic_id, embedding_model))
+        else:
+            # 모든 문서 조회 (기존 동작 또는 컴럼 없음)
+            cursor = self.conn.execute("""
+                SELECT * FROM documents 
+                WHERE topic_id = ?
+                ORDER BY upload_date DESC
+            """, (topic_id,))
         
         return [dict(row) for row in cursor.fetchall()]
     
     def update_document_chunks(self, doc_id: str, chunk_count: int):
         """문서 청크 수 업데이트"""
-        self.conn.execute("""
-            UPDATE documents SET chunk_count = ? WHERE id = ?
-        """, (chunk_count, doc_id))
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute("""
+                UPDATE documents SET chunk_count = ? WHERE id = ?
+            """, (chunk_count, doc_id))
+            self.conn.commit()
     
     def delete_document(self, doc_id: str) -> Optional[str]:
         """
@@ -321,13 +412,18 @@ class TopicDatabase:
         
         topic_id = doc["topic_id"]
         
-        # 문서 삭제
-        self.conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+        with self._write_lock:
+            # 문서 삭제
+            self.conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+            
+            # 토픽 문서 수 감소 (Lock 내부에서 직접 실행)
+            self.conn.execute("""
+                UPDATE topics SET document_count = document_count - 1
+                WHERE id = ?
+            """, (topic_id,))
+            
+            self.conn.commit()
         
-        # 토픽 문서 수 감소
-        self.decrement_document_count(topic_id)
-        
-        self.conn.commit()
         logger.info(f"Deleted document: {doc_id}")
         return topic_id
     
@@ -337,6 +433,27 @@ class TopicDatabase:
         """ID 생성"""
         timestamp = datetime.now().isoformat()
         return hashlib.md5(f"{text}_{timestamp}".encode()).hexdigest()[:16]
+    
+    def _get_current_embedding_model(self) -> str:
+        """현재 임베딩 모델 반환"""
+        try:
+            from core.rag.config.rag_config_manager import RAGConfigManager
+            config_manager = RAGConfigManager()
+            return config_manager.get_current_embedding_model()
+        except Exception as e:
+            logger.warning(f"Failed to get current embedding model: {e}")
+            from ..constants import DEFAULT_EMBEDDING_MODEL
+            return DEFAULT_EMBEDDING_MODEL
+    
+    def _has_embedding_model_column(self) -> bool:
+        """문서 테이블에 embedding_model 컴럼이 있는지 확인"""
+        try:
+            cursor = self.conn.execute("PRAGMA table_info(documents)")
+            columns = [row[1] for row in cursor.fetchall()]
+            return "embedding_model" in columns
+        except Exception as e:
+            logger.error(f"Failed to check embedding_model column: {e}")
+            return False
     
     def close(self):
         """데이터베이스 연결 종료"""

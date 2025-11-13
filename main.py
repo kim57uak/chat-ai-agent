@@ -181,11 +181,22 @@ if __name__ == "__main__":
     
     try:
         exit_code = main()
-        sys.exit(exit_code)
+        cleanup_resources()
+        # CRITICAL: 패키징 환경에서 Python 종료 시 크래시 방지
+        if getattr(sys, 'frozen', False):
+            os._exit(exit_code)  # Python 종료 프로세스 건너뛰기
+        else:
+            sys.exit(exit_code)
     except KeyboardInterrupt:
         cleanup_resources()
-        sys.exit(0)
+        if getattr(sys, 'frozen', False):
+            os._exit(0)
+        else:
+            sys.exit(0)
     except Exception as e:
         logging.error(f"Fatal error: {e}")
         cleanup_resources()
-        sys.exit(1)
+        if getattr(sys, 'frozen', False):
+            os._exit(1)
+        else:
+            sys.exit(1)

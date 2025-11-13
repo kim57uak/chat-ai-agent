@@ -77,6 +77,11 @@ class BatchUploader:
         
         def complete_callback(file_path, doc_id, chunk_count):
             self.tracker.update(chunk_count)
+            # DB에 청크 수 업데이트
+            try:
+                self.processor.storage.update_document_chunks(doc_id, chunk_count)
+            except Exception as e:
+                logger.error(f"Failed to update chunk count for {doc_id}: {e}")
         
         def error_callback(file_path, error):
             self.tracker.add_error(str(file_path), error)

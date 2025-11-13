@@ -143,6 +143,14 @@ class ThemeController:
             
             self.apply_splitter_theme()
             
+            # RAG 관리 윈도우 테마 업데이트
+            if hasattr(self.main_window, 'rag_window') and self.main_window.rag_window:
+                try:
+                    self.main_window.rag_window.update_theme()
+                    logger.debug("RAG 관리 윈도우 테마 업데이트 완료")
+                except Exception as e:
+                    logger.debug(f"RAG 관리 윈도우 테마 업데이트 오류: {e}")
+            
             self.main_window.repaint()
             self.main_window.update()
             

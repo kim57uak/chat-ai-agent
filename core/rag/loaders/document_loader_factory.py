@@ -7,6 +7,8 @@ from typing import List, Optional
 from pathlib import Path
 from langchain.schema import Document
 from core.logging import get_logger
+from ..chunking.chunking_factory import ChunkingFactory
+from ..chunking.base_chunker import BaseChunker
 
 logger = get_logger("document_loader_factory")
 
@@ -15,22 +17,86 @@ class DocumentLoaderFactory:
     """문서 로더 팩토리"""
     
     @staticmethod
-    def load_document(file_path: str) -> List[Document]:
+    def load_document(file_path: str, chunker: Optional[BaseChunker] = None, **chunk_kwargs) -> List[Document]:
         """
-        Load document based on file type
+        Load document with chunking strategy (new API)
+        """
+        return DocumentLoaderFactory._load_with_chunking(file_path, chunker, **chunk_kwargs)
+    
+    @staticmethod
+    def load_raw_document(file_path: str) -> List[Document]:
+        """
+        Load document without chunking (backward compatibility)
         
         Args:
             file_path: File path
             
         Returns:
-            List of Document objects
+            List of raw Document objects
+        """
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        return DocumentLoaderFactory._load_raw_document(path)
+    
+    @staticmethod
+    def _load_with_chunking(file_path: str, chunker: Optional[BaseChunker] = None, **chunk_kwargs) -> List[Document]:
+        """
+        Load document based on file type and apply chunking strategy
+        
+        Args:
+            file_path: File path
+            chunker: Optional chunker instance. If None, auto-selects based on file type
+            **chunk_kwargs: Parameters for chunker creation
+            
+        Returns:
+            List of chunked Document objects
         """
         path = Path(file_path)
         
         if not path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
         
+        # 1. 문서 로드 (청킹 전)
+        raw_documents = DocumentLoaderFactory._load_raw_document(path)
+        
+        if not raw_documents:
+            return []
+        
+        # 2. 청킹 전략 선택
+        if chunker is None:
+            chunker = ChunkingFactory.get_strategy_for_file(path.name, **chunk_kwargs)
+        
+        # 3. 청킹 적용
+        chunked_documents = []
+        for doc in raw_documents:
+            chunks = chunker.chunk(doc.page_content, doc.metadata)
+            chunked_documents.extend(chunks)
+        
+        logger.info(f"Loaded and chunked {path.name}: {len(raw_documents)} -> {len(chunked_documents)} chunks")
+        return chunked_documents
+    
+    @staticmethod
+    def _load_raw_document(path: Path) -> List[Document]:
+        """
+        Load raw document without chunking
+        
+        Args:
+            path: File path
+            
+        Returns:
+            List of raw Document objects
+        """
         file_type = path.suffix.lower()
+        
+        # 코드 파일 확장자 목록
+        code_extensions = {
+            '.py', '.js', '.ts', '.java', '.cpp', '.c', '.go', '.rs', '.rb', 
+            '.php', '.swift', '.kt', '.scala', '.cs', '.lua', '.html', '.css',
+            '.sol', '.sh', '.bash', '.zsh', '.xml', '.yaml', '.yml', '.sql',
+            '.r', '.m', '.pl', '.ps1', '.bat', '.cmd', '.vbs', '.asm', '.s'
+        }
         
         # 파일 형식별 로더 선택
         if file_type == '.pdf':
@@ -46,12 +112,12 @@ class DocumentLoaderFactory:
             return []
         elif file_type == '.csv':
             return DocumentLoaderFactory._load_csv(path)
-        elif file_type == '.txt':
-            return DocumentLoaderFactory._load_text(path)
         elif file_type == '.json':
             return DocumentLoaderFactory._load_json(path)
         elif file_type in ['.png', '.jpg', '.jpeg']:
             return DocumentLoaderFactory._load_image(path)
+        elif file_type in code_extensions or file_type == '.txt':
+            return DocumentLoaderFactory._load_text(path)
         else:
             logger.warning(f"Unsupported file type: {file_type}")
             return []
@@ -77,7 +143,7 @@ class DocumentLoaderFactory:
             return documents
             
         except ImportError:
-            logger.warning("pdfplumber not installed, falling back to PyPDF2")
+            logger.info("Using PyPDF2 for PDF processing")
             try:
                 from PyPDF2 import PdfReader
                 
@@ -269,9 +335,10 @@ class DocumentLoaderFactory:
             
             doc = Document(
                 page_content=f"[Image: {path.name}]",
-                metadata={"source": str(path)}
+                metadata={"source": str(path), "type": "image"}
             )
             
+            logger.info(f"Loaded image placeholder: {path.name}")
             return [doc]
             
         except Exception as e:

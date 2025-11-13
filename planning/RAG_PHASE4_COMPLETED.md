@@ -288,6 +288,170 @@ uploader.upload_folder(
 - [ ] Topic 계층 구조 UI (드래그 앤 드롭)
 - [ ] TopicTreeWidget (검색 기능)
 
+## 🔍 코드 청킹 분석
+
+### 지원 언어 (18개)
+**파일**: `core/rag/chunking/code_chunker.py`
+
+1. Python (py)
+2. JavaScript (js)
+3. TypeScript (ts)
+4. Java (java)
+5. C++ (cpp)
+6. Go (go)
+7. Rust (rs)
+8. Ruby (rb)
+9. PHP (php)
+10. Swift (swift)
+11. Kotlin (kt)
+12. Scala (scala)
+13. C (c)
+14. C# (cs)
+15. Lua (lua)
+16. Markdown (md)
+17. HTML (html)
+18. Solidity (sol)
+
+### 청킹 기준
+
+#### 동작 원리
+**LangChain의 RecursiveCharacterTextSplitter 사용**
+
+1. **계층적 우선순위**: 의미 단위 → 구문 단위 → 문자 단위
+2. **재귀적 분할**: 큰 블록이 chunk_size 초과 시 다음 구분자로 재분할
+3. **언어별 최적화**: 각 언어 문법에 맞춘 구분자 사용
+4. **폴백 메커니즘**: 모든 구분자 실패 시 공백/문자 단위 강제 분할
+
+#### 언어별 구분자 (우선순위 순)
+
+**Python**
+```python
+[
+  "\nclass ",      # 1. 클래스 정의
+  "\ndef ",        # 2. 함수 정의
+  "\n\tdef ",      # 3. 들여쓰기된 메서드
+  "\n\n",          # 4. 빈 줄 2개
+  "\n",            # 5. 줄바꿈
+  " ",             # 6. 공백
+  ""               # 7. 문자 단위
+]
+```
+
+**JavaScript**
+```javascript
+[
+  "\nfunction ",   # 1. 함수 정의
+  "\nconst ",      # 2. const 변수
+  "\nlet ",        # 3. let 변수
+  "\nvar ",        # 4. var 변수
+  "\nclass ",      # 5. 클래스 정의
+  "\nif ",         # 6. 제어문
+  "\nfor ", "\nwhile ", "\nswitch ", "\ncase ", "\ndefault ",
+  "\n\n", "\n", " ", ""
+]
+```
+
+**TypeScript**
+```typescript
+[
+  "\nenum ",       # 1. enum 정의
+  "\ninterface ",  # 2. interface 정의
+  "\nnamespace ",  # 3. namespace 정의
+  "\ntype ",       # 4. type 정의
+  "\nclass ",      # 5. 클래스 정의
+  "\nfunction ",   # 6. 함수 정의
+  "\nconst ", "\nlet ", "\nvar ",
+  "\nif ", "\nfor ", "\nwhile ", "\nswitch ", "\ncase ", "\ndefault ",
+  "\n\n", "\n", " ", ""
+]
+```
+
+**Java**
+```java
+[
+  "\nclass ",      # 1. 클래스 정의
+  "\npublic ",     # 2. 접근 제어자
+  "\nprotected ", "\nprivate ",
+  "\nstatic ",     # 3. static 키워드
+  "\nif ", "\nfor ", "\nwhile ", "\nswitch ", "\ncase ",
+  "\n\n", "\n", " ", ""
+]
+```
+
+**Go**
+```go
+[
+  "\nfunc ",       # 1. 함수 정의
+  "\nvar ",        # 2. 변수 선언
+  "\nconst ",      # 3. 상수 선언
+  "\ntype ",       # 4. 타입 정의
+  "\nif ", "\nfor ", "\nswitch ", "\ncase ",
+  "\n\n", "\n", " ", ""
+]
+```
+
+### 청킹 예시
+
+**원본 Python 코드**
+```python
+class MyClass:
+    def method1(self):
+        print("Method 1")
+        return True
+    
+    def method2(self):
+        print("Method 2")
+        return False
+
+def standalone_function():
+    pass
+```
+
+**청킹 결과** (chunk_size=100 가정)
+```
+Chunk 1: "class MyClass:\n    def method1(self):\n        print(\"Method 1\")\n        return True"
+
+Chunk 2: "def method2(self):\n        print(\"Method 2\")\n        return False"
+
+Chunk 3: "def standalone_function():\n    pass"
+```
+
+### 핵심 특징
+
+1. **의미 단위 보존**: 클래스, 함수, 메서드 등 완전한 코드 블록 유지
+2. **문맥 유지**: 코드 구조와 계층 관계 보존
+3. **언어 인식**: 각 언어의 문법적 특성 반영
+4. **유연한 크기 조정**: chunk_size와 overlap 설정 가능
+5. **자동 폴백**: 지원하지 않는 언어는 기본 텍스트 분할기 사용
+
+### 사용 예시
+
+```python
+from core.rag.chunking.code_chunker import CodeChunker
+
+# Python 코드 청킹
+chunker = CodeChunker(
+    language="python",
+    chunk_size=500,
+    overlap=50
+)
+
+code = """
+class Example:
+    def method(self):
+        pass
+"""
+
+chunks = chunker.chunk(code, metadata={"file": "example.py"})
+print(f"Created {len(chunks)} chunks")
+```
+
+### 설정 가능 파라미터
+
+- **language**: 프로그래밍 언어 (py, js, java 등)
+- **chunk_size**: 청크 최대 크기 (기본 500)
+- **overlap**: 청크 간 중복 크기 (기본 50)
+
 ## 📚 참고 자료
 
 ### 관련 파일
@@ -295,11 +459,13 @@ uploader.upload_folder(
 - `core/rag/batch/batch_processor.py` - 배치 프로세서
 - `core/rag/batch/progress_tracker.py` - 진행 추적기
 - `core/rag/batch/batch_uploader.py` - 통합 업로더
+- `core/rag/chunking/code_chunker.py` - 코드 청킹
 - `examples/batch_upload_example.py` - 사용 예시
 
 ### Python 라이브러리
 - `concurrent.futures.ThreadPoolExecutor` - 병렬 처리
 - `pathlib.Path` - 파일 경로 처리
+- `langchain.text_splitter.RecursiveCharacterTextSplitter` - 코드 청킹
 
 ---
 

@@ -1,38 +1,46 @@
 """
 Korean Embeddings Implementation
-dragonkue/KoEn-E5-Tiny 모델 사용
+한국어 임베딩 모델 구현
 """
 
 from typing import List, Optional
 from core.logging import get_logger
 from .base_embeddings import BaseEmbeddings
+from ..constants import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_DIMENSION, DEFAULT_EMBEDDING_PATH
 from .embedding_cache import EmbeddingCache
 
 logger = get_logger("korean_embeddings")
 
 
 class KoreanEmbeddings(BaseEmbeddings):
-    """한국어 임베딩 모델 (exp-models/dragonkue-KoEn-E5-Tiny)"""
+    """한국어 임베딩 모델"""
     
-    def __init__(self, model_name: str = "exp-models/dragonkue-KoEn-E5-Tiny", cache_folder: str = None, enable_cache: bool = True):
+    def __init__(self, model_path: str = DEFAULT_EMBEDDING_PATH, cache_folder: str = None, enable_cache: bool = True):
         """
         Initialize Korean embeddings
         
         Args:
-            model_name: HuggingFace model name
+            model_path: HuggingFace model path or local path
             cache_folder: Cache directory
             enable_cache: Enable embedding cache
         """
-        self.model_name = model_name
+        self.model_path = model_path
         self.cache_folder = cache_folder
         self.model = None
-        self._dimension = 384  # multilingual-e5-small dimension
+        
+        # 모델별 차원 설정
+        if "jina" in model_path.lower():
+            self._dimension = 768  # Jina AI 모델
+            self.model_name = "jina-embeddings-v2-base-code"
+        else:
+            self._dimension = DEFAULT_EMBEDDING_DIMENSION  # E5-Tiny 모델
+            self.model_name = DEFAULT_EMBEDDING_MODEL
         
         # 임베딩 캐시 초기화
         self.embedding_cache = EmbeddingCache(cache_dir=cache_folder, max_memory_cache=1000) if enable_cache else None
         
         self._load_model()
-        logger.info(f"Korean embeddings initialized: {model_name} (cache: {enable_cache})")
+        logger.info(f"Korean embeddings initialized: {model_path} (cache: {enable_cache})")
     
     def _load_model(self):
         """Load embedding model (lazy loading)"""
@@ -41,26 +49,32 @@ class KoreanEmbeddings(BaseEmbeddings):
             from pathlib import Path
             import sys
             
-            # 로컬 모델 경로 결정
-            if getattr(sys, 'frozen', False):
-                # 패키징된 앱
-                if sys.platform == 'darwin':
-                    base_path = Path(sys.executable).parent.parent / 'Resources'
+            # 모델 경로 결정
+            if "jina" in self.model_path.lower():
+                # Jina AI 모델은 HuggingFace에서 직접 로드
+                model_path = self.model_path
+                logger.info(f"Loading Jina model from HuggingFace: {model_path}")
+            else:
+                # 기본 한국어 모델은 로컬 우선
+                if getattr(sys, 'frozen', False):
+                    # 패키징된 앱
+                    if sys.platform == 'darwin':
+                        base_path = Path(sys.executable).parent.parent / 'Resources'
+                    else:
+                        base_path = Path(sys.executable).parent
                 else:
-                    base_path = Path(sys.executable).parent
-            else:
-                # 개발 환경
-                base_path = Path(__file__).parent.parent.parent.parent
-            
-            local_model_path = base_path / "models" / "embeddings" / "dragonkue-KoEn-E5-Tiny"
-            
-            # 로컬 모델이 있으면 사용, 없으면 HuggingFace에서 다운로드
-            if local_model_path.exists():
-                model_path = str(local_model_path)
-                logger.info(f"Loading local model from: {model_path}")
-            else:
-                model_path = self.model_name
-                logger.info(f"Loading model from HuggingFace: {model_path}")
+                    # 개발 환경
+                    base_path = Path(__file__).parent.parent.parent.parent
+                
+                local_model_path = base_path / "models" / "embeddings" / DEFAULT_EMBEDDING_MODEL
+                
+                # 로컬 모델이 있으면 사용, 없으면 HuggingFace에서 다운로드
+                if local_model_path.exists():
+                    model_path = str(local_model_path)
+                    logger.info(f"Loading local model from: {model_path}")
+                else:
+                    model_path = self.model_path
+                    logger.info(f"Loading model from HuggingFace: {model_path}")
             
             self.model = SentenceTransformer(
                 model_path,
@@ -170,6 +184,20 @@ class KoreanEmbeddings(BaseEmbeddings):
         Get embedding dimension
         
         Returns:
-            Dimension size (384 for E5-Tiny)
+            Dimension size
         """
         return self._dimension
+    
+    def get_model_info(self) -> dict:
+        """
+        Get model information
+        
+        Returns:
+            Model info dictionary
+        """
+        return {
+            "model_name": self.model_name,
+            "model_path": self.model_path,
+            "dimension": self._dimension,
+            "cache_enabled": self.embedding_cache is not None
+        }

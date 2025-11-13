@@ -24,10 +24,23 @@ class ChunkingFactory:
         Returns:
             BaseChunker instance
         """
+        # Load config if not provided
+        try:
+            from core.rag.config.rag_config_manager import RAGConfigManager
+            config_manager = RAGConfigManager()
+            chunking_config = config_manager.get_chunking_config()
+            strategies_config = chunking_config.get("strategies", {})
+        except Exception as e:
+            logger.warning(f"Failed to load chunking config: {e}")
+            strategies_config = {}
+        
         if strategy == "sliding_window":
             from .sliding_window_chunker import SlidingWindowChunker
-            chunk_size = kwargs.get("chunk_size", 500)
-            overlap = kwargs.get("overlap", 100)
+            sw_config = strategies_config.get("sliding_window", {})
+            chunk_size = kwargs.get("chunk_size", sw_config.get("window_size", 500))
+            overlap_ratio = sw_config.get("overlap_ratio", 0.2)
+            overlap = kwargs.get("overlap", int(chunk_size * overlap_ratio))
+            logger.info(f"Sliding window: size={chunk_size}, overlap={overlap}")
             return SlidingWindowChunker(chunk_size, overlap)
         
         elif strategy == "semantic":
@@ -35,8 +48,10 @@ class ChunkingFactory:
             embeddings = kwargs.get("embeddings")
             if not embeddings:
                 raise ValueError("Embeddings required for semantic chunking")
+            sem_config = strategies_config.get("semantic", {})
             threshold_type = kwargs.get("threshold_type", "percentile")
-            threshold = kwargs.get("threshold", 95)
+            threshold = kwargs.get("threshold", sem_config.get("threshold", 95))
+            logger.info(f"Semantic: threshold={threshold}")
             return SemanticChunker(embeddings, threshold_type, threshold)
         
         elif strategy == "code":
@@ -44,6 +59,7 @@ class ChunkingFactory:
             language = kwargs.get("language", "python")
             chunk_size = kwargs.get("chunk_size", 500)
             overlap = kwargs.get("overlap", 50)
+            logger.info(f"Code: language={language}, size={chunk_size}, overlap={overlap}")
             return CodeChunker(language, chunk_size, overlap)
         
         elif strategy == "markdown":

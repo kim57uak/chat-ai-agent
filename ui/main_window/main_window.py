@@ -316,9 +316,10 @@ class MainWindow(QMainWindow):
             # 세션 타이머 정리
             if self.session_timer is not None:
                 try:
-                    self.session_timer.stop()
-                except:
-                    pass
+                    if hasattr(self.session_timer, 'stop'):
+                        self.session_timer.stop()
+                except (RuntimeError, AttributeError):
+                    pass  # 이미 삭제된 타이머
             
             # 메모리 관리 중지
             try:
@@ -332,12 +333,23 @@ class MainWindow(QMainWindow):
             except:
                 pass
             
-            # 채팅 위젯 종료
+            # 채팅 위젯 종료 (QtWebEngine 포함)
             if hasattr(self, 'chat_widget'):
                 try:
+                    # WebEngine 페이지 정리
+                    if hasattr(self.chat_widget, 'chat_display'):
+                        try:
+                            self.chat_widget.chat_display.setHtml("")
+                            self.chat_widget.chat_display.page().deleteLater()
+                        except:
+                            pass
                     self.chat_widget.close()
                 except:
                     pass
+            
+            # Qt 이벤트 처리
+            from PyQt6.QtCore import QCoreApplication
+            QCoreApplication.processEvents()
             
             # MCP 서버 종료
             try:
@@ -354,6 +366,9 @@ class MainWindow(QMainWindow):
             # 가비지 컬렉션
             import gc
             gc.collect()
+            
+            # Qt 이벤트 최종 처리
+            QCoreApplication.processEvents()
             
         except Exception as e:
             try:

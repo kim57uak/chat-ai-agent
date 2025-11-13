@@ -12,6 +12,7 @@ from PyQt6.QtCore import Qt
 from pathlib import Path
 from collections import defaultdict
 from core.logging import get_logger
+from ui.styles.material_theme_manager import material_theme_manager
 
 logger = get_logger("rag_document_manager")
 
@@ -23,14 +24,98 @@ class RAGDocumentManager(QDialog):
         super().__init__(parent)
         self.rag_manager = rag_manager
         self._setup_ui()
+        self._apply_theme()
         # 문서 목록은 대화상자가 표시된 후 로드
         from PyQt6.QtCore import QTimer
         QTimer.singleShot(100, self._load_documents_async)
+    
+    def _get_themed_dialog_style(self):
+        """테마 기반 다이얼로그 스타일"""
+        colors = material_theme_manager.get_theme_colors()
+        
+        bg = colors.get('background', '#1e293b')
+        surface = colors.get('surface', '#334155')
+        primary = colors.get('primary', '#6366f1')
+        primary_variant = colors.get('primary_variant', '#4f46e5')
+        text_color = colors.get('text_primary', '#f1f5f9')
+        text_sec_color = colors.get('text_secondary', '#cbd5e0')
+        border = colors.get('border', '#475569')
+        
+        try:
+            r = int(primary[1:3], 16)
+            g = int(primary[3:5], 16)
+            b = int(primary[5:7], 16)
+            r2 = int(primary_variant[1:3], 16)
+            g2 = int(primary_variant[3:5], 16)
+            b2 = int(primary_variant[5:7], 16)
+        except:
+            r, g, b = 99, 102, 241
+            r2, g2, b2 = 79, 70, 229
+        
+        return f"""
+            QDialog {{
+                background-color: {bg};
+                color: {text_color};
+            }}
+            QLabel {{
+                color: {text_color};
+                font-size: 14px;
+                background: transparent;
+            }}
+            QPushButton {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba({r}, {g}, {b}, 1),
+                    stop:1 rgba({r2}, {g2}, {b2}, 1));
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba({r2}, {g2}, {b2}, 1),
+                    stop:1 rgba({r}, {g}, {b}, 1));
+            }}
+            QTableWidget {{
+                background: {surface};
+                color: {text_color};
+                border: 1px solid {border};
+                border-radius: 8px;
+                gridline-color: {border};
+            }}
+            QTableWidget::item {{
+                padding: 8px;
+                color: {text_color};
+            }}
+            QTableWidget::item:selected {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba({r}, {g}, {b}, 0.8),
+                    stop:1 rgba({r2}, {g2}, {b2}, 0.8));
+                color: white;
+            }}
+            QHeaderView::section {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {surface},
+                    stop:1 rgba({r}, {g}, {b}, 0.1));
+                color: {text_color};
+                padding: 8px;
+                border: none;
+                border-bottom: 2px solid rgba({r}, {g}, {b}, 0.3);
+                font-weight: 600;
+            }}
+        """
+    
+    def _apply_theme(self):
+        """테마 적용"""
+        self.setStyleSheet(self._get_themed_dialog_style())
     
     def _setup_ui(self):
         """UI 설정"""
         self.setWindowTitle("RAG Document Manager")
         self.setMinimumSize(800, 600)
+        self.setStyleSheet(self._get_themed_dialog_style())
         
         layout = QVBoxLayout(self)
         

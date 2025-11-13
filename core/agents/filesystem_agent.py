@@ -8,6 +8,7 @@ from pathlib import Path
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import PromptTemplate
 from langchain_community.agent_toolkits import FileManagementToolkit
+from langchain.tools import Tool
 from core.logging import get_logger
 from .base_agent import BaseAgent
 
@@ -15,7 +16,7 @@ logger = get_logger("filesystem_agent")
 
 
 class FileSystemAgent(BaseAgent):
-    """Manages file system operations including read, write, delete, move, and directory management. Handles local file access and manipulation in workspace."""
+    """Simple file reading and file operations. Use when user asks to: read/view/show file content, copy/move/delete files, list directories. Handles ALL file types including CSV/Excel for simple reading. Use PandasAgent ONLY for data analysis/statistics."""
     
     def __init__(self, llm, root_dir: str = "./workspace", tools: Optional[List] = None):
         """
@@ -23,11 +24,30 @@ class FileSystemAgent(BaseAgent):
         
         Args:
             llm: LangChain LLM
-            root_dir: Root directory for file operations
+            root_dir: Root directory for file operations (supports absolute paths)
             tools: Additional tools (optional)
         """
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Custom absolute path read tool
+        def read_absolute_file(file_path: str) -> str:
+            """Read file from absolute path"""
+            try:
+                path = Path(file_path)
+                if not path.exists():
+                    return f"Error: File not found at {file_path}"
+                if not path.is_file():
+                    return f"Error: {file_path} is not a file"
+                return path.read_text(encoding='utf-8')
+            except Exception as e:
+                return f"Error reading file: {str(e)}"
+        
+        absolute_read_tool = Tool(
+            name="read_absolute_file",
+            description="Read file content from absolute path (e.g., /Users/..., C:\\...). Input should be absolute file path as string.",
+            func=read_absolute_file
+        )
         
         # File management toolkit
         try:
@@ -37,12 +57,12 @@ class FileSystemAgent(BaseAgent):
             )
             file_tools = toolkit.get_tools()
             
-            all_tools = file_tools
+            all_tools = [absolute_read_tool] + file_tools
             if tools:
                 all_tools.extend(tools)
             
             super().__init__(llm, all_tools)
-            logger.info(f"File System Agent initialized with root: {self.root_dir}")
+            logger.info(f"File System Agent initialized with absolute path support")
             
         except Exception as e:
             logger.error(f"Failed to initialize File System Agent: {e}")
@@ -60,26 +80,28 @@ class FileSystemAgent(BaseAgent):
             model_name = str(getattr(self.llm, 'model_name', '') or getattr(self.llm, 'model', ''))
             model_type = prompt_manager.get_provider_from_model(model_name)
             
+            # Tool names and descriptions
+            tool_names = ", ".join([tool.name for tool in self.tools])
+            tool_descriptions = "\n".join([f"- {tool.name}: {tool.description}" for tool in self.tools])
+            
             # ReAct template for file operations
             react_template = """You are a file system management assistant. Perform file operations safely.
 
-Root Directory: {root_dir}
-
-Available Tools:
+Available Tools: {tool_names}
 {tools}
 
 IMPORTANT RULES:
-1. All file paths are relative to root directory
-2. Always check if file exists before reading
-3. Confirm before deleting files
-4. Use proper error handling
+1. For ABSOLUTE paths (/Users/..., C:\\..., D:\\...) → Use 'read_absolute_file' tool
+2. For RELATIVE paths → Use 'read_file' tool
+3. Always use proper error handling
+4. Confirm before deleting files
 
 Use this format:
 
 Question: the input question
 Thought: think about what file operation to perform
 Action: tool_name
-Action Input: {{"parameter": "value"}}
+Action Input: "/absolute/path/to/file" or "relative/path"
 Observation: operation result
 ... (repeat if needed)
 Thought: I have completed the task
@@ -90,7 +112,9 @@ Thought:{agent_scratchpad}"""
             
             prompt = PromptTemplate.from_template(
                 react_template,
-                partial_variables={"root_dir": str(self.root_dir)}
+                partial_variables={
+                    "tool_names": tool_names
+                }
             )
             
             # Create ReAct agent
@@ -115,7 +139,7 @@ Thought:{agent_scratchpad}"""
     
     def can_handle(self, query: str, context: Optional[Dict] = None) -> bool:
         """
-        Check if query requires file system operations
+        Check if query requires file system operations using LLM
         
         Args:
             query: User query
@@ -124,16 +148,30 @@ Thought:{agent_scratchpad}"""
         Returns:
             True if file operations needed
         """
-        # Keywords indicating file operations
-        file_keywords = [
-            'file', 'read', 'write', 'save', 'delete', 'move', 'copy',
-            'directory', 'folder', 'create', 'remove',
-            '파일', '읽기', '쓰기', '저장', '삭제', '이동', '복사',
-            '디렉토리', '폴더', '생성', '제거'
-        ]
+        prompt = f"""Does this query require simple file operations (reading, copying, moving, deleting files)?
+
+Query: {query}
+
+Select YES if:
+- User wants to read/view/show file content without analysis
+- User wants to copy/move/delete files
+- User wants to list directories
+- Simple file operations only
+
+Select NO if:
+- User wants data analysis, statistics, calculations
+- User wants to process or manipulate data
+- Complex data operations needed
+
+Answer only 'YES' or 'NO'."""
         
-        query_lower = query.lower()
-        result = any(keyword in query_lower for keyword in file_keywords)
-        
-        logger.info(f"File System Agent can_handle: {result}")
-        return result
+        try:
+            from langchain.schema import HumanMessage
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            decision = response.content.strip().upper()
+            result = "YES" in decision
+            logger.info(f"File System Agent can_handle: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"LLM decision failed: {e}")
+            return False

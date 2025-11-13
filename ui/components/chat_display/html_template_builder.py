@@ -429,18 +429,7 @@ class HtmlTemplateBuilder:
                     return selection.toString().trim();
                 }}
                 
-                // 텍스트 선택 및 더블클릭 이벤트 처리
-                document.addEventListener('dblclick', function(event) {{
-                    var selectedText = getSelectedText();
-                    if (selectedText && selectedText.length > 0 && selectedText.length < 50) {{
-                        // 단어만 추출 (공백, 숫자, 특수문자 제거)
-                        var cleanWord = selectedText.replace(/[^a-zA-Z가-힣]/g, '');
-                        if (cleanWord.length >= 2) {{
-                            searchInDictionary(cleanWord);
-                            showToast('찾는 단어: ' + cleanWord);
-                        }}
-                    }}
-                }});
+
                 
                 // 우클릭 컨텍스트 메뉴 처리
                 document.addEventListener('contextmenu', function(event) {{

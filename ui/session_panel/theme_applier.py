@@ -105,7 +105,7 @@ class ThemeApplier:
                 QPushButton {{
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                         stop:0 {primary_color}, stop:1 {colors.get('primary_variant', '#3700b3')});
-                    color: {colors.get('on_primary', '#000000')};
+                    color: {'#ffffff' if is_dark else colors.get('on_primary', '#ffffff')};
                     border: none;
                     border-radius: 20px;
                     font-weight: 800;
@@ -116,6 +116,7 @@ class ThemeApplier:
                 QPushButton:hover {{
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                         stop:0 {colors.get('primary_variant', '#3700b3')}, stop:1 {primary_color});
+                    color: #ffffff;
                 }}
             """,
             'manage_button': """

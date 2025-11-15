@@ -32,11 +32,25 @@ try:
 except:
     pdfplumber_datas, pdfplumber_binaries, pdfplumber_hiddenimports = [], [], []
 
-# torch dependencies
+# torch and transformers dependencies
 fsspec_datas, fsspec_binaries, fsspec_hiddenimports = collect_all('fsspec')
 jinja2_datas, jinja2_binaries, jinja2_hiddenimports = collect_all('jinja2')
 networkx_datas, networkx_binaries, networkx_hiddenimports = collect_all('networkx')
 sympy_datas, sympy_binaries, sympy_hiddenimports = collect_all('sympy')
+tqdm_datas, tqdm_binaries, tqdm_hiddenimports = collect_all('tqdm')
+regex_datas, regex_binaries, regex_hiddenimports = collect_all('regex')
+try:
+    requests_datas, requests_binaries, requests_hiddenimports = collect_all('requests')
+except:
+    requests_datas, requests_binaries, requests_hiddenimports = [], [], []
+try:
+    packaging_datas, packaging_binaries, packaging_hiddenimports = collect_all('packaging')
+except:
+    packaging_datas, packaging_binaries, packaging_hiddenimports = [], [], []
+try:
+    pyyaml_datas, pyyaml_binaries, pyyaml_hiddenimports = collect_all('yaml')
+except:
+    pyyaml_datas, pyyaml_binaries, pyyaml_hiddenimports = [], [], []
 
 # LangChain - CRITICAL for RAG functionality
 langchain_datas, langchain_binaries, langchain_hiddenimports = collect_all('langchain')
@@ -98,7 +112,7 @@ a = Analysis(
         cryptography_binaries + pycryptodome_binaries + loguru_binaries + keyring_binaries + pygments_binaries +
         pandas_binaries + numpy_binaries + matplotlib_binaries + seaborn_binaries + scipy_binaries +
         astropy_binaries + lancedb_binaries + sentence_transformers_binaries + torch_binaries + torchgen_binaries + transformers_binaries + huggingface_hub_binaries + filelock_binaries + tokenizers_binaries + safetensors_binaries + pyarrow_binaries +
-        fsspec_binaries + jinja2_binaries + networkx_binaries + sympy_binaries +
+        fsspec_binaries + jinja2_binaries + networkx_binaries + sympy_binaries + tqdm_binaries + regex_binaries + requests_binaries + packaging_binaries + pyyaml_binaries +
         langchain_binaries + langchain_core_binaries + langchain_community_binaries +
         pypdf2_binaries + pdfplumber_binaries
     ),
@@ -107,7 +121,7 @@ a = Analysis(
         cryptography_datas + pycryptodome_datas + loguru_datas + keyring_datas + pygments_datas +
         pandas_datas + numpy_datas + matplotlib_datas + seaborn_datas + scipy_datas +
         astropy_datas + lancedb_datas + sentence_transformers_datas + torch_datas + torchgen_datas + transformers_datas + huggingface_hub_datas + filelock_datas + tokenizers_datas + safetensors_datas + pyarrow_datas +
-        fsspec_datas + jinja2_datas + networkx_datas + sympy_datas +
+        fsspec_datas + jinja2_datas + networkx_datas + sympy_datas + tqdm_datas + regex_datas + requests_datas + packaging_datas + pyyaml_datas +
         langchain_datas + langchain_core_datas + langchain_community_datas +
         pypdf2_datas + pdfplumber_datas
     ),
@@ -121,7 +135,7 @@ a = Analysis(
         'PyQt6.QtNetwork',
         'PyQt6.QtPrintSupport',
         
-        # Standard library
+        # Standard library - CRITICAL
         'sqlite3',
         'json',
         'xml.etree.ElementTree',
@@ -129,6 +143,34 @@ a = Analysis(
         'urllib.request',
         'base64',
         'hashlib',
+        'pdb',
+        'bdb',
+        'cmd',
+        'code',
+        'inspect',
+        'linecache',
+        'traceback',
+        'pickle',
+        'copy',
+        'weakref',
+        'collections',
+        'functools',
+        'itertools',
+        're',
+        'pathlib',
+        'tempfile',
+        'shutil',
+        'datetime',
+        'threading',
+        'multiprocessing',
+        'subprocess',
+        'asyncio',
+        'typing',
+        'dataclasses',
+        'enum',
+        'warnings',
+        'unittest',
+        'unittest.mock',
         
         # Security & Encryption
         'keyring',
@@ -237,6 +279,16 @@ a = Analysis(
         'transformers.models.auto',
         'transformers.models.auto.modeling_auto',
         'transformers.models.auto.tokenization_auto',
+        'transformers.models.auto.configuration_auto',
+        'transformers.models.auto.modeling_auto.AutoModel',
+        'transformers.models.auto.modeling_auto.AutoModelForSequenceClassification',
+        'transformers.models.auto.modeling_auto.AutoModelForMaskedLM',
+        'transformers.models.auto.modeling_auto.AutoModelForCausalLM',
+        'transformers.models.auto.tokenization_auto.AutoTokenizer',
+        'transformers.models.auto.configuration_auto.AutoConfig',
+        'transformers.generation',
+        'transformers.generation.utils',
+        'transformers.generation.configuration_utils',
         'transformers.models.bert',
         'transformers.models.bert.modeling_bert',
         'transformers.models.bert.tokenization_bert',
@@ -339,22 +391,22 @@ a = Analysis(
         pandas_hiddenimports + numpy_hiddenimports + matplotlib_hiddenimports + 
         seaborn_hiddenimports + scipy_hiddenimports + astropy_hiddenimports + lancedb_hiddenimports + sentence_transformers_hiddenimports +
         torch_hiddenimports + torchgen_hiddenimports + transformers_hiddenimports + huggingface_hub_hiddenimports + filelock_hiddenimports + tokenizers_hiddenimports + safetensors_hiddenimports + pyarrow_hiddenimports +
-        fsspec_hiddenimports + jinja2_hiddenimports + networkx_hiddenimports + sympy_hiddenimports +
+        fsspec_hiddenimports + jinja2_hiddenimports + networkx_hiddenimports + sympy_hiddenimports + tqdm_hiddenimports + regex_hiddenimports + requests_hiddenimports + packaging_hiddenimports + pyyaml_hiddenimports +
         langchain_hiddenimports + langchain_core_hiddenimports + langchain_community_hiddenimports +
         pypdf2_hiddenimports + pdfplumber_hiddenimports
     ),
     hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[
-        'hooks/rthook_sentence_transformers.py',
-        'hooks/rthook_pygments.py',
-        'hooks/rthook_pandas.py',
         'hooks/rthook_numpy.py',
+        'hooks/rthook_pandas.py',
         'hooks/rthook_matplotlib.py',
         'hooks/rthook_scipy.py',
         'hooks/rthook_seaborn.py',
         'hooks/rthook_astropy.py',
         'hooks/rthook_filelock.py',
+        'hooks/rthook_pygments.py',
+        'hooks/rthook_sentence_transformers.py',
     ],
     excludes=[
         # Large ML libraries not needed
@@ -370,11 +422,7 @@ a = Analysis(
         'skimage',
         # Development tools
         'pytest',
-        'unittest',
         'doctest',
-        'pdb',
-        'cProfile',
-        'profile',
         'tests',
         'tests.integration',
         'tests.performance',
@@ -448,11 +496,28 @@ elif sys.platform == 'darwin':
         entitlements_file=None,
     )
     
+    # Remove duplicate binaries/datas to prevent file conflicts
+    seen_binaries = set()
+    unique_binaries = []
+    for item in a.binaries:
+        name = item[0] if isinstance(item, tuple) else str(item)
+        if name not in seen_binaries:
+            seen_binaries.add(name)
+            unique_binaries.append(item)
+    
+    seen_datas = set()
+    unique_datas = []
+    for item in a.datas:
+        name = item[0] if isinstance(item, tuple) else str(item)
+        if name not in seen_datas:
+            seen_datas.add(name)
+            unique_datas.append(item)
+    
     coll = COLLECT(
         exe,
-        a.binaries,
+        unique_binaries,
         a.zipfiles,
-        a.datas,
+        unique_datas,
         strip=False,
         upx=False,
         upx_exclude=[],

@@ -4,12 +4,13 @@
     "hybrid_mode": true,
     "user_message_limit": 4,
     "ai_response_limit": 4,
-    "ai_response_token_limit": 10000,
+    "ai_response_token_limit": 5000,
     "max_history_pairs": 4,
-    "max_tokens_estimate": 20000
+    "max_tokens_estimate": 10000
   },
   "response_settings": {
-    "enable_length_limit": true,
+    "enable_length_limit": false,
+    "max_tokens": 4096,
     "max_response_length": 50000,
     "enable_streaming": true,
     "streaming_chunk_size": 300
@@ -23,19 +24,6 @@
   },
   "history_settings": {
     "initial_load_count": 20,
-    "page_size": 15
-  },
-  "security_settings": {
-    "enable_auto_logout": true,
-    "logout_timeout_minutes": 120
-  },
-  "ai_parameters": {
-    "temperature": 0.9,
-    "max_tokens": 100000,
-    "top_p": 0.95,
-    "top_k": 40,
-    "frequency_penalty": 0.3,
-    "presence_penalty": 0.6,
-    "stop_sequences": []
+    "page_size": 10
   }
 }

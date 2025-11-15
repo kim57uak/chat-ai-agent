@@ -61,7 +61,10 @@ class SentenceTransformerEmbeddings(BaseEmbeddings):
         
         try:
             logger.info(f"[MODEL_LOAD] Step 1: Importing sentence_transformers")
-            from sentence_transformers import SentenceTransformer
+            from core.dynamic_import_resolver import dynamic_import_resolver
+            SentenceTransformer = dynamic_import_resolver.safe_import('sentence_transformers', 'SentenceTransformer')
+            if not SentenceTransformer:
+                raise ImportError("sentence_transformers not available")
             logger.info(f"[MODEL_LOAD] Step 1: SUCCESS - sentence-transformers imported")
             
             # 로컬 모델 경로 확인 (기본 모델만)

@@ -45,9 +45,13 @@ class KoreanEmbeddings(BaseEmbeddings):
     def _load_model(self):
         """Load embedding model (lazy loading)"""
         try:
-            from sentence_transformers import SentenceTransformer
+            from core.dynamic_import_resolver import dynamic_import_resolver
             from pathlib import Path
             import sys
+            
+            SentenceTransformer = dynamic_import_resolver.safe_import('sentence_transformers', 'SentenceTransformer')
+            if not SentenceTransformer:
+                raise ImportError("sentence_transformers not available")
             
             # 모델 경로 결정
             if "jina" in self.model_path.lower():

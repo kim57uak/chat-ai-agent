@@ -31,6 +31,7 @@ class RAGSettingsDialog(QDialog):
         self.tabs = QTabWidget()
         self.tabs.setTabPosition(QTabWidget.TabPosition.North)
         self.tabs.addTab(self._create_embedding_tab(), "📊 임베딩 모델")
+        self.tabs.addTab(self._create_reranker_tab(), "🎯 Reranker 모델")
         self.tabs.addTab(self._create_chunking_tab(), "✂️ 청킹 전략")
         self.tabs.addTab(self._create_search_tab(), "🔍 검색 설정")
         
@@ -365,6 +366,67 @@ class RAGSettingsDialog(QDialog):
         
         return widget
     
+    def _create_reranker_tab(self):
+        """Reranker 모델 탭"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        label = QLabel("🎯 등록된 Reranker 모델")
+        label.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        layout.addWidget(label)
+        
+        # 모델 선택 그룹 (라디오 버튼 방식)
+        self.reranker_group = QGroupBox("모델 선택")
+        reranker_group_layout = QVBoxLayout()
+        reranker_group_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        
+        self.reranker_button_group = QButtonGroup()
+        self.reranker_radios = {}
+        
+        self.reranker_group.setLayout(reranker_group_layout)
+        layout.addWidget(self.reranker_group)
+        
+        current_label = QLabel("현재 사용 중: -")
+        current_label.setStyleSheet("color: #1976d2; font-weight: bold;")
+        self.current_reranker_label = current_label
+        layout.addWidget(current_label)
+        
+        # 버튼 레이아웃
+        btn_layout = QHBoxLayout()
+        add_btn = QPushButton("➕ 새 모델 추가")
+        add_btn.clicked.connect(self._add_reranker_model)
+        edit_btn = QPushButton("✏️ 편집")
+        edit_btn.clicked.connect(self._edit_reranker_model)
+        delete_btn = QPushButton("🗑️ 삭제")
+        delete_btn.clicked.connect(self._delete_reranker_model)
+        
+        btn_layout.addWidget(add_btn)
+        btn_layout.addWidget(edit_btn)
+        btn_layout.addWidget(delete_btn)
+        btn_layout.addStretch()
+        
+        # 선택 버튼
+        select_btn = QPushButton("✅ 선택한 모델로 설정")
+        select_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                padding: 8px 16px;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        select_btn.clicked.connect(self._apply_selected_reranker)
+        btn_layout.addWidget(select_btn)
+        
+        layout.addLayout(btn_layout)
+        
+        return widget
+    
     def _safe_edit_model(self, item):
         """안전한 모델 편집"""
         try:
@@ -512,6 +574,41 @@ class RAGSettingsDialog(QDialog):
         topk_group.setLayout(topk_layout)
         scroll_layout.addWidget(topk_group)
         
+        # Reranker
+        from PyQt6.QtWidgets import QCheckBox, QComboBox
+        reranker_group = QGroupBox("🎯 Reranker (재순위)")
+        reranker_group.setMinimumHeight(150)
+        reranker_layout = QFormLayout()
+        reranker_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        reranker_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        
+        self.reranker_enabled = QCheckBox("활성화")
+        self.reranker_enabled.setMinimumHeight(30)
+        reranker_layout.addRow("사용:", self.reranker_enabled)
+        
+        self.reranker_model = QComboBox()
+        self.reranker_model.setMinimumHeight(30)
+        from core.rag.reranker_constants import RerankerConstants
+        models = RerankerConstants.get_available_models()
+        for model in models:
+            self.reranker_model.addItem(model['name'], model['local_name'])
+        reranker_layout.addRow("모델:", self.reranker_model)
+        
+        self.reranker_top_n = QSpinBox()
+        self.reranker_top_n.setRange(1, 20)
+        self.reranker_top_n.setValue(5)
+        self.reranker_top_n.setSuffix(" 개")
+        self.reranker_top_n.setMinimumHeight(30)
+        reranker_layout.addRow("Top-N:", self.reranker_top_n)
+        
+        info2 = QLabel("💡 검색 결과를 AI 모델로 재정렬하여 정확도 향상")
+        info2.setStyleSheet("color: #666; font-size: 10pt;")
+        info2.setWordWrap(True)
+        reranker_layout.addRow("", info2)
+        
+        reranker_group.setLayout(reranker_layout)
+        scroll_layout.addWidget(reranker_group)
+        
         # 배치 업로드
         batch_group = QGroupBox("📤 배치 업로드")
         batch_group.setMinimumHeight(120)
@@ -599,6 +696,21 @@ class RAGSettingsDialog(QDialog):
             retrieval_config = config_manager.get_retrieval_config()
             self.top_k.setValue(retrieval_config.get("top_k", 10))
             
+            # Reranker 모델 로드
+            self._load_reranker_models(config_manager)
+            
+            # Reranker 설정 로드
+            reranker_config = config_manager.get_reranker_config()
+            self.reranker_enabled.setChecked(reranker_config.get("enabled", True))
+            
+            current_reranker = reranker_config.get("model", "ms-marco-MiniLM-L-12-v2")
+            for i in range(self.reranker_model.count()):
+                if self.reranker_model.itemData(i) == current_reranker:
+                    self.reranker_model.setCurrentIndex(i)
+                    break
+            
+            self.reranker_top_n.setValue(reranker_config.get("top_n", 5))
+            
             # 배치 설정 로드
             batch_config = config_manager.get_batch_config()
             self.max_workers.setValue(batch_config.get("max_workers", 4))
@@ -656,10 +768,158 @@ class RAGSettingsDialog(QDialog):
         except Exception as e:
             logger.error(f"Failed to load embedding models: {e}")
             self.current_model_label.setText("현재 사용 중: 알 수 없음")
-        
-
     
-
+    def _load_reranker_models(self, config_manager):
+        """Reranker 모델 목록 로드"""
+        try:
+            # 기존 라디오 버튼 제거
+            for radio in self.reranker_radios.values():
+                self.reranker_button_group.removeButton(radio)
+                radio.deleteLater()
+            self.reranker_radios.clear()
+            
+            # 기존 레이아웃 정리
+            layout = self.reranker_group.layout()
+            for i in reversed(range(layout.count())):
+                item = layout.itemAt(i)
+                if item and item.widget():
+                    item.widget().deleteLater()
+            
+            models = config_manager.get_reranker_models()
+            current = config_manager.get_current_reranker_model()
+            
+            # 새 라디오 버튼 생성
+            for i, (name, config) in enumerate(models.items()):
+                try:
+                    radio_text = f"{name} ({config.get('language', '다국어')}, {config.get('size', 'N/A')})"
+                    radio = QRadioButton(radio_text)
+                    
+                    # 현재 모델이면 선택
+                    if name == current:
+                        radio.setChecked(True)
+                    
+                    self.reranker_radios[name] = radio
+                    self.reranker_button_group.addButton(radio, i)
+                    layout.addWidget(radio)
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to add reranker radio {name}: {e}")
+                    continue
+            
+            layout.addStretch()
+            self.current_reranker_label.setText(f"현재 사용 중: {current}")
+            
+        except Exception as e:
+            logger.error(f"Failed to load reranker models: {e}")
+            self.current_reranker_label.setText("현재 사용 중: 알 수 없음")
+    
+    def _add_reranker_model(self):
+        """Reranker 모델 추가"""
+        from .reranker_model_dialog import RerankerModelDialog
+        from core.rag.config.rag_config_manager import RAGConfigManager
+        
+        dialog = RerankerModelDialog(self)
+        if dialog.exec():
+            name, config = dialog.get_model_config()
+            config_manager = RAGConfigManager()
+            config_manager.add_reranker_model(name, config)
+            self._load_reranker_models(config_manager)
+            QMessageBox.information(self, "성공", f"Reranker 모델 '{name}'이(가) 추가되었습니다.")
+    
+    def _edit_reranker_model(self):
+        """Reranker 모델 편집"""
+        try:
+            selected_name = None
+            for name, radio in self.reranker_radios.items():
+                if radio.isChecked():
+                    selected_name = name
+                    break
+            
+            if not selected_name:
+                QMessageBox.warning(self, "경고", "편집할 모델을 선택하세요.")
+                return
+            
+            from .reranker_model_dialog import RerankerModelDialog
+            from core.rag.config.rag_config_manager import RAGConfigManager
+            
+            config_manager = RAGConfigManager()
+            models = config_manager.get_reranker_models()
+            
+            if selected_name not in models:
+                QMessageBox.warning(self, "경고", "모델 정보를 찾을 수 없습니다.")
+                return
+            
+            model_data = {"name": selected_name, **models[selected_name]}
+            dialog = RerankerModelDialog(self, edit_model=model_data)
+            if dialog.exec():
+                _, config = dialog.get_model_config()
+                config_manager.update_reranker_model(selected_name, config)
+                self._load_reranker_models(config_manager)
+                QMessageBox.information(self, "성공", f"Reranker 모델 '{selected_name}'이(가) 수정되었습니다.")
+                
+        except Exception as e:
+            logger.error(f"Failed to edit reranker model: {e}")
+            QMessageBox.critical(self, "오류", f"모델 편집 실패:\n{e}")
+    
+    def _delete_reranker_model(self):
+        """Reranker 모델 삭제"""
+        try:
+            selected_name = None
+            for name, radio in self.reranker_radios.items():
+                if radio.isChecked():
+                    selected_name = name
+                    break
+            
+            if not selected_name:
+                QMessageBox.warning(self, "경고", "삭제할 모델을 선택하세요.")
+                return
+            
+            from core.rag.config.rag_config_manager import RAGConfigManager
+            config_manager = RAGConfigManager()
+            current = config_manager.get_current_reranker_model()
+            
+            if selected_name == current:
+                QMessageBox.warning(self, "경고", "현재 사용 중인 모델은 삭제할 수 없습니다.")
+                return
+            
+            reply = QMessageBox.question(self, "확인", f"Reranker 모델 '{selected_name}'을(를) 삭제하시겠습니까?")
+            if reply == QMessageBox.StandardButton.Yes:
+                config_manager.delete_reranker_model(selected_name)
+                self._load_reranker_models(config_manager)
+                QMessageBox.information(self, "성공", f"Reranker 모델 '{selected_name}'이(가) 삭제되었습니다.")
+                
+        except Exception as e:
+            logger.error(f"Failed to delete reranker model: {e}")
+            QMessageBox.critical(self, "오류", f"모델 삭제 실패:\n{e}")
+    
+    def _apply_selected_reranker(self):
+        """선택한 Reranker 모델을 현재 모델로 설정"""
+        try:
+            selected_name = None
+            for name, radio in self.reranker_radios.items():
+                if radio.isChecked():
+                    selected_name = name
+                    break
+            
+            if not selected_name:
+                QMessageBox.warning(self, "경고", "설정할 모델을 선택하세요.")
+                return
+            
+            from core.rag.config.rag_config_manager import RAGConfigManager
+            config_manager = RAGConfigManager()
+            current_model = config_manager.get_current_reranker_model()
+            
+            if current_model == selected_name:
+                QMessageBox.information(self, "알림", f"이미 '{selected_name}' 모델이 사용 중입니다.")
+                return
+            
+            config_manager.set_current_reranker_model(selected_name)
+            self._load_reranker_models(config_manager)
+            QMessageBox.information(self, "성공", f"현재 Reranker 모델이 '{selected_name}'으로 변경되었습니다.")
+            
+        except Exception as e:
+            logger.error(f"Failed to apply selected reranker: {e}", exc_info=True)
+            QMessageBox.critical(self, "오류", f"모델 설정 실패:\n{str(e)}")
     
     def _set_current_model(self, item):
         """선택한 모델을 현재 모델로 설정"""
@@ -904,6 +1164,11 @@ class RAGSettingsDialog(QDialog):
                 },
                 "retrieval": {
                     "top_k": self.top_k.value()
+                },
+                "reranker": {
+                    "enabled": self.reranker_enabled.isChecked(),
+                    "model": self.reranker_model.currentData(),
+                    "top_n": self.reranker_top_n.value()
                 },
                 "batch_upload": {
                     "max_workers": self.max_workers.value(),

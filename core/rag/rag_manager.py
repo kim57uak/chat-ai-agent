@@ -125,21 +125,17 @@ class RAGManager:
             # 쿼리 임베딩
             query_vector = self.embeddings.embed_query(query)
             
-            # 검색 (선택된 topic으로 필터링)
+            # 검색 (항상 storage.search_chunks 사용 - Reranker 자동 적용)
+            results = self.storage.search_chunks(
+                query,
+                k=k,
+                topic_id=topic_id,  # None이면 전체 검색
+                query_vector=query_vector
+            )
+            
             if topic_id:
-                results = self.storage.search_chunks(
-                    query,
-                    k=k,
-                    topic_id=topic_id,
-                    query_vector=query_vector
-                )
                 logger.info(f"Found {len(results)} results in topic {topic_id} for: {query[:50]}")
             else:
-                results = self.vectorstore.search(
-                    query,
-                    k=k,
-                    query_vector=query_vector
-                )
                 logger.info(f"Found {len(results)} results (all topics) for: {query[:50]}")
             
             return results

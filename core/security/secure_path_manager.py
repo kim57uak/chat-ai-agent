@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 from core.logging import get_logger
 
 logger = get_logger("secure_path_manager")
@@ -124,7 +125,7 @@ class SecurePathManager:
     
     def get_backup_path(self, original_path: Path) -> Path:
         """백업 파일 경로 생성"""
-        timestamp = __import__('datetime').datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"{original_path.stem}_backup_{timestamp}{original_path.suffix}"
         return original_path.parent / backup_name
     

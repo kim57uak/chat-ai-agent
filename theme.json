@@ -1,5 +1,5 @@
 {
-  "current_theme": "material_light",
+  "current_theme": "crypto_ethereum",
   "themes": {
     "material_light": {
       "name": "Material Light",
@@ -1351,5 +1351,6 @@
         "surface_opacity": 0.73
       }
     }
-  }
+  },
+  "glassmorphism_enabled": true
 }

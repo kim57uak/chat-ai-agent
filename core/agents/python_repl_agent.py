@@ -14,7 +14,7 @@ logger = get_logger("python_repl_agent")
 
 
 class PythonREPLAgent(BaseAgent):
-    """Python code execution for calculations and algorithms. Use for: mathematical computations, custom algorithms, code execution, data transformations without file loading. NOT for file analysis - use PandasAgent for CSV/Excel."""
+    """Execute Python code that is not purely Pandas-related. Perform complex computation or algorithmic tasks. Run Python scripts, loops, classes, or logic. Evaluate math expressions, perform simulations or calculations."""
     
     def __init__(self, llm, tools: Optional[List] = None):
         """

@@ -40,6 +40,13 @@ class RAGConfigManager:
         "retrieval": {
             "top_k": 10,
             "description": "Number of documents to retrieve from vector database"
+        },
+        "reranker": {
+            "enabled": True,
+            "current": "ms-marco-MiniLM-L-12-v2",
+            "model": "ms-marco-MiniLM-L-12-v2",
+            "top_n": 5,
+            "models": {}
         }
     }
     
@@ -239,3 +246,107 @@ class RAGConfigManager:
         self.config["embedding"]["current"] = name
         self._save_config(self.config)
         logger.info(f"Set current embedding model: {name}")
+    
+    def get_reranker_config(self) -> Dict:
+        """Reranker 설정 조회"""
+        return self.config.get("reranker", self.DEFAULT_CONFIG["reranker"])
+    
+    def is_reranker_enabled(self) -> bool:
+        """Reranker 활성화 여부"""
+        return self.get_reranker_config().get("enabled", True)
+    
+    def set_reranker_enabled(self, enabled: bool):
+        """Reranker 활성화/비활성화"""
+        if "reranker" not in self.config:
+            self.config["reranker"] = self.DEFAULT_CONFIG["reranker"].copy()
+        
+        self.config["reranker"]["enabled"] = enabled
+        self._save_config(self.config)
+        logger.info(f"Reranker enabled: {enabled}")
+    
+    def get_reranker_model(self) -> str:
+        """현재 Reranker 모델"""
+        return self.get_reranker_config().get("model", "ms-marco-MiniLM-L-12-v2")
+    
+    def set_reranker_model(self, model: str):
+        """Reranker 모델 변경"""
+        if "reranker" not in self.config:
+            self.config["reranker"] = self.DEFAULT_CONFIG["reranker"].copy()
+        
+        self.config["reranker"]["model"] = model
+        self._save_config(self.config)
+        logger.info(f"Reranker model set: {model}")
+    
+    def get_reranker_top_n(self) -> int:
+        """Reranker Top-N"""
+        return self.get_reranker_config().get("top_n", 5)
+    
+    def add_reranker_model(self, name: str, config: Dict):
+        """새 Reranker 모델 추가"""
+        if "reranker" not in self.config:
+            self.config["reranker"] = self.DEFAULT_CONFIG["reranker"].copy()
+        if "models" not in self.config["reranker"]:
+            self.config["reranker"]["models"] = {}
+        
+        self.config["reranker"]["models"][name] = config
+        self._save_config(self.config)
+        logger.info(f"Added reranker model: {name}")
+    
+    def update_reranker_model(self, name: str, config: Dict):
+        """Reranker 모델 업데이트"""
+        if "reranker" not in self.config or "models" not in self.config["reranker"]:
+            return
+        
+        if name in self.config["reranker"]["models"]:
+            self.config["reranker"]["models"][name] = config
+            self._save_config(self.config)
+            logger.info(f"Updated reranker model: {name}")
+    
+    def delete_reranker_model(self, name: str):
+        """Reranker 모델 삭제 (기본 모델은 삭제 불가)"""
+        # 기본 모델인지 확인
+        from ..reranker_constants import RerankerConstants
+        default_models = RerankerConstants.get_available_models()
+        default_names = [m['local_name'] for m in default_models]
+        
+        if name in default_names:
+            logger.warning(f"Cannot delete default reranker model: {name}")
+            raise ValueError(f"기본 모델 '{name}'은(는) 삭제할 수 없습니다.")
+        
+        if "reranker" not in self.config or "models" not in self.config["reranker"]:
+            return
+        
+        if name in self.config["reranker"]["models"]:
+            del self.config["reranker"]["models"][name]
+            self._save_config(self.config)
+            logger.info(f"Deleted reranker model: {name}")
+    
+    def get_reranker_models(self) -> Dict:
+        """등록된 모든 Reranker 모델 조회 (기본 모델 포함)"""
+        models = self.config.get("reranker", {}).get("models", {}).copy()
+        
+        # 기본 모델들 하드코딩 추가
+        from ..reranker_constants import RerankerConstants
+        default_models = RerankerConstants.get_available_models()
+        for model in default_models:
+            models[model['local_name']] = {
+                "model_id": model['model_id'],
+                "size": model['size'],
+                "language": model['language']
+            }
+        
+        return models
+    
+    def get_current_reranker_model(self) -> str:
+        """현재 사용 중인 Reranker 모델 이름"""
+        return self.config.get("reranker", {}).get("current", "ms-marco-MiniLM-L-12-v2")
+    
+    def set_current_reranker_model(self, name: str):
+        """현재 사용 Reranker 모델 변경"""
+        if "reranker" not in self.config:
+            self.config["reranker"] = self.DEFAULT_CONFIG["reranker"].copy()
+        
+        self.config["reranker"]["current"] = name
+        self.config["reranker"]["model"] = name  # 하위 호환성
+        self._save_config(self.config)
+        logger.info(f"Set current reranker model: {name}")

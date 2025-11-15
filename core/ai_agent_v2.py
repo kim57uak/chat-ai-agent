@@ -423,38 +423,36 @@ Answer only 'YES' or 'NO'."""
             ])
             
             selection_prompt = f"""
-You are an AI agent selector. Choose the SINGLE MOST OPTIMAL agent for the user's request.
+You are an Agent-Selection Router.
+Analyze the user's request and choose exactly ONE agent from the list.
 
 Available Agents:
 {agent_descriptions}
 
+Instructions:
+1. Read the user's request carefully
+2. Choose the agent whose capabilities BEST match the request's primary intent
+3. Return ONLY the agent number (1-{len(available_agents)})
+4. If no agent is suitable, return "0"
+
 User Request: "{user_input}"
 
-CRITICAL SELECTION RULES:
-1. Analyze the PRIMARY intent of the request
-2. Select ONLY ONE agent - the MOST specialized for the PRIMARY task
-3. Priority order when multiple agents could work:
-   - Data analysis/statistics/calculations on CSV/Excel → PandasAgent ONLY
-   - Simple file reading without analysis → FileSystemAgent ONLY
-   - Mathematical calculations without files → PythonREPLAgent ONLY
-   - Web search/external APIs → MCPAgent ONLY
-
-Examples:
-- "Analyze CSV file" → PandasAgent (analysis is primary intent)
-- "Calculate average from data.csv" → PandasAgent (data analysis)
-- "Read file content" → FileSystemAgent (simple reading)
-- "Generate random numbers" → PythonREPLAgent (calculation only)
-
-Respond with ONLY the agent number (1-{len(available_agents)}) that is MOST optimal.
-If no agent is suitable, respond with "0".
+Output: (number only)
 """
+            
+            # 프롬프트 로깅 (디버깅용)
+            self.logger.info(f"[AGENT SELECTION PROMPT]\n{selection_prompt}")
             
             # LLM에게 Agent 선택 요청
             response = self.model_strategy.llm.invoke(selection_prompt)
             
+            # 응답 로깅
+            self.logger.info(f"[AGENT SELECTION RESPONSE] {response.content if hasattr(response, 'content') else response}")
+            
             # 응답에서 숫자 추출
             import re
-            numbers = re.findall(r'\d+', str(response.content if hasattr(response, 'content') else response))
+            response_text = str(response.content if hasattr(response, 'content') else response)
+            numbers = re.findall(r'\d+', response_text)
             
             if numbers:
                 selected_num = int(numbers[0])

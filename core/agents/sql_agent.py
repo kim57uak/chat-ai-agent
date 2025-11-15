@@ -9,6 +9,7 @@ from langchain_community.utilities import SQLDatabase
 from langchain.agents.agent_types import AgentType
 from langchain.agents import AgentExecutor
 from core.logging import get_logger
+from core.dynamic_import_resolver import dynamic_import_resolver
 from .base_agent import BaseAgent
 
 logger = get_logger("sql_agent")
@@ -150,15 +151,15 @@ Respond with ONLY "YES" or "NO":"""
                     "install_cmd": ""
                 }
             
-            # 드라이버 설치 확인
-            try:
-                __import__(module_name)
+            # 드라이버 설치 확인 (dynamic_import_resolver 사용)
+            driver_module = dynamic_import_resolver.get_module(module_name)
+            if driver_module:
                 return {
                     "available": True,
                     "message": f"{module_name} driver available",
                     "install_cmd": ""
                 }
-            except ImportError:
+            else:
                 return {
                     "available": False,
                     "message": f"{module_name} driver not installed",

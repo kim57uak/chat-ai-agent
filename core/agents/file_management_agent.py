@@ -15,7 +15,7 @@ logger = get_logger("file_management_agent")
 
 
 class FileManagementAgent(BaseAgent):
-    """파일 관리 Agent"""
+    """Create, delete, rename, copy, or move files. Basic file editing (write/append/replace content). High-level file manipulation tasks."""
     
     def __init__(self, llm, root_dir: Optional[str] = None):
         """

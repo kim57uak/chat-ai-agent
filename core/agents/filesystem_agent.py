@@ -16,7 +16,7 @@ logger = get_logger("filesystem_agent")
 
 
 class FileSystemAgent(BaseAgent):
-    """Simple file reading and file operations. Use when user asks to: read/view/show file content, copy/move/delete files, list directories. Handles ALL file types including CSV/Excel for simple reading. Use PandasAgent ONLY for data analysis/statistics."""
+    """Directory inspection (list files, list directories). Check file existence, file metadata. Path management, folder traversal. Reading or scanning file/folder structure."""
     
     def __init__(self, llm, root_dir: str = "./workspace", tools: Optional[List] = None):
         """

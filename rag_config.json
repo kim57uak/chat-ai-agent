@@ -83,5 +83,10 @@
   },
   "retrieval": {
     "top_k": 10
+  },
+  "reranker": {
+    "enabled": true,
+    "model": "ms-marco-MiniLM-L-12-v2",
+    "top_n": 5
   }
 }

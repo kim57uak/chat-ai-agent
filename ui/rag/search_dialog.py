@@ -89,21 +89,42 @@ class SearchDialog(QDialog):
         
         k = self.k_spin.value()
         
+        # 디버그: 콘솔에도 출력
+        print("\n" + "="*60)
+        print(f"[SEARCH DIALOG] RAG Search Started")
+        print(f"[SEARCH DIALOG] Query: '{query}'")
+        print(f"[SEARCH DIALOG] Top-K: {k}")
+        print(f"[SEARCH DIALOG] Topic ID: {self.selected_topic_id}")
+        print(f"[SEARCH DIALOG] Storage type: {type(self.storage).__name__}")
+        print("="*60)
+        
         try:
-            # Generate query embedding
-            logger.info(f"[SEARCH] Generating embedding for query: {query}")
-            query_vector = self.embeddings.embed_query(query)
-            logger.info(f"[SEARCH] Embedding generated, dimension: {len(query_vector)}")
+            logger.info("="*60)
+            logger.info(f"[SEARCH DIALOG] RAG Search Started")
+            logger.info(f"[SEARCH DIALOG] Query: '{query}'")
+            logger.info(f"[SEARCH DIALOG] Top-K: {k}")
+            logger.info(f"[SEARCH DIALOG] Topic ID: {self.selected_topic_id}")
+            logger.info("="*60)
             
-            # Search with topic filter
-            logger.info(f"[SEARCH] Searching with topic_id: {self.selected_topic_id}")
+            # Generate query embedding
+            logger.info(f"[SEARCH DIALOG] Step 1: Generating embedding...")
+            query_vector = self.embeddings.embed_query(query)
+            logger.info(f"[SEARCH DIALOG] ✓ Embedding generated (dimension: {len(query_vector)})")
+            
+            # Search with topic filter (Reranker will be applied automatically)
+            logger.info(f"[SEARCH DIALOG] Step 2: Calling search_chunks()...")
+            print(f"[SEARCH DIALOG] Step 2: Calling search_chunks()...")
+            
             results = self.storage.search_chunks(
                 query=query,
                 k=k,
                 topic_id=self.selected_topic_id,
                 query_vector=query_vector
             )
-            logger.info(f"[SEARCH] Found {len(results)} results")
+            
+            print(f"[SEARCH DIALOG] ✓ Search complete: {len(results)} results returned")
+            logger.info(f"[SEARCH DIALOG] ✓ Search complete: {len(results)} results returned")
+            logger.info("="*60)
             
             # Display results
             if results:

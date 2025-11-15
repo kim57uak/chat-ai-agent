@@ -1,5 +1,7 @@
-"""RAG Retrieval Module"""
+"""
+RAG Retrieval Module
+"""
 
-from .multi_query_retriever import MultiQueryRetrieverWrapper
+from .reranking_retriever import RerankingRetriever
 
-__all__ = ['MultiQueryRetrieverWrapper']
+__all__ = ['RerankingRetriever']

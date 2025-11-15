@@ -46,10 +46,38 @@ class RAGAgent(BaseAgent):
         top_k = self._load_top_k()
         
         try:
-            retriever = self.vectorstore.as_retriever(search_kwargs={"k": top_k})
-            logger.info(f"Using base retriever with embeddings (k={top_k})")
+            # Use RerankingRetriever for automatic reranking support
+            logger.info("[RAG AGENT] Importing RerankingRetriever...")
+            from core.rag.retrieval.reranking_retriever import RerankingRetriever
+            logger.info("[RAG AGENT] ✓ RerankingRetriever imported")
+            
+            logger.info("[RAG AGENT] Importing RAGStorageManager...")
+            from core.rag.storage.rag_storage_manager import RAGStorageManager
+            logger.info("[RAG AGENT] ✓ RAGStorageManager imported")
+            
+            logger.info("[RAG AGENT] Importing EmbeddingFactory...")
+            from core.rag.embeddings.embedding_factory import EmbeddingFactory
+            logger.info("[RAG AGENT] ✓ EmbeddingFactory imported")
+            
+            logger.info("[RAG AGENT] Creating RAGStorageManager instance...")
+            storage_manager = RAGStorageManager()
+            logger.info("[RAG AGENT] ✓ RAGStorageManager created")
+            
+            logger.info("[RAG AGENT] Creating embeddings...")
+            embeddings = EmbeddingFactory.create_embeddings()
+            logger.info("[RAG AGENT] ✓ Embeddings created")
+            
+            logger.info("[RAG AGENT] Creating RerankingRetriever...")
+            retriever = RerankingRetriever(
+                storage_manager=storage_manager,
+                embeddings=embeddings,
+                k=top_k
+            )
+            logger.info(f"✅ Using RerankingRetriever (Reranker auto-applied, k={top_k})")
         except Exception as e:
+            import traceback
             logger.error(f"Retriever creation failed: {e}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
             logger.error(f"Available vectorstore methods: {[m for m in dir(self.vectorstore) if not m.startswith('_')]}")
             return None
         

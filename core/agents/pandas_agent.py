@@ -18,7 +18,7 @@ logger = get_logger("pandas_agent")
 
 
 class PandasAgent(BaseAgent):
-    """Data analysis and statistics. Use ONLY when user asks to: analyze/calculate/summarize/aggregate data, compute statistics, find patterns, compare values. NOT for simple file reading - use FileSystemAgent to just read file content."""
+    """Load and analyze Excel/CSV/Parquet files. Read, filter, query, search data. Calculate statistics (mean, median, std, variance, sum, count, min, max, quantile, correlation). Group-by aggregations (groupby, pivot_table, crosstab). Sort, rank, and order data. Merge, join, concat DataFrames. Handle missing data (fillna, dropna, interpolate). Data transformation (apply, map, replace, rename). Column operations (add, drop, select, reorder). Row operations (filter, slice, sample, drop_duplicates). Data type conversion (astype, to_datetime, to_numeric). String operations (str.contains, str.split, str.replace). Date/time operations (dt.year, dt.month, resample). Export results (to_csv, to_excel, to_json). Any data analysis or statistical calculation task using Pandas."""
     
     def __init__(self, llm, dataframes: Optional[Dict[str, pd.DataFrame]] = None):
         """

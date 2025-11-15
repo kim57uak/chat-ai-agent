@@ -89,6 +89,13 @@ class MenuManager:
         rag_settings_action = QAction('RAG 설정', self.main_window)
         rag_settings_action.triggered.connect(self._open_rag_settings)
         extensions_menu.addAction(rag_settings_action)
+        
+        extensions_menu.addSeparator()
+        
+        # Reranker 모델 관리
+        reranker_model_action = QAction('Reranker 모델 관리', self.main_window)
+        reranker_model_action.triggered.connect(self._open_reranker_model_dialog)
+        extensions_menu.addAction(reranker_model_action)
     
     def _create_view_menu(self, menubar):
         """보기 메뉴 생성"""
@@ -315,3 +322,17 @@ class MenuManager:
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         self.main_window.theme_controller.apply_dialog_theme(msg_box)
         msg_box.exec()
+    
+    def _open_reranker_model_dialog(self):
+        """리랭커 모델 관리"""
+        try:
+            from ui.dialogs import RerankerModelDialog
+            from PyQt6.QtWidgets import QDialog
+            
+            dialog = RerankerModelDialog(self.main_window)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                selected_model = dialog.get_selected_model()
+                logger.info(f"Reranker model selected: {selected_model}")
+        except Exception as e:
+            logger.error(f"Failed to open reranker model dialog: {e}")
+            self._show_error("모델 관리", f"오류: {str(e)}")

@@ -290,26 +290,80 @@ class RAGStorageManager:
                      topic_id: Optional[str] = None,
                      query_vector: Optional[List[float]] = None) -> List:
         """
-        Search chunks with optional topic filtering
+        Search chunks with optional topic filtering and reranking
         
         Args:
             query: Search query
-            k: Number of results
+            k: Number of results from retriever
             topic_id: Optional topic filter
             query_vector: Pre-computed query embedding
             
         Returns:
-            List of Document objects
+            List of Document objects (reranked if enabled)
         """
+        from core.rag.config.rag_config_manager import RAGConfigManager
+        
+        logger.info(f"[SEARCH] Starting search: query='{query[:50]}...', k={k}, topic={topic_id}")
+        
         filter_dict = {"topic_id": topic_id} if topic_id else None
         
+        # Step 1: Retrieval
         self._ensure_vector_store()
-        return self.vector_store.search(
+        config_manager = RAGConfigManager()
+        
+        reranker_enabled = config_manager.is_reranker_enabled()
+        logger.info(f"[SEARCH] Reranker enabled: {reranker_enabled}")
+        
+        # Reranker가 활성화된 경우 더 많은 문서 검색
+        if reranker_enabled:
+            retrieval_k = max(k * 2, 20)  # 2배 또는 최소 20개
+            logger.info(f"[SEARCH] Retrieval k increased: {k} -> {retrieval_k} (for reranking)")
+        else:
+            retrieval_k = k
+            logger.info(f"[SEARCH] Retrieval k: {retrieval_k} (no reranking)")
+        
+        results = self.vector_store.search(
             query,
-            k=k,
+            k=retrieval_k,
             filter=filter_dict,
             query_vector=query_vector
         )
+        
+        logger.info(f"[SEARCH] ✓ Retrieval complete: {len(results)} documents found")
+        
+        # Step 2: Reranking (if enabled)
+        if reranker_enabled and results:
+            try:
+                from core.rag.reranker.reranker_factory import RerankerFactory
+                
+                reranker_model = config_manager.get_reranker_model()
+                top_n = config_manager.get_reranker_top_n()
+                
+                logger.info(f"[SEARCH] Starting reranking: model={reranker_model}, top_n={top_n}")
+                
+                reranker = RerankerFactory.create_reranker(model_name=reranker_model)
+                
+                # Document 객체에서 텍스트 추출
+                doc_texts = [doc.page_content for doc in results]
+                logger.debug(f"[SEARCH] Extracted {len(doc_texts)} document texts")
+                
+                reranked_pairs = reranker.rerank(query, doc_texts, top_k=top_n)
+                
+                # 재정렬된 문서 객체 재구성
+                text_to_doc = {doc.page_content: doc for doc in results}
+                reranked_docs = [text_to_doc[text] for text, score in reranked_pairs if text in text_to_doc]
+                
+                logger.info(f"[SEARCH] ✓ Reranking complete: {len(results)} -> {len(reranked_docs)} documents")
+                logger.info(f"[SEARCH] Top-3 scores: {[f'{score:.4f}' for _, score in reranked_pairs[:3]]}")
+                
+                return reranked_docs
+            except Exception as e:
+                logger.error(f"[SEARCH] ✗ Reranking failed: {e}", exc_info=True)
+                logger.warning(f"[SEARCH] Falling back to original retrieval results")
+                return results[:k]
+        
+        logger.info(f"[SEARCH] ✓ Search complete (no reranking): {len(results)} documents")
+        return results
     
     # ========== Statistics ==========
     

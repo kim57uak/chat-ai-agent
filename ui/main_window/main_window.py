@@ -381,3 +381,7 @@ class MainWindow(QMainWindow):
             logger.debug("애플리케이션 종료 완료")
         except:
             print("애플리케이션 종료 완료")
+        
+        # 앱 완전 종료
+        from PyQt6.QtWidgets import QApplication
+        QApplication.quit()

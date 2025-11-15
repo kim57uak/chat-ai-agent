@@ -178,6 +178,7 @@ def generate_base_css() -> str:
         .message-content {
             color: var(--text) !important;
             line-height: 1.8;
+            filter: brightness(0.85);
         }
         
         .message-content *,
